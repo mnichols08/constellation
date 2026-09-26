@@ -5,5 +5,6 @@ Generate an animated constellation of your public GitHub repositories and keep i
 - Publish to a separate output branch while preserving existing files, including Metrics images.
 - Customize projects, languages, topics, colors, layout, and CSS in the studio, then open a prefilled GitHub workflow editor.
 - Copy the image link and README snippet from the completed workflow summary.
+- Profile image embeds link back to the GitHub Constellation repository and include creator attribution.
 
 See the [quick start](https://github.com/mnichols08/constellation#quick-start) or [open the studio](https://mnichols08.github.io/constellation/).

@@ -28,7 +28,7 @@ export function readmeSnippet(account, repository) {
   if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(target) && target !== 'YOUR_USERNAME/YOUR_REPOSITORY') throw new Error('Enter the workflow repository as owner/repository.');
   const path = target.split('/').map(encodeURIComponent).join('/');
   const image = `https://raw.githubusercontent.com/${path}/output/constellation.svg`;
-  return `[![${name} GitHub constellation](${image})](https://github.com/${path}/blob/output/constellation.svg)\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
+  return `[![${name} GitHub constellation](${image})](${projectUrl})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
 }
 
 export function renderWorkflow(_account, options) {

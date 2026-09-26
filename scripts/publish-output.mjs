@@ -3,12 +3,13 @@ import { copyFile, mkdtemp, rm, readFile, appendFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { projectUrl } from '../src/export.mjs';
 
 export function publicationSummary({ repository, branch = 'output', file }) {
   if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(repository || '')) throw new Error('Invalid GitHub repository for publication summary.');
   const path = repository.split('/').map(encodeURIComponent).join('/');
   const image = `https://raw.githubusercontent.com/${path}/${encodeURIComponent(branch)}/${encodeURIComponent(basename(file))}`;
-  const snippet = `![My GitHub constellation](${image})`;
+  const snippet = `[![My GitHub constellation](${image})](${projectUrl})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
   return `## Your GitHub constellation\n\n${snippet}\n\n[Open the generated image](${image})\n\nPaste this into your profile README:\n\n\`\`\`md\n${snippet}\n\`\`\`\n\nThe image updates whenever this workflow runs.\n`;
 }
 

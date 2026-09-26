@@ -35,7 +35,7 @@ jobs:
 3. Open **Actions → Daily constellation → Run workflow**. Once it succeeds, copy the README snippet from the run summary into your profile README. Or use this, replacing both occurrences of `YOUR_USERNAME`:
 
 ```md
-![My GitHub constellation](https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_USERNAME/output/constellation.svg)
+[![My GitHub constellation](https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_USERNAME/output/constellation.svg)](https://github.com/mnichols08/constellation)
 ```
 
 The image updates daily without changing your README. The workflow uses the repository owner as the GitHub username and preserves other files on the `output` branch, including Metrics images.
@@ -77,12 +77,12 @@ The `svg` output contains the generated workspace path. Use an Ubuntu runner for
 The studio generates this snippet for you. If adding it manually, replace `OWNER/REPOSITORY` with the repository **running the workflow**:
 
 ```md
-[![GitHub constellation](https://raw.githubusercontent.com/OWNER/REPOSITORY/output/constellation.svg)](https://github.com/OWNER/REPOSITORY/blob/output/constellation.svg)
+[![GitHub constellation](https://raw.githubusercontent.com/OWNER/REPOSITORY/output/constellation.svg)](https://github.com/mnichols08/constellation)
 
 Made with [GitHub Constellation](https://github.com/mnichols08/constellation) by [@mnichols08](https://github.com/mnichols08).
 ```
 
-The image updates daily. You can also run the workflow manually at any time.
+The image updates daily. Clicking it takes viewers to this project's GitHub repository. You can also run the workflow manually at any time.
 
 ## Change your configuration
 
@@ -90,7 +90,7 @@ Adjust your settings in the studio, download a new workflow, replace `.github/wo
 
 Customization reuses saved project data. Click **Load data** when adding projects that have not been loaded, or **Refresh data from GitHub** when you want fresh data.
 
-For a one-time image without Actions, click **Download SVG**, commit the file to your repository, and embed it with `![GitHub constellation](./constellation.svg)`.
+For a one-time image without Actions, click **Download SVG**, commit the file to your repository, and embed it with `[![GitHub constellation](./constellation.svg)](https://github.com/mnichols08/constellation)`.
 
 ## Preview locally
 

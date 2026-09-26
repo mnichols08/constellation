@@ -10,7 +10,8 @@ test('publication summary links to the actual branch and published basename', ()
   const summary = publicationSummary({ repository: 'octocat/octocat', branch: 'images/daily', file: 'dist/custom.svg' });
   assert.match(summary, /https:\/\/raw\.githubusercontent\.com\/octocat\/octocat\/images%2Fdaily\/custom\.svg/);
   assert.ok(!summary.includes('dist/'));
-  assert.ok(summary.includes('```md\n![My GitHub constellation]'));
+  assert.ok(summary.includes('```md\n[![My GitHub constellation]'));
+  assert.ok(summary.includes('/custom.svg)](https://github.com/mnichols08/constellation)'));
   assert.throws(() => publicationSummary({ repository: 'owner/repo\ninjected', file: 'x.svg' }));
 });
 

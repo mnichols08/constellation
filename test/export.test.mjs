@@ -36,6 +36,7 @@ test('workflow always uses repository owner regardless of preview account and em
   }
   const snippet = readmeSnippet('octocat');
   assert.ok(snippet.includes(`](${projectUrl})`));
+  assert.ok(snippet.includes(`/output/constellation.svg)](${projectUrl})`));
   assert.match(snippet, /by \[@mnichols08\]/);
   assert.ok(snippet.includes('https://raw.githubusercontent.com/octocat/octocat/output/constellation.svg'));
   assert.ok(readmeSnippet('octocat', 'another-owner/gallery').includes('https://raw.githubusercontent.com/another-owner/gallery/output/constellation.svg'));
