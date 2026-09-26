@@ -1,0 +1,67 @@
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+
+const allowed = new Map([
+  ['/', ['../index.html', 'text/html']],
+  ['/profiles/preview.html', ['../profiles/preview.html', 'text/html']],
+  ['/src/preview.css', ['../src/preview.css', 'text/css']],
+  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['mnichols08', 'mnichols08-dark', 'mnichols08-light'].map(name => [`/dist/${name}.svg`, [`../dist/${name}.svg`, 'image/svg+xml']]),
+]);
+
+export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
+  return createServer(async (req, res) => {
+    const port = req.socket.localPort;
+    const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+    if (!hosts.includes(req.headers.host)) { res.writeHead(403); res.end('Forbidden host'); return; }
+    const origin = `http://${req.headers.host}`;
+    if ((req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site') {
+      res.writeHead(403); res.end('Cross-site requests are not allowed'); return;
+    }
+    if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); res.end('Method not allowed'); return; }
+    const url = new URL(req.url, origin);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (url.pathname.startsWith('/api/github/')) {
+      const path = url.pathname.slice('/api/github'.length);
+      const repoList = /^\/users\/[a-z\d][a-z\d-]{0,38}\/repos$/i.test(path);
+      const languages = /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/languages$/i.test(path);
+      if ((!repoList && !languages) || [...url.searchParams.keys()].some(key => !['type', 'sort', 'per_page', 'page'].includes(key))) {
+        res.writeHead(404); res.end('Not found'); return;
+      }
+      try {
+        const upstream = await fetchImpl(`https://api.github.com${path}${url.search}`, {
+          headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          signal: AbortSignal.timeout(20000), redirect: 'error',
+        });
+        res.setHeader('Content-Type', 'application/json');
+        for (const header of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset', 'retry-after']) {
+          const value = upstream.headers.get(header);
+          if (value) res.setHeader(header, value);
+        }
+        if (!upstream.ok) {
+          res.writeHead(upstream.status);
+          res.end(JSON.stringify({ message: upstream.status === 401 ? 'The local GitHub token was rejected.' : 'GitHub request failed.' }));
+          return;
+        }
+        res.end(await upstream.text());
+      } catch {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Could not reach GitHub from the local server.' }));
+      }
+      return;
+    }
+    const entry = allowed.get(url.pathname);
+    if (!entry) { res.writeHead(404); res.end('Not found'); return; }
+    try {
+      let content = await readFile(new URL(entry[0], import.meta.url));
+      if (url.pathname === '/') {
+        content = content.toString().replace('<head>', `<head>\n<meta name="constellation-api" content="/api/github">\n<meta name="constellation-auth" content="${token ? 'authenticated' : 'public'}">`);
+      }
+      res.setHeader('Content-Type', `${entry[1]}; charset=utf-8`);
+      res.end(content);
+    } catch {
+      res.writeHead(500); res.end('Could not load preview');
+    }
+  });
+}

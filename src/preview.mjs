@@ -2,13 +2,18 @@ import { username, selectRepositoryPool, selectRepositories, repositoryLanguages
 import { readmeSnippet, renderWorkflow } from './export.mjs';
 import { defaultVisualStyle, visualCSS } from './visual-style.mjs';
 
-import { createPreviewData } from './preview-data.mjs';
+import { createPreviewData, createPreviewFetch } from './preview-data.mjs';
 
 let storage;
 try { storage = window.sessionStorage; } catch {}
-const data = createPreviewData({ storage });
+const proxyBase = document.querySelector('meta[name="constellation-api"]')?.content;
+const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
+const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }) });
 let loading = false;
 const $ = selector => document.querySelector(selector);
+if (proxyBase) $('.form-note').textContent = localAuth
+  ? 'Using your local GitHub token. Loaded data is retained; customization makes no additional GitHub requests.'
+  : 'No local GitHub token found. Add GH_TOKEN to .env and restart npm run preview to authenticate. Loaded data is retained while customizing.';
 const form = $('#account-form');
 const status = $('#status');
 const preview = $('#preview');
@@ -166,7 +171,12 @@ async function loadAccount(nextAccount, refresh = false) {
     $('#refresh-data').hidden = false;
     render();
   } catch (error) {
-    message(`${error instanceof TypeError ? 'Couldn’t reach GitHub. Check your connection and try again.' : error.message} The previous image and exports are retained. Successful lookups are saved for your next attempt.`, true);
+    let detail = error instanceof TypeError ? 'Couldn’t reach GitHub. Check your connection and try again.' : error.message;
+    if (/request limit reached/i.test(detail)) detail = localAuth
+      ? 'GitHub’s limit for your local token has been reached. Try again after the limit resets.'
+      : 'GitHub’s public request limit has been reached. Try later, or run the local preview with a token in .env.';
+    if (localAuth && /\(401\)/.test(detail)) detail = 'GitHub rejected your local token. Update .env and restart npm run preview.';
+    message(`${detail} The previous image and exports are retained. Successful lookups are saved for your next attempt.`, true);
   } finally {
     loading = false;
     for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = false;

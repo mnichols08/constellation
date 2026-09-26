@@ -1,5 +1,14 @@
 import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool } from './constellation.mjs';
 
+export function createPreviewFetch({ proxyBase, fetchImpl = fetch } = {}) {
+  return (url, options) => {
+    const target = new URL(url);
+    const destination = proxyBase && target.origin === 'https://api.github.com'
+      ? `${proxyBase}${target.pathname}${target.search}` : url;
+    return fetchImpl(destination, options);
+  };
+}
+
 // Only load() performs network requests. Rendering and customization read snapshots.
 export function createPreviewData({ storage, fetchImpl = fetch } = {}) {
   const key = 'constellation-public-data-v1';

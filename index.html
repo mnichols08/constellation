@@ -16,13 +16,13 @@
 <form id="account-form"><label class="sr-only" for="username">GitHub username or profile URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Your GitHub username" required autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Find my stars <span aria-hidden="true">↗</span></button></form>
 <p class="form-note">Load once, customize freely. Project data stays saved in this tab, including after a reload. Only loading or refreshing data uses GitHub API requests.</p>
 <details id="token-help" class="token-help">
-<summary>Need a token for local generation?</summary>
-<p>The browser preview stays token-free. A personal token can authenticate the local generator; the daily workflow already uses GitHub’s automatic token.</p>
+<summary>Use a token for local preview or generation?</summary>
+<p>The hosted studio uses public GitHub requests. Locally, npm run preview loads your .env token and authenticates requests on the server. The daily workflow uses GitHub’s automatic token.</p>
 <ol>
 <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">GitHub’s fine-grained token form ↗</a>.</li>
 <li>Choose a name, an expiration, your account as resource owner, and <strong>Public repositories</strong>. Leave extra permissions unset; public metadata is enough.</li>
 <li>Generate and copy the token. Create or edit <code>.env</code> in this project with <code>GH_TOKEN=YOUR_TOKEN_HERE</code>, replacing the placeholder.</li>
-<li>Run the command below with your username. Keep the token out of Git and this page.</li>
+<li>Run npm run preview for the local studio, or use the command below to generate a file. Restart the preview after changing .env. Keep the token out of Git and this page.</li>
 </ol>
 <pre><code>node --env-file=.env src/cli.mjs --username YOUR_USERNAME --config constellation.config.json</code></pre>
 <p><code>GITHUB_TOKEN</code>, <code>GH_TOKEN</code>, and <code>gh_token</code> are supported. <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token">GitHub’s token guide ↗</a></p>

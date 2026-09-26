@@ -32,3 +32,9 @@ Adjust your settings in the studio, download a new workflow, replace `.github/wo
 Customization reuses saved project data. Click **Load data** when adding projects that have not been loaded, or **Refresh data from GitHub** when you want fresh data.
 
 For a one-time image without Actions, click **Download SVG**, commit the file to your repository, and embed it with `![GitHub constellation](./constellation.svg)`.
+
+## Preview locally
+
+With Node.js 22 or later, run `npm run preview` and open http://127.0.0.1:4173.
+
+For authenticated local requests, add `GH_TOKEN=YOUR_TOKEN` to `.env` in this project, then restart the preview server. `GITHUB_TOKEN` and `gh_token` also work. The server loads `.env` automatically and keeps the token out of the browser. Without a token it uses public requests. The hosted static studio continues to use public requests.
