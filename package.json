@@ -1,0 +1,16 @@
+{
+  "name": "github-constellation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Your public GitHub projects, connected in an animated README constellation.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "generate": "node src/cli.mjs",
+    "test": "node --test",
+    "preview": "node scripts/serve.mjs",
+    "generate:profile": "node scripts/generate-profile.mjs"
+  }
+}

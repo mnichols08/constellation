@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><meta name="description" content="Turn your GitHub projects into a personal constellation. Explore your sky and bring it to your README.">
+<title>GitHub Constellation — Your code, written in the stars</title>
+<link rel="stylesheet" href="./src/preview.css">
+</head>
+<body>
+<header class="masthead"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">✧</span> constellation <span class="brand-tag">for GitHub</span></a><a class="source-link" href="https://github.com/mnichols08/github-constellation">View on GitHub ↗</a></header>
+<main>
+<section class="intro">
+<p class="eyebrow"><span></span> EVERY PROJECT HAS A PLACE IN YOUR SKY</p>
+<h1>Your code, written<br>in the <em>stars.</em></h1>
+<p class="lede">A little universe of things you’ve made.<br>Turn your public GitHub projects into a constellation that’s uniquely yours.</p>
+<form id="account-form"><label class="sr-only" for="username">GitHub username or profile URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Your GitHub username" required autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Find my stars <span aria-hidden="true">↗</span></button></form>
+<p class="form-note">No sign-in needed. Full language lookups use GitHub’s public API limits.</p>
+<details id="token-help" class="token-help">
+<summary>Need a token for local generation?</summary>
+<p>The browser preview stays token-free. A personal token can authenticate the local generator; the daily workflow already uses GitHub’s automatic token.</p>
+<ol>
+<li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">GitHub’s fine-grained token form ↗</a>.</li>
+<li>Choose a name, an expiration, your account as resource owner, and <strong>Public repositories</strong>. Leave extra permissions unset; public metadata is enough.</li>
+<li>Generate and copy the token. Create or edit <code>.env</code> in this project with <code>GH_TOKEN=YOUR_TOKEN_HERE</code>, replacing the placeholder.</li>
+<li>Run the command below with your username. Keep the token out of Git and this page.</li>
+</ol>
+<pre><code>node --env-file=.env src/cli.mjs --username YOUR_USERNAME --config constellation.config.json</code></pre>
+<p><code>GITHUB_TOKEN</code>, <code>GH_TOKEN</code>, and <code>gh_token</code> are supported. <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token">GitHub’s token guide ↗</a></p>
+</details>
+</section>
+<section class="observatory" aria-label="Constellation studio">
+<div class="studio-header"><div><span class="live-dot"></span><span id="map-title">The sample sky</span><span id="sample-badge" class="badge">DEMO</span></div><span class="chart-number">CELESTIAL ATLAS / 001</span></div>
+<section class="graph-filters" aria-label="Choose languages and topics">
+  <div class="filter-heading"><h2>Make your own star graph</h2><label class="visual-toggle" for="show-other">Include Other<input id="show-other" type="checkbox"></label></div>
+  <p>Choose any number of languages and topics from the project pool. Within each row, matches use “any”; across rows, projects must match both. Other means no detected language.</p>
+  <fieldset><legend>Languages</legend><div class="filter-actions"><button type="button" data-filter="languages" data-selection="all">All</button><button type="button" data-filter="languages" data-selection="none">None</button></div><div id="language-filters" class="filter-chips"></div></fieldset>
+  <fieldset><legend>Topics</legend><div class="filter-actions"><button type="button" data-filter="topics" data-selection="all">All</button><button type="button" data-filter="topics" data-selection="none">None</button></div><div id="topic-filters" class="filter-chips"></div></fieldset>
+  <p id="filter-summary" role="status"></p>
+</section>
+<div class="studio-body">
+<div class="sky-panel"><div id="preview" aria-busy="false"></div><div class="sky-legend"><span><i class="legend-star"></i> Project</span><span><i class="legend-line"></i> <span id="relationship-legend">Shared language</span></span><span><i class="legend-bridge"></i> Visual bridge</span></div></div>
+<aside class="controls" aria-label="Customize your constellation">
+<p class="eyebrow">MAKE IT YOURS</p><h2>A sky of your own.</h2>
+<p class="export-note">Appearance follows your device’s light or dark preference.</p>
+<label for="layout">Format</label><select id="layout"><option value="compact">Compact README · 900 × 280</option><option value="atlas">Full atlas · 900 × 560</option></select>
+<label for="max-repos" class="range-label">Project limit <output id="limit-value" for="max-repos">45</output></label><input id="max-repos" type="range" min="5" max="100" step="5" value="45">
+<label class="toggle-row" for="animate">Starlight animation<input id="animate" type="checkbox" checked></label>
+<label class="toggle-row" for="forks">Include forks<input id="forks" type="checkbox" checked></label>
+<label for="connection-density">Connection density</label><select id="connection-density"><option value="balanced">Balanced · strongest overlaps</option><option value="all">All shared connections</option></select>
+<label for="connection-basis">Connect projects by</label><select id="connection-basis"><option value="languages">Shared languages</option><option value="topics">Shared topics</option><option value="both">Languages and topics</option></select>
+<label class="toggle-row" for="bridges">Decorative bridges<input id="bridges" type="checkbox"></label>
+<div class="stats"><div><strong id="repo-count">—</strong><span>projects</span></div><div><strong id="language-count">—</strong><span>languages</span></div><div><strong id="star-count">—</strong><span>GitHub stars</span></div></div>
+<a class="download" download="constellation.svg">Download SVG <span aria-hidden="true">↓</span></a>
+<button type="button" id="copy-markdown" class="secondary">Copy README snippet</button><p class="export-note">Made for your README.<br>Beautiful anywhere.</p>
+</aside>
+</div>
+<div class="status-bar"><p id="status" role="status" aria-live="polite">An imagined collection of projects. Enter your username to discover your own.</p><span aria-hidden="true">✧</span></div>
+</section>
+<section class="customization" aria-label="CSS and daily workflow">
+  <div class="editor-panel">
+    <p class="eyebrow">STYLE YOUR SKY</p><h2>Visual styles</h2>
+    <div id="style-preview" class="style-preview" aria-label="Live style preview"></div>
+    <p>Adjust both palettes and the details below. The image follows the viewer’s preference automatically; every change is included in your daily workflow.</p>
+    <div id="palette-controls" class="palette-controls"></div>
+    <div id="style-sliders"></div>
+    <label class="visual-toggle" for="show-labels">Show project labels<input id="show-labels" type="checkbox" checked></label>
+    <button type="button" id="reset-visual" class="secondary">Reset visual styles</button>
+    <details class="css-details"><summary>CSS generated by these controls</summary><textarea id="generated-css" readonly rows="8" aria-label="Generated visual CSS" spellcheck="false"></textarea></details>
+    <details class="css-details"><summary>Advanced CSS overrides</summary>
+    <p><label for="custom-css">Added after the visual styles. Overrides take priority.</label></p>
+    <textarea id="custom-css" rows="8" spellcheck="false" aria-describedby="css-help" placeholder=".credit { opacity: .65; }&#10;.connections { stroke-dasharray: 3 4; }"></textarea>
+    <p id="css-help">Selectors: <code>.background</code>, <code>.star</code>, <code>.connections</code>, <code>.bridges</code>, <code>.repo-label</code>, <code>.credit</code>. Use <code>--sky-background</code>, <code>--sky-star</code>, <code>--sky-accent</code>, <code>--sky-line</code>, and <code>--sky-foreground</code> for colors. Keep styles self-contained.</p>
+    <button type="button" id="reset-css" class="secondary">Reset CSS overrides</button>
+    </details>
+  </div>
+  <div class="editor-panel">
+    <p class="eyebrow">KEEP IT UP TO DATE</p><h2><label for="workflow">Your daily workflow</label></h2>
+    <p>Save this as <code>.github/workflows/constellation.yml</code> in your README repository. Your settings and CSS are included—no extra config file needed.</p>
+    <textarea id="workflow" rows="14" readonly spellcheck="false" aria-label="Generated daily workflow"></textarea>
+    <div class="export-actions"><button type="button" id="copy-workflow" class="secondary">Copy workflow</button><a id="download-workflow" class="secondary" download="constellation.yml">Download workflow</a></div>
+    <p id="workflow-note">The sample uses your repository owner when the workflow runs.</p>
+    <p>After adding the file, run <strong>Daily constellation</strong> from GitHub’s Actions tab once. Future runs are scheduled daily at 06:17 UTC. The repository must allow Actions to write commits.</p>
+  </div>
+</section>
+<section class="about" aria-label="How it works"><div><span class="step">01 / DISCOVER</span><h3>Your projects become stars.</h3><p>Each public repository gets a place in the sky. More GitHub stars make it shine brighter.</p></div><div><span class="step">02 / CONNECT</span><h3>Shared languages, shared orbits.</h3><p>Connections include every detected language. A JavaScript project can connect to an HTML project through the CSS they both contain.</p></div><div><span class="step">03 / TAKE IT WITH YOU</span><h3>A universe for your README.</h3><p>Download your sky as an SVG, or <a href="https://github.com/mnichols08/github-constellation#daily-readme-workflow">keep it fresh every day ↗</a> with a GitHub Action.</p></div></section>
+<section id="snippet-panel" hidden aria-label="README snippet"><h2>Your README snippet</h2><p>Save the downloaded SVG as <code>dist/constellation.svg</code> in your repository, then paste this into your README.</p><textarea id="snippet" readonly aria-label="Markdown to copy" rows="3"></textarea></section>
+</main>
+<footer><span>Small projects. Infinite possibilities.</span><span>Built from your corner of GitHub. <span aria-hidden="true">✧</span></span></footer>
+<script type="module" src="./src/preview.mjs"></script>
+</body>
+</html>

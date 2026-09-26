@@ -1,0 +1,41 @@
+name: GitHub Constellation
+description: Generate an animated SVG of public GitHub repositories connected by language.
+branding:
+  icon: star
+  color: purple
+inputs:
+  username:
+    description: GitHub username or profile URL
+    required: true
+  token:
+    description: GitHub token for API rate limits
+    default: ${{ github.token }}
+  output:
+    description: SVG output path relative to the caller workspace
+    default: dist/constellation.svg
+  config:
+    description: Optional JSON configuration path in the caller workspace
+    default: ''
+  config-json:
+    description: Inline JSON settings including CSS, as exported by the controller; use instead of config
+    default: ''
+outputs:
+  svg:
+    description: Generated SVG path
+    value: ${{ steps.generate.outputs.svg }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - id: generate
+      shell: bash
+      env:
+        CONSTELLATION_ACTION_PATH: ${{ github.action_path }}
+        CONSTELLATION_USERNAME: ${{ inputs.username }}
+        CONSTELLATION_OUTPUT: ${{ inputs.output }}
+        CONSTELLATION_CONFIG: ${{ inputs.config }}
+        CONSTELLATION_CONFIG_JSON: ${{ inputs.config-json }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: node "$CONSTELLATION_ACTION_PATH/src/cli.mjs"
