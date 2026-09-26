@@ -21,7 +21,7 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   assert.ok(!block.includes('${{'));
   assert.match(yaml, /username: \$\{\{ github.repository_owner \}\}/);
   assert.match(yaml, /token: \$\{\{ secrets.GITHUB_TOKEN \}\}/);
-  assert.match(yaml, /cron: '17 6 \* \* \*'/);
+  assert.match(yaml, /cron: '0 0 \* \* \*'/);
   assert.match(yaml, /output: constellation\.svg/);
   assert.match(yaml, /publish: 'true'/);
   assert.match(yaml, /output-branch: output/);

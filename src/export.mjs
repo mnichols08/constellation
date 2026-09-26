@@ -21,7 +21,7 @@ export function renderWorkflow(_account, options) {
 name: Daily constellation
 on:
   schedule:
-    - cron: '17 6 * * *'
+    - cron: '0 0 * * *'
   workflow_dispatch:
 permissions:
   contents: write
