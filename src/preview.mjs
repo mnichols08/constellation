@@ -1,7 +1,13 @@
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation } from './constellation.mjs';
+import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation } from './constellation.mjs';
 import { readmeSnippet, renderWorkflow } from './export.mjs';
 import { defaultVisualStyle, visualCSS } from './visual-style.mjs';
 
+import { createPreviewData } from './preview-data.mjs';
+
+let storage;
+try { storage = window.sessionStorage; } catch {}
+const data = createPreviewData({ storage });
+let loading = false;
 const $ = selector => document.querySelector(selector);
 const form = $('#account-form');
 const status = $('#status');
@@ -87,36 +93,26 @@ let repositories = Object.entries(sampleGroups).flatMap(([language, names]) => n
 let isSample = true;
 let url;
 let workflowUrl;
-let renderVersion = 0;
-const languageCache = new Map();
+
 
 function message(text, error = false) {
   status.textContent = text;
   status.dataset.error = String(error);
 }
 
-async function render() {
-  const version = ++renderVersion;
+function render() {
   const generatedCSS = visualCSS(visualStyle);
   $('#generated-css').value = generatedCSS;
   const options = { theme: 'auto', layout: $('#layout').value, maxRepos: Number($('#max-repos').value), animate: $('#animate').checked, includeForks: $('#forks').checked, bridges: $('#bridges').checked, connectionDensity: $('#connection-density').value, connectionBasis: $('#connection-basis').value, languages: filterSelection.languages, topics: filterSelection.topics, showOther: $('#show-other').checked, css: `${generatedCSS}\n${$('#custom-css').value}` };
-  const source = repositories;
-  const selected = selectRepositoryPool(source, options);
-  try {
-    if (selected.some(repo => !repo.languages)) {
-      preview.setAttribute('aria-busy', 'true');
-      const enriched = await fetchRepositoryLanguages(selected, { cache: languageCache, onProgress: (done, total) => {
-        if (version === renderVersion) message(`Loading full language breakdowns… ${done}/${total}`);
-      }});
-      if (version !== renderVersion || source !== repositories) return;
-      const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
-      repositories = source.map(repo => byName.get(repo.full_name) || repo);
-    }
-  } catch (error) {
-    if (version === renderVersion) message(`${error.message} The previous map and exports are retained.`, true);
+  const selected = selectRepositoryPool(repositories, options);
+  const missing = selected.filter(repo => !repo.languages).length;
+  $('#limit-value').value = options.maxRepos;
+  $('#load-projects').hidden = isSample || !missing;
+  $('#load-projects').textContent = `Load data for ${missing} more projects`;
+  $('#load-projects').disabled = loading;
+  if (missing) {
+    message(`${missing} projects need language data. Click Load data to apply this project pool. The previous image and exports are retained; no requests are made while customizing.`);
     return;
-  } finally {
-    if (version === renderVersion) preview.setAttribute('aria-busy', 'false');
   }
   const svg = renderConstellation(account, repositories, options);
   buildGraphFilters(selectRepositoryPool(repositories, options));
@@ -146,38 +142,43 @@ async function render() {
   workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
   $('#download-workflow').href = workflowUrl;
   $('#workflow-note').textContent = isSample ? 'The sample uses your repository owner when the workflow runs.' : `This workflow generates @${account}’s constellation with the settings shown here.`;
-  if (!isSample) message(`Showing ${shown.length} of ${eligible.length} public repositories for @${account}. Connections use selected ${options.connectionBasis === 'both' ? 'languages and topics' : options.connectionBasis}.`);
+  if (!isSample) message(`Showing ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests. Connections use selected ${options.connectionBasis === 'both' ? 'languages and topics' : options.connectionBasis}.`);
 }
 
 for (const control of controls) control.addEventListener('input', render);
 for (const button of document.querySelectorAll('[data-filter]')) button.addEventListener('click', () => {
   filterSelection[button.dataset.filter] = button.dataset.selection === 'all' ? null : []; render();
 });
-form.addEventListener('submit', async event => {
-  event.preventDefault();
-  const button = form.querySelector('button');
-  button.disabled = true;
+async function loadAccount(nextAccount, refresh = false) {
+  if (loading) return;
+  loading = true;
+  for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = true;
   preview.setAttribute('aria-busy', 'true');
-  message('Looking for your stars…');
+  message('Loading project data… You can keep adjusting styles.');
   try {
-    const nextAccount = username(form.elements.username.value);
-    const listed = await fetchRepositories(nextAccount);
-    const enriched = await fetchRepositoryLanguages(selectRepositoryPool(listed, { maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked }), {
-      cache: languageCache, onProgress: (done, total) => message(`Loading full language breakdowns… ${done}/${total}`),
+    const nextRepositories = await data.load(nextAccount, { maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked }, {
+      refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
-    const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
-    const nextRepositories = listed.map(repo => byName.get(repo.full_name) || repo);
     account = nextAccount;
     repositories = nextRepositories;
     isSample = false;
-    await render();
+    $('#refresh-data').hidden = false;
+    render();
   } catch (error) {
-    message(error instanceof TypeError ? 'Couldn’t reach GitHub. Check your connection and try again.' : error.message, true);
+    message(`${error instanceof TypeError ? 'Couldn’t reach GitHub. Check your connection and try again.' : error.message} The previous image and exports are retained. Successful lookups are saved for your next attempt.`, true);
   } finally {
-    button.disabled = false;
+    loading = false;
+    for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = false;
     preview.setAttribute('aria-busy', 'false');
   }
+}
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  try { loadAccount(username(form.elements.username.value)); }
+  catch (error) { message(error.message, true); }
 });
+$('#load-projects').addEventListener('click', () => loadAccount(account));
+$('#refresh-data').addEventListener('click', () => loadAccount(account, true));
 
 $('#copy-markdown').addEventListener('click', async () => {
   $('#snippet-panel').hidden = false;

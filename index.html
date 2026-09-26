@@ -14,7 +14,7 @@
 <h1>Your code, written<br>in the <em>stars.</em></h1>
 <p class="lede">A little universe of things you’ve made.<br>Turn your public GitHub projects into a constellation that’s uniquely yours.</p>
 <form id="account-form"><label class="sr-only" for="username">GitHub username or profile URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Your GitHub username" required autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Find my stars <span aria-hidden="true">↗</span></button></form>
-<p class="form-note">No sign-in needed. Full language lookups use GitHub’s public API limits.</p>
+<p class="form-note">Load once, customize freely. Project data stays saved in this tab, including after a reload. Only loading or refreshing data uses GitHub API requests.</p>
 <details id="token-help" class="token-help">
 <summary>Need a token for local generation?</summary>
 <p>The browser preview stays token-free. A personal token can authenticate the local generator; the daily workflow already uses GitHub’s automatic token.</p>
@@ -44,6 +44,8 @@
 <p class="export-note">Appearance follows your device’s light or dark preference.</p>
 <label for="layout">Format</label><select id="layout"><option value="compact">Compact README · 900 × 280</option><option value="atlas">Full atlas · 900 × 560</option></select>
 <label for="max-repos" class="range-label">Project limit <output id="limit-value" for="max-repos">45</output></label><input id="max-repos" type="range" min="5" max="100" step="5" value="45">
+<button type="button" id="load-projects" class="secondary" hidden>Load project data</button>
+<button type="button" id="refresh-data" class="secondary" hidden>Refresh data from GitHub</button>
 <label class="toggle-row" for="animate">Starlight animation<input id="animate" type="checkbox" checked></label>
 <label class="toggle-row" for="forks">Include forks<input id="forks" type="checkbox" checked></label>
 <label for="connection-density">Connection density</label><select id="connection-density"><option value="balanced">Balanced · strongest overlaps</option><option value="all">All shared connections</option></select>

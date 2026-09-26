@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 const allowed = new Map([['/', ['../index.html', 'text/html']], ['/src/preview.css', ['../src/preview.css', 'text/css']], ['/src/preview.mjs', ['../src/preview.mjs', 'text/javascript']], ['/src/constellation.mjs', ['../src/constellation.mjs', 'text/javascript']]]);
 allowed.set('/profiles/preview.html', ['../profiles/preview.html', 'text/html']);
+allowed.set('/src/preview-data.mjs', ['../src/preview-data.mjs', 'text/javascript']);
 allowed.set('/src/export.mjs', ['../src/export.mjs', 'text/javascript']);
 allowed.set('/src/visual-style.mjs', ['../src/visual-style.mjs', 'text/javascript']);
 allowed.set('/dist/mnichols08.svg', ['../dist/mnichols08.svg', 'image/svg+xml']);
