@@ -32,7 +32,7 @@ test('default SVG is adaptive and has only repository credit as visible chrome',
     assert.match(svg, /--sky-background:#080e20/);
     assert.ok(!svg.includes('<text class="heading"'));
     assert.ok(!svg.includes('<text class="caption"'));
-    assert.match(svg, /class="credit" x="868".*>mnichols08\/github-constellation<\/text>/);
+    assert.match(svg, /class="credit" x="868".*>mnichols08\/constellation<\/text>/);
     assert.match(svg, /<title id="title">octocat/);
   }
   assert.ok(!renderConstellation('octocat', [], { theme: 'midnight' }).includes('prefers-color-scheme:dark'));

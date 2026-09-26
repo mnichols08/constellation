@@ -2,7 +2,7 @@
 
 This compact variant matches the charcoal, yellow, and cream palette in [mnichols08/mnichols08](https://github.com/mnichols08/mnichols08/blob/main/README.md). The 900 × 280 image takes about 249 px of height at an 800 px README width, half the height of the original atlas. Both variants use the same layout and repository snapshot.
 
-The adaptive `dist/mnichols08.svg` contains both palettes and follows the viewer’s preference with no toggle. Copy it to `assets/mnichols08.svg` and embed it as a normal Markdown image. Fixed light and dark variants remain available for the `<picture>` alternative below. All variants omit the visible header and left footer; the only footer is the right-aligned `mnichols08/github-constellation` link.
+The adaptive `dist/mnichols08.svg` contains both palettes and follows the viewer’s preference with no toggle. Copy it to `assets/mnichols08.svg` and embed it as a normal Markdown image. Fixed light and dark variants remain available for the `<picture>` alternative below. All variants omit the visible header and left footer; the only footer is the right-aligned `mnichols08/constellation` link.
 
 Suggested placement: immediately after `# Selected Work`, before the case-study introduction. It adds a visual introduction to the work without adding another section or enlarging the already busy profile header.
 
@@ -24,7 +24,7 @@ Copy `dist/mnichols08-dark.svg` and `dist/mnichols08-light.svg` into `assets/` i
   </a>
 </p>
 
-Made with [GitHub Constellation](https://github.com/mnichols08/github-constellation) by [@mnichols08](https://github.com/mnichols08).
+Made with [GitHub Constellation](https://github.com/mnichols08/constellation) by [@mnichols08](https://github.com/mnichols08).
 ```
 
 The whole image links to your repositories. Solid lines connect projects sharing any detected language, including secondary HTML, CSS, and JavaScript. The personal configuration uses `connectionDensity: "all"`, so every real shared-language pair is shown, with decorative bridges disabled. The chart communicates through visible language labels, stars, and accessible descriptions; it does not depend on hover, JavaScript, remote fonts, or per-star clicks. Animation is subtle opacity only and respects reduced-motion preferences. Set `animate` to `false` for a still image. Small collections use short project labels, a spaced star field, and softer secondary links. Visible headers and left footer text remain omitted.

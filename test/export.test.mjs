@@ -45,7 +45,7 @@ test('sample workflow uses repository owner and embeds preserve attribution', ()
     const svg = renderConstellation('octocat', [], { layout });
     assert.ok(svg.includes(`href="${projectUrl}"`));
     assert.match(svg, /class="credit"/);
-    assert.match(svg, />mnichols08\/github-constellation<\/text>/);
+    assert.match(svg, />mnichols08\/constellation<\/text>/);
   }
 });
 

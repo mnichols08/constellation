@@ -1,6 +1,6 @@
 import { username } from './constellation.mjs';
 
-export const projectUrl = 'https://github.com/mnichols08/github-constellation';
+export const projectUrl = 'https://github.com/mnichols08/constellation';
 
 export function readmeSnippet(account, repository) {
   const name = account ? username(account) : 'My';
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mnichols08/github-constellation@main
+      - uses: mnichols08/constellation@main
         with:
           username: '${owner}'
           token: \${{ secrets.GITHUB_TOKEN }}

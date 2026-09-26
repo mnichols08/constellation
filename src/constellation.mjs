@@ -240,6 +240,6 @@ ${escape(css)}
 <g class="dust">${dust}</g><g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}
 ${repos.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${selectRepositoryPool(repositories, options).length ? 'No projects match these filters.' : 'No public repositories to show yet.'}</text>`}
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}
-<a href="https://github.com/mnichols08/github-constellation" target="_blank" rel="noopener noreferrer"><text class="credit" x="868" y="${height - 14}">mnichols08/github-constellation</text></a>
+<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer"><text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>
 </svg>\n`;
 }
