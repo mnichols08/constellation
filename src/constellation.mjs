@@ -104,6 +104,9 @@ export const themes = {
 
 export function renderConstellation(account, repositories, options = {}) {
   const name = username(account);
+  const generatedDate = options.generatedAt === undefined ? null : new Date(options.generatedAt);
+  if (generatedDate && !Number.isFinite(generatedDate.getTime())) throw new Error('generatedAt must be a valid date.');
+  const generatedLabel = generatedDate ? `Generated ${generatedDate.toISOString().slice(0, 19).replace('T', ' ')} UTC` : '';
   const { theme = 'auto', colors = {}, animate = true, maxRepos = 45, includeForks = true, css = '', layout = 'atlas', title, includeRepos, bridges = false, connectionDensity = 'balanced', connectionBasis = 'languages' } = options;
   if (!['languages', 'topics', 'both'].includes(connectionBasis)) throw new Error('Connection basis must be languages, topics or both.');
   if (!['balanced', 'all'].includes(connectionDensity)) throw new Error('Connection density must be balanced or all.');
@@ -227,6 +230,7 @@ svg{background:var(--sky-background);color:var(--sky-foreground);font:13px syste
 .star{filter:url(#glow)}.star-halo{fill:var(--sky-star);opacity:.07}.star-core{fill:var(--sky-foreground);opacity:.9;pointer-events:none}.language text{font-size:10px;letter-spacing:2px;font-weight:500}.repo-label{fill:var(--sky-foreground);opacity:.68}.heading{font-size:20px;letter-spacing:-.5px}.chart-guide{fill:none;stroke:var(--sky-line);stroke-width:.5;opacity:.28}
 .bridges{fill:none;stroke:var(--sky-accent);stroke-width:1;stroke-dasharray:2 5;opacity:.35}
 .credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}a{text-decoration:none}
+.generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
 ${compact ? '.heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}' : ''}
 ${escape(css)}
 </style>
@@ -235,6 +239,7 @@ ${escape(css)}
 
 <g class="dust">${dust}</g><g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}
 ${repos.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${selectRepositoryPool(repositories, options).length ? 'No projects match these filters.' : 'No public repositories to show yet.'}</text>`}
+${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}
 <a href="https://github.com/mnichols08/github-constellation" target="_blank" rel="noopener noreferrer"><text class="credit" x="868" y="${height - 14}">mnichols08/github-constellation</text></a>
 </svg>\n`;
 }

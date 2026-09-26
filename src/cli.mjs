@@ -12,7 +12,7 @@ try {
   const config = await loadConfig(configPath, process.env.CONSTELLATION_CONFIG_JSON);
   const listed = values.fixture ? JSON.parse(await readFile(values.fixture, 'utf8')) : await fetchRepositories(account, { token });
   const repos = values.fixture ? listed : await fetchRepositoryLanguages(selectRepositoryPool(listed, config), { token });
-  const svg = renderConstellation(account, repos, config);
+  const svg = renderConstellation(account, repos, { ...config, generatedAt: new Date().toISOString() });
   const output = values.output || process.env.CONSTELLATION_OUTPUT || 'dist/constellation.svg';
   if (/[\r\n]/.test(output)) throw new Error('Invalid output path.');
   await mkdir(dirname(output), { recursive: true });

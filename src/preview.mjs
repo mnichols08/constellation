@@ -114,7 +114,7 @@ function render() {
     message(`${missing} projects need language data. Click Load data to apply this project pool. The previous image and exports are retained; no requests are made while customizing.`);
     return;
   }
-  const svg = renderConstellation(account, repositories, options);
+  const svg = renderConstellation(account, repositories, { ...options, generatedAt: new Date().toISOString() });
   buildGraphFilters(selectRepositoryPool(repositories, options));
   $('#relationship-legend').textContent = options.connectionBasis === 'both' ? 'Languages & topics' : options.connectionBasis === 'topics' ? 'Shared topic' : 'Shared language';
   const nextUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));

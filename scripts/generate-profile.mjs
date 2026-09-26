@@ -14,12 +14,13 @@ try {
   const repos = await fetchRepositoryLanguages(selectRepositoryPool(listed, options), { token });
   const missing = options.includeRepos.filter(name => !repos.some(repo => repo.name === name && !repo.private && (options.includeForks || !repo.fork)));
   if (missing.length) console.warn(`Selected repositories unavailable: ${missing.join(', ')}`);
+  const generatedAt = new Date().toISOString();
   const outputs = Object.entries(palettes).map(([variant, colors]) => ({
     file: new URL(`../dist/mnichols08-${variant}.svg`, import.meta.url),
-    svg: renderConstellation('mnichols08', repos, { ...options, theme: variant === 'dark' ? 'midnight' : 'light', colors }),
+    svg: renderConstellation('mnichols08', repos, { ...options, theme: variant === 'dark' ? 'midnight' : 'light', colors, generatedAt }),
   }));
   const adaptiveStyle = { ...defaultVisualStyle(), ...palettes };
-  outputs.push({ file: new URL('../dist/mnichols08.svg', import.meta.url), svg: renderConstellation('mnichols08', repos, { ...options, theme: 'auto', css: visualCSS(adaptiveStyle) }) });
+  outputs.push({ file: new URL('../dist/mnichols08.svg', import.meta.url), svg: renderConstellation('mnichols08', repos, { ...options, theme: 'auto', css: visualCSS(adaptiveStyle), generatedAt }) });
   await mkdir(new URL('../dist/', import.meta.url), { recursive: true });
   for (const { file, svg } of outputs) await writeFile(file, svg);
   console.log('Generated adaptive dist/mnichols08.svg plus fixed dark and light variants.');
