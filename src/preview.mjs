@@ -45,7 +45,7 @@ function buildGraphFilters(pool) {
   if (previousFocus?.startsWith('filter-')) document.getElementById(previousFocus)?.focus({ preventScroll: true });
 }
 let visualStyle = defaultVisualStyle();
-const colorLabels = { background: 'Sky', foreground: 'Labels & dust', accent: 'Paths & credit', line: 'Secondary links', star: 'Stars' };
+const colorLabels = { background: 'Sky gradient', foreground: 'Labels & dust', accent: 'Paths & credit', line: 'Secondary links', star: 'Stars' };
 function buildVisualControls() {
   $('#palette-controls').replaceChildren();
   for (const mode of ['light', 'dark']) {
