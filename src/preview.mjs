@@ -141,7 +141,7 @@ function render() {
   if (workflowUrl) URL.revokeObjectURL(workflowUrl);
   workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
   $('#download-workflow').href = workflowUrl;
-  $('#workflow-note').textContent = isSample ? 'The sample uses your repository owner when the workflow runs.' : `This workflow generates @${account}’s constellation with the settings shown here.`;
+  $('#workflow-note').textContent = 'This workflow generates a constellation for the repository owner, using the settings and CSS shown here.';
   if (!isSample) message(`Showing ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests. Connections use selected ${options.connectionBasis === 'both' ? 'languages and topics' : options.connectionBasis}.`);
 }
 

@@ -7,7 +7,7 @@ Create a constellation of your public GitHub projects and keep it updated in you
 1. Open the [constellation studio](https://mnichols08.github.io/constellation/), enter your GitHub username, and click **Find my stars**.
 2. Choose your projects, languages, topics, layout, and colors. Use **Advanced CSS overrides** for custom styling. Light and dark palettes are included automatically.
 3. Under **Your daily workflow**, enter the **Repository running this workflow**, such as `mnichols08/mnichols08` for a profile README. Use a public repository so everyone can view the image.
-4. Click **Download workflow** and save it as `.github/workflows/constellation.yml` in that repository. Commit and push it to the default branch. The file includes your settings and CSS.
+4. Click **Download workflow** and save it as `.github/workflows/constellation.yml` in that repository. Commit and push it to the default branch. The file includes your settings and CSS and uses the repository owner's GitHub username automatically.
 5. In that repository, open **Actions → Daily constellation → Run workflow**. The workflow creates an `output` branch and saves `constellation.svg` at its root. Existing files on that branch are preserved.
 6. In the studio, click **Copy README snippet**, paste it into your README, and commit the change.
 
@@ -23,7 +23,7 @@ The studio generates this snippet for you. If adding it manually, replace `OWNER
 Made with [GitHub Constellation](https://github.com/mnichols08/constellation) by [@mnichols08](https://github.com/mnichols08).
 ```
 
-The image updates daily at 06:17 UTC. You can also run the workflow manually at any time.
+The image updates daily. You can also run the workflow manually at any time.
 
 ## Change your configuration
 

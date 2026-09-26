@@ -19,7 +19,7 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   const restored = await loadConfig(undefined, block.split('\n').map(line => line.slice(12)).join('\n'));
   assert.deepEqual(restored, options);
   assert.ok(!block.includes('${{'));
-  assert.match(yaml, /username: 'octocat'/);
+  assert.match(yaml, /username: \$\{\{ github.repository_owner \}\}/);
   assert.match(yaml, /token: \$\{\{ secrets.GITHUB_TOKEN \}\}/);
   assert.match(yaml, /cron: '17 6 \* \* \*'/);
   assert.match(yaml, /output: constellation\.svg/);
@@ -31,9 +31,12 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   assert.ok(!renderConstellation('octocat', repos, restored).includes('<script>'));
 });
 
-test('sample workflow uses repository owner and embeds preserve attribution', () => {
-  assert.match(renderWorkflow(null, {}), /username: '\$\{\{ github.repository_owner \}\}'/);
-  assert.throws(() => renderWorkflow('x\nrun: malicious', {}));
+test('workflow always uses repository owner regardless of preview account and embeds preserve attribution', () => {
+  const workflow = renderWorkflow(null, {});
+  assert.match(workflow, /username: \$\{\{ github.repository_owner \}\}/);
+  for (const account of ['octocat', 'mnichols08', 'x\nrun: malicious']) {
+    assert.equal(renderWorkflow(account, {}), workflow);
+  }
   const snippet = readmeSnippet('octocat');
   assert.ok(snippet.includes(`](${projectUrl})`));
   assert.match(snippet, /by \[@mnichols08\]/);
