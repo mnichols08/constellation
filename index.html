@@ -81,6 +81,13 @@
     <label for="output-repository">Repository running this workflow</label>
     <input id="output-repository" placeholder="owner/repository" autocomplete="off" spellcheck="false" aria-describedby="repository-help">
     <p id="repository-help">Image links use this repository’s output branch. Save and run the workflow in that same repository.</p>
+    <a id="install-workflow" class="download" target="_blank" rel="noopener noreferrer" hidden>Add to my GitHub profile ↗</a>
+    <p><a id="create-profile" target="_blank" rel="noopener noreferrer" hidden>Create this public repository first if it doesn’t exist ↗</a></p>
+    <ol class="setup-steps">
+      <li><strong>Commit the workflow.</strong> The button opens GitHub with your settings filled in. Commit to your repository’s default branch. If the file already exists, replace its contents with the workflow below.</li>
+      <li><strong>Run it once.</strong> <a id="run-workflow" target="_blank" rel="noopener noreferrer" hidden>Open Daily constellation ↗</a> Select Run workflow and wait for it to finish. Future runs happen daily.</li>
+      <li><strong>Add the image.</strong> Click Copy README snippet and paste it into your profile README. The completed run’s summary also includes the snippet.</li>
+    </ol>
     <textarea id="workflow" rows="14" readonly spellcheck="false" aria-label="Generated daily workflow"></textarea>
     <div class="export-actions"><button type="button" id="copy-workflow" class="secondary">Copy workflow</button><a id="download-workflow" class="secondary" download="constellation.yml">Download workflow</a></div>
     <p id="workflow-note">The sample uses your repository owner when the workflow runs.</p>

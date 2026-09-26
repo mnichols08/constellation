@@ -4,7 +4,15 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { publishOutput } from '../scripts/publish-output.mjs';
+import { publishOutput, publicationSummary } from '../scripts/publish-output.mjs';
+
+test('publication summary links to the actual branch and published basename', () => {
+  const summary = publicationSummary({ repository: 'octocat/octocat', branch: 'images/daily', file: 'dist/custom.svg' });
+  assert.match(summary, /https:\/\/raw\.githubusercontent\.com\/octocat\/octocat\/images%2Fdaily\/custom\.svg/);
+  assert.ok(!summary.includes('dist/'));
+  assert.ok(summary.includes('```md\n![My GitHub constellation]'));
+  assert.throws(() => publicationSummary({ repository: 'owner/repo\ninjected', file: 'x.svg' }));
+});
 
 test('publishes to an isolated output branch and preserves other generated files', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'constellation-publish-test-'));

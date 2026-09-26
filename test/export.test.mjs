@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderWorkflow, readmeSnippet, projectUrl } from '../src/export.mjs';
+import { renderWorkflow, readmeSnippet, projectUrl, installationLinks } from '../src/export.mjs';
 import { renderConstellation } from '../src/constellation.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -19,12 +19,9 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   const restored = await loadConfig(undefined, block.split('\n').map(line => line.slice(12)).join('\n'));
   assert.deepEqual(restored, options);
   assert.ok(!block.includes('${{'));
-  assert.match(yaml, /username: \$\{\{ github.repository_owner \}\}/);
-  assert.match(yaml, /token: \$\{\{ secrets.GITHUB_TOKEN \}\}/);
-  assert.match(yaml, /cron: '0 0 \* \* \*'/);
-  assert.match(yaml, /output: constellation\.svg/);
+  assert.match(yaml, /uses: mnichols08\/constellation@v1/);
+  assert.match(yaml, /cron: '17 6 \* \* \*'/);
   assert.match(yaml, /publish: 'true'/);
-  assert.match(yaml, /output-branch: output/);
   assert.ok(!yaml.includes('git push'));
   const repos = [{ name: 'hello', full_name: 'octocat/hello', language: 'JavaScript' }];
   assert.equal(renderConstellation('octocat', repos, options), renderConstellation('octocat', repos, restored));
@@ -33,7 +30,7 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
 
 test('workflow always uses repository owner regardless of preview account and embeds preserve attribution', () => {
   const workflow = renderWorkflow(null, {});
-  assert.match(workflow, /username: \$\{\{ github.repository_owner \}\}/);
+  assert.ok(!workflow.includes('username:'));
   for (const account of ['octocat', 'mnichols08', 'x\nrun: malicious']) {
     assert.equal(renderWorkflow(account, {}), workflow);
   }
@@ -50,6 +47,19 @@ test('workflow always uses repository owner regardless of preview account and em
     assert.match(svg, /class="credit"/);
     assert.match(svg, />mnichols08\/constellation<\/text>/);
   }
+});
+
+test('installation links preserve workflow content and reject invalid targets', () => {
+  const workflow = renderWorkflow('octocat', { css: '.star { fill: #abc; } /* & + ☄ */' });
+  const links = installationLinks('octocat/octocat', workflow);
+  const install = new URL(links.install);
+  assert.equal(install.pathname, '/octocat/octocat/new/HEAD');
+  assert.equal(install.searchParams.get('filename'), '.github/workflows/constellation.yml');
+  assert.equal(install.searchParams.get('value'), workflow);
+  assert.equal(new URL(links.create).searchParams.get('name'), 'octocat');
+  assert.equal(links.actions, 'https://github.com/octocat/octocat/actions/workflows/constellation.yml');
+  for (const target of ['', 'owner/repo/extra', 'https://evil.example', 'owner/..', 'owner/repo?x=1']) assert.throws(() => installationLinks(target, workflow));
+  assert.equal(installationLinks('octocat/octocat', 'x'.repeat(8000)).install, null);
 });
 
 test('inline config rejects ambiguous or invalid inputs while file CSS still resolves', async () => {

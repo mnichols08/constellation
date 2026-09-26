@@ -2,6 +2,26 @@ import { username } from './constellation.mjs';
 
 export const projectUrl = 'https://github.com/mnichols08/constellation';
 
+export function installationLinks(repository, workflow) {
+  const target = repository.trim();
+  if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(target) || ['.', '..'].includes(target.split('/')[1])) throw new Error('Enter the workflow repository as owner/repository.');
+  const [owner, repo] = target.split('/');
+  const base = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const install = new URL(`${base}/new/HEAD`);
+  install.searchParams.set('filename', '.github/workflows/constellation.yml');
+  install.searchParams.set('value', workflow);
+  const create = new URL('https://github.com/new');
+  create.searchParams.set('name', repo);
+  create.searchParams.set('visibility', 'public');
+  create.searchParams.set('readme', '1');
+  return {
+    // Large custom CSS can exceed browser/server URL limits. Keep copy/download available.
+    install: install.href.length <= 8000 ? install.href : null,
+    create: create.href,
+    actions: `${base}/actions/workflows/constellation.yml`,
+  };
+}
+
 export function readmeSnippet(account, repository) {
   const name = account ? username(account) : 'My';
   const target = repository?.trim() || (account ? `${username(account)}/${username(account)}` : 'YOUR_USERNAME/YOUR_REPOSITORY');
@@ -21,7 +41,7 @@ export function renderWorkflow(_account, options) {
 name: Daily constellation
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '17 6 * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -33,13 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mnichols08/constellation@main
+      - uses: mnichols08/constellation@v1
         with:
-          username: \${{ github.repository_owner }}
-          token: \${{ secrets.GITHUB_TOKEN }}
-          output: constellation.svg
           publish: 'true'
-          output-branch: output
           config-json: |
 ${config}
 `;

@@ -6,7 +6,7 @@ branding:
 inputs:
   username:
     description: GitHub username or profile URL
-    required: true
+    default: ${{ github.repository_owner }}
   token:
     description: GitHub token for API rate limits
     default: ${{ github.token }}

@@ -1,5 +1,5 @@
 import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation } from './constellation.mjs';
-import { readmeSnippet, renderWorkflow } from './export.mjs';
+import { readmeSnippet, renderWorkflow, installationLinks } from './export.mjs';
 import { defaultVisualStyle, visualCSS } from './visual-style.mjs';
 
 import { createPreviewData, createPreviewFetch } from './preview-data.mjs';
@@ -141,8 +141,8 @@ function render() {
   $('#limit-value').value = options.maxRepos;
   $('#map-title').textContent = isSample ? 'The sample sky' : `@${account}’s sky`;
   $('#sample-badge').hidden = !isSample;
-  updateSnippet();
   $('#workflow').value = renderWorkflow(isSample ? null : account, options);
+  updateSnippet();
   if (workflowUrl) URL.revokeObjectURL(workflowUrl);
   workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
   $('#download-workflow').href = workflowUrl;
@@ -192,10 +192,22 @@ $('#load-projects').addEventListener('click', () => loadAccount(account));
 $('#refresh-data').addEventListener('click', () => loadAccount(account, true));
 
 function updateSnippet() {
+  for (const id of ['#install-workflow', '#create-profile', '#run-workflow']) {
+    $(id).hidden = true;
+    $(id).removeAttribute('href');
+  }
   try {
     $('#snippet').value = readmeSnippet(isSample ? null : account, $('#output-repository').value);
     $('#copy-markdown').disabled = false;
     $('#repository-help').textContent = 'Image links use this repository’s output branch. Save and run the workflow in that same repository.';
+    const target = $('#output-repository').value.trim() || (isSample ? '' : `${account}/${account}`);
+    if (target) {
+      const links = installationLinks(target, $('#workflow').value);
+      for (const [id, link] of [['#install-workflow', links.install], ['#create-profile', links.create], ['#run-workflow', links.actions]]) {
+        if (link) { $(id).href = link; $(id).hidden = false; }
+      }
+      if (!links.install) $('#repository-help').textContent = 'Your settings are too large for a prefilled GitHub link. Download or copy the workflow below and save it in the selected repository.';
+    }
   } catch (error) {
     $('#snippet').value = '';
     $('#copy-markdown').disabled = true;
