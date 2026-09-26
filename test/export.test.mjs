@@ -15,13 +15,17 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
     css: '.star { fill: #f00; }\n/* ${{ secrets.TEST }}\n$(echo nope)\n`literal`\n</style><script>no</script> */\n.heading::after { content: "☄ \\ "; }',
   };
   const yaml = renderWorkflow('octocat', options);
-  const block = yaml.split('          config-json: |\n')[1].split('      - name:')[0];
+  const block = yaml.split('          config-json: |\n')[1];
   const restored = await loadConfig(undefined, block.split('\n').map(line => line.slice(12)).join('\n'));
   assert.deepEqual(restored, options);
   assert.ok(!block.includes('${{'));
   assert.match(yaml, /username: 'octocat'/);
   assert.match(yaml, /token: \$\{\{ secrets.GITHUB_TOKEN \}\}/);
   assert.match(yaml, /cron: '17 6 \* \* \*'/);
+  assert.match(yaml, /output: constellation\.svg/);
+  assert.match(yaml, /publish: 'true'/);
+  assert.match(yaml, /output-branch: output/);
+  assert.ok(!yaml.includes('git push'));
   const repos = [{ name: 'hello', full_name: 'octocat/hello', language: 'JavaScript' }];
   assert.equal(renderConstellation('octocat', repos, options), renderConstellation('octocat', repos, restored));
   assert.ok(!renderConstellation('octocat', repos, restored).includes('<script>'));
@@ -33,6 +37,10 @@ test('sample workflow uses repository owner and embeds preserve attribution', ()
   const snippet = readmeSnippet('octocat');
   assert.ok(snippet.includes(`](${projectUrl})`));
   assert.match(snippet, /by \[@mnichols08\]/);
+  assert.ok(snippet.includes('https://raw.githubusercontent.com/octocat/octocat/output/constellation.svg'));
+  assert.ok(readmeSnippet('octocat', 'another-owner/gallery').includes('https://raw.githubusercontent.com/another-owner/gallery/output/constellation.svg'));
+  assert.ok(readmeSnippet(null).includes('YOUR_USERNAME/YOUR_REPOSITORY/output/constellation.svg'));
+  assert.throws(() => readmeSnippet('octocat', 'bad/repo/extra'));
   for (const layout of ['compact', 'atlas']) {
     const svg = renderConstellation('octocat', [], { layout });
     assert.ok(svg.includes(`href="${projectUrl}"`));

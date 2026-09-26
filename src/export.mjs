@@ -2,9 +2,13 @@ import { username } from './constellation.mjs';
 
 export const projectUrl = 'https://github.com/mnichols08/github-constellation';
 
-export function readmeSnippet(account) {
+export function readmeSnippet(account, repository) {
   const name = account ? username(account) : 'My';
-  return `[![${name} GitHub constellation](./dist/constellation.svg)](${projectUrl})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
+  const target = repository?.trim() || (account ? `${username(account)}/${username(account)}` : 'YOUR_USERNAME/YOUR_REPOSITORY');
+  if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(target) && target !== 'YOUR_USERNAME/YOUR_REPOSITORY') throw new Error('Enter the workflow repository as owner/repository.');
+  const path = target.split('/').map(encodeURIComponent).join('/');
+  const image = `https://raw.githubusercontent.com/${path}/output/constellation.svg`;
+  return `[![${name} GitHub constellation](${image})](https://github.com/${path}/blob/output/constellation.svg)\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
 }
 
 export function renderWorkflow(account, options) {
@@ -23,7 +27,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: constellation-\${{ github.ref }}
+  group: constellation-output
   cancel-in-progress: false
 jobs:
   generate:
@@ -34,18 +38,10 @@ jobs:
         with:
           username: '${owner}'
           token: \${{ secrets.GITHUB_TOKEN }}
-          output: dist/constellation.svg
+          output: constellation.svg
+          publish: 'true'
+          output-branch: output
           config-json: |
 ${config}
-      - name: Save constellation
-        shell: bash
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- dist/constellation.svg
-          if ! git diff --cached --quiet; then
-            git commit -m 'Update GitHub constellation'
-            git push
-          fi
 `;
 }

@@ -136,7 +136,7 @@ function render() {
   $('#limit-value').value = options.maxRepos;
   $('#map-title').textContent = isSample ? 'The sample sky' : `@${account}’s sky`;
   $('#sample-badge').hidden = !isSample;
-  $('#snippet').value = readmeSnippet(isSample ? null : account);
+  updateSnippet();
   $('#workflow').value = renderWorkflow(isSample ? null : account, options);
   if (workflowUrl) URL.revokeObjectURL(workflowUrl);
   workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
@@ -159,6 +159,7 @@ async function loadAccount(nextAccount, refresh = false) {
     const nextRepositories = await data.load(nextAccount, { maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked }, {
       refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
+    if (!$('#output-repository').value || $('#output-repository').value === `${account}/${account}`) $('#output-repository').value = `${nextAccount}/${nextAccount}`;
     account = nextAccount;
     repositories = nextRepositories;
     isSample = false;
@@ -180,15 +181,28 @@ form.addEventListener('submit', event => {
 $('#load-projects').addEventListener('click', () => loadAccount(account));
 $('#refresh-data').addEventListener('click', () => loadAccount(account, true));
 
+function updateSnippet() {
+  try {
+    $('#snippet').value = readmeSnippet(isSample ? null : account, $('#output-repository').value);
+    $('#copy-markdown').disabled = false;
+    $('#repository-help').textContent = 'Image links use this repository’s output branch. Save and run the workflow in that same repository.';
+  } catch (error) {
+    $('#snippet').value = '';
+    $('#copy-markdown').disabled = true;
+    $('#repository-help').textContent = error.message;
+  }
+}
+$('#output-repository').addEventListener('input', updateSnippet);
+
 $('#copy-markdown').addEventListener('click', async () => {
   $('#snippet-panel').hidden = false;
   try {
     await navigator.clipboard.writeText($('#snippet').value);
-    message('README snippet copied. Save your downloaded SVG as dist/constellation.svg in your repository.');
+    message('README snippet copied. Run the exported workflow in the selected repository to publish constellation.svg on its output branch.');
   } catch {
     $('#snippet').focus();
     $('#snippet').select();
-    message('Select and copy the README snippet below. Save your downloaded SVG as dist/constellation.svg.');
+    message('Select and copy the README snippet below. Run the exported workflow to publish constellation.svg on the output branch.');
   }
 });
 $('#reset-css').addEventListener('click', () => { $('#custom-css').value = ''; render(); });

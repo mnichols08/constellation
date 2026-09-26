@@ -2,7 +2,7 @@
 
 Turn your public GitHub repositories into a small animated night sky for your README. Repositories form a spaced star field and connect through their detected languages or GitHub topics; larger stars represent repositories with more GitHub stars. Solid connections describe any shared language, including secondary HTML, CSS, and JavaScript; dotted bridges join the composition visually. Neither represents software dependencies.
 
-![GitHub constellation](dist/constellation.svg)
+![GitHub constellation](https://raw.githubusercontent.com/mnichols08/github-constellation/output/constellation.svg)
 
 [Open the constellation studio](https://mnichols08.github.io/github-constellation/) to customize and download your own SVG, README snippet, and daily workflow.
 
@@ -24,7 +24,7 @@ Requires Node.js 22 or later. There are no runtime dependencies.
 npm run preview
 ```
 
-Open http://127.0.0.1:4173 to explore the sample sky, then enter a GitHub username or profile URL. Customize the appearance, project limit, animation, and fork inclusion without fetching again. Download the matching SVG and copy a README snippet. Save the image as `dist/constellation.svg` in your repository before using the snippet. The sample contains fictional projects and is labeled as a demo. The preview uses public GitHub API requests in your browser, without a token. Full language breakdowns require one additional API request per displayed repository. The controller retains account lists and language data in this tab, including across reloads when browser storage is available. Customization never makes GitHub requests. Increasing the project pool shows a **Load data** button for missing languages and keeps the previous image and exports until you click it. Submitting a previously loaded account reuses saved data; **Refresh data from GitHub** explicitly fetches a fresh snapshot. Successful lookups survive partial failures so retries only request missing data. GitHub rate limits may temporarily prevent lookups; failed lookups retain the previous map rather than silently using incomplete language data. Set `PORT` to use a different local port.
+Open http://127.0.0.1:4173 to explore the sample sky, then enter a GitHub username or profile URL. Customize the appearance, project limit, animation, and fork inclusion without fetching again. Download the matching SVG and copy a README snippet. Set the repository that will run the workflow, then copy its README snippet. The snippet loads `constellation.svg` directly from that repository’s `output` branch; run the workflow once to create it. The sample contains fictional projects and is labeled as a demo. The preview uses public GitHub API requests in your browser, without a token. Full language breakdowns require one additional API request per displayed repository. The controller retains account lists and language data in this tab, including across reloads when browser storage is available. Customization never makes GitHub requests. Increasing the project pool shows a **Load data** button for missing languages and keeps the previous image and exports until you click it. Submitting a previously loaded account reuses saved data; **Refresh data from GitHub** explicitly fetches a fresh snapshot. Successful lookups survive partial failures so retries only request missing data. GitHub rate limits may temporarily prevent lookups; failed lookups retain the previous map rather than silently using incomplete language data. Set `PORT` to use a different local port.
 
 ```sh
 npm run generate -- --username mnichols08
@@ -66,9 +66,9 @@ The controller includes **Visual styles** with separate light/dark color pickers
 
 `config-json` and `config` are alternatives; supplying both fails explicitly. Inline configuration supports `css`, while `cssFile` remains available for file-based configuration. Custom CSS is passed as data, not shell code; literal dollar signs are JSON-escaped in the YAML so CSS cannot turn into GitHub workflow expressions.
 
-Each image contains a small **mnichols08/github-constellation** credit with a link for standalone SVG viewing. Since README images do not expose internal SVG links, the controller’s README snippet links the whole image to this repository and includes a separate creator-credit link. CSS is embedded in the SVG because [SVG image mode does not load external stylesheets or fonts](https://developer.mozilla.org/en-US/docs/Web/SVG/Guides/SVG_as_an_image).
+Each image contains a small **mnichols08/github-constellation** credit with a link for standalone SVG viewing. Since README images do not expose internal SVG links, the controller’s README snippet links the whole image to its file on the caller repository’s output branch and includes separate project and creator-credit links. CSS is embedded in the SVG because [SVG image mode does not load external stylesheets or fonts](https://developer.mozilla.org/en-US/docs/Web/SVG/Guides/SVG_as_an_image).
 
-After this project is published at `mnichols08/github-constellation`, add this to `.github/workflows/constellation.yml` in your profile repository (or any repository containing your README):
+Add this to `.github/workflows/constellation.yml` in your profile repository (or any repository containing your README):
 
 ```yaml
 name: GitHub constellation
@@ -79,7 +79,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: constellation-${{ github.ref }}
+  group: constellation-output
   cancel-in-progress: false
 jobs:
   generate:
@@ -90,29 +90,25 @@ jobs:
         with:
           username: ${{ github.repository_owner }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          output: dist/constellation.svg
+          output: constellation.svg
+          publish: 'true'
+          output-branch: output
           # config: constellation.config.json
-      - name: Save constellation
-        shell: bash
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- dist/constellation.svg
-          if ! git diff --cached --quiet; then
-            git commit -m 'Update GitHub constellation'
-            git push
-          fi
 ```
 
-Then embed the generated image in the README at your repository root:
+Run the workflow once, then embed the image. Replace `OWNER/REPOSITORY` with the repository **running the workflow**, which can differ from the account being rendered:
 
 ```md
-[![My GitHub constellation](./dist/constellation.svg)](https://github.com/mnichols08/github-constellation)
+[![My GitHub constellation](https://raw.githubusercontent.com/OWNER/REPOSITORY/output/constellation.svg)](https://github.com/OWNER/REPOSITORY/blob/output/constellation.svg)
 
 Made with [GitHub Constellation](https://github.com/mnichols08/github-constellation) by [@mnichols08](https://github.com/mnichols08).
 ```
 
-The action writes the SVG; the calling workflow decides how to publish it. The included workflow uses `./` to test this action within its own repository. Run it manually once after pushing. Scheduled workflows run from the default branch, use UTC, and can be delayed by GitHub. Branch rules must allow the workflow's commit. Unchanged images are not committed. `@main` works for initial development; pin a reviewed commit or use a release tag after publishing a release.
+With `publish: 'true'`, the action creates the `output` branch if needed and commits only the generated SVG at its root. Existing files, including Metrics images, are preserved. It uses the caller checkout’s `origin` and credentials, so publication goes to the repository running the workflow. Keep the checkout step and `contents: write` permission. There is no need to pre-create the branch or add a separate commit step. If you have an older exported workflow, replace it with a new export and remove its old “Save constellation” step.
+
+`output` sets the generated file path (default `constellation.svg`); its filename is used at the root of `output-branch` (default `output`). `publish` defaults to `'false'` for generation-only use; the studio’s exported workflow enables it. The local CLI still defaults to `dist/constellation.svg`. The studio’s repository field affects copied image links, not the workflow’s publication destination. A public repository is needed for a publicly readable raw image.
+
+The included workflow uses `./` to run this action within its own repository. Run it manually once after pushing. Scheduled workflows run from the default branch, use UTC, and can be delayed by GitHub. Branch rules must allow writes to `output`. Publication never force-pushes and retries against the latest branch if another workflow updates it. Unchanged images are not committed. `@main` works for initial development; pin a reviewed commit or use a release tag for a fixed version.
 
 ## Customize
 

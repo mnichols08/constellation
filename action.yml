@@ -12,7 +12,13 @@ inputs:
     default: ${{ github.token }}
   output:
     description: SVG output path relative to the caller workspace
-    default: dist/constellation.svg
+    default: constellation.svg
+  publish:
+    description: Publish the generated image to the root of output-branch in the caller repository
+    default: 'false'
+  output-branch:
+    description: Destination branch when publish is true; existing files are preserved
+    default: output
   config:
     description: Optional JSON configuration path in the caller workspace
     default: ''
@@ -39,3 +45,11 @@ runs:
         CONSTELLATION_CONFIG_JSON: ${{ inputs.config-json }}
         GITHUB_TOKEN: ${{ inputs.token }}
       run: node "$CONSTELLATION_ACTION_PATH/src/cli.mjs"
+    - name: Publish image to output branch
+      if: ${{ inputs.publish == 'true' }}
+      shell: bash
+      env:
+        CONSTELLATION_ACTION_PATH: ${{ github.action_path }}
+        CONSTELLATION_OUTPUT: ${{ inputs.output }}
+        CONSTELLATION_OUTPUT_BRANCH: ${{ inputs.output-branch }}
+      run: node "$CONSTELLATION_ACTION_PATH/scripts/publish-output.mjs"
