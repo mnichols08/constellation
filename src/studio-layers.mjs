@@ -59,7 +59,7 @@ export function mountStudioLayers(host, changed, reveal) {
       settings = next; error.textContent = ''; sync(); changed();
     } catch (cause) { error.textContent = cause.message; sync(); }
   }
-  select.addEventListener('change', sync);
+  select.addEventListener('change', () => { error.textContent = ''; sync(); });
   for (const [input, key, read] of [[visible, 'visible', () => visible.checked], [opacity, 'opacity', () => Number(opacity.value)], [order, 'order', () => Number(order.value)]]) {
     input.addEventListener(input === order ? 'change' : 'input', () => commit({ ...settings, [select.value]: { ...settings[select.value], [key]: read() } }));
   }

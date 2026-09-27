@@ -101,13 +101,14 @@ export function parseScene(json) {
 export function sceneStatistics(scene) {
   assertScene(scene);
   const current = scene.kind === 'time-lapse' ? scene.latest : scene;
+  const visible = id => current.layers.some(layer => layer.id === id && layer.visible !== false && layer.opacity !== 0);
   return {
     version: scene.version, kind: scene.kind,
     nodes: current.nodes.length,
-    visibleNodes: current.layers.find(layer => layer.id === 'nodes')?.visible === false ? 0 : current.nodes.filter(node => !node.interaction.hidden).length,
+    visibleNodes: visible('nodes') ? current.nodes.filter(node => !node.interaction.hidden).length : 0,
     edges: current.edges.length,
     labels: current.labels.length,
-    visibleLabels: current.layers.find(layer => layer.id === 'labels')?.visible === false ? 0 : current.labels.filter(label => !label.hidden).length,
+    visibleLabels: visible('labels') ? current.labels.filter(label => !label.hidden).length : 0,
     layers: current.layers.map(layer => layer.id),
     frames: scene.kind === 'time-lapse' ? scene.frames.length + 1 : 1,
     referenceDate: scene.metadata.referenceDate,

@@ -62,3 +62,15 @@ relationships from the compiled scene.
 The layer selector uses native keyboard navigation. The Layers tab participates
 in the existing arrow/Home/End tab navigation. Entering a username and generating
 a graphic still uses the ordinary Look panel; no layer editing is required.
+
+Zero opacity omits a layer's markup, avoiding invisible keyboard targets in
+interactive previews. Hiding the selection layer keeps node selection and details
+available but suppresses highlight dimming in both Studio and exported SVG.
+Annotation controls also apply to year captions added by the time-lapse adapter.
+
+Try [the layer example](../examples/layer-study.json) and its
+[generated SVG](../examples/gallery/layer-study.svg). Run
+`node scripts/generate-examples.mjs` to regenerate the offline gallery.
+Config imports and share links validate layer IDs and scalar controls; they cannot
+supply executable code, markup or arbitrary rendering phases. Workflow export uses
+the same validated v6 controls. Scene JSON remains an internal trusted format.

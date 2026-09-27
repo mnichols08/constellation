@@ -1,7 +1,7 @@
 import { selectionCSS } from './selection.mjs';
 import { graphSelection, rustAvailable } from './engine.mjs';
 
-export function mountGraphExplorer(host, panel, selection, onSelect) {
+export function mountGraphExplorer(host, panel, selection, onSelect, { highlight = true } = {}) {
   const shadow = host.shadowRoot;
   const svg = shadow.querySelector('svg');
   const nodes = [...svg.querySelectorAll('.repository')];
@@ -42,7 +42,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect) {
     const path = start && end ? graphSelection(names, pairs, start, end) : [];
     const kind = metadata.get(start)?.kind;
     const category = kind && kind !== 'repository';
-    svg.toggleAttribute('data-exploring', Boolean(start));
+    svg.toggleAttribute('data-exploring', Boolean(start) && highlight);
     nodes.forEach((node, i) => {
       node.toggleAttribute('data-related', related.has(names[i]));
       node.setAttribute('aria-pressed', String(names[i] === start || names[i] === end));

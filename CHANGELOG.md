@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.3 — 2026-09-27
+
+- Apply annotation visibility/opacity to time-lapse captions and honor disabled highlights during Studio keyboard selection while retaining node details.
+- Omit zero-opacity layer markup to avoid invisible interactive targets; report visibility consistently in scene statistics.
+- Harden layer config/share/workflow round trips and escaping, add temporal and browser regressions, and ship a runnable layered gallery example.
+
 ## 2.2.2 — 2026-09-27
 
 - Add a focused Studio Layers inspector with native keyboard selection, scene counts, per-layer visibility/opacity/order, reset and links to relevant existing settings.

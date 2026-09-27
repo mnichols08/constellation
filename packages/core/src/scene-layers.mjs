@@ -44,7 +44,7 @@ export function composeLayers(scene, phase, fragments) {
   return scene.layers.filter(layer => layer.phases.includes(phase))
     .map(layer => {
       const fragment = fragments[layer.id] ?? '';
-      if (layer.visible === false) return '';
+      if (layer.visible === false || layer.opacity === 0) return '';
       return !fragment || layer.opacity === undefined || layer.opacity === 1 ? fragment : `<g data-scene-layer="${layer.id}" opacity="${layer.opacity}">${fragment}</g>`;
     }).join('');
 }

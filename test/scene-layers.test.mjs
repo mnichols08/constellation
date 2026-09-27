@@ -4,6 +4,29 @@ import { createScene, renderSceneSVG, serializeScene, parseScene } from '../src/
 import { composeLayers } from '../src/scene-layers.mjs';
 import { parseConfig, serializeConfig } from '../src/config-schema.mjs';
 import { renderWorkflow } from '../src/export.mjs';
+import { migrateWorkflow } from '../src/migrate.mjs';
+import { encodeShare, decodeShare } from '../src/share-link.mjs';
+
+test('layer controls survive share links and workflow migration without executable payloads', () => {
+  const layers = { nodes: { opacity: 0.4 }, annotations: { visible: false } };
+  const url = encodeShare('https://example.com/', 'layers', { layers });
+  assert.deepEqual(decodeShare(url).options.layers, layers);
+  assert.match(migrateWorkflow(renderWorkflow('layers', { layers }).replace('constellation@v2', 'constellation@v1')), /"opacity": 0.4/);
+  for (const opacity of ['0.5" onload="alert(1)', Infinity, -1]) assert.throws(() => parseConfig({ layers: { nodes: { opacity } } }), /opacity|non-finite/);
+  assert.throws(() => parseConfig(JSON.parse('{"layers":{"__proto__":{}}}')), /Unsafe/);
+});
+
+test('hidden annotations stay hidden in animated historical exports and zero-opacity nodes are absent', () => {
+  const repositories = [2019, 2022].map(year => ({ name: `project-${year}`, full_name: `layers/${year}`, language: 'Rust', created_at: `${year}-01-01T00:00:00Z` }));
+  for (const mode of ['grow', 'orbit', 'crossfade']) {
+    const scene = createScene('layers', repositories, { referenceDate: '2026-09-01T00:00:00Z', history: { timeLapse: { enabled: true, mode } }, layers: { annotations: { visible: false } } });
+    const svg = renderSceneSVG(parseScene(serializeScene(scene)));
+    assert.doesNotMatch(svg, /<text class="history-year|class="credit"/);
+    assert.match(svg, /prefers-reduced-motion/);
+  }
+  const scene = createScene('layers', repositories, { layers: { nodes: { opacity: 0 } } });
+  assert.doesNotMatch(renderSceneSVG(scene), /class="repository"/);
+});
 
 test('layer controls survive config, workflow and scene round trips without moving nodes', () => {
   const repositories = [{ name: 'core', full_name: 'layers/core', language: 'Rust' }];

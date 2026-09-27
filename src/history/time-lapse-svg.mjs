@@ -104,6 +104,11 @@ export function renderTimeLapse(account, repositories, options, render, referenc
     extra += `<text class="history-year history-year-${i}" x="450" y="${options.layout === 'compact' ? 260 : 540}" text-anchor="middle" font-size="11">${year}</text>`;
   });
   css += `@media(prefers-reduced-motion:reduce){.history-year{animation:none!important;opacity:0}.history-year-${years.length - 1}{opacity:1}}`;
+  // Year captions are added by the legacy temporal adapter after scene assembly.
+  // Apply the same annotation controls to this final contribution.
+  const annotation = options.layers?.annotations;
+  if (annotation?.visible === false || annotation?.opacity === 0) extra = '';
+  else if (annotation?.opacity !== undefined && annotation.opacity !== 1) extra = `<g data-scene-layer="annotations" opacity="${annotation.opacity}">${extra}</g>`;
   const result = latest.replace('</style>', `${css}</style>`).replace('</desc>', `${xml(` Growth of surviving public repositories from ${years[0]} to ${years.at(-1)}; ${years.length} sampled years. Current metadata is used where history is unavailable.`)}</desc>`).replace(/<\/svg>\s*$/, `${extra}</svg>\n`);
   if (settings.mode === 'crossfade' && new TextEncoder().encode(result).length > 750000) return renderTimeLapse(account, repositories, { ...options, history: { ...options.history, timeLapse: { ...settings, mode: 'grow' } } }, render, reference).replace('</desc>', ' Crossfade exceeded the 750 KB budget; compact growth animation is used.</desc>');
   return result;

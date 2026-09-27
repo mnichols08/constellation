@@ -313,7 +313,7 @@ function render({ requireVisibleNodes = false } = {}) {
     (kind === 'star' ? target?.parentElement : target)?.focus();
   }, (repo, pair) => renderConstellation(account, repositories, movedOptions(repo, pair)), $('#lock-stars').checked || options.ringAnimation.enabled || options.floatingAnimation.enabled || cameraMoving || liveTilt?.active, options.snapToRings);
   preview.replaceChildren(labelEditor);
-  mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { const previous = graphSelection.start, previousEnd = graphSelection.end; graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start && (selection.start !== previous || selection.end !== previousEnd)) workspace?.reveal($('#color-node')); });
+  mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { const previous = graphSelection.start, previousEnd = graphSelection.end; graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start && (selection.start !== previous || selection.end !== previousEnd)) workspace?.reveal($('#color-node')); }, { highlight: options.layers?.selection?.visible !== false });
   const eligible = repositories.filter(repo => repo.private !== true && (options.includeForks || !repo.fork));
   const shown = selectRepositories(repositories, options);
   const filterExplanation = explainFilters(repositories, options);

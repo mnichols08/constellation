@@ -17,7 +17,7 @@ for (const name of ['organization-community', 'organization-user', 'organization
 const groups = { Rust: ['orbit-core', 'starship', 'signal'], JavaScript: ['stargazer', 'tiny-world', 'moonrise'], Python: ['night-sky', 'telescope', 'atlas'], TypeScript: ['constellation', 'sky-map', 'observatory'] };
 const repos = Object.entries(groups).flatMap(([language, names]) => names.map((name, i) => ({ name, full_name: `example/${name}`, language, languages: { [language]: 100 }, topics: i % 2 ? ['tools'] : ['space', 'creative-coding'], stargazers_count: [128, 32, 8][i], created_at: '2020-01-01T00:00:00Z', pushed_at: `202${i + 3}-01-01T00:00:00Z` })));
 await mkdir(new URL('../examples/gallery/', import.meta.url), { recursive: true });
-for (const name of ['deep-space', 'terminal', 'minimal', 'solar-system', 'starfield', 'active-developer', 'night-owl', 'weekend-builder']) {
+for (const name of ['layer-study', 'deep-space', 'terminal', 'minimal', 'solar-system', 'starfield', 'active-developer', 'night-owl', 'weekend-builder']) {
   const { options } = parseConfig(await readFile(new URL(`../examples/${name}.json`, import.meta.url), 'utf8'));
   const events = normalizePublicEvents(JSON.parse(await readFile(new URL(`../examples/fixtures/${options.codingRhythm ? name + '-events' : 'public-events'}.json`, import.meta.url), 'utf8')));
   const activityData = options.activityEffect ? aggregateActivity(events, repos, options, options.activityMetricDate) : undefined;
