@@ -27,3 +27,11 @@ The interactive runtime exposes `setFrame(index)` and `frameIndex`, and emits `t
 Each supplied snapshot runs through the same transforms, mappings and layout, so nodes can appear/disappear, grow, change color/opacity and relationships, or move. Runtime transitions interpolate shared-node geometry over 300 ms and fade arriving/departing nodes. Shared node groups retain DOM identity; frame navigation preserves camera, local filter and theme. Selection persists only when its nodes remain visible.
 
 Reduced-motion preferences disable interpolation and fades, including when the preference changes during a transition. Rapid navigation cancels the previous transition and cleans up temporary departure graphics. The runtime interpolates compiled coordinates; it does not duplicate Rust layout or path algorithms.
+
+## Scrubbing and comparison
+
+The Date slider navigates the available snapshots; its accessible value includes the actual date and evidence type. Then and Now jump to the first and final frames. `setDate(isoDate)` chooses the nearest available snapshot (earlier wins a tie); no intermediate historical data is invented.
+
+Compare with Now displays the selected frame beside the final scene, synchronizes the camera and reports added/removed node counts. The comparison uses the full compiled frame populations; local interactive filters do not redefine those totals. When the earlier frame uses current metadata, the comparison explicitly warns that its metrics are not historical growth data. The Now panel is static and has isolated SVG styles/IDs. Small screens stack the two views.
+
+Both the exported runtime and web component expose `setFrame(index)`, `setDate(date)` and `compareWithNow(boolean)`. The component reports a descriptive error when these methods are used on a scene without a timeline.

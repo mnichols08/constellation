@@ -212,6 +212,8 @@ export const interactiveStyles = `
 .constellation-toolbar button:focus-visible,.constellation-runtime .repository:focus-visible{outline:3px solid #a9cdfb;outline-offset:3px}
 .constellation-canvas{height:70vh;min-height:280px;overflow:hidden}
 .constellation-canvas>svg{display:block;width:100%;height:100%;touch-action:none}
+[data-viewports][data-comparing]{display:grid;grid-template-columns:1fr 1fr}[data-viewports]>[hidden]{display:none!important}
+@media(max-width:600px){[data-viewports][data-comparing]{grid-template-columns:1fr}}
 .constellation-runtime .repository{cursor:pointer}.constellation-runtime .repository[aria-pressed=true] .star-halo{opacity:.55}
 .constellation-status{padding:8px 16px;min-height:1.5em;margin:0}
 .constellation-details{padding:0 16px 16px}.constellation-details:empty{display:none}.constellation-details a{color:#a9cdfb}

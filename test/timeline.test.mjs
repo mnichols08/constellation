@@ -49,5 +49,13 @@ test('offline timeline controls render supplied frames with evidence labels', { 
   await evaluate(`document.querySelector('main').constellation.setFrame(0)`);
   assert.equal(await evaluate(`document.querySelectorAll('.departing-node').length`), 0);
   assert.equal(await evaluate(`document.querySelector('.repository').getAnimations().length`), 0);
+  await evaluate(`document.querySelector('main').constellation.compareWithNow(true)`);
+  assert.match(await evaluate(`document.querySelector('[aria-label=Timeline]').nextElementSibling.textContent`), /1 added, 0 removed/);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Now comparison"]').shadowRoot.querySelectorAll('.star').length`), 2);
+  await evaluate(`document.querySelector('main').constellation.setDate('2026-08-01')`);
+  assert.equal(await evaluate(`document.querySelector('main').constellation.frameIndex`), 1);
+  await evaluate(`const range = document.querySelector('[aria-label=Timeline] input[type=range]'); range.value='0'; range.dispatchEvent(new Event('input'));`);
+  assert.equal(await evaluate(`document.querySelector('main').constellation.frameIndex`), 0);
+  assert.match(await evaluate(`document.querySelector('[aria-label=Timeline] input[type=range]').getAttribute('aria-valuetext')`), /2021-01-01/);
   assert.deepEqual(errors, []);
 });

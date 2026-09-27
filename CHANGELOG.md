@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.2 — 2026-09-27
+
+- Add labelled date scrubbing, Then/Now shortcuts and nearest-snapshot date selection.
+- Compare the selected date beside a static Now view with synchronized camera, responsive layout and explicit added/removed counts.
+- Expose timeline navigation/comparison through the component and test evidence-aware comparison in offline HTML.
+
 ## 2.7.1 — 2026-09-27
 
 - Interpolate shared-node positions and sizes between precompiled timeline scenes while preserving node DOM identity.

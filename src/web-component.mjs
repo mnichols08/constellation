@@ -48,6 +48,9 @@ export class ConstellationView extends HTMLElement {
   reset() { return this.#active().reset(); }
   setFilter(value) { return this.#active().setFilter(value); }
   setTheme(value) { return this.#active().setTheme(value); }
+  setFrame(value) { const runtime = this.#active(); if (!runtime.setFrame) throw new Error('This scene has no timeline.'); return runtime.setFrame(value); }
+  setDate(value) { const runtime = this.#active(); if (!runtime.setDate) throw new Error('This scene has no timeline.'); return runtime.setDate(value); }
+  compareWithNow(value) { const runtime = this.#active(); if (!runtime.compareWithNow) throw new Error('This scene has no timeline.'); return runtime.compareWithNow(value); }
   get selection() { return this.#runtime?.selectionState || { start: null, end: null, path: [] }; }
   connectedCallback() { this.#observe(); }
   disconnectedCallback() {
