@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.1 — 2026-09-27
+
+- Interpolate shared-node positions and sizes between precompiled timeline scenes while preserving node DOM identity.
+- Fade arriving/departing nodes, refresh relationships/styles, and retain camera, filter, theme and valid selection state.
+- Cancel transitions on navigation/disposal and immediately honor reduced-motion changes; test identity and motion behavior in the browser.
+
 ## 2.7.0 — 2026-09-27
 
 - Introduce a versioned temporal scene model with explicit reference dates, supplied historical snapshots and labelled current-metadata creation-date views.

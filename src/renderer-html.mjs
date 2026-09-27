@@ -3,13 +3,14 @@ import { serializeScene } from './scene.mjs';
 import { mountInteractive, interactiveStyles } from './interactive-runtime.mjs';
 import { bindings, base64 } from './wasm/inline.mjs';
 import { mountTimeline } from './timeline-runtime.mjs';
+import { replaceInteractiveSVG } from './scene-transition.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const scriptJSON = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
 const runtimeScript = `${bindings}
 await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => char.charCodeAt(0)) });
 const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
-(${mountTimeline.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent) }, ${mountInteractive.toString()});`;
+(${mountTimeline.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, replaceSVG: ${replaceInteractiveSVG.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent) }, ${mountInteractive.toString()});`;
 const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runtimeScript));
 const scriptHash = btoa(String.fromCharCode(...new Uint8Array(digest)));
 export const htmlPolicy = `default-src 'none'; script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`;
