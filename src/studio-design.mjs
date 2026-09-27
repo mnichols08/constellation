@@ -110,14 +110,19 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
         options = randomizeParts(current.options, candidate, parts, pool);
         return hasMatchingNodes(options);
       }, 32);
-      if (!recipe) { message('No matching design found with your current filters. Your design is unchanged.'); return; }
-      await apply({ version: 1, account: current.account, options });
+      if (!recipe) { message('No matching design found with your current filters. Use Reset project filters to show current projects, then randomize again. Your design is unchanged.'); return; }
+      if (!await apply({ version: 1, account: current.account, options }, { requireVisibleNodes: true, fallback: current })) {
+        message('That draw rendered no projects. Your previous design is restored. Try again, or use Reset project filters.'); return;
+      }
       message('Selected parts randomized. Other settings kept. Use Share link or save the config to keep this combination.');
       return;
     }
     const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(recipeOptions(candidate)));
     if (!recipe) { message('No matching randomized design found in the loaded repositories. Your current design is unchanged.'); return; }
-    await reseed(recipe.designCode);
+    if (!await apply({ version: 1, account: current.account, options: recipeOptions(recipe) }, { requireVisibleNodes: true, fallback: current })) {
+      message('That draw rendered no projects. Your previous design is restored. Try again, or use Reset project filters.'); return;
+    }
+    message(`Design ${recipe.designCode} created. Save the config to preserve subsequent edits too.`);
   }); randomize.className = 'randomize-primary';
   hero.append(motionLabel);
   const animationParts = mountRandomizeMotion(hero, motion, storage);

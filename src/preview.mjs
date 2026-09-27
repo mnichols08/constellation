@@ -182,7 +182,7 @@ function message(text, error = false) {
   status.dataset.error = String(error);
 }
 
-function render() {
+function render({ requireVisibleNodes = false } = {}) {
   placementAccounts.set(account.toLowerCase(), studio ? resolveSeed(account, studio.read()) : account);
   const generatedCSS = visualCSS(visualStyle);
   $('#generated-css').value = generatedCSS;
@@ -259,6 +259,10 @@ function render() {
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
   const svg = renderConstellation(account, repositories, { ...options, generatedAt });
+  // Validate the final render after form normalization, before publishing it or
+  // replacing the saved draft and exports. A metadata-only check is not enough.
+  if (requireVisibleNodes && (!projected.nodes.some(node => !options.hiddenNodes.includes(node.full_name)) ||
+      !svg.includes('class="star"') || svg.includes('No projects match these filters or historical year.'))) return false;
   displayedNodes = [...projected.nodes].sort((a, b) => a.name.localeCompare(b.name));
   updateNodeColorControls();
   const combinedMode = options.nodeMode === 'combined';
@@ -329,6 +333,7 @@ function render() {
   $('#workflow-note').textContent = options.repoSource === 'pinned' ? 'This workflow reads the repository owner’s current public pins on every run using GitHub’s automatic token. No personal token is needed in the workflow.' : 'This workflow generates a constellation for the repository owner, using the settings and CSS shown here.';
   if (!isSample) message(`Showing ${projected.nodes.length} ${options.nodeMode} from ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests.`);
   if (emptySelection) message(`Loaded ${repositories.length} public repositories for @${account}, but the current filters, history year or node visibility exclude them. Reset project filters to show them.`);
+  return true;
 }
 
 for (const control of controls) control.addEventListener('input', render);
@@ -553,11 +558,24 @@ const designHost = document.createElement('div'); designHost.className = 'design
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
   hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
   repositoryCandidates: options => selectRepositories(repositories, { ...options, includeRepos: undefined, maxRepos: 100 }),
-  apply: async (config, { loadOrganization = false } = {}) => {
+  apply: async (config, { loadOrganization = false, requireVisibleNodes = false, fallback } = {}) => {
     if (loading) throw new Error('Wait for the account to finish loading before applying a preset.');
     if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && ((config.options.repoSource || 'all') !== loadedSource || loadOrganization))) {
       if (!await loadAccount(config.account, false, config.options.repoSource || 'all', config)) throw new Error('Could not load this configuration account.');
-    } else { applyOptions(config.options); render(); }
+    } else {
+      applyOptions(config.options);
+      if (requireVisibleNodes) {
+        try {
+          if (render({ requireVisibleNodes })) return true;
+        } catch (error) {
+          if (fallback) { applyOptions(fallback.options); render({ requireVisibleNodes: true }); }
+          throw error;
+        }
+        if (fallback) { applyOptions(fallback.options); render({ requireVisibleNodes: true }); }
+        return false;
+      }
+      render();
+    }
   },
   theme: id => {
     const preset = visualThemes[id];
