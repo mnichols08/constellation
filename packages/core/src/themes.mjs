@@ -23,7 +23,7 @@ export function themePalettes(preset) {
 export function resolveTheme(options = {}) {
   if (options.themePack) validateThemePack(options.themePack, { reference: true });
   const id = options.themePack?.id || options.visualTheme || (visualThemes[options.theme] ? options.theme : null);
-  if (!id || id === 'custom') return options;
+  if (!id || (id === 'custom' && !options.themePack)) return options;
   const preset = options.themePack?.preset || (options.themePack && options.themePack.version !== '1.0.0' ? null : visualThemes[id]);
   if (!preset) throw new Error('Unknown visual theme.');
   const { label, palette, lightPalette, transparent, glow, opacity, ...defaults } = preset;

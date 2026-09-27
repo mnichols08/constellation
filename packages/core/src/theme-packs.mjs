@@ -1,7 +1,9 @@
 export function validateThemePack(pack, { reference = false } = {}) {
-  if (!pack || typeof pack !== 'object' || !/^[a-z][a-z\d-]{0,63}$/.test(pack.id || '') || !/^\d+\.\d+\.\d+$/.test(pack.version || '')) throw new Error('themePack requires an id and an exact semver version.');
+  if (!pack || typeof pack !== 'object' || !/^[a-z][a-z\d-]{0,63}$/.test(pack.id || '') || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(pack.version || '')) throw new Error('themePack requires an id and an exact release version (major.minor.patch, no leading zeros).');
+  if (Object.keys(pack).some(key => !['id', 'version', 'preset'].includes(key))) throw new Error('Unknown theme pack field. Use id, version and preset.');
   if (reference && pack.preset === undefined) return pack;
   const preset = pack.preset;
+  if (preset && Object.keys(preset).some(key => !['label', 'palette', 'lightPalette', 'transparent', 'glow', 'opacity', 'nodeColorMode', 'nodeShape', 'animate', 'effect'].includes(key))) throw new Error('Theme presets may contain styling only.');
   if (!preset || typeof preset !== 'object' || !Array.isArray(preset.palette) || preset.palette.length !== 5 || preset.palette.some(color => !/^#[a-f\d]{6}$/i.test(color))) throw new Error('Theme pack preset.palette requires five 6-digit hex colors.');
   if (preset.lightPalette && (!Array.isArray(preset.lightPalette) || preset.lightPalette.length !== 5 || preset.lightPalette.some(color => !/^#[a-f\d]{6}$/i.test(color)))) throw new Error('Theme pack lightPalette requires five 6-digit hex colors.');
   if (!Number.isFinite(preset.glow) || preset.glow < 0 || preset.glow > 10 || !Number.isFinite(preset.opacity) || preset.opacity < 0 || preset.opacity > 1) throw new Error('Theme pack glow must be 0–10 and opacity 0–1.');

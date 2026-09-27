@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.2 — 2026-09-27
+
+- Preserve independently bumped extension package versions during builds; the themes package is now 1.0.1 while unchanged pack content remains 1.0.0.
+- Reject ambiguous release versions and non-styling theme payload fields. Fix resolution of an external theme pack named `custom`.
+- Regression coverage checks exact versions, styling-only payloads and external theme resolution.
+
 ## 1.8.1 — 2026-09-27
 
 - Snapshot registered source callbacks and source-instance config before asynchronous loading so caller mutations cannot change IDs or implementations mid-load.

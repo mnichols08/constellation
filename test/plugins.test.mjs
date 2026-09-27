@@ -55,3 +55,12 @@ test('independent theme packs swap and portable embedded themes render identical
   const restored = parseConfig(serializeConfig('tester', { ...options, themePack: { id: external.id, version: external.version } }));
   assert.match(host.render('tester', nodes, restored.options), /<svg/);
 });
+
+test('theme pack versions and fields are explicit; custom is a valid external pack ID', () => {
+  const host = createPluginHost();
+  for (const version of ['01.0.0', 'latest', '^1.0.0']) assert.throws(() => host.registerThemePack({ ...themePacks[0], version }), /version/);
+  assert.throws(() => host.registerThemePack({ ...themePacks[0], preset: { ...themePacks[0].preset, maxRepos: 1 } }), /styling only/);
+  const custom = { ...themePacks[0], id: 'custom' };
+  const svg = host.registerThemePack(custom).render('tester', [], { themePack: { id: 'custom', version: '1.0.0' } });
+  assert.match(svg, /#e3de13/);
+});
