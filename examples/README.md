@@ -10,4 +10,8 @@ Import a JSON file into the studio, or use it with the CLI/Action. These preview
 | Solar System · major projects, language colors, mixed shapes | [solar-system.json](solar-system.json) | ![Solar System constellation](gallery/solar-system.svg) |
 | Milky Way · seeded stars, depth and subtle twinkling | [starfield.json](starfield.json) | ![Milky Way background starfield](gallery/starfield.svg) |
 
-Use **Randomize design** for another coordinated starting point. Save its `v2:…` code to replay the recipe, or download JSON to keep all subsequent changes. Existing `v1:…` codes retain their classic dust background. See the [design guide](../docs/designs.md).
+| Active Developer · language colors and public-activity comet trails | [active-developer.json](active-developer.json) | ![Active Developer comet trails](gallery/active-developer.svg) |
+
+Use **Randomize design** for another coordinated starting point. Enable **Include motion** for a randomized animation. Save its `v3:…` code to replay the recipe, or download JSON to keep all subsequent changes. Existing `v1:…` codes retain their classic dust background. Existing `v2:` codes retain their starfield recipe. See the [design guide](../docs/designs.md).
+
+Active Developer uses [synthetic public events](fixtures/public-events.json) and a fixed `activityMetricDate`. Remove that date for live daily generation.

@@ -18,6 +18,24 @@ import { createHash } from 'node:crypto';
 
 const repos = Array.from({ length: 24 }, (_, i) => ({ name: `project-${i}`, full_name: `tester/project-${i}`, language: i % 2 ? 'Rust' : 'JavaScript', languages: { [i % 2 ? 'Rust' : 'JavaScript']: 100, CSS: 20 }, topics: ['tools', `topic-${i % 3}`], stargazers_count: i * 100, updated_at: `202${i % 6}-01-01T00:00:00Z`, created_at: '2020-01-01T00:00:00Z', fork: i === 1, archived: i === 2 }));
 
+test('v3 motion recipes replay all four motion styles and offer fully still designs', () => {
+  const styles = new Set();
+  for (let i = 0; i < 24; i++) {
+    const code = `v3:motion-${i}`, recipe = randomizeDesign(code);
+    assert.deepEqual(recipe, randomizeDesign(code));
+    assert.deepEqual(parseConfig(serializeConfig('tester', recipe)).options, recipe);
+    styles.add(recipe.ringAnimation.enabled ? recipe.ringAnimation.modes[0] : recipe.floatingAnimation.enabled ? 'floating' : 'perspective');
+    const svg = renderConstellation('tester', repos.slice(0, 4), recipe);
+    assert.match(svg, /<animate(?:Transform)? /);
+    assert.match(svg, /ring-motion-still/);
+    const still = randomizeDesign(`v3:still-${i}`);
+    assert.equal(still.animate, false);
+    assert.doesNotMatch(renderConstellation('tester', repos.slice(0, 4), still), /<animate(?:Transform)? |animation:twinkle/);
+  }
+  assert.deepEqual([...styles].sort(), ['floating', 'perspective', 'spin', 'sway']);
+  assert.match(newDesignCode({ motion: false }), /^v3:still-/);
+});
+
 test('seeded randomness and versioned design codes reproduce a complete visual recipe', () => {
   const a = seededRandom('hello'), b = seededRandom('hello');
   const values = Array.from({ length: 40 }, () => a());
@@ -26,11 +44,11 @@ test('seeded randomness and versioned design codes reproduce a complete visual r
   assert.notEqual(seededRandom('other')(), values[0]);
   assert.equal(resolveSeed('Tester'), 'tester');
   assert.throws(() => resolveSeed('tester', { seedMode: 'random' }));
-  assert.match(newDesignCode(), /^v2:/);
+  assert.match(newDesignCode(), /^v3:motion-/);
   const design = randomizeDesign('v1:fixture');
   assert.deepEqual(design, randomizeDesign('v1:fixture'));
   assert.notDeepEqual(design, randomizeDesign('v1:other'));
-  assert.throws(() => randomizeDesign('v3:fixture'));
+  assert.throws(() => randomizeDesign('v4:fixture'));
   assert.equal(design.visualTheme, 'monochrome'); // Versioned recipe regression vector.
   assert.equal(createHash('sha256').update(JSON.stringify(design)).digest('hex'), 'c6f566741baa8c71e96ded511e5ec95e021a62c09b8e6c38fc0cba5100e0af4b');
   assert.equal(renderConstellation('tester', repos, design), renderConstellation('tester', [...repos].reverse(), design));

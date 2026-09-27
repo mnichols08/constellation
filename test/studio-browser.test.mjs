@@ -16,6 +16,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   const server = createPreviewServer({ fetchImpl: async url => {
     apiCalls++;
     const account = new URL(url).pathname.split('/')[2];
+    if (url.includes('/events/public')) return Response.json([{ id: '1', public: true, type: 'PushEvent', repo: { name: `${account}/repo-0` }, created_at: new Date(Date.now() - 3600000).toISOString(), payload: { secret: 'NEVER_RENDER' } }]);
     return Response.json(['Rust', 'JavaScript'].map((language, i) => ({ name: `repo-${i}`, full_name: `${account}/repo-${i}`, language, languages: { [language]: 100 }, topics: ['tools'], stargazers_count: 20 - i, updated_at: '2026-01-01T00:00:00Z' })));
   } }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
@@ -63,6 +64,11 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
   await evaluate(`click('randomize-design');`);
   assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v3:motion-/);
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('animate,animateTransform'))`));
+  await evaluate(`click('randomize-motion');click('randomize-design');`);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v3:still-/);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('animate,animateTransform').length`), 0);
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`), first);
   await evaluate(`input('preset-name','README');click('save-preset');input('design-nodeSize','uniform');click('load-preset');`);
@@ -80,7 +86,9 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.starfield-twinkle')).animationName`), 'none');
   if (process.env.CONSTELLATION_SCREENSHOT) {
     await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    await evaluate(`input('design-visualTheme','deep-space');document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
+    await evaluate(`input('design-activityEffect','comet');input('design-visualTheme','deep-space');document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
+    const pageShot = await cdp('Page.captureScreenshot');
+    await mkdir('.dist', { recursive: true }); await writeFile('.dist/studio-preview.png', Buffer.from(pageShot.data, 'base64'));
     const clip = await evaluate(`(()=>{const r=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').getBoundingClientRect();return {x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height,scale:1};})()`);
     const screenshot = await cdp('Page.captureScreenshot', { clip, captureBeyondViewport: true });
     await mkdir('.dist', { recursive: true }); await writeFile('.dist/starfield-preview.png', Buffer.from(screenshot.data, 'base64'));
@@ -100,10 +108,13 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#design-seed').value`), 'shared');
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.account = name => { document.querySelector('#username').value=name; document.querySelector('#account-form').requestSubmit(); };account('tester');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
-  assert.equal(apiCalls, 1);
+  assert.equal(apiCalls, 2);
+  await evaluate(`input('design-activityEffect','comet');input('design-activityWindow','1d');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.activity-comet').length`), 1);
+  assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.innerHTML`), /NEVER_RENDER/);
   await evaluate(`input('design-nodeShape','square');input('design-repoQuery','repo-0');`);
   assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /1 included/);
-  assert.equal(apiCalls, 1, 'customization never fetches');
+  assert.equal(apiCalls, 2, 'customization never fetches');
   await evaluate(`account('another');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@another')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'circle');
@@ -111,7 +122,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'square');
   assert.equal(await evaluate(`document.querySelector('#design-repoQuery').value`), 'repo-0');
-  assert.equal(apiCalls, 2, 'returning to loaded accounts uses cached data');
+  assert.equal(apiCalls, 4, 'returning to loaded accounts uses cached data');
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   assert.deepEqual(errors, []);
 });

@@ -3,6 +3,8 @@ import { createFormRestorer } from './studio-config-form.mjs';
 import { visualThemes } from './themes.mjs';
 import { exportSettings } from './export-image.mjs';
 import { seededRandom, resolveSeed } from './seeded-random.mjs';
+import { aggregateActivity } from './activity.mjs';
+import { sampleActivity } from './sample-activity.mjs';
 import { mountLiveTilt } from './live-tilt.mjs';
 import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation, graphNodes } from './constellation.mjs';
 import { readmeSnippet, renderWorkflow, installationLinks } from './export.mjs';
@@ -231,6 +233,10 @@ function render() {
   }
   const projected = graphNodes(repositories, options);
   const generatedAt = new Date().toISOString();
+  const activitySnapshot = isSample ? sampleActivity(repositories) : data.activity(account);
+  options.activityData = activitySnapshot ? aggregateActivity(activitySnapshot.events, selectRepositories(repositories, options), options, activitySnapshot.asOf) : undefined;
+  const activityStatus = $('#activity-status');
+  if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
   const svg = renderConstellation(account, repositories, { ...options, generatedAt });
   displayedNodes = [...projected.nodes].sort((a, b) => a.name.localeCompare(b.name));

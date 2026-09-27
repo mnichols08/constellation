@@ -7,7 +7,7 @@ import { visualThemes } from './themes.mjs';
 import { newDesignCode, randomizeDesign } from './design-randomizer.mjs';
 import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
-export const designDefaults = { seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom' };
+export const designDefaults = { seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
 export function mountStudioDesign({ host, changed, apply, theme, message }) {
   let storage; try { storage = window.localStorage; } catch {}
@@ -47,11 +47,20 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   control(design, 'connectionWeight', 'Connection weight', ['uniform', 'languages', 'topics', 'overlap']);
   control(design, 'majorMetric', 'Solar System major repositories', [['stars', 'Most stars'], ['updated', 'Recently updated']]);
   const seedPanel = section('Reproducibility & optional effects');
-  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v2:… (v1 codes also work)'; designCode.maxLength = 103;
-  const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code'; seedPanel.append(codeLabel, designCode);
+  const hero = document.createElement('div'); hero.className = 'design-launcher'; hero.setAttribute('aria-label', 'Discover a constellation design');
+  document.querySelector('.studio-header').after(hero);
+  const heroTitle = document.createElement('div'); heroTitle.className = 'design-launcher-title'; heroTitle.textContent = 'Find your next universe';
+  const heroNote = document.createElement('p'); heroNote.textContent = 'One click. A new sky. Keep the code to come back.'; heroTitle.append(heroNote); hero.append(heroTitle);
+  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v3:… (older codes also work)'; designCode.maxLength = 103;
+  const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code';
+  const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
   const reseed = async code => { const recipe = randomizeDesign(code); const options = { ...current.options, ...recipe, starfield: recipe.starfield || { mode: 'classic' } }; await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
-  button(seedPanel, 'randomize-design', 'Randomize design', () => reseed(newDesignCode()));
-  button(seedPanel, 'reseed-design', 'Restore design code', () => reseed(designCode.value.trim()));
+  const motionLabel = document.createElement('label'); motionLabel.className = 'randomize-motion';
+  const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = !matchMedia('(prefers-reduced-motion: reduce)').matches; motionLabel.append(motion, ' Include motion');
+  const randomize = button(hero, 'randomize-design', '✦ Randomize design', () => reseed(newDesignCode({ motion: motion.checked }))); randomize.className = 'randomize-primary';
+  hero.append(motionLabel);
+  hero.append(codeControls);
+  button(codeControls, 'reseed-design', 'Restore code', () => reseed(designCode.value.trim()));
   control(seedPanel, 'seedMode', 'Seed mode', ['account', 'custom', 'random']);
   control(seedPanel, 'seed', 'Saved seed').maxLength = 120;
   button(seedPanel, 'reroll-seed', 'New random seed', () => { controls.get('seedMode').value = 'random'; controls.get('seed').value = newSeed(); changed(); });
@@ -69,6 +78,12 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   button(skyDetails, 'regenerate-starfield', 'Generate another starfield', () => { skySeed.value = newSeed(); changed(); });
   const skyNote = document.createElement('p'); skyNote.className = 'export-note'; skyNote.textContent = 'Decorative stars stay behind your projects. Try a dark theme for a space backdrop. Twinkle follows Starlight animation and reduced-motion preferences. The seed is saved in config and share links.'; skyDetails.append(skyNote);
   syncSky = () => { skyDetails.hidden = !['space', 'milky-way'].includes(controls.get('sky-mode').value); };
+  const activityPanel = section('Recent activity');
+  control(activityPanel, 'activityEffect', 'Recent activity', [['off', 'Off'], ['glow', 'Glow'], ['pulse', 'Pulse'], ['comet', 'Comet trails'], ['ripple', 'Ripple']]);
+  control(activityPanel, 'activityWindow', 'Activity window', [['1d', '24 hours'], ['7d', '7 days'], ['30d', '30 days'], ['auto', 'Auto']]);
+  control(activityPanel, 'activityDetail', 'Event detail', [['simple', 'Simple'], ['event-types', 'Event types']]);
+  control(activityPanel, 'activityConnections', 'Brighten active connections', null, 'checkbox');
+  const activityStatus = document.createElement('p'); activityStatus.id = 'activity-status'; activityStatus.className = 'export-note'; activityStatus.setAttribute('role', 'status'); activityPanel.append(activityStatus);
   const filters = section('Repository filters');
   control(filters, 'minStars', 'Minimum GitHub stars', null, 'number');
   control(filters, 'includeArchived', 'Include archived repositories', null, 'checkbox');
@@ -109,6 +124,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   window.addEventListener('pagehide', flush);
   function restore(options) {
     designCode.value = options.designCode || '';
+    if (options.designCode?.startsWith('v3:')) motion.checked = !options.designCode.startsWith('v3:still-');
     const sky = starfieldOptions(options.starfield);
     for (const [key, input] of controls) {
       const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';

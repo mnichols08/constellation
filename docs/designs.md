@@ -4,7 +4,7 @@ The studio configures a self-contained SVG. It needs no account system, external
 
 ## Randomize, then return to a design
 
-Open **Reproducibility & optional effects**, choose **Randomize design**, and save the resulting **design code**, such as `v2:my-sky`. Paste that code and choose **Restore design code** to regenerate its coordinated theme, layout, node mappings, shapes, effects and background starfield. The original `v1` recipe keeps classic dust; `v2` adds seeded starfields. Existing codes continue to work. Codes use a deterministic PRNG, not a cryptographic hash or an authentication secret.
+Use the main **Randomize design** toolbar, and save the resulting **design code**, such as `v3:motion-my-sky`. Paste that code and choose **Restore code** to regenerate its coordinated theme, layout, node mappings, shapes, effects and background starfield. The original `v1` recipe keeps classic dust; `v2` adds seeded starfields; `v3` also preserves randomized motion. **Include motion** selects a restrained ring sway/spin, floating drift/bob/orbit, or animated perspective. Uncheck it to generate a reproducible still recipe. Motion respects reduced-motion preferences. Existing codes continue to work. Codes use a deterministic PRNG, not a cryptographic hash or an authentication secret.
 
 The code recreates the randomized visual recipe for the same account and repository data. It preserves your project filters. It resets manual colors, positions, selection, visibility, authored CSS, and motion overrides so these do not interfere with reproducing the recipe. Export JSON to preserve later edits, filters, and coordinates exactly. The JSON contains both the recipe code and the resulting explicit settings; CLI rendering does not need to regenerate the recipe.
 
@@ -24,7 +24,7 @@ The **Background starfield** section offers Off, Classic dust, Deep Space and Mi
 
 `starfield` accepts `mode` (`off`, `classic`, `space`, `milky-way`), `density` (0–100), `brightness` (0–1), `depth` (0–1), `twinkle` (boolean), and `seed` (up to 120 characters). An empty background seed follows the design seed. **Generate another starfield** changes only the background seed; copy/export JSON or a share link to preserve it. Increasing density extends a stable point sequence without moving existing stars. Compact output profiles reduce the decorative point budget.
 
-Only a sparse subset twinkles, using CSS animation. Disabling Starlight animation, turning off twinkle, or requesting reduced motion produces a still sky. No JavaScript animation loop is added. Transparent exports retain stars but omit the band haze. Existing configs without `starfield` retain classic dust; a fresh studio starts with Deep Space stars, and `v2:` randomized designs save their own sky settings. The existing Background stars opacity control also affects the generated sky.
+Only a sparse subset twinkles, using CSS animation. Disabling Starlight animation, turning off twinkle, or requesting reduced motion produces a still sky. No JavaScript animation loop is added. Transparent exports retain stars but omit the band haze. Existing configs without `starfield` retain classic dust; a fresh studio starts with Deep Space stars, and `v2:`/`v3:` randomized designs save their own sky settings. The existing Background stars opacity control also affects the generated sky.
 
 ### Nodes and connections
 
@@ -88,3 +88,25 @@ For the Rust image, include `"languages": ["Rust"]` in its config. Use a revisio
 ## Tests
 
 Run `npm test` and `npm run test:rust`. `npm test` includes a dependency-free Chromium DevTools test when Chrome/Chromium is found (or set `CONSTELLATION_BROWSER` to its executable). This verifies code restoration, config import, presets, local draft restoration, shared views, filters, keyboard selection and PNG rasterization without GitHub API calls. Run `npm run build:rust` after Rust changes and include the generated `src/wasm` assets.
+
+## Recent public activity
+
+Choose **Recent activity** → Glow, Pulse, Comet trails, or Ripple. The default is Off. Activity augments existing glow and follows node colors and motion without changing size, repository selection or graph placement. Category-only views have no repository activity accents. Reduced motion leaves a static halo, faint comet trail or ring. Starlight animation off also makes activity effects still.
+
+| Config field | Values / default |
+| --- | --- |
+| `activityEffect` | `off` (default), `glow`, `pulse`, `comet`, `ripple` |
+| `activityWindow` | `1d`, `7d` (default), `30d`, `auto` |
+| `activityDetail` | `simple` (default), `event-types` (PR double rings; release/new-repository accents) |
+| `activityConnections` | `false` (default); true subtly brightens relevant lines |
+| `activityMetricDate` | Optional reference date for fixed examples/tests |
+
+Settings work in JSON, CLI, Action config, local presets and share links. Fetched events and calculated scores are excluded from these exports. A design code recreates its visual recipe; live repository and event data can change the generated image. Download JSON to preserve activity settings and other manual changes.
+
+The loader requests `/users/{username}/events/public` centrally, at most three pages of 100 events. The studio caches a normalized snapshot per account for the tab session. Only account load/refresh fetches data; changing modes, colors, themes or windows uses that snapshot. The CLI skips events entirely when activity is off. Fetch failures remain nonfatal and produce a diagnostic. Only public events matching represented public repositories influence rendering; payloads, commit messages, issue/PR text and actors never enter the activity cache or SVG.
+
+Scores use a 72-hour half-life within the selected window. Weights are push 1, pull request 1.2, release 1.5, repository/branch creation 1.25, issue .4, comment .2, watch .1 and fork .25. Each event type contributes at most 6 weighted points per repository, total mass is capped at 12, and score is `min(.98, 1 - exp(-mass / 3))`. Auto uses the shortest supported window containing a matching event; no activity falls back to 30 days. These limits keep busy projects from overwhelming the image.
+
+This is a daily README visualization, not real-time telemetry or a contribution counter. GitHub's [public events API](https://docs.github.com/en/rest/activity/events#list-public-events-for-a-user) can be delayed and returns a limited history. Missing events do not prove inactivity.
+
+[Active Developer](../examples/active-developer.json) combines Deep Space, Galaxy placement, star-based size, language color and comet trails. Its [synthetic event fixture](../examples/fixtures/public-events.json) and fixed reference date reproduce the gallery without network access. Run `node scripts/generate-examples.mjs`. For CLI fixtures, combine `--fixture repositories.json --activity-fixture events.json`; omitting the event fixture with repository fixtures keeps generation offline. Remove `activityMetricDate` when adapting the example to a live daily workflow.

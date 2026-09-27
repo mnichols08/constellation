@@ -1,16 +1,29 @@
 import { seededRandom, newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
 
-export const newDesignCode = () => `v2:${newSeed()}`;
+export const newDesignCode = ({ motion = true } = {}) => `v3:${motion ? 'motion' : 'still'}-${newSeed()}`;
 
 // Freeze the v1 recipe: future recipes get a new prefix so shared codes never drift.
 export function randomizeDesign(code) {
+  if (typeof code === 'string' && /^v3:[a-z\d-]{1,100}$/i.test(code)) {
+    const base = randomizeDesign(code.replace(/^v3:/i, 'v2:'));
+    const random = seededRandom(`${code}:motion`);
+    const enabled = !code.slice(3).startsWith('still-');
+    const style = Math.floor(random() * 4);
+    const speed = .25 + Math.floor(random() * 3) * .25;
+    return { ...base, designCode: code, seed: code, animate: enabled,
+      arrangement: enabled && style < 2 ? 'rings' : enabled && style === 2 && base.arrangement === 'rings' ? 'orbital' : base.arrangement,
+      ringAnimation: { enabled: enabled && style < 2, linked: true, speeds: Array(4).fill(speed), directions: Array(4).fill(random() < .5 ? 'clockwise' : 'counterclockwise'), modes: Array(4).fill(style === 0 ? 'sway' : 'spin'), amplitudes: Array(4).fill(10 + Math.floor(random() * 3) * 5), easing: Array(4).fill(style === 0 ? 'smooth' : 'linear') },
+      floatingAnimation: { enabled: enabled && style === 2, mode: ['drift', 'bob', 'orbit'][Math.floor(random() * 3)], amplitude: 3 + Math.floor(random() * 5), duration: 12 + Math.floor(random() * 12) },
+      perspective: { enabled: enabled && style === 3, animate: enabled && style === 3, horizontal: Math.floor(random() * 20) - 10, vertical: 25, zoom: 90, range: 5 + Math.floor(random() * 5), duration: 25 + Math.floor(random() * 15) },
+    };
+  }
   if (typeof code === 'string' && /^v2:[a-z\d-]{1,100}$/i.test(code)) {
     const random = seededRandom(`${code}:sky`);
     return { ...randomizeDesign(code.replace(/^v2:/i, 'v1:')), designCode: code, seed: code,
       starfield: { mode: random() < .65 ? 'space' : 'milky-way', density: 35 + Math.floor(random() * 36), brightness: .8, depth: .8, twinkle: true, seed: '' } };
   }
-  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1: or v2: followed by letters, numbers or hyphens.');
+  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1:, v2: or v3: followed by letters, numbers or hyphens.');
   const random = seededRandom(code);
   const pick = values => values[Math.floor(random() * values.length)];
   const visualTheme = pick(['github-dark', 'deep-space', 'terminal', 'solarized', 'dracula', 'synthwave', 'monochrome', 'contribution', 'rustacean', 'javascript']);

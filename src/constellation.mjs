@@ -1,5 +1,8 @@
+import { githubMark } from './github-mark.mjs';
 import { resolveSeed } from './seeded-random.mjs';
 import { starfieldOptions, renderStarfield, starfieldCSS } from './starfield.mjs';
+import { activityOptions, activityForNode } from './activity.mjs';
+import { activityMarkup, activityCSS } from './activity-effects.mjs';
 import { resolveTheme } from './themes.mjs';
 import { artifactLayouts, artifactPositions } from './artifact-layouts.mjs';
 import { mappedColor, mappedGlow, connectionWeight, mappingOptions, metricReference, shapeFor, shapeDefinitions, decoration } from './visual-mapping.mjs';
@@ -186,6 +189,8 @@ export function renderConstellation(account, repositories, options = {}) {
   const name = username(account);
   const seed = resolveSeed(name, options);
   const sky = starfieldOptions(options.starfield);
+  const activitySettings = activityOptions(options);
+  const recent = id => activitySettings.activityEffect === 'off' ? null : activityForNode(id, options.activityData);
   nodeRadius({}, options.nodeSize || options.sizingMode, 0);
   const reference = metricReference(selectRepositories(repositories, options), options.metricDate);
   const generatedDate = options.generatedAt === undefined ? null : new Date(options.generatedAt);
@@ -316,7 +321,8 @@ export function renderConstellation(account, repositories, options = {}) {
     const gradientId = `connection-color-${index}`;
     const gradient = colorConnections ? `<defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${to.x.toFixed(1)}" y2="${to.y.toFixed(1)}"><stop stop-color="${nodeColors[from.repo.full_name] || 'var(--sky-star)'}"/><stop offset="1" stop-color="${nodeColors[to.repo.full_name] || 'var(--sky-star)'}"/></linearGradient></defs>` : '';
     const weight = connectionWeight(edge, options.connectionWeight);
-    const edgeStyle = [colorConnections ? `stroke:url(#${gradientId})` : '', weight ? `stroke-width:${weight.width.toFixed(2)};opacity:${weight.opacity.toFixed(2)}` : ''].filter(Boolean).join(';');
+    const activeWeight = activitySettings.activityConnections ? Math.max(recent(from.repo.full_name)?.score || 0, recent(to.repo.full_name)?.score || 0) : 0;
+    const edgeStyle = [colorConnections ? `stroke:url(#${gradientId})` : '', weight ? `stroke-width:${weight.width.toFixed(2)};opacity:${weight.opacity.toFixed(2)}` : '', activeWeight ? `opacity:${Math.min(.85, (weight?.opacity ?? (backbone.has(edge) ? .62 : .13)) + activeWeight * .2).toFixed(3)}` : ''].filter(Boolean).join(';');
     return `${gradient}<path class="shared-language"${edgeStyle ? ` style="${edgeStyle}"` : ''} data-from="${escape(from.repo.full_name)}" data-to="${escape(to.repo.full_name)}" data-languages="${escape(sharedLanguages.join(', '))}" data-topics="${escape(sharedTopics.join(', '))}" data-repositories="${escape(sharedRepositories.join(', '))}" data-emphasis="${backbone.has(edge) ? 'primary' : 'secondary'}" d="M${from.x.toFixed(1)} ${from.y.toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}"><title>${escape(from.repo.name)} ↔ ${escape(to.repo.name)} · ${escape(shared.join(', '))}</title></path>`;
   }).join('');
   // Join language regions with the shortest available visual bridges. These are
@@ -340,9 +346,12 @@ export function renderConstellation(account, repositories, options = {}) {
     const radius = nodeRadius(repo, options.nodeSize || options.sizingMode, reference);
     const glow = mappedGlow(repo, options.nodeGlowMode, seed, reference);
     const shape = shapeFor(repo, options.nodeShape);
+    const activity = !repo.nodeKind || repo.nodeKind === 'repository' ? recent(repo.full_name) : null;
+    const activityAttributes = activity ? ` data-activity-score="${activity.score.toFixed(3)}" data-activity-count="${activity.eventCount}" data-latest-activity="${activity.latestEventAt}"` : '';
+    const activityLayer = activityMarkup({ x, y, radius, id: repo.full_name, activity, effect: activitySettings.activityEffect, detail: activitySettings.activityDetail, seed, animate });
     const starStyle = `${shape !== 'circle' ? `clip-path:url(#shape-${shape});` : ''}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ''}`;
     const tooltip = repo.nodeKind && repo.nodeKind !== 'repository' ? `${repo.name} · ${repo.members.length} repositories · ${repo.members.join(', ')}` : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? ' · fork' : ''} · ${repositoryLanguages(repo).join(', ') || 'No detected languages'}`;
-    return `<g class="repository"${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}</title><circle class="star-halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"/></g>`;
+    return `<g class="repository"${activityAttributes}${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}</title>${activityLayer}<circle class="star-halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"/></g>`;
   }).join('');
   // Try labels at every collection size, avoiding collisions where space is tight.
   // Visibility is controlled by the visual styles, independently of repo count.
@@ -405,7 +414,7 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 .credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}a{text-decoration:none}
 .generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
 ${compact ? '.heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}' : ''}
-${escape(css)}
+${escape(css)}${activitySettings.activityEffect !== 'off' ? activityCSS : ''}
 ${['space', 'milky-way'].includes(sky.mode) ? starfieldCSS : ''}
 ${options.exportProfile === 'transparent' ? 'svg{background:transparent!important}.background{fill:none!important}' : ''}
 </style>
@@ -416,9 +425,9 @@ ${decoration(options, height, visibleStars)}
 ${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent: options.exportProfile === 'transparent' })}
 ${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}${sky.mode === 'classic' ? `<g class="dust">${dust}</g>` : ''}<g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}
 ${visibleStars.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? 'All nodes are hidden. Restore visibility in Individual nodes.' : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : selectRepositoryPool(repositories, options).length ? 'No projects match these filters.' : options.repoSource === 'pinned' ? 'No public pinned repositories match this selection.' : 'No public repositories to show yet.'}</text>`}
-${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}`)}</text>` : ''}
+${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}${activitySettings.activityEffect !== 'off' ? ` · ${activitySettings.activityEffect}: public activity / ${['1d', '7d', '30d'].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ''}`)}</text>` : ''}
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}
-<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer"><text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>
+<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer">${githubMark.replace('<svg ', `<svg x="744" y="${height - 23}" `)}<text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>
 </svg>\n`;
   return animateRingSVG(focusSVG(svg, options.selection), ringAnimation, geometry, visibleStars, centerY, spreadY, escape, floatingAnimation, Array.from({ length: ringPoints.length / 3 }, (_, i) => ({ x: 450 + (ringPoints[i * 3] - 240) * 368 / 172, y: centerY + (ringPoints[i * 3 + 1] - 240) * spreadY / 172 })));
 }

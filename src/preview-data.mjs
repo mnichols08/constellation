@@ -1,4 +1,6 @@
 import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool } from './constellation.mjs';
+import { fetchPublicActivity } from './github-activity.mjs';
+import { sanitizeActivityEvents } from './activity.mjs';
 
 export function createPreviewFetch({ proxyBase, fetchImpl = fetch } = {}) {
   return (url, options) => {
@@ -30,6 +32,24 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
   } catch { /* Storage is optional, including in private browsing. */ }
   const caches = new Map();
   const pending = new Map();
+  const activityKey = 'constellation-public-activity-v1';
+  let activityAccounts = {};
+  try {
+    const saved = JSON.parse(storage?.getItem(activityKey) || '{}');
+    if (saved && !Array.isArray(saved) && typeof saved === 'object') activityAccounts = Object.fromEntries(Object.entries(saved).filter(([, value]) => Number.isFinite(Date.parse(value?.asOf))).map(([account, value]) => [account, { asOf: value.asOf, events: sanitizeActivityEvents(value.events), diagnostic: value.diagnostic ? 'Public activity unavailable. Refresh data to retry.' : '' }]));
+  } catch {}
+  const activityPending = new Map();
+  async function loadActivity(name, refresh) {
+    if (activityPending.has(name)) return activityPending.get(name);
+    if (!refresh && Object.hasOwn(activityAccounts, name)) return activityAccounts[name];
+    const request = fetchPublicActivity(name, { fetchImpl }).then(snapshot => {
+      activityAccounts[name] = snapshot;
+      try { storage?.setItem(activityKey, JSON.stringify(activityAccounts)); } catch {}
+      return snapshot;
+    });
+    activityPending.set(name, request);
+    try { return await request; } finally { activityPending.delete(name); }
+  }
   const save = () => { try { storage?.setItem(key, JSON.stringify(accounts)); } catch {} };
   const sourceKey = (account, options = {}) => {
     const source = options.repoSource ?? 'all';
@@ -53,6 +73,7 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
       caches.set(name, cache);
       accounts[key] = listed;
       save();
+      await loadActivity(name, refresh);
       try {
         await fetchRepositoryLanguages(selectRepositoryPool(listed, options), { fetchImpl, cache, onProgress });
       } finally {
@@ -69,5 +90,5 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
     pending.set(key, request);
     try { return await request; } finally { pending.delete(key); }
   }
-  return { snapshot, load };
+  return { snapshot, load, activity: account => activityAccounts[username(account).toLowerCase()] };
 }
