@@ -13,8 +13,10 @@ const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/C
 
 test('headless studio: randomized codes, configs, presets, filters, keyboard, sharing and PNG', { skip: !browser && 'Set CONSTELLATION_BROWSER to a Chromium executable.', timeout: 60000 }, async t => {
   let apiCalls = 0;
+  const requestedUrls = [];
   const server = createPreviewServer({ fetchImpl: async url => {
     apiCalls++;
+    requestedUrls.push(url);
     const account = new URL(url).pathname.split('/')[2];
     if (url.includes('/search/issues')) return Response.json({ total_count: 0, items: [] });
     if (/\/(users|orgs)\/collective$/.test(url)) return Response.json({ login: 'collective', type: 'Organization', public_repos: 2 });
@@ -261,7 +263,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.textContent`), /No projects match|No public repositories|No public pinned repositories/);
   }
   assert.equal(apiCalls, partialCalls, 'retrying partially cached designs stays local');
-  await evaluate(`document.querySelector('#organization-account').value='collective';account('alice');`);
+  await evaluate(`document.querySelector('#account-mode').value='paired';document.querySelector('#account-mode').dispatchEvent(new Event('change'));document.querySelector('#organization-account').value='collective';account('alice');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('Organization universe')`)) break; await delay(50); }
   assert.match(await evaluate(`document.querySelector('#map-title').textContent`), /collective.*Organization universe.*alice/);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="contributor"]').length`), 2);
@@ -272,6 +274,49 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).organizationUser`), 'alice');
   assert.match(await evaluate(`document.querySelector('#workflow').value`), /username: 'collective'/);
   assert.equal(apiCalls, organizationCalls, 'organization layouts and views are local');
+  await evaluate(`document.querySelector('#builtin-preset').value='organization-community';document.querySelector('#apply-builtin-preset').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#username').value`), 'alice', 'a preset preserves the paired username field');
+  assert.equal(await evaluate(`document.querySelector('#organization-account').value`), 'collective');
+  const beforeOrganizationOnly = requestedUrls.length;
+  await evaluate(`document.querySelector('#account-mode').value='organization';document.querySelector('#account-mode').dispatchEvent(new Event('change'));account('collective');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent === 'collective · Organization universe'`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#map-title').textContent`), 'collective · Organization universe');
+  assert.equal(await evaluate(`document.querySelector('#organization-account').hidden`), true);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-organization-focus]').length`), 0);
+  assert.equal(requestedUrls.slice(beforeOrganizationOnly).some(url => /contributors|search\/issues/.test(url)), false, 'organization-only project atlas does not scan people or search for a user');
+  assert.equal(await evaluate(`document.querySelector('#output-repository').value`), 'collective/.github');
+  for (const id of ['organization-community', 'organization-technology', 'organization-history', 'organization-featured', 'organization-projects']) {
+    await evaluate(`document.querySelector('.builtin-preset-menu').open=true;document.querySelector('#builtin-preset').value='${id}';document.querySelector('#builtin-preset').dispatchEvent(new Event('change'));document.querySelector('#apply-builtin-preset').click();`);
+    for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+    assert.match(await evaluate(`document.querySelector('#status').textContent`), /applied/);
+    assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length > 0`), id + ' renders nodes');
+    await evaluate(`document.querySelector('#copy-config').click();`);
+    const config = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+    assert.equal(config.account, 'collective');
+    assert.equal(config.organizationUser, undefined);
+    assert.equal(config.accountType, 'organization');
+    assert.equal(config.designCode, undefined, 'a curated preset clears any random design code');
+    if (id === 'organization-community') assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="contributor"]').length > 0`));
+  }
+  assert.match(await evaluate(`document.querySelector('#workflow').value`), /username: 'collective'/);
+  const beforeSimplePreset = apiCalls;
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    await evaluate(`document.querySelector('.builtin-preset-menu').open=true;`);
+    const shot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/organization-presets.png', Buffer.from(shot.data, 'base64'));
+    await evaluate(`document.querySelector('.builtin-preset-menu').open=false;`);
+  }
+  await evaluate(`document.querySelector('#builtin-preset').value='minimal-readme';document.querySelector('#apply-builtin-preset').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#layout').value`), 'compact');
+  assert.equal(apiCalls, beforeSimplePreset, 'a visual preset uses loaded data');
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`document.querySelector('.builtin-preset-menu').open=true;`);
+  assert.ok(await evaluate(`(()=>{const r=document.querySelector('.builtin-preset-body').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})()`), 'preset picker fits a narrow viewport');
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'organization form and launcher do not overflow on mobile');
+  await evaluate(`document.querySelector('.builtin-preset-menu').open=false;`);
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   assert.deepEqual(errors, []);
   if (process.env.CONSTELLATION_SCREENSHOT) {
     const studioShot = await cdp('Page.captureScreenshot');

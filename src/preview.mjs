@@ -1,4 +1,5 @@
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
+import { presetOptions } from './studio-presets.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
@@ -30,6 +31,17 @@ if (proxyBase) $('.form-note').textContent = localAuth
   ? 'Using your local GitHub token. Loaded data is retained; customization makes no additional GitHub requests.'
   : 'No local GitHub token found. Add GH_TOKEN to .env and restart npm run preview to authenticate. Loaded data is retained while customizing.';
 const form = $('#account-form');
+function syncAccountMode() {
+  const mode = $('#account-mode').value;
+  $('#organization-account').hidden = mode !== 'paired';
+  $('#organization-account').required = mode === 'paired';
+  form.elements.username.placeholder = mode === 'organization' ? 'Organization name or URL' : mode === 'paired' ? 'GitHub username' : 'Username or organization';
+}
+$('#account-mode').addEventListener('change', () => {
+  if ($('#account-mode').value === 'organization' && $('#organization-account').value.trim()) form.elements.username.value = $('#organization-account').value.trim();
+  syncAccountMode();
+});
+syncAccountMode();
 const status = $('#status');
 const preview = $('#preview');
 const download = $('.download');
@@ -387,17 +399,21 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
     }
     // Fetch languages for the configuration that will actually be applied. A new
     // account without a draft must not inherit the previous account's filters.
-    const loadOptions = restoring?.options || (changedAccount ? { accountType: studio?.read().accountType || 'auto' } : { ...importedOptions, ...studio?.read(), maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked });
+    const loadOptions = restoring?.options || (changedAccount ? { accountType: $('#account-mode').value === 'organization' ? 'organization' : 'auto' } : { ...importedOptions, ...studio?.read(), maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked });
     const nextRepositories = await data.load(nextAccount, { ...loadOptions, repoSource: source }, {
       refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
-    if (!$('#output-repository').value || $('#output-repository').value === `${account}/${account}`) $('#output-repository').value = `${nextAccount}/${nextAccount}`;
+    if (!$('#output-repository').value || [ `${account}/${account}`, `${account}/.github` ].includes($('#output-repository').value)) $('#output-repository').value = data.profile(nextAccount)?.type === 'Organization' ? `${nextAccount}/.github` : `${nextAccount}/${nextAccount}`;
     studio?.flush();
     account = nextAccount;
     repositories = nextRepositories;
     loadedSource = source;
     isSample = false;
     if (restoring || changedAccount) applyOptions(restoring?.options || { accountType: loadOptions.accountType });
+    form.elements.username.value = loadOptions.organizationUser || account;
+    $('#organization-account').value = loadOptions.organizationUser ? account : '';
+    $('#account-mode').value = loadOptions.organizationUser ? 'paired' : data.profile(account)?.type === 'Organization' ? 'organization' : 'auto';
+    syncAccountMode();
     $('#repo-source').value = source;
     $('#refresh-data').hidden = false;
     render();
@@ -420,10 +436,17 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
 form.addEventListener('submit', event => {
   event.preventDefault();
   try {
-    const name = username(form.elements.username.value), organization = $('#organization-account').value.trim();
-    if (organization) {
+    const name = username(form.elements.username.value), organization = $('#organization-account').value.trim(), mode = $('#account-mode').value;
+    if (mode === 'organization') {
+      const draft = studio.store.draft(name);
+      const options = draft?.options?.accountType === 'organization' && !draft.options.organizationUser ? draft.options : presetOptions('organization-projects');
+      loadAccount(name, false, 'all', { account: name, options });
+    }
+    else if (mode === 'paired') {
+      if (!organization) throw new Error('Enter the organization to connect with this user.');
       const settings = studio.read();
-      loadAccount(username(organization), false, 'all', { account: username(organization), options: { organizationScope: settings.organizationScope, organization: settings.organization, accountType: 'organization', organizationUser: name, organizationView: 'collaboration', arrangement: 'community-galaxy', maxRepos: 100, showOther: true } });
+      const discovery = settings.organization.contributors.enabled ? settings.organization : presetOptions('organization-community').organization;
+      loadAccount(username(organization), false, 'all', { account: username(organization), options: { organizationScope: settings.organizationScope, organization: discovery, accountType: 'organization', organizationUser: name, organizationView: 'collaboration', arrangement: 'community-galaxy', maxRepos: 100, showOther: true } });
     }
     else loadAccount(name);
   }
@@ -519,10 +542,10 @@ restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
   hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
-  apply: async config => {
-    if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && (config.options.repoSource || 'all') !== loadedSource)) {
+  apply: async (config, { loadOrganization = false } = {}) => {
+    if (loading) throw new Error('Wait for the account to finish loading before applying a preset.');
+    if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && ((config.options.repoSource || 'all') !== loadedSource || loadOrganization))) {
       if (!await loadAccount(config.account, false, config.options.repoSource || 'all', config)) throw new Error('Could not load this configuration account.');
-      form.elements.username.value = config.account;
     } else { applyOptions(config.options); render(); }
   },
   theme: id => {

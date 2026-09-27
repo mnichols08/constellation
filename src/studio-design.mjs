@@ -1,4 +1,5 @@
 import { rhythmDefaults } from './coding-rhythm.mjs';
+import { studioPresets, presetOptions } from './studio-presets.mjs';
 import { mountOrganizationControls } from './organization/studio.mjs';
 import { mountStudioHistory } from './history/studio-history.mjs';
 import { mountRandomizeMotion } from './studio-randomize-motion.mjs';
@@ -18,7 +19,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const organizationControls = mountOrganizationControls(host, changed);
   let storage; try { storage = window.localStorage; } catch {}
   const store = createConfigStore(storage);
-  let current, svg = '', saveTimer, pending;
+  let current, svg = '', saveTimer, pending, presetAudience;
   const controls = new Map();
   let syncSky = () => {};
   const section = title => {
@@ -57,6 +58,28 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   document.querySelector('.studio-header').after(hero);
   const heroTitle = document.createElement('div'); heroTitle.className = 'design-launcher-title'; heroTitle.textContent = 'Find your next universe';
   const heroNote = document.createElement('p'); heroNote.textContent = 'One click. A new sky. Keep the code to come back.'; heroTitle.append(heroNote); hero.append(heroTitle);
+  const presetMenu = document.createElement('details'); presetMenu.className = 'builtin-preset-menu';
+  const presetSummary = document.createElement('summary'); presetSummary.textContent = 'Choose a preset'; presetMenu.append(presetSummary);
+  const presetBody = document.createElement('div'); presetBody.className = 'builtin-preset-body'; presetMenu.append(presetBody); hero.append(presetMenu);
+  const presetLabel = document.createElement('label'); presetLabel.htmlFor = 'builtin-preset'; presetLabel.textContent = 'Start with a useful view';
+  const presetSelect = document.createElement('select'); presetSelect.id = 'builtin-preset';
+  for (const preset of studioPresets) { const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label; presetSelect.append(option); }
+  const presetDescription = document.createElement('p'); presetDescription.id = 'builtin-preset-description'; presetSelect.setAttribute('aria-describedby', presetDescription.id);
+  const describePreset = () => { presetDescription.textContent = studioPresets.find(value => value.id === presetSelect.value)?.description || ''; };
+  presetSelect.addEventListener('change', describePreset); describePreset();
+  presetBody.append(presetLabel, presetSelect, presetDescription);
+  const presetApply = button(presetBody, 'apply-builtin-preset', 'Apply preset', async () => {
+    if (!current) return;
+    const preset = studioPresets.find(value => value.id === presetSelect.value);
+    if (preset.audience === 'organization' && current.options.accountData?.type !== 'Organization' && current.options.accountType !== 'organization') throw new Error('Load an organization first, then choose an organization preset.');
+    presetApply.disabled = true;
+    try {
+      await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { loadOrganization: preset.audience === 'organization' });
+      presetMenu.open = false; message(`${preset.label} applied. Customize it or save it as your own preset.`);
+    } finally { presetApply.disabled = false; }
+  });
+  presetMenu.addEventListener('keydown', event => { if (event.key === 'Escape') { presetMenu.open = false; presetSummary.focus(); } });
+  document.addEventListener('click', event => { if (!presetMenu.contains(event.target)) presetMenu.open = false; });
   const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v5:… (older codes also work)'; designCode.maxLength = 103;
   const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code';
   const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
@@ -171,7 +194,15 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
       return { ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
-    update(account, options, source) { if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`; },
+    update(account, options, source) {
+      const audience = options.accountData?.type === 'Organization' || options.accountType === 'organization' ? 'organization' : 'any';
+      if (audience !== presetAudience) {
+        presetSelect.value = audience === 'organization' ? 'organization-projects' : 'project-map';
+        for (const option of presetSelect.options) option.disabled = audience !== 'organization' && studioPresets.find(preset => preset.id === option.value).audience === 'organization';
+        presetAudience = audience; describePreset();
+      }
+      if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`;
+    },
     shared() { try { return decodeShare(location.href); } catch (error) { message(error.message, true); return null; } },
   };
 }

@@ -1,8 +1,22 @@
 # Organization universes
 
-Enter an organization such as `chingu-voyages` in the main account field. Account type is resolved automatically, with `auto`, `user`, and `organization` overrides under Projects → Account & organization.
+Choose **Organization** beside the account field, enter an organization such as `chingu-voyages`, and click **Build constellation**. No username is needed. New organization views start with a representative project atlas, language colors, and contributor discovery off. An existing organization-only draft is restored when available. Switching from a user-focused view clears that user's highlighting. The **Account** option still detects users and organizations automatically.
 
-To map a person into an organization, enter the **username in the first field** and the **organization in the optional second field**. Contributor diamonds, their projects, and contributors sharing those projects are highlighted. The organization remains the generated account; `organizationUser` records the highlighted username. Absence from a bounded scan is never presented as proof of no contributions.
+Open **Choose a preset** above the preview for a useful starting point:
+
+| Preset | Shows | Contributor discovery |
+| --- | --- | --- |
+| Project atlas | Representative projects grouped by language | Off |
+| Flagship projects | Up to 25 popular projects in a solar system | Off |
+| Community | Projects and their public contributors | Up to 20 repositories, 15 contributors each |
+| Technology map | Languages shared across projects | Off |
+| Project eras | Surviving projects grouped by creation year | Off |
+
+Applying an organization preset loads the data it needs, reusing cached results. Each preset replaces visual settings and filters, including random design codes, hidden nodes, and manual positions; save a custom preset first to keep an edited design. Account identity and any deliberately selected user focus are preserved. **Project map** and **Minimal README** are also available for any account. Presets can be customized, saved locally, exported as JSON, shared, or used in the daily workflow.
+
+The suggested output repository for an organization is `ORGANIZATION/.github`; an explicitly chosen output repository is preserved. Use the generated snippet in the organization's profile README and install the workflow in the output repository shown in the studio.
+
+To map a person into an organization, choose **User in organization**, enter the **username in the first field** and the **organization in the second field**. Contributor diamonds, their projects, and contributors sharing those projects are highlighted. The organization remains the generated account; `organizationUser` records the highlighted username. Absence from a bounded scan is never presented as proof of no contributions.
 
 Paired lookups first search public pull requests authored by that username in the organization, independently of the recent/representative repository window. Up to five search pages and 20 verified public project metadata records are cached. Those projects are prioritized for contributor discovery and rendering. Authored pull requests establish participation even when the author is absent from the top contributor page; their counts remain separate from repository contribution totals. Failed or truncated searches report partial coverage.
 

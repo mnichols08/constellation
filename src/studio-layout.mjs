@@ -93,7 +93,7 @@ export function mountStudioLayout() {
   $('.customization').hidden = true;
   $('#style-preview').hidden = true;
   $('.intro h1').textContent = 'Your code, written in the stars.';
-  $('#account-form button').textContent = 'Load GitHub';
+  $('#account-form button').textContent = 'Build constellation';
   document.body.classList.add('studio-ready');
   activate('look');
   // Header wrapping and system fonts vary across platforms. Measure the space
