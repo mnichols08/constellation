@@ -41,12 +41,12 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
         if (!plugin) throw new Error(`Unknown source plugin: ${source.source}. Register it before loading.`);
         const key = JSON.stringify([account, source.source, source.id, source.options || {}]);
         let items = cache.get(key);
+        const cached = Boolean(items);
         if (!items) {
           items = await plugin.load({ account, options: structuredClone(source.options || {}), signal, fetchImpl });
+          signal?.throwIfAborted();
           if (epoch !== generation) throw new Error('Source data was refreshed during this load; retry with the current snapshot.');
           if (!Array.isArray(items)) throw new Error(`Source ${source.id} must return an array of nodes.`);
-          if (cache.size >= 32) cache.delete(cache.keys().next().value);
-          cache.set(key, structuredClone(items));
         }
         if (!Array.isArray(items)) throw new Error(`Source ${source.id} must return an array of nodes.`);
         for (const item of items) {
@@ -55,6 +55,10 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
           if (seen.has(id)) throw new Error(`Duplicate source node ID: ${id}`);
           seen.add(id);
           result.push({ ...structuredClone(item), full_name: id, language: item.language || 'External', private: false, pluginSource: source.source, pluginInstance: source.id, pluginId: item.id, stargazers_count: item.stargazers_count || 0 });
+        }
+        if (!cached) {
+          if (cache.size >= 32) cache.delete(cache.keys().next().value);
+          cache.set(key, structuredClone(items));
         }
       }
       return result.sort((a, b) => a.full_name.localeCompare(b.full_name));

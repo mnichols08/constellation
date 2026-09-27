@@ -49,3 +49,33 @@ test('source snapshots survive view changes and explicit refresh gets fresh data
   assert.equal((await host.load(config, { refresh: true }))[0].name, 'snapshot-2');
   assert.equal(calls, 2);
 });
+
+test('refresh prevents an old pending source response from replacing the new snapshot', async () => {
+  const pending = [];
+  const host = createPluginHost().registerSource({ id: 'deferred', apiVersion: 1, load: () => new Promise(resolve => pending.push(resolve)) });
+  const config = { plugins: { sources: [{ id: 'one', source: 'deferred' }] } };
+  const old = host.load(config);
+  const rejected = assert.rejects(old, /refreshed/);
+  const fresh = host.load(config, { refresh: true });
+  pending[1]([{ id: 'x', name: 'New' }]);
+  assert.equal((await fresh)[0].name, 'New');
+  pending[0]([{ id: 'x', name: 'Old' }]);
+  await rejected;
+  assert.equal((await host.load(config))[0].name, 'New');
+});
+
+test('invalid and aborted responses never become reusable source snapshots', async () => {
+  let calls = 0;
+  const host = createPluginHost().registerSource({ id: 'retry', apiVersion: 1, load: async () => ++calls === 1 ? [{ name: 'No ID' }] : [{ id: 'x', name: 'Valid' }] });
+  const config = { plugins: { sources: [{ id: 'one', source: 'retry' }] } };
+  await assert.rejects(host.load(config), /valid id/);
+  assert.equal((await host.load(config))[0].name, 'Valid');
+  assert.equal(calls, 2);
+  const controller = new AbortController();
+  let resume;
+  const delayed = createPluginHost().registerSource({ id: 'retry', apiVersion: 1, load: () => new Promise(resolve => { resume = resolve; }) });
+  const load = delayed.load(config, { signal: controller.signal });
+  const rejected = assert.rejects(load, /abort/i);
+  controller.abort(); resume([{ id: 'x', name: 'Too late' }]);
+  await rejected;
+});

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.2 — 2026-09-27
+
+- Cache source responses only after validating every node, so malformed feeds can be retried without a forced refresh.
+- Reject responses completed after cancellation even when a custom loader ignores its signal.
+- Regression tests prove a late pre-refresh response cannot replace the new snapshot, and invalid/cancelled loads do not become cached data.
+
 ## 1.9.1 — 2026-09-27
 
 - Replace repeated all-node ring-occupancy scans in large overviews with a spatial index, preserving exact distance tests and node order.
