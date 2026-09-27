@@ -5,6 +5,21 @@ import { encodeShare, decodeShare } from '../src/share-link.mjs';
 import { themePacks } from '../packages/themes/index.mjs';
 
 const feed = (id, items) => ({ id, source: 'json-feed', options: { items } });
+test('source definitions and instance IDs are stable during an asynchronous load', async () => {
+  let resume;
+  const plugin = { id: 'delayed', apiVersion: 1, load: () => new Promise(resolve => { resume = resolve; }) };
+  const host = createPluginHost().registerSource(plugin);
+  plugin.load = () => { throw new Error('mutated'); };
+  const config = { plugins: { sources: [{ id: 'original', source: 'delayed' }] } };
+  const pending = host.load(config);
+  config.plugins.sources[0].id = 'changed';
+  resume([{ id: 'x', name: 'Stable' }]);
+  const nodes = await pending;
+  assert.equal(nodes[0].full_name, 'source:original:x');
+  assert.throws(() => host.render('tester', [nodes[0], nodes[0]]), /Duplicate graph node ID/);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(host.load(config, { signal: controller.signal }), /abort/i);
+});
 test('source instances coexist, report collisions, render custom nodes and preserve config', async () => {
   const host = createPluginHost();
   host.registerSource({ id: 'custom', apiVersion: 1, load: async () => [{ id: 'one', name: 'Custom' }], renderNode: () => ({ path: 'M0 -1 L1 1 L-1 1 Z', fill: '#abcdef' }) });

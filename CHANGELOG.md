@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — 2026-09-27
+
+- Snapshot registered source callbacks and source-instance config before asynchronous loading so caller mutations cannot change IDs or implementations mid-load.
+- Reject graph ID collisions when combining plugin and application data; clone returned metadata and honor cancellation before each loader.
+- Regression coverage exercises a paused load, caller mutation, duplicate merged IDs and cancellation.
+
 ## 1.8.0 — 2026-09-27
 
 - Add isolated source registries, namespaced source instances, duplicate-ID errors and a working JSON-feed source for the core and CLI/Action.

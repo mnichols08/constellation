@@ -20,7 +20,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
     registerSource(plugin) {
       if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== 1 || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
       if (sources.has(plugin.id)) throw new Error(`Source plugin already registered: ${plugin.id}`);
-      sources.set(plugin.id, plugin); return host;
+      sources.set(plugin.id, Object.freeze({ id: plugin.id, apiVersion: plugin.apiVersion, load: plugin.load, renderNode: plugin.renderNode })); return host;
     },
     registerThemePack(pack) {
       validateThemePack(pack);
@@ -30,7 +30,8 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
     },
     async load(config = {}, { account, signal } = {}) {
       const result = [], seen = new Set();
-      for (const source of [...pluginOptions(config.plugins)].sort((a, b) => a.id.localeCompare(b.id))) {
+      for (const source of structuredClone(pluginOptions(config.plugins)).sort((a, b) => a.id.localeCompare(b.id))) {
+        signal?.throwIfAborted();
         const plugin = sources.get(source.source);
         if (!plugin) throw new Error(`Unknown source plugin: ${source.source}. Register it before loading.`);
         const items = await plugin.load({ account, options: structuredClone(source.options || {}), signal, fetchImpl });
@@ -40,12 +41,17 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
           const id = `source:${source.id}:${encodeURIComponent(item.id)}`;
           if (seen.has(id)) throw new Error(`Duplicate source node ID: ${id}`);
           seen.add(id);
-          result.push({ ...item, full_name: id, language: item.language || 'External', private: false, pluginSource: source.source, pluginInstance: source.id, pluginId: item.id, stargazers_count: item.stargazers_count || 0 });
+          result.push({ ...structuredClone(item), full_name: id, language: item.language || 'External', private: false, pluginSource: source.source, pluginInstance: source.id, pluginId: item.id, stargazers_count: item.stargazers_count || 0 });
         }
       }
       return result.sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
     render(account, nodes, options = {}, runtime = {}) {
+      const ids = new Set();
+      for (const node of nodes) {
+        if (ids.has(node.full_name)) throw new Error(`Duplicate graph node ID: ${node.full_name}`);
+        ids.add(node.full_name);
+      }
       let themePack = options.themePack;
       if (themePack && !themePack.preset) themePack = themes.get(`${themePack.id}@${themePack.version}`) || themePack;
       return renderConstellation(account, nodes, { ...options, ...(themePack ? { themePack } : {}) }, {
