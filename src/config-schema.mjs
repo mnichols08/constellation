@@ -1,10 +1,17 @@
+import { rhythmDefaults, resolveRhythmTimezone } from './coding-rhythm.mjs';
 import { renderConstellation, username } from './constellation.mjs';
 import { visualCSS } from './visual-style.mjs';
 import { sizingModes } from './node-sizing.mjs';
+import { historyFields } from './history/settings.mjs';
+import { organizationFields } from './organization/settings.mjs';
 
 export const CONFIG_VERSION = 1;
 export const MAX_CONFIG_BYTES = 250000;
 const fields = new Set('theme layout maxRepos animate includeForks bridges connectionDensity connectionBasis languages topics showOther css repoSource arrangement ringAnimation perspective floatingAnimation ringRotation ringRotations identityRing snapToRings nodeMode hiddenNodes hiddenLabels colorConnections nodeColors labelOffsets labelPositions starPositions selection colors title includeRepos minStars includeArchived updatedWithin repoQuery sortBy sizingMode exportProfile visualStyle customCSS seedMode seed nodeSize nodeColorMode nodeGlowMode connectionWeight nodeShape effect legend visualTheme metricDate majorMetric designCode starfield activityEffect activityWindow activityDetail activityConnections activityMetricDate'.split(' '));
+for (const key of Object.keys(rhythmDefaults)) fields.add(key);
+for (const key of historyFields) fields.add(key);
+for (const key of organizationFields) fields.add(key);
+for (const key of ['starlightAnimate', 'activityAnimate']) fields.add(key);
 const nested = {
   ringAnimation: 'enabled linked speeds directions modes easing amplitudes',
   perspective: 'enabled animate horizontal vertical zoom range duration',
@@ -44,7 +51,7 @@ export function normalizeConfig(input) {
     if (Object.values(options[key]).some(point => !object(point) || Object.keys(point).some(key => !['x', 'y'].includes(key)) || Math.abs(point.x) > 10000 || Math.abs(point.y) > 10000)) throw new Error('Invalid manual coordinates.');
   }
   if (options.sizingMode !== undefined && !sizingModes.includes(options.sizingMode)) throw new Error('Invalid sizing mode.');
-  if (options.designCode !== undefined && (typeof options.designCode !== 'string' || !/^v[1234]:[a-z\d-]{1,100}$/i.test(options.designCode))) throw new Error('Invalid design code.');
+  if (options.designCode !== undefined && (typeof options.designCode !== 'string' || !/^v[12345]:[a-z\d-]{1,100}$/i.test(options.designCode))) throw new Error('Invalid design code.');
   if (options.nodeSize !== undefined && !sizingModes.includes(options.nodeSize)) throw new Error('Invalid node size mode.');
   if (options.majorMetric !== undefined && !['stars', 'updated'].includes(options.majorMetric)) throw new Error('Invalid major repository metric.');
   if (options.visualStyle) {
@@ -52,6 +59,7 @@ export function normalizeConfig(input) {
     if (Object.keys(options.visualStyle).some(key => !allowed.includes(key)) || typeof options.visualStyle.labels !== 'boolean') throw new Error('Invalid visual style fields.');
     visualCSS(options.visualStyle);
   }
+  if ('codingRhythmTimezone' in options) options.codingRhythmTimezone = resolveRhythmTimezone(options.codingRhythmTimezone);
   // Reuse the rendering validators, including legacy fields and motion settings.
   renderConstellation('validation', [], options);
   return JSON.parse(JSON.stringify(options));

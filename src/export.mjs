@@ -32,7 +32,7 @@ export function readmeSnippet(account, repository) {
 }
 
 export function renderWorkflow(_account, options) {
-  const { activityData, ...configuration } = options;
+  const { activityData, codingRhythmData, historyData, accountData, organizationData, ...configuration } = options;
   // JSON escapes preserve literal CSS dollars while preventing GitHub Actions
   // from interpreting user-authored CSS as workflow expressions.
   const json = JSON.stringify(configuration, null, 2).replace(/\$/g, '\\u0024');
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: mnichols08/constellation@v1
         with:
-          publish: 'true'
+          publish: 'true'${options.accountData?.type === 'Organization' || options.accountType === 'organization' || options.organizationUser ? `\n          username: '${username(_account)}'` : ''}
           config-json: |
 ${config}
 `;

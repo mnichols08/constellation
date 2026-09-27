@@ -3,12 +3,20 @@
 .studio-ready .intro { padding: 8px 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .studio-ready .intro h1 { font-size: 21px; line-height: 1.3; letter-spacing: -.6px; margin: 0; text-align: left; }
 .studio-ready .intro > .eyebrow, .studio-ready .intro > .lede { display: none; }
-.studio-ready #account-form { margin: 0; width: 390px; box-shadow: none; padding: 4px; }
+.studio-ready #account-form { margin: 0; width: min(620px, 100%); box-shadow: none; padding: 4px; }
+#organization-account { width: 42%; min-width: 0; border: 0; border-left: 1px solid #838d66; background: transparent; color: inherit; padding: 10px 8px; font-size: 12px; }
 .studio-ready .studio-header { height: 40px; padding: 0 18px; }
 .studio-ready .design-launcher { padding: 10px 16px; gap: 12px; flex-wrap: nowrap; }
 .studio-ready .randomize-primary { padding: 10px 16px; font-size: 12px; white-space: nowrap; }
 .studio-ready .randomize-motion { font-size: 11px; }
 .studio-ready .randomize-motion input { width: 28px; height: 16px; flex-shrink: 0; }
+.randomize-motion-menu { position: relative; flex-shrink: 0; margin: 0; border: 0; padding: 0; }
+.randomize-motion-menu > summary { font-size: 11px; white-space: nowrap; cursor: pointer; padding: 10px 0; }
+.randomize-motion-parts { position: absolute; z-index: 8; left: 0; top: 100%; width: min(340px, calc(100vw - 30px)); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 12px 36px #0005; }
+.randomize-motion-parts p { grid-column: 1 / -1; font-size: 11px; margin: 0 0 4px; color: var(--muted); }
+.randomize-motion-parts label { font-size: 11px; margin: 0; gap: 6px; }
+.randomize-motion-parts input { flex-shrink: 0; }
+@media(max-width:600px){.design-launcher{position:relative}.randomize-motion-menu{position:static}.randomize-motion-parts{left:10px;right:10px;width:auto}}
 .studio-ready .design-launcher > .secondary, .studio-ready .design-launcher > .download { width: auto; margin: 0; padding: 10px 12px; white-space: nowrap; }
 .studio-ready .design-launcher > .download { gap: 20px; }
 .studio-ready .design-code-menu { position: relative; margin: 0 0 0 auto; padding: 0; border: 0; }

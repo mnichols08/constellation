@@ -3,3 +3,4 @@ rust/**/target/
 .env
 .DS_Store
 .dist
+.cache/

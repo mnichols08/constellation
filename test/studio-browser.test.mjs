@@ -16,8 +16,16 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   const server = createPreviewServer({ fetchImpl: async url => {
     apiCalls++;
     const account = new URL(url).pathname.split('/')[2];
+    if (url.includes('/search/issues')) return Response.json({ total_count: 0, items: [] });
+    if (/\/(users|orgs)\/collective$/.test(url)) return Response.json({ login: 'collective', type: 'Organization', public_repos: 2 });
+    if (url.includes('/repos/collective/') && url.includes('/contributors')) return Response.json([{ login: 'alice', contributions: 8 }, { login: 'bob', contributions: 3 }]);
+    if (url.includes('/repos/collective/')) return Response.json({ Rust: 100 });
+    if (url.includes('/orgs/collective/events')) return Response.json([]);
+    if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: account, type: 'User' });
+    if (url.includes('/repos/mnichols08/') || url.includes('/repos/partial/')) return Response.json({ Rust: 100 });
     if (url.includes('/events/public')) return Response.json([{ id: '1', public: true, type: 'PushEvent', repo: { name: `${account}/repo-0` }, created_at: new Date(Date.now() - 3600000).toISOString(), payload: { secret: 'NEVER_RENDER' } }]);
-    return Response.json(['Rust', 'JavaScript'].map((language, i) => ({ name: `repo-${i}`, full_name: `${account}/repo-${i}`, language, languages: { [language]: 100 }, topics: ['tools'], stargazers_count: 20 - i, updated_at: '2026-01-01T00:00:00Z' })));
+    if (account === 'partial') return Response.json(Array.from({ length: 60 }, (_, i) => ({ name: `repo-${i}`, full_name: `partial/repo-${i}`, language: 'Rust', stargazers_count: 100 - i, topics: ['tools'], created_at: '2018-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })));
+    return Response.json(['Rust', 'JavaScript'].map((language, i) => ({ private: false, name: `repo-${i}`, full_name: `${account}/repo-${i}`, language, ...(account === 'mnichols08' ? {} : { languages: { [language]: 100 } }), topics: ['tools'], stargazers_count: 20 - i, created_at: (2018 + i * 4) + '-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })));
   } }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -60,6 +68,19 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  await evaluate(`input('design-codingRhythmStyle','orbit');input('design-codingRhythmWindow','14d');input('design-rhythmZoneMode','browser');`);
+  assert.equal(await evaluate(`document.querySelector('#design-codingRhythmStyle').closest('.inspector-panel').id`), 'panel-motion');
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.coding-rhythm-hour').length`), 24);
+  await evaluate(`click('copy-config');`);
+  assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).codingRhythmTimezone === Intl.DateTimeFormat().resolvedOptions().timeZone`), true);
+  await evaluate(`input('design-rhythmZoneMode','custom');input('design-codingRhythmTimezone','America/New_York');input('design-codingRhythmStyle','active-arc');`);
+  assert.match(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.innerHTML`), /America\/New_York/);
+  await evaluate(`click('design-codingRhythmAnimate');`);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.coding-rhythm-marker')).display`), 'none');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.coding-rhythm-hour')).display`), 'inline');
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
+  await evaluate(`input('design-codingRhythmStyle','hidden');`);
   assert.equal(await evaluate(`document.querySelectorAll('.inspector-panel:not([hidden])').length`), 1);
   assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-look');
   assert.ok(await evaluate(`(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>0&&r.bottom<innerHeight&&r.height>300;})()`));
@@ -84,8 +105,8 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
   await evaluate(`click('randomize-design');`);
   assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v4:motion-/);
-  assert.equal(await evaluate(`document.querySelector('#link-ring-motion').checked`), false);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:mfff-/);
+  assert.equal(await evaluate(`(async()=>{const {randomizeDesign}=await import('/src/design-randomizer.mjs');return document.querySelector('#link-ring-motion').checked===randomizeDesign(document.querySelector('#design-code').value).ringAnimation.linked;})()`), true);
   assert.ok(await evaluate(`(async()=>{
     const {randomizeDesign}=await import('/src/design-randomizer.mjs');
     const recipe=randomizeDesign(document.querySelector('#design-code').value);
@@ -94,9 +115,10 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     return rings&&perspective;
   })()`));
 
-  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('animate,animateTransform'))`));
+  // A v5 draw may select an empty historical/filter pool or a CSS-only layer.
+  assert.equal(await evaluate(`document.querySelector('#animate').checked && document.querySelector('#design-starlightAnimate').checked && document.querySelector('#animate-rings').checked`), true);
   await evaluate(`click('randomize-motion');click('randomize-design');`);
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v4:still-/);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:m000-/);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('animate,animateTransform').length`), 0);
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`), first);
@@ -114,6 +136,8 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.starfield-twinkle')).animationName`), 'none');
   if (process.env.CONSTELLATION_SCREENSHOT) {
+    const studioShot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/organization-studio.png', Buffer.from(studioShot.data, 'base64'));
     await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
     await evaluate(`input('design-activityEffect','comet');input('design-visualTheme','deep-space');document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
     const pageShot = await cdp('Page.captureScreenshot');
@@ -138,13 +162,32 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#design-seed').value`), 'shared');
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.account = name => { document.querySelector('#username').value=name; document.querySelector('#account-form').requestSubmit(); };account('tester');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
-  assert.equal(apiCalls, 2);
+  assert.equal(apiCalls, 3);
+  await evaluate(`input('node-mode','repositories');input('history-mode','historical');input('history-year','2019');`);
+  assert.equal(await evaluate(`document.querySelector('#history-year').min`), '2018');
+  assert.equal(await evaluate(`document.querySelector('#history-year').hidden`), false);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.repository').length`), 1);
+  await evaluate(`input('history-year','2026');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.repository').length`), 2);
+  await evaluate(`document.querySelector('#animate').checked=true;input('history-mode','time-lapse');`);
+  for (const mode of ['grow', 'orbit', 'crossfade']) {
+    await evaluate(`input('history-lapse',${JSON.stringify(mode)});`);
+    assert.equal(await evaluate(`(async()=>{const source=await(await fetch(document.querySelector('.download').href)).text();return new DOMParser().parseFromString(source,'image/svg+xml').querySelectorAll('parsererror').length;})()`), 0, `${mode} exports valid XML`);
+    assert.equal(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.history-year')).every(el=>getComputedStyle(el).animationName==='none')`), true);
+    assert.equal(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('text.history-year')).filter(el=>Number(getComputedStyle(el).opacity)>0).length`), 1, `${mode} shows only the latest year for reduced motion`);
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    const firstYear = await evaluate(`(()=>{const root=document.querySelector('#preview').firstChild.shadowRoot;for(const animation of root.querySelector('svg').getAnimations({subtree:true})){animation.pause();animation.currentTime=100;}return Array.from(root.querySelectorAll('text.history-year')).filter(el=>Number(getComputedStyle(el).opacity)>.9).map(el=>el.textContent);})()`);
+    assert.deepEqual(firstYear, ['2018'], `${mode} begins at the first historical year`);
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  }
+  assert.equal(apiCalls, 3, 'year slider and all time-lapse modes remain local');
+  await evaluate(`input('history-mode','current');`);
   await evaluate(`input('design-activityEffect','comet');input('design-activityWindow','1d');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.activity-comet').length`), 1);
   assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.innerHTML`), /NEVER_RENDER/);
   await evaluate(`input('design-nodeShape','square');input('design-repoQuery','repo-0');`);
   assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /1 included/);
-  assert.equal(apiCalls, 2, 'customization never fetches');
+  assert.equal(apiCalls, 3, 'customization never fetches');
   await evaluate(`account('another');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@another')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'circle');
@@ -152,7 +195,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'square');
   assert.equal(await evaluate(`document.querySelector('#design-repoQuery').value`), 'repo-0');
-  assert.equal(apiCalls, 4, 'returning to loaded accounts uses cached data');
+  assert.equal(apiCalls, 6, 'returning to loaded accounts uses cached data');
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await evaluate(`document.querySelector('#tab-look').click();document.querySelector('#design-sky-mode').closest('details').open=true;`);
@@ -167,9 +210,92 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await evaluate(`document.querySelector('.inspector-scroll').scrollTop=200;`);
   assert.equal(await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`), mobilePreviewTop);
   if (process.env.CONSTELLATION_SCREENSHOT) {
+    const studioShot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/organization-studio.png', Buffer.from(studioShot.data, 'base64'));
     await evaluate(`document.querySelector('.inspector-scroll').scrollTop=0;`);
     const mobileShot=await cdp('Page.captureScreenshot');
     await writeFile('.dist/studio-mobile.png',Buffer.from(mobileShot.data,'base64'));
   }
+  await evaluate(`document.querySelector('.randomize-motion-menu').open=true;`);
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'animation parts fit on mobile');
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    const studioShot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/organization-studio.png', Buffer.from(studioShot.data, 'base64'));
+    const capture = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/animation-parts-mobile.png', Buffer.from(capture.data, 'base64'));
+  }
+  await evaluate(`input('design-minStars','999999999');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length`), 0, 'manual empty filters remain visible');
+  assert.match(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.textContent`), /No projects match these filters/);
+  assert.equal(await evaluate(`document.querySelector('#reset-project-filters').hidden`), false);
+  const beforeReset = apiCalls;
+  await evaluate(`document.querySelector('#reset-project-filters').click();`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length`), 2);
+  assert.equal(apiCalls, beforeReset, 'resetting project filters stays local');
+  await evaluate(`input('design-minStars','999999999');account('mnichols08');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@mnichols08')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#map-title').textContent`), '@mnichols08’s sky');
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="repository"]').length`), 2, 'a new account loads its default pool despite previous restrictive filters');
+  assert.equal(await evaluate(`document.querySelector('#design-minStars').value`), '0');
+  assert.equal(await evaluate(`document.querySelector('#load-projects').hidden`), true, 'the displayed pool already has language data');
+  const requestsBeforeRandomizing = apiCalls;
+  await evaluate(`document.querySelector('#randomize-motion').checked=true;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));for(const input of document.querySelectorAll('.randomize-motion-parts input')){input.checked=input.id==='randomize-ring2';input.dispatchEvent(new Event('input'));}document.querySelector('#randomize-design').click();`);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:m008-/);
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length > 0`), 'randomization selects a nonempty design');
+  assert.equal(await evaluate(`document.querySelector('#design-starlightAnimate').checked`), false);
+  assert.equal(await evaluate(`Number(document.querySelector('#ring-speed-0').value)`), 0);
+  assert.ok(await evaluate(`Number(document.querySelector('#ring-speed-1').value)>0`));
+  assert.equal(await evaluate(`document.querySelector('#perspective-animate').checked`), false);
+  assert.equal(apiCalls, requestsBeforeRandomizing, 'randomization stays local');
+  await evaluate(`account('partial');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@partial')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#map-title').textContent`), '@partial’s sky', await evaluate(`document.querySelector('#status').textContent`));
+  assert.equal(await evaluate(`document.querySelector('#max-repos').value`), '45', 'default pool matches the repositories hydrated on account load');
+  const partialCalls = apiCalls;
+  await evaluate(`input('design-minStars','999999999');document.querySelector('#randomize-motion').checked=false;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length`), 0);
+  for (let i = 0; i < 12; i++) {
+    await evaluate(`document.querySelector('#randomize-design').click();`);
+    assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length>0`), `partial-cache randomization ${i} produces a populated preview`);
+    assert.equal(await evaluate(`document.querySelector('#load-projects').hidden`), true, 'accepted random designs need no additional data');
+    assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.textContent`), /No projects match|No public repositories|No public pinned repositories/);
+  }
+  assert.equal(apiCalls, partialCalls, 'retrying partially cached designs stays local');
+  await evaluate(`document.querySelector('#organization-account').value='collective';account('alice');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('Organization universe')`)) break; await delay(50); }
+  assert.match(await evaluate(`document.querySelector('#map-title').textContent`), /collective.*Organization universe.*alice/);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="contributor"]').length`), 2);
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-organization-focus]').length >= 4`));
+  assert.match(await evaluate(`document.querySelector('#organization-status').textContent`), /selected organization scope/);
+  const organizationCalls = apiCalls;
+  await evaluate(`input('arrangement','collaboration-gravity');input('org-view','history');input('org-grouping','year');input('org-view','collaboration');document.querySelector('#copy-config').click();`);
+  assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).organizationUser`), 'alice');
+  assert.match(await evaluate(`document.querySelector('#workflow').value`), /username: 'collective'/);
+  assert.equal(apiCalls, organizationCalls, 'organization layouts and views are local');
   assert.deepEqual(errors, []);
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    const studioShot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/organization-studio.png', Buffer.from(studioShot.data, 'base64'));
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 940, height: 620, deviceScaleFactor: 1, mobile: false });
+    const gallery = await readFile('examples/gallery/night-owl.svg', 'utf8');
+    await cdp('Page.navigate', { url: 'data:text/html;base64,' + Buffer.from('<meta charset="utf-8"><body style="margin:20px;background:#080c24">' + gallery).toString('base64') });
+    await delay(200);
+    const shot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/coding-rhythm.png', Buffer.from(shot.data, 'base64'));
+    if (process.env.CONSTELLATION_ORGANIZATION_SVG) {
+      const svg = await readFile(process.env.CONSTELLATION_ORGANIZATION_SVG, 'utf8');
+      await cdp('Page.navigate', { url: 'data:text/html;base64,' + Buffer.from('<meta charset="utf-8"><body style="margin:20px;background:#080c24">' + svg).toString('base64') });
+      await delay(150);
+      const capture = await cdp('Page.captureScreenshot');
+      await writeFile('.dist/organization-live.png', Buffer.from(capture.data, 'base64'));
+    }
+    for (const name of ['developer-history', 'open-source-galaxy', 'time-machine', 'stellar-ages', 'organization-community', 'organization-user', 'organization-eras']) {
+      const svg = await readFile(`examples/gallery/${name}.svg`, 'utf8');
+      await cdp('Page.navigate', { url: 'data:text/html;base64,' + Buffer.from('<meta charset="utf-8"><body style="margin:20px;background:#080c24">' + svg).toString('base64') });
+      await delay(150);
+      assert.equal(await evaluate(`document.querySelectorAll('parsererror').length`), 0);
+      const capture = await cdp('Page.captureScreenshot');
+      await writeFile(`.dist/${name}.png`, Buffer.from(capture.data, 'base64'));
+    }
+  }
 });

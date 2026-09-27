@@ -4,8 +4,9 @@ const fields = {
 };
 export function createFormRestorer(document) {
   // Imported configurations may legitimately select fewer than five repositories.
-  document.getElementById('max-repos').min = '1';
   document.getElementById('max-repos').step = '1';
+  // Relax the step first so changing the minimum cannot snap 45 to 46.
+  document.getElementById('max-repos').min = '1';
   const defaults = new Map([...document.querySelectorAll('input[id],select[id],textarea[id]')].map(input => [input.id, input.type === 'checkbox' ? input.checked : input.value]));
   const set = (id, value) => { const input = document.getElementById(id); if (!input) return; const next = value ?? defaults.get(id); if (input.type === 'checkbox') input.checked = next; else input.value = next; };
   return options => {

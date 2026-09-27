@@ -16,15 +16,13 @@ Sections expand on demand, one at a time within each tab. Randomize and Download
 
 ## Randomize, then return to a design
 
-Use the main **Randomize design** toolbar, and save the resulting **design code**, such as `v4:motion-my-sky`. Paste that code and choose **Restore code** to regenerate its coordinated theme, layout, node mappings, shapes, effects and background starfield. The original `v1` recipe keeps classic dust; `v2` adds seeded starfields; `v3` also preserves randomized motion. **Include motion** now generates a `v4` recipe with independent settings for all four rings: starting rotation, speed (0.25–1.5 RPM), direction, spin/sway style, sway angle and easing. Rings are unlocked so these choices remain independent. Free-node layouts also get randomized floating style, amplitude and duration. Perspective varies its enabled state, horizontal and vertical tilt, zoom, animation, shift range and cycle duration; these layers can run together. A still recipe can retain a static perspective but disables every animation. Uncheck it to generate a reproducible still recipe. Motion respects reduced-motion preferences. Existing codes continue to work. Codes use a deterministic PRNG, not a cryptographic hash or an authentication secret.
+Use **Randomize design** to explore the full visual configuration: light/dark palettes, layout and output format, graph mode, node mappings, shapes, connections, labels, effects, starfields, repository filters, recent activity, coding rhythm and all History & Evolution layers. Numeric controls vary too, including ring motion, perspective, glow, line weights, density, durations, history buckets and lifecycle thresholds. The result is saved in a reproducible `v5` design code.
 
-The code recreates the randomized visual recipe for the same account and repository data. It preserves your project filters. It resets manual colors, positions, selection, visibility, authored CSS, and motion overrides so these do not interfere with reproducing the recipe. Export JSON to preserve later edits, filters, and coordinates exactly. The JSON contains both the recipe code and the resulting explicit settings; CLI rendering does not need to regenerate the recipe.
+**Include motion** is the master permission for the next randomized recipe. Open **Animation parts** for separate switches: repository twinkle, background stars, each of four rings, floating nodes, perspective, activity effects, coding rhythm, contribution orbit and time-lapse. Unchecked parts stay still; checked parts may animate when their layer is present. These permissions are encoded in the code. A still recipe can retain a static perspective. Reduced-motion viewers always receive a static view. The part preferences are also kept locally for the next randomization.
 
-**Seed mode** controls seeded palettes, glow variation, layout variation, background stars, ring identity and animation phases:
+For example, `v5:m008-y2026-f2012-my-sky` permits only the second ring to animate and draws historical years from 2012–2026. The code stores the loaded account's year range, so replay does not drift into new random years as time passes. Turning motion permissions on or off retains the same seeded visual choices. Existing `v1`–`v4` recipes are frozen and remain supported.
 
-- `account`: use the lowercase GitHub username.
-- `custom`: use the saved `seed` string.
-- `random`: generate a seed once in the studio, then save it in the config. CLI configs using this mode must include the seed.
+Randomization can change project filters and history mode. Empty draws are retried locally before updating the preview, including pinned selections and empty language/topic categories. If 256 attempts find no matching design, the current design is retained. Manual configuration and Restore code still show their actual empty result. Account identity, repository source, credentials, timezone, authored text and GitHub facts are not randomized. Manual colors, positions, visibility, selection and authored CSS are reset for recipe replay. Export JSON to preserve later edits and exact coordinates. The JSON contains both the recipe code and the explicit resulting settings. Customization and randomization never fetch GitHub data; use the existing Load data button if the selected project pool needs language metadata.
 
 Randomize node hues still saves its explicit colors. Those colors override automatic color mappings. Clear manual colors to return to a mapped palette.
 
@@ -36,7 +34,7 @@ The **Background starfield** section offers Off, Classic dust, Deep Space and Mi
 
 `starfield` accepts `mode` (`off`, `classic`, `space`, `milky-way`), `density` (0–100), `brightness` (0–1), `depth` (0–1), `twinkle` (boolean), and `seed` (up to 120 characters). An empty background seed follows the design seed. **Generate another starfield** changes only the background seed; copy/export JSON or a share link to preserve it. Increasing density extends a stable point sequence without moving existing stars. Compact output profiles reduce the decorative point budget.
 
-Only a sparse subset twinkles, using CSS animation. Disabling Starlight animation, turning off twinkle, or requesting reduced motion produces a still sky. No JavaScript animation loop is added. Transparent exports retain stars but omit the band haze. Existing configs without `starfield` retain classic dust; a fresh studio starts with Deep Space stars, and `v2:`/`v3:`/`v4:` randomized designs save their own sky settings. The existing Background stars opacity control also affects the generated sky.
+Only a sparse subset twinkles, using CSS animation. Disabling Light & history animation, turning off twinkle, or requesting reduced motion produces a still sky. No JavaScript animation loop is added. Transparent exports retain stars but omit the band haze. Existing configs without `starfield` retain classic dust; a fresh studio starts with Deep Space stars, and `v2:`–`v5:` randomized designs save their own sky settings. The existing Background stars opacity control also affects the generated sky.
 
 ### Nodes and connections
 
@@ -115,10 +113,42 @@ Choose **Recent activity** → Glow, Pulse, Comet trails, or Ripple. The default
 
 Settings work in JSON, CLI, Action config, local presets and share links. Fetched events and calculated scores are excluded from these exports. A design code recreates its visual recipe; live repository and event data can change the generated image. Download JSON to preserve activity settings and other manual changes.
 
-The loader requests `/users/{username}/events/public` centrally, at most three pages of 100 events. The studio caches a normalized snapshot per account for the tab session. Only account load/refresh fetches data; changing modes, colors, themes or windows uses that snapshot. The CLI skips events entirely when activity is off. Fetch failures remain nonfatal and produce a diagnostic. Only public events matching represented public repositories influence rendering; payloads, commit messages, issue/PR text and actors never enter the activity cache or SVG.
+The loader requests `/users/{username}/events/public` centrally, at most three pages of 100 events. The studio caches a normalized snapshot per account for the tab session. Only account load/refresh fetches data; changing modes, colors, themes or windows uses that snapshot. The CLI skips events entirely when both recent activity and Coding Rhythm are off. Fetch failures remain nonfatal and produce a diagnostic. Only public events matching represented public repositories influence rendering; payloads, commit messages, issue/PR text and actors never enter the activity cache or SVG.
 
 Scores use a 72-hour half-life within the selected window. Weights are push 1, pull request 1.2, release 1.5, repository/branch creation 1.25, issue .4, comment .2, watch .1 and fork .25. Each event type contributes at most 6 weighted points per repository, total mass is capped at 12, and score is `min(.98, 1 - exp(-mass / 3))`. Auto uses the shortest supported window containing a matching event; no activity falls back to 30 days. These limits keep busy projects from overwhelming the image.
 
 This is a daily README visualization, not real-time telemetry or a contribution counter. GitHub's [public events API](https://docs.github.com/en/rest/activity/events#list-public-events-for-a-user) can be delayed and returns a limited history. Missing events do not prove inactivity.
 
 [Active Developer](../examples/active-developer.json) combines Deep Space, Galaxy placement, star-based size, language color and comet trails. Its [synthetic event fixture](../examples/fixtures/public-events.json) and fixed reference date reproduce the gallery without network access. Run `node scripts/generate-examples.mjs`. For CLI fixtures, combine `--fixture repositories.json --activity-fixture events.json`; omitting the event fixture with repository fixtures keeps generation offline. Remove `activityMetricDate` when adapting the example to a live daily workflow.
+
+
+## Coding Rhythm / Circadian Sky
+
+In **Motion > Coding rhythm**, choose Orbit, Active arc, or Halo. The outer orbit shows when recent public GitHub activity commonly occurs; brighter regions indicate more common active hours. Weekday stars run Monday-Sunday. The feature is off by default, including when changing themes. It uses theme colors and preserves repository positions and identity rings.
+
+This uses only available public events, reusing the existing snapshot without additional requests. Event history may be incomplete (at most 300 available events). It is not a full contribution history, exact coding time, productivity measurement, or private activity tracking. The rhythm covers the account's public events, including projects outside the displayed selection; repository accents still follow represented projects.
+
+| Config field | Values / default |
+| --- | --- |
+| `codingRhythm` | `false`; set `true` to enable |
+| `codingRhythmStyle` | `orbit` (default), `active-arc`, `halo`, `hidden` |
+| `codingRhythmWindow` | `7d`, `14d`, `30d` (default); independent of comet settings |
+| `codingRhythmTimezone` | `UTC` (default), or an IANA zone such as `America/New_York` |
+| `codingRhythmDays` | `off`, `subtle` (default), `full` (weekday initials) |
+| `codingRhythmAnimate` | `false` (default); decorative SVG orbit marker |
+| `codingRhythmPeakLabel` | `true` (default); shown only with sufficient events |
+| `codingRhythmLabels` | `none`, `quarters` (default: 00/06/12/18), `cardinal` |
+| `codingRhythmCelestialMarkers` | `false`; faint clock-day/night arcs, not sunrise/sunset |
+| `codingRhythmProjectHints` | `false`; tiny static repository halo intensity differences based on activity hour |
+
+The studio's Browser timezone option exports its resolved IANA timezone, never `local`. Headless `local` deterministically resolves to UTC; it never uses the runner's timezone. No geolocation is stored. Intl handles timezone and DST conversion. A repeated local hour on a fall-back day shares one saturated bucket.
+
+Weights are push 1, pull request .9, release .8, create .7, issue .35 and comment .15; other events contribute zero. Each local date/hour bucket contributes `1 - exp(-sum(weights))`. Hourly and weekday distributions are independently normalized to [0, 1]. Five events in five occupied buckets are required to describe a peak; fewer events produce subdued marks, and no relevant events omit the layer. The peak window is the strongest four consecutive hours, including midnight wrapping; ties choose the earliest start hour. Confidence is a coarse coverage indicator, not statistical certainty.
+
+Animation is decorative, not the current time. Reduced motion hides the traveling marker and leaves the static orbit unchanged. Theme colors work in adaptive light/dark and transparent exports. Configuration, saved presets, share links and daily Action workflows preserve settings without storing events or aggregates.
+
+[Night Owl](../examples/night-owl.json) combines Deep Space, Galaxy, comet trails and a 30-day New York orbit. [Weekend Builder](../examples/weekend-builder.json) demonstrates weekday stars and an active arc. Both have fixed synthetic public-event fixtures and [gallery SVGs](../examples/gallery/night-owl.svg). Run `node scripts/generate-examples.mjs` offline; it reports total size and rhythm overhead (about 4.1 KiB orbit / 1.8 KiB active arc). Remove `activityMetricDate` when adapting either preset to a daily live workflow. This shared reference date freezes fixture aggregation; ordinary generation uses the snapshot date.
+
+## History & Evolution
+
+Contribution orbits, inferred language eras, stellar ages, foreign galaxies and historical growth share a public-only temporal model. Open **Projects → History & evolution** in the studio. See the [history guide](history.md) for configuration, data limitations, API behavior and time-lapse size safeguards, or explore the [four showcase presets](../examples/README.md#history--evolution).

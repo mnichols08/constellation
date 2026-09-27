@@ -1,7 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPreviewData } from '../src/preview-data.mjs';
+import { createPreviewData, canRenderPreview } from '../src/preview-data.mjs';
+import { randomizeMatchingDesign, randomizeDesign } from '../src/design-randomizer.mjs';
 import { renderConstellation, selectRepositoryPool } from '../src/constellation.mjs';
+
+test('randomization skips nonempty recipes that would retain an old empty preview awaiting language data', () => {
+  const repos = Array.from({ length: 60 }, (_, i) => ({ name: `repo-${i}`, full_name: `tester/repo-${i}`, language: 'Rust', ...(i < 45 ? { languages: { Rust: 100 } } : {}), stargazers_count: 100 - i, topics: ['tools'], created_at: '2018-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }));
+  const options = { referenceDate: '2026-09-27T00:00:00Z', maxRepos: 60 };
+  assert.equal(selectRepositoryPool(repos, options).length, 60);
+  assert.equal(canRenderPreview(repos, options), false);
+  assert.equal(canRenderPreview(repos, { ...options, maxRepos: 45 }), true);
+  assert.equal(canRenderPreview(repos, { ...options, minStars: 1000 }), false);
+  let missingCode, readyCode;
+  for (let i = 0; i < 300 && (!missingCode || !readyCode); i++) {
+    const code = `v5:m000-y2026-f2018-ready-${i}`;
+    const recipe = { ...randomizeDesign(code), referenceDate: options.referenceDate };
+    const pool = selectRepositoryPool(repos, recipe);
+    if (pool.length && pool.some(repo => !repo.languages)) missingCode ??= code;
+    if (canRenderPreview(repos, recipe)) readyCode ??= code;
+  }
+  assert.ok(missingCode && readyCode);
+  const candidates = [missingCode, readyCode];
+  const selected = randomizeMatchingDesign(() => candidates.shift(), recipe => canRenderPreview(repos, { ...recipe, referenceDate: options.referenceDate }));
+  assert.equal(selected.designCode, readyCode);
+  assert.equal(candidates.length, 0);
+  assert.match(renderConstellation('tester', repos, selected), /class="star"/);
+});
 
 function fixture() {
   const calls = [];
@@ -10,6 +34,7 @@ function fixture() {
   const repos = Array.from({ length: 8 }, (_, i) => ({ name: `repo-${i}`, full_name: `octocat/repo-${i}`, stargazers_count: 8 - i }));
   const fetchImpl = async url => {
     calls.push(url);
+    if (/\/users\/[^/?]+$/.test(url)) return { ok: true, json: async () => ({ login: 'octocat', type: 'User' }) };
     return { ok: true, json: async () => url.includes('/events/public') ? [] : url.includes('/users/') ? repos : { JavaScript: 100, CSS: 20 } };
   };
   return { calls, storage, fetchImpl };
@@ -19,7 +44,7 @@ test('customization, returning to an account, and tab reloads reuse the first sn
   const f = fixture();
   let data = createPreviewData(f);
   const repos = await data.load('Octocat', { maxRepos: 5 });
-  assert.equal(f.calls.length, 7);
+  assert.equal(f.calls.length, 8);
   for (const maxRepos of [1, 3, 5]) {
     renderConstellation('octocat', repos, { maxRepos, css: '.star { opacity: .8; }', topics: [], theme: 'auto' });
     assert.equal(selectRepositoryPool(data.snapshot('octocat'), { maxRepos }).length, maxRepos);
@@ -27,13 +52,13 @@ test('customization, returning to an account, and tab reloads reuse the first sn
   await data.load('OCTOCAT', { maxRepos: 5 });
   data = createPreviewData(f);
   await data.load('octocat', { maxRepos: 5 });
-  assert.equal(f.calls.length, 7);
+  assert.equal(f.calls.length, 8);
   assert.equal(selectRepositoryPool(data.snapshot('octocat'), { maxRepos: 8 }).filter(repo => !repo.languages).length, 3);
-  assert.equal(f.calls.length, 7, 'changing the pool does not fetch');
+  assert.equal(f.calls.length, 8, 'changing the pool does not fetch');
   await data.load('octocat', { maxRepos: 8 });
-  assert.equal(f.calls.length, 10, 'explicit load fetches only missing languages');
+  assert.equal(f.calls.length, 11, 'explicit load fetches only missing languages');
   await data.load('octocat', { maxRepos: 5 }, { refresh: true });
-  assert.equal(f.calls.length, 17, 'explicit refresh fetches a fresh list and selected languages');
+  assert.equal(f.calls.length, 19, 'explicit refresh fetches a fresh list and selected languages');
 });
 
 test('partial successes survive a failed load and a tab reload', async () => {
@@ -63,5 +88,5 @@ test('storage restrictions do not break in-memory caching and concurrent loads a
   const data = createPreviewData(f);
   await Promise.all([data.load('octocat', { maxRepos: 5 }), data.load('octocat', { maxRepos: 5 })]);
   await data.load('octocat', { maxRepos: 5 });
-  assert.equal(f.calls.length, 7);
+  assert.equal(f.calls.length, 8);
 });

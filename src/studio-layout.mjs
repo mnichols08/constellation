@@ -55,11 +55,14 @@ export function mountStudioLayout() {
   section('design-sky-mode', look);
   section('design-nodeSize', look).querySelector('summary').textContent = 'Node appearance';
   section('palette-controls', look);
+  field('design-starlightAnimate', panel('motion'));
   section('design-seed', look).querySelector('summary').textContent = 'Seed & finishing touches';
   look.append(fold('Advanced CSS', $('#generated-css').closest('details'), $('#custom-css').closest('details')));
-  for (const id of ['animate-rings', 'perspective-enabled', 'animate-floating', 'design-activityEffect']) section(id, panel('motion'));
+  for (const id of ['animate-rings', 'perspective-enabled', 'animate-floating', 'design-activityEffect', 'design-codingRhythmStyle']) section(id, panel('motion'));
   field('animate', panel('motion'));
   section('repo-source', panel('projects'));
+  panel('projects').append($('#organization-controls'));
+  section('history-mode', panel('projects'));
   panel('projects').append(fold('Languages & topics', $('.graph-filters')));
   section('design-minStars', panel('projects'));
   panel('projects').append(fold('Account & connection help', $('.form-note'), $('#token-help')), $('.stats'), $('#engine-status'));

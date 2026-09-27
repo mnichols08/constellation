@@ -1,10 +1,22 @@
-import { seededRandom, newSeed } from './seeded-random.mjs';
+import { seededRandom } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
+import { newV5Code, randomizeV5 } from './design-randomizer-v5.mjs';
 
-export const newDesignCode = ({ motion = true } = {}) => `v4:${motion ? 'motion' : 'still'}-${newSeed()}`;
+export const newDesignCode = newV5Code;
+
+// Only the Randomize action uses this search. Restoring a code remains exact.
+// Bound attempts so an empty source cannot leave the studio in an endless loop.
+export function randomizeMatchingDesign(makeCode, matches, maxAttempts = 256) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const recipe = randomizeDesign(makeCode());
+    if (matches(recipe)) return recipe;
+  }
+  return null;
+}
 
 // Freeze released recipes: future recipes get a new prefix so shared codes never drift.
 export function randomizeDesign(code) {
+  if (typeof code === 'string' && /^v5:/i.test(code)) return randomizeV5(code);
   if (typeof code === 'string' && /^v4:[a-z\d-]{1,100}$/i.test(code)) {
     const base = randomizeDesign(code.replace(/^v4:/i, 'v2:'));
     const random = seededRandom(`${code}:independent-motion`);
@@ -47,7 +59,7 @@ export function randomizeDesign(code) {
     return { ...randomizeDesign(code.replace(/^v2:/i, 'v1:')), designCode: code, seed: code,
       starfield: { mode: random() < .65 ? 'space' : 'milky-way', density: 35 + Math.floor(random() * 36), brightness: .8, depth: .8, twinkle: true, seed: '' } };
   }
-  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1:, v2:, v3: or v4: followed by letters, numbers or hyphens.');
+  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Use a valid v1:, v2:, v3:, v4: or v5: design code.');
   const random = seededRandom(code);
   const pick = values => values[Math.floor(random() * values.length)];
   const visualTheme = pick(['github-dark', 'deep-space', 'terminal', 'solarized', 'dracula', 'synthwave', 'monochrome', 'contribution', 'rustacean', 'javascript']);

@@ -106,6 +106,7 @@ test('public event fetching is centralized, bounded, authenticated and fails wit
 test('failed activity stays nonfatal and cached until explicit refresh', async () => {
   let eventCalls = 0;
   const data = createPreviewData({ fetchImpl: async url => {
+    if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'tester', type: 'User' });
     if (!url.includes('/events/public')) return Response.json(repos);
     eventCalls++;
     return eventCalls === 1 ? new Response('', { status: 429 }) : Response.json([event(1)]);

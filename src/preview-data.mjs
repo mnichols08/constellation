@@ -1,6 +1,17 @@
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool } from './constellation.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, graphNodes } from './constellation.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
 import { sanitizeActivityEvents } from './activity.mjs';
+import { createOrganizationData, attachFocusEvidence } from './organization/data.mjs';
+import { organizationEnabled } from './organization/settings.mjs';
+
+// Match the studio's render gate, not just repository metadata. A recipe that
+// needs uncached languages would leave the previous (possibly empty) SVG visible.
+export function canRenderPreview(repositories, options) {
+  const pool = selectRepositoryPool(repositories, options);
+  if (!pool.length || (!organizationEnabled(options) && pool.some(repo => !repo.languages))) return false;
+  const hidden = new Set(options.hiddenNodes || []);
+  return graphNodes(repositories, options).nodes.some(node => !hidden.has(node.full_name));
+}
 
 export function createPreviewFetch({ proxyBase, fetchImpl = fetch } = {}) {
   return (url, options) => {
@@ -24,6 +35,8 @@ export function createPinnedFetch({ proxyBase, fetchImpl = fetch } = {}) {
 
 // Only load() performs network requests. Rendering and customization read snapshots.
 export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = createPinnedFetch() } = {}) {
+  const organization = createOrganizationData({ storage, fetchImpl });
+  const profiles = new Map(), organizationSnapshots = new Map();
   const key = 'constellation-public-data-v1';
   let accounts = {};
   try {
@@ -42,7 +55,7 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
   async function loadActivity(name, refresh) {
     if (activityPending.has(name)) return activityPending.get(name);
     if (!refresh && Object.hasOwn(activityAccounts, name)) return activityAccounts[name];
-    const request = fetchPublicActivity(name, { fetchImpl }).then(snapshot => {
+    const request = fetchPublicActivity(name, { fetchImpl, accountType: profiles.get(name)?.type === 'Organization' ? 'organization' : 'user' }).then(snapshot => {
       activityAccounts[name] = snapshot;
       try { storage?.setItem(activityKey, JSON.stringify(activityAccounts)); } catch {}
       return snapshot;
@@ -65,17 +78,35 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
     const key = sourceKey(name, options);
     if (pending.has(key)) return pending.get(key);
     const request = (async () => {
+      const profile = await organization.resolve(name, options, refresh);
+      profiles.set(name, profile);
+      const effective = { ...options, accountData: profile };
+      const focus = profile.type === 'Organization' && options.organizationUser ? await organization.focusRepositories(name, options.organizationUser, { refresh }) : null;
       // Keep the previous snapshot available if refreshing fails.
       let listed = !refresh && snapshot(name, options);
-      if (!listed) listed = options.repoSource === 'pinned' ? await fetchPinned(name) : await fetchRepositories(name, { fetchImpl });
+      let discovered;
+      if (profile.type === 'Organization' && options.repoSource !== 'pinned') {
+        discovered = await organization.discover(name, options, { refresh });
+        const hydrated = new Map((listed || []).map(repo => [repo.full_name, repo.languages]));
+        listed = discovered.repositories.map(repo => ({ ...repo, ...(hydrated.get(repo.full_name) ? { languages: hydrated.get(repo.full_name) } : {}) }));
+      } else if (!listed) listed = options.repoSource === 'pinned' ? await fetchPinned(name) : await fetchRepositories(name, { fetchImpl });
+      if (focus && options.repoSource !== 'pinned') listed = [...new Map([...listed, ...focus.repositories].map(repo => [repo.full_name, repo])).values()];
       if (refresh) caches.delete(name);
       const cache = caches.get(name) || new Map();
       caches.set(name, cache);
       accounts[key] = listed;
       save();
       await loadActivity(name, refresh);
+      if (profile.type === 'Organization') {
+        const contributors = attachFocusEvidence(await organization.contributors(listed, effective, { refresh }), focus, options.organizationUser, listed);
+        organizationSnapshots.set(name, { ...contributors, discovered: listed.length, metadataComplete: discovered?.complete ?? true, diagnostic: [discovered?.diagnostic, contributors.diagnostic].filter(Boolean).join(' ') });
+        effective.organizationData = organizationSnapshots.get(name);
+      }
       try {
-        await fetchRepositoryLanguages(selectRepositoryPool(listed, options), { fetchImpl, cache, onProgress });
+        await fetchRepositoryLanguages(selectRepositoryPool(listed, effective), { fetchImpl, cache, onProgress });
+      } catch (error) {
+        if (profile.type !== 'Organization') throw error;
+        organizationSnapshots.get(name).diagnostic += ' Some language details unavailable; using primary languages. ' + error.message;
       } finally {
         // Preserve successful lookups even when another request hits a rate limit.
         const entries = await Promise.all([...cache].map(async ([repo, value]) => {
@@ -90,5 +121,5 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
     pending.set(key, request);
     try { return await request; } finally { pending.delete(key); }
   }
-  return { snapshot, load, activity: account => activityAccounts[username(account).toLowerCase()] };
+  return { snapshot, load, activity: account => activityAccounts[username(account).toLowerCase()], profile: account => profiles.get(username(account).toLowerCase()), organization: account => organizationSnapshots.get(username(account).toLowerCase()) };
 }
