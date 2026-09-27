@@ -11,3 +11,4 @@ function run(command, args) {
 run('cargo', ['build', '--locked', '--manifest-path', 'rust/constellation-core/Cargo.toml', '--target', 'wasm32-unknown-unknown', '--release']);
 await mkdir(new URL('../src/wasm/', import.meta.url), { recursive: true });
 run('wasm-bindgen', ['rust/constellation-core/target/wasm32-unknown-unknown/release/constellation_core.wasm', '--target', 'web', '--out-dir', 'src/wasm', '--no-typescript']);
+await import('./build-inline-wasm.mjs');

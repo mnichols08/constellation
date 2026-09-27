@@ -7,12 +7,15 @@ export function mountInteractive(root, source, options = {}) {
   const abort = new AbortController();
   const listen = (target, type, handler, settings = {}) => target.addEventListener(type, handler, { ...settings, signal: abort.signal });
   const status = root.querySelector('[data-status]');
+  const details = root.querySelector('[data-details]');
   const base = [...scene.viewport.viewBox];
   const records = new Map(scene.nodes.map(node => [node.id, node]));
   const groups = [...svg.querySelectorAll('.repository')].filter(group => group.style.display !== 'none');
   const ids = [...new Set(groups.map(group => group.querySelector('.star')?.dataset.repo).filter(id => records.has(id)))];
   const groupId = group => group.querySelector('.star')?.dataset.repo;
-  let camera = [...base], selected = null, dragging = null, moved = false;
+  let camera = [...base], selected = null, endpoint = null, path = [], dragging = null, moved = false;
+  const edges = [...svg.querySelectorAll('.shared-language')].filter(edge => ids.includes(edge.dataset.from) && ids.includes(edge.dataset.to));
+  const pairs = Uint32Array.from(edges.flatMap(edge => [ids.indexOf(edge.dataset.from), ids.indexOf(edge.dataset.to)]));
   const announce = text => { if (status) status.textContent = text; };
   const emit = (type, detail) => root.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
   const applyCamera = () => { svg.setAttribute('viewBox', camera.join(' ')); emit('camera-change', { viewBox: [...camera] }); };
@@ -37,18 +40,58 @@ export function mountInteractive(root, source, options = {}) {
     const width = Math.min(camera[2], base[2] / 3), height = width * base[3] / base[2];
     setCamera([point.x - width / 2, point.y - height / 2, width, height]);
   }
-  function selectNode(id, { focus = true } = {}) {
+  function showDetails(id) {
+    if (!details) return;
+    details.replaceChildren();
+    if (!id) return;
+    const record = records.get(id), metadata = record.metadata;
+    const heading = document.createElement('h2'); heading.textContent = metadata.name || id;
+    const description = document.createElement('p'); description.textContent = metadata.description || '';
+    const summary = document.createElement('p'); summary.textContent = [metadata.language, Number.isFinite(metadata.stargazers_count) ? `${metadata.stargazers_count} stars` : null].filter(Boolean).join(' · ');
+    details.append(heading, description, summary);
+    if (typeof metadata.html_url === 'string') {
+      try {
+        const url = new URL(metadata.html_url);
+        if (['https:', 'http:'].includes(url.protocol) && !url.username && !url.password) {
+          const link = document.createElement('a'); link.href = url.href; link.textContent = 'Open project'; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link);
+        }
+      } catch { /* Non-URL source metadata stays plain text. */ }
+    }
+  }
+  function highlight() {
+    const engine = options.engine;
+    const indices = selected && engine ? endpoint
+      ? engine.shortest_path(ids.length, pairs, ids.indexOf(selected), ids.indexOf(endpoint))
+      : engine.neighbors(ids.length, pairs, ids.indexOf(selected)) : [];
+    path = endpoint ? Array.from(indices, index => ids[index]) : [];
+    const related = new Set(Array.from(indices, index => ids[index]));
+    if (selected) related.add(selected);
+    if (endpoint) related.add(endpoint);
+    const enabled = scene.layers.find(layer => layer.id === 'selection')?.visible !== false;
+    svg.toggleAttribute('data-interactive-selection', Boolean(selected && engine && enabled));
+    for (const group of groups) {
+      group.toggleAttribute('data-related', related.has(groupId(group)));
+      group.setAttribute('aria-pressed', String(groupId(group) === selected || groupId(group) === endpoint));
+    }
+    for (const label of svg.querySelectorAll('.repo-label')) label.toggleAttribute('data-related', related.has(label.dataset.repo));
+    for (const edge of edges) {
+      const { from, to } = edge.dataset;
+      edge.toggleAttribute('data-related', endpoint ? path.some((id, i) => i > 0 && ((path[i - 1] === from && id === to) || (path[i - 1] === to && id === from))) : from === selected || to === selected);
+    }
+  }
+  function selectNode(id, { focus = true, extend = false } = {}) {
     if (!records.has(id) || !ids.includes(id)) throw new Error(`Unknown or hidden node: ${id}`);
-    selected = id;
+    if (extend && selected) endpoint = id;
+    else { selected = id; endpoint = null; }
     svg.removeAttribute('data-exploring');
-    for (const group of groups) group.setAttribute('aria-pressed', String(groupId(group) === id));
+    highlight(); showDetails(id);
     if (focus) focusNode(id);
-    announce(records.get(id).metadata.name);
-    emit('node-select', { id, node: structuredClone(records.get(id)) });
+    announce(endpoint ? path.length ? `${path.length - 1} connections: ${path.map(id => records.get(id).metadata.name).join(' → ')}` : 'No path between the selected nodes.' : `${records.get(id).metadata.name}. Shift-select another node to trace a path.`);
+    emit('node-select', { id, node: structuredClone(records.get(id)), start: selected, end: endpoint, path: [...path] });
   }
   function clearSelection() {
-    selected = null; svg.removeAttribute('data-exploring');
-    for (const group of groups) group.setAttribute('aria-pressed', 'false');
+    selected = null; endpoint = null; svg.removeAttribute('data-exploring');
+    highlight(); showDetails(null);
     announce('Selection cleared.'); emit('node-select', { id: null, node: null });
   }
   function fit() {
@@ -68,11 +111,11 @@ export function mountInteractive(root, source, options = {}) {
     if (!record) continue;
     group.setAttribute('role', 'button'); group.setAttribute('tabindex', id === ids[0] ? '0' : '-1');
     group.setAttribute('aria-label', `${record.metadata.name}. Select and focus.`); group.setAttribute('aria-pressed', 'false');
-    listen(group, 'click', event => { if (!moved) { event.stopPropagation(); selectNode(id); } });
+    listen(group, 'click', event => { if (!moved) { event.stopPropagation(); selectNode(id, { extend: event.shiftKey }); } });
     listen(group, 'pointerenter', () => { announce(record.metadata.name); emit('node-hover', { id }); });
     listen(group, 'pointerleave', () => emit('node-hover', { id: null }));
     listen(group, 'keydown', event => {
-      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(id); }
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(id, { extend: event.shiftKey }); }
       if (event.key === 'Escape') { event.preventDefault(); clearSelection(); }
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
         event.preventDefault(); event.stopPropagation();
@@ -104,7 +147,7 @@ export function mountInteractive(root, source, options = {}) {
     if (event.key === '-') { event.preventDefault(); zoom(1.25); }
     if (event.key === 'Escape') clearSelection();
   });
-  const api = { selectNode, clearSelection, fit, reset, setCamera, get camera() { return [...camera]; }, get selection() { return selected; }, destroy() { abort.abort(); dragging = null; delete root.constellation; } };
+  const api = { selectNode, clearSelection, fit, reset, setCamera, get camera() { return [...camera]; }, get selection() { return selected; }, get selectionState() { return { start: selected, end: endpoint, path: [...path] }; }, destroy() { abort.abort(); dragging = null; delete root.constellation; } };
   root.constellation = api;
   announce('Select a node to focus. Drag to pan; use the zoom controls or mouse wheel.');
   emit('scene-ready', { nodes: ids.length });
@@ -120,5 +163,8 @@ export const interactiveStyles = `
 .constellation-canvas>svg{display:block;width:100%;height:100%;touch-action:none}
 .constellation-runtime .repository{cursor:pointer}.constellation-runtime .repository[aria-pressed=true] .star-halo{opacity:.55}
 .constellation-status{padding:8px 16px;min-height:1.5em;margin:0}
+.constellation-details{padding:0 16px 16px}.constellation-details:empty{display:none}.constellation-details a{color:#a9cdfb}
+[data-interactive-selection] .repository:not([data-related]),[data-interactive-selection] .repo-label:not([data-related]){opacity:.2}
+[data-interactive-selection] .shared-language:not([data-related]){opacity:.07}
 @media(prefers-reduced-motion:reduce){.constellation-runtime *{scroll-behavior:auto;transition:none!important}}
 `;

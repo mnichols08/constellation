@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.1 — 2026-09-27
+
+- Add node details, safe project links, and explicit selection/path state to interactive exports.
+- Shift-click or Shift-Enter traces shortest paths using the bundled Rust/WASM engine; ordinary selection reveals neighbours.
+- Embed WASM and bindings for offline traversal; test links, escaping, highlighting and keyboard controls in Chromium.
+
 ## 2.5.0
 
 - Add self-contained interactive HTML export from compiled scenes and CLI `build --format html`.
