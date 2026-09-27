@@ -23,3 +23,11 @@ After `scene-ready`, call `selectNode(id, { focus, extend })`, `clearSelection()
 `await setConfig(config)` returns whether a connected view was rendered successfully. `loadScene(sceneOrJSON)` validates and renders synchronously, returning the same boolean. Assigning data while disconnected stages it for connection. These update methods report errors through the event rather than an unhandled promise rejection.
 
 Listen on the element for `scene-ready` (first render per connection), `scene-change` (subsequent renders), `node-select`, `node-hover`, and `error`. Events bubble and cross the Shadow DOM boundary. Scene events include an isolated scene in `detail.scene`; selection includes `id`, node metadata, start/end and path; hover includes `id`; errors include `message`. Handlers may immediately use the imperative API. Programmatic selection uses the same event path as keyboard and pointer interaction.
+
+## Lifecycle and isolation
+
+`loading="lazy"` defers rendering and source requests until the element approaches the viewport (200 px margin). Give it a useful size in your page layout. Unsupported IntersectionObserver falls back to eager rendering. Each instance owns its pipeline, layout and source caches; it shares no mutable configuration or selection state.
+
+Changing `src`, supplying a new scene/config, or disconnecting cancels in-flight loading. Aborted results cannot replace newer data or emit errors. Explicit config/scene updates take precedence over a previously set URL until `src` changes or `reload()` is called. Reconnection restores the staged scene/config and listeners. Disconnecting disposes pointer, keyboard, media and resize listeners and clears computation caches.
+
+Source caching retains at most four JSON documents, each at most 1 MiB; larger valid documents are used without retention, and documents above 32 MiB are rejected. `cacheStatistics` reports source and computation counts. `await reload()` clears source caching and reloads the current URL. ResizeObserver reports `view-resize` without disturbing the camera.

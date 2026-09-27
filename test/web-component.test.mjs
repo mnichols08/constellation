@@ -27,5 +27,24 @@ test('component renders isolated config and scene properties with accessible con
   assert.ok(await evaluate(`window.componentEvents.some(event => event.type === 'scene-change' && event.detail.scene.metadata.account === 'next')`));
   assert.equal(await evaluate(`document.querySelector('#second').loadScene({version:99})`), false);
   assert.ok(await evaluate(`window.componentEvents.some(event => event.type === 'error')`));
+  await evaluate(`window.detached = document.querySelector('#second'); detached.remove(); document.body.append(detached);`);
+  await waitFor(`Boolean(document.querySelector('#second').shadowRoot.querySelector('main').constellation)`);
+  await evaluate(`window.lazyView = document.createElement('constellation-view'); lazyView.setAttribute('loading','lazy'); lazyView.style.display='none'; lazyView.scene=document.querySelector('#view').scene; document.body.append(lazyView);`);
+  assert.equal(await evaluate(`lazyView.shadowRoot.querySelector('main')`), null);
+  await evaluate(`lazyView.style.display='block'; lazyView.scrollIntoView()`);
+  await waitFor(`Boolean(lazyView.shadowRoot.querySelector('main')?.constellation)`);
+  await evaluate(`window.originalFetch = window.fetch; window.cancelledLoads = 0; window.fetch = (url, options) => {
+    if (String(url).includes('/slow-scene')) return new Promise((resolve,reject) => options.signal.addEventListener('abort', () => { cancelledLoads++; reject(new DOMException('Aborted','AbortError')); }));
+    if (String(url).includes('/fixture-scene')) return Promise.resolve(new Response(JSON.stringify(document.querySelector('#view').scene)));
+    return originalFetch(url,options);
+  }; lazyView.setAttribute('src','/slow-scene'); lazyView.setAttribute('src','/fixture-scene');`);
+  await waitFor(`lazyView.cacheStatistics.sources === 1`);
+  assert.equal(await evaluate('cancelledLoads'), 1);
+  await evaluate(`lazyView.setAttribute('src','/slow-scene'); lazyView.remove();`);
+  assert.equal(await evaluate('cancelledLoads'), 2);
+  await evaluate(`lazyView.removeAttribute('src'); document.body.append(lazyView); lazyView.scrollIntoView()`);
+  await waitFor(`Boolean(lazyView.shadowRoot.querySelector('main')?.constellation)`);
+  assert.equal(await evaluate('lazyView.cacheStatistics.pipeline.entries'), 0);
+  await evaluate('window.fetch = originalFetch');
   assert.deepEqual(errors, []);
 });

@@ -2,7 +2,7 @@ import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, 
 import { mountInteractive, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
 export class ConstellationView extends HTMLElement {
-  static observedAttributes = ['src', 'config', 'account'];
+  static observedAttributes = ['src', 'config', 'account', 'loading'];
   #config = null;
   #records = [];
   #scene = null;
@@ -11,27 +11,34 @@ export class ConstellationView extends HTMLElement {
   #pipeline = createDataPipeline();
   #layouts = createLayoutHost();
   #initialized = false;
+  #intersection = null;
+  #visible = true;
+  #sourceMode = true;
+  #sourceCache = new Map();
   constructor() { super(); this.attachShadow({ mode: 'open' }); }
   get config() { return this.#config && structuredClone(this.#config); }
   set config(value) { this.setConfig(value); }
   get records() { return structuredClone(this.#records); }
   set records(value) {
     if (!Array.isArray(value)) throw new Error('records must be an array.');
-    this.#records = structuredClone(value); this.#refresh();
+    this.#records = structuredClone(value); this.#refresh(false);
   }
   get scene() { return this.#scene && structuredClone(this.#scene); }
   set scene(value) { this.loadScene(value); }
   setConfig(value) {
     try {
       const config = parseConfig(value); normalizeConfig(config.options);
-      this.#config = config; return this.#refresh(false);
+      this.#sourceMode = false; this.#config = config; return this.#refresh(false);
     } catch (error) { this.#error(error); return Promise.resolve(false); }
   }
   loadScene(value) {
     try {
       const scene = parseScene(typeof value === 'string' ? value : serializeScene(value));
-      this.#request?.abort(); this.#scene = scene; this.#config = null;
-      return this.#render();
+      this.#request?.abort(); const previous = this.#scene;
+      this.#sourceMode = false; this.#scene = scene; this.#config = null;
+      const rendered = this.#render();
+      if (!rendered && this.isConnected && this.#visible) this.#scene = previous;
+      return rendered;
     } catch (error) { this.#error(error); return false; }
   }
   #active() { if (!this.#runtime) throw new Error('Constellation view is not ready.'); return this.#runtime; }
@@ -42,12 +49,30 @@ export class ConstellationView extends HTMLElement {
   setFilter(value) { return this.#active().setFilter(value); }
   setTheme(value) { return this.#active().setTheme(value); }
   get selection() { return this.#runtime?.selectionState || { start: null, end: null, path: [] }; }
-  connectedCallback() { this.#refresh(); }
-  disconnectedCallback() { this.#request?.abort(); this.#runtime?.destroy(); this.#runtime = null; this.#initialized = false; }
+  connectedCallback() { this.#observe(); }
+  disconnectedCallback() {
+    this.#request?.abort(); this.#intersection?.disconnect(); this.#intersection = null;
+    this.#runtime?.destroy(); this.#runtime = null; this.#initialized = false;
+    this.#pipeline.clear(); this.#layouts.clearCache();
+  }
+  #observe() {
+    this.#intersection?.disconnect(); this.#intersection = null;
+    this.#visible = this.getAttribute('loading') !== 'lazy' || typeof IntersectionObserver !== 'function';
+    if (this.#visible) { this.#refresh(); return; }
+    this.#intersection = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      this.#visible = true; this.#intersection.disconnect(); this.#intersection = null; this.#refresh();
+    }, { rootMargin: '200px' });
+    this.#intersection.observe(this);
+  }
+  reload() { this.#sourceCache.clear(); this.#sourceMode = true; return this.#refresh(); }
+  get cacheStatistics() { return { sources: this.#sourceCache.size, sourceLimit: 4, pipeline: this.#pipeline.cacheStatistics, layout: this.#layouts.cacheStatistics }; }
   attributeChangedCallback(name, previous, value) {
     if (previous === value) return;
+    if (name === 'src') { this.#sourceMode = true; this.#request?.abort(); }
+    if (name === 'loading') { if (this.isConnected) this.#observe(); return; }
     if (name === 'config') {
-      try { this.#config = value === null ? null : parseConfig(value); }
+      try { this.#config = value === null ? null : parseConfig(value); this.#sourceMode = false; }
       catch (error) { this.#error(error); return; }
     }
     if (this.isConnected) this.#refresh();
@@ -57,20 +82,28 @@ export class ConstellationView extends HTMLElement {
     if (!this.#runtime) { const message = document.createElement('p'); message.setAttribute('role', 'alert'); message.textContent = error.message; this.shadowRoot.replaceChildren(message); }
   }
   async #refresh(loadSource = true) {
-    if (!this.isConnected) return false;
+    if (!this.isConnected || !this.#visible) return false;
     this.#request?.abort(); const request = new AbortController(); this.#request = request;
     try {
-      const src = loadSource && this.getAttribute('src');
+      const src = loadSource && this.#sourceMode && this.getAttribute('src');
       if (src) {
         const url = new URL(src, this.ownerDocument.baseURI);
         if (!['http:', 'https:'].includes(url.protocol)) throw new Error('src must be an HTTP(S) JSON URL.');
-        const response = await fetch(url, { signal: request.signal });
-        if (!response.ok) throw new Error(`Unable to load visualization (${response.status}).`);
-        const text = await response.text(); request.signal.throwIfAborted();
+        let text = this.#sourceCache.get(url.href);
+        if (text === undefined) {
+          const response = await fetch(url, { signal: request.signal });
+          if (!response.ok) throw new Error(`Unable to load visualization (${response.status}).`);
+          text = await response.text();
+        }
+        request.signal.throwIfAborted();
         if (text.length > 32 * 1024 * 1024) throw new Error('Visualization JSON exceeds 32 MiB.');
         const data = JSON.parse(text);
         if (['scene', 'time-lapse'].includes(data.kind)) { this.#scene = parseScene(text); this.#config = null; }
         else { this.#config = parseConfig(data.config || data); if (data.records !== undefined) { if (!Array.isArray(data.records)) throw new Error('records must be an array.'); this.#records = data.records; } }
+        if (text.length <= 1024 * 1024) {
+          this.#sourceCache.delete(url.href); this.#sourceCache.set(url.href, text);
+          while (this.#sourceCache.size > 4) this.#sourceCache.delete(this.#sourceCache.keys().next().value);
+        }
       }
       if (this.#config || !this.#scene) {
         const config = this.#config || parseConfig({ account: this.getAttribute('account') || 'your-universe', options: {}, version: 6 });
@@ -82,7 +115,7 @@ export class ConstellationView extends HTMLElement {
     } catch (error) { if (!request.signal.aborted) this.#error(error); return false; }
   }
   #render() {
-    if (!this.isConnected || !this.#scene) return false;
+    if (!this.isConnected || !this.#visible || !this.#scene) return false;
     try {
       // Validate custom styling before inserting renderer-owned SVG markup.
       const scenes = this.#scene.kind === 'time-lapse' ? [this.#scene, this.#scene.latest, ...this.#scene.frames.map(frame => frame.scene)] : [this.#scene];

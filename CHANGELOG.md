@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.2 — 2026-09-27
+
+- Support lazy component initialization with IntersectionObserver and responsive runtime ResizeObserver cleanup.
+- Cancel superseded/disconnected JSON loads and let explicit property updates supersede a source URL.
+- Bound per-instance source caches, expose cache statistics/reload, clear computational caches on disconnect, and restore views on reconnect.
+- Test two-instance isolation, lazy visibility, abort races and lifecycle disposal in Chromium.
+
 ## 2.6.1 — 2026-09-27
 
 - Expose component selection, clear, fit/reset, filtering, theme, setConfig and loadScene methods.
