@@ -32,7 +32,7 @@ export function projectNodes(input) {
     if (projections.size >= 8) projections.delete(projections.keys().next().value);
     projections.set(key, result);
   }
-  return projections.get(key);
+  return structuredClone(projections.get(key));
 }
 const scenes = new Map();
 export function computeScene(input) {

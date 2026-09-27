@@ -5,9 +5,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { renderConstellation, validateConfig, explainFilters } from '../packages/core/src/core-api.mjs';
+import { renderConstellation, validateConfig, explainFilters, graphNodes } from '../packages/core/src/core-api.mjs';
 
 const repos = [{ name: 'a', full_name: 'tester/a', language: 'Rust' }, { name: 'b', full_name: 'tester/b', language: 'JavaScript' }];
+
+test('mutating returned category members cannot poison subsequent core renders', () => {
+  const options = { nodeMode: 'languages', animate: false };
+  const before = renderConstellation('tester', repos, options);
+  const graph = graphNodes(repos, options);
+  graph.nodes[0].members.push('injected/repository');
+  assert.equal(renderConstellation('tester', repos, options), before);
+  assert.ok(!graphNodes(repos, options).nodes[0].members.includes('injected/repository'));
+});
 
 test('core imports and renders outside the repository with bundled WASM', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-core-'));

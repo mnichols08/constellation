@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1 — 2026-09-27
+
+- Isolate returned projection data from the engine cache so API consumers cannot corrupt later renders by editing category members.
+- Check the packaged engine actually used by the CLI instead of loading a second source-tree engine to report availability.
+- Add a cache-mutation regression through the standalone package API.
+
 ## 1.7.0 — 2026-09-27
 
 - Build a standalone, versioned `@constellation/core` ESM package with its complete dependency closure and WASM. The CLI/Action consumes that package internally.
