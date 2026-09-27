@@ -93,6 +93,17 @@ export function mountStudioLayout() {
   $('#account-form button').textContent = 'Load GitHub';
   document.body.classList.add('studio-ready');
   activate('look');
+  // Header wrapping and system fonts vary across platforms. Measure the space
+  // above/below the canvas instead of assuming a fixed toolbar height.
+  function fitWorkspace() {
+    const top = body.getBoundingClientRect().top + window.scrollY;
+    const footer = $('.status-bar').getBoundingClientRect().height;
+    body.style.setProperty('--studio-height', `${Math.max(300, window.innerHeight - top - footer - 12)}px`);
+  }
+  const sizing = new ResizeObserver(fitWorkspace);
+  for (const element of [$('.masthead'), $('.intro'), $('.studio-header'), launcher, $('.status-bar')]) sizing.observe(element);
+  window.addEventListener('resize', fitWorkspace);
+  fitWorkspace();
   function reveal(element) {
     const match = [...panels].find(([, value]) => value.panel.contains(element));
     if (!match) return;

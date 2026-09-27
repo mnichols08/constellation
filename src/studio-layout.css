@@ -16,7 +16,7 @@
 .studio-ready .design-code-menu > .control-section-body { position: absolute; z-index: 5; right: 0; top: 100%; width: 340px; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 36px #0005; }
 .studio-ready .design-code-controls { margin: 0; }
 .studio-ready .design-code-controls label { margin: 0; }
-.studio-ready .studio-body { height: max(340px, calc(100dvh - 280px)); max-height: 960px; grid-template-columns: minmax(0, 1fr) 320px; }
+.studio-ready .studio-body { height: var(--studio-height, max(340px, calc(100dvh - 280px))); max-height: 960px; grid-template-columns: minmax(0, 1fr) 320px; }
 .studio-ready .studio-body.preview-only { grid-template-columns: minmax(0, 1fr); }
 .studio-ready .sky-panel { min-height: 0; overflow: hidden; }
 .studio-ready #preview { min-height: 0; overflow: hidden; }
@@ -78,7 +78,7 @@
   .studio-ready .design-code-menu { margin-left: 0; }
   .studio-ready .design-code-menu > .control-section-body { left: 0; right: auto; width: min(320px, calc(100vw - 44px)); }
   .studio-ready .design-launcher > .download { margin-left: auto; }
-  .studio-ready .studio-body { display: grid; height: max(400px, calc(100dvh - 268px)); grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(170px, 40%) minmax(0, 1fr); }
+  .studio-ready .studio-body { display: grid; height: var(--studio-height, max(300px, calc(100dvh - 268px))); grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(170px, 40%) minmax(0, 1fr); }
   .studio-ready .studio-body.preview-only { grid-template-rows: minmax(0, 1fr); }
   .studio-ready .controls { border-left: 0; border-top: 1px solid var(--line); }
   .studio-ready .sky-legend { display: none; }

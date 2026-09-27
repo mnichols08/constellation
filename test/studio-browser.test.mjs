@@ -158,7 +158,11 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await evaluate(`document.querySelector('#tab-look').click();document.querySelector('#design-sky-mode').closest('details').open=true;`);
   await delay(50);
   assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'mobile has no horizontal overflow');
-  assert.ok(await evaluate(`(()=>{const p=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('.controls').getBoundingClientRect();return p.height>100&&p.bottom<=c.top&&c.bottom<innerHeight;})()`), 'mobile keeps preview above the bounded controls');
+  const mobileBounds = await evaluate(`(()=>{const p=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('.controls').getBoundingClientRect();return {previewHeight:p.height,previewBottom:p.bottom,controlsTop:c.top,controlsBottom:c.bottom,viewport:innerHeight};})()`);
+  assert.ok(mobileBounds.previewHeight>100&&mobileBounds.previewBottom<=mobileBounds.controlsTop&&mobileBounds.controlsBottom<mobileBounds.viewport, `mobile keeps preview above the bounded controls: ${JSON.stringify(mobileBounds)}`);
+  await evaluate(`document.querySelector('.design-launcher').style.paddingBottom='48px';`);
+  await delay(100);
+  assert.ok(await evaluate(`document.querySelector('.controls').getBoundingClientRect().bottom<innerHeight`), 'workspace adapts when toolbar height changes');
   const mobilePreviewTop=await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`);
   await evaluate(`document.querySelector('.inspector-scroll').scrollTop=200;`);
   assert.equal(await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`), mobilePreviewTop);
