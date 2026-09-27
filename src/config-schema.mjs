@@ -12,7 +12,9 @@ for (const key of Object.keys(rhythmDefaults)) fields.add(key);
 for (const key of historyFields) fields.add(key);
 for (const key of organizationFields) fields.add(key);
 for (const key of ['starlightAnimate', 'activityAnimate']) fields.add(key);
+fields.add('layoutRefinement');
 const nested = {
+  layoutRefinement: 'enabled intensity',
   ringAnimation: 'enabled linked speeds directions modes easing amplitudes',
   perspective: 'enabled animate horizontal vertical zoom range duration',
   floatingAnimation: 'enabled mode amplitude duration', selection: 'start end',

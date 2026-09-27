@@ -61,6 +61,20 @@ Ring points now spread across all four rings before a ring receives another poin
 
 Optional `nodeShape` values are `circle`, `star`, `diamond`, `hexagon`, `square`, and `mixed`. Shapes use shared SVG clip definitions and retain the existing animated circle anchors. `effect` offers `none`, `grid`, `scanlines`, or `coordinates` (small hexadecimal IDs). Effects are static, lightweight decorations. `legend: true` adds a compact explanation of the selected visual mappings. Reduced-motion behavior remains active.
 
+### Refine layout
+
+**Nodes → Refine layout** enables a one-shot Rust/WASM overlap-reduction pass after the selected arrangement. It is off by default. Intensity ranges from 0–10 (default 5); zero is a no-op, and higher values allow more iterations and up to `6 × intensity` SVG units of movement from each starting position. The pass uses node and estimated label bounds, preserves node-to-label attachment, and does not hide additional labels. Crowded layouts can still overlap.
+
+```json
+"layoutRefinement": { "enabled": true, "intensity": 5 }
+```
+
+Manual node positions, manual label positions/offsets, and hidden nodes/labels pin their entire pair. Other nodes can move around them. **Lock positions** remains the dragging lock; saved manual placements are protected even when dragging is unlocked. Reset manual placements to let those pairs participate again.
+
+With **Snap nodes to ring points** enabled, accepted moves land on valid ring anchors and can swap two movable pairs. Hidden nodes reserve their points. Bounds and intensity still apply, so occupied rings or distant anchors can prevent improvement; unchanged off-ring starting positions are retained rather than forced onto distant anchors. Turn snapping off for free nudges that stay near the starting arrangement.
+
+Refinement is deterministic for the same repository data and settings and is independent of motion or reduced-motion preferences. The browser, CLI and Action call the same WASM function. SVG contains the resulting coordinates; configurations, workflows, saved presets and share links retain the setting and manual coordinates so the result is recomputed from the same inputs. Live GitHub data can change future output. This is an additive config field; existing `v1`–`v5` recipes are unchanged and no new recipe version is required. Randomizing styling or animations preserves this setting.
+
 ## Built-in account presets
 
 **Choose a preset** offers Project map, Flagship projects, Technology atlas, Language orbits, Recent work, Project journey, Minimal README, and Classic Constellation for individual accounts. Organization-specific presets remain available when an organization is loaded.

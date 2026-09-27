@@ -67,7 +67,7 @@ export function mountStudioLayout() {
   section('design-minStars', panel('projects'));
   panel('projects').append(fold('Account & connection help', $('.form-note'), $('#token-help')), $('.stats'), $('#engine-status'));
   field('node-mode', panel('nodes')); panel('nodes').append($('#node-mode-help'));
-  for (const id of ['color-node', 'lock-stars', 'connection-density']) section(id, panel('nodes'));
+  for (const id of ['color-node', 'lock-stars', 'design-refinement-enabled', 'connection-density']) section(id, panel('nodes'));
   section('download-config', panel('save'));
   const workflow = $('#workflow').closest('.editor-panel');
   panel('save').append($('#copy-markdown'), fold('Daily GitHub workflow', workflow), $('#snippet-panel'));

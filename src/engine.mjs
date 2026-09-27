@@ -13,6 +13,16 @@ try {
 } catch (error) { engineError = error; }
 
 export const rustAvailable = Boolean(core);
+const refinements = new Map();
+export function refineLayout(input) {
+  if (!core?.refine_layout) throw new Error('Layout refinement needs the rebuilt Rust engine. Reload the studio or run npm run build:rust.');
+  const key = JSON.stringify(input);
+  if (!refinements.has(key)) {
+    if (refinements.size >= 8) refinements.delete(refinements.keys().next().value);
+    refinements.set(key, JSON.parse(core.refine_layout(key)));
+  }
+  return refinements.get(key);
+}
 const projections = new Map();
 export function projectNodes(input) {
   if (!core) throw new Error('Language and topic nodes need the Rust engine. Reload to try again.');

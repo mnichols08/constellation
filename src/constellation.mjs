@@ -1,3 +1,4 @@
+import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
@@ -215,6 +216,7 @@ export const themes = {
 };
 
 export function renderConstellation(account, repositories, options = {}) {
+  const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
   const sourceHasRepositories = repositories.some(repo => repo.private !== true && (options.repoSource !== 'pinned' || repo.pinned === true));
   options = exportSettings(resolveTheme(options));
@@ -321,6 +323,51 @@ export function renderConstellation(account, repositories, options = {}) {
       x: position ? Math.max(32, Math.min(868, position.x)) : 450 + Math.cos(angle) * radius * 368,
       y: position ? Math.max(28, Math.min(height - 60, position.y)) : centerY + Math.sin(angle) * radius * spreadY };
   });
+  const refinedLabels = new Map();
+  function renderLabels(record = false) {
+    // Try labels at every collection size, avoiding collisions where space is tight.
+    // Visibility is controlled by the visual styles, independently of repo count.
+    const labelBoxes = [];
+    const labelPriority = { repository: 0, language: 1, topic: 2, contributor: 3, dependency: 4, era: 5 };
+    const labelOrder = [...stars].sort((a, b) => (labelPriority[a.repo.nodeKind || 'repository'] ?? 6) - (labelPriority[b.repo.nodeKind || 'repository'] ?? 6));
+    return labelOrder.map((star, index) => {
+      if (star.repo.organizationFocal && !hiddenNodes.has(star.repo.full_name)) {
+        if (record) refinedLabels.set(star.repo.full_name, { x: star.x, y: star.y + 26, width: (star.repo.name.length + 1) * 8.4, size: 15 });
+        const pos = refinedLabels.get(star.repo.full_name);
+        return `<text class="repo-label organization-person-label" data-repo="${escape(star.repo.full_name)}" x="${(pos?.x ?? star.x).toFixed(1)}" y="${(pos?.y ?? star.y + 26).toFixed(1)}" style="font-size:15px;font-weight:700">@${escape(star.repo.name)}</text>`;
+      }
+      if (index >= Math.ceil(stars.length * profile.labelFraction)) return '';
+      const text = star.repo.name.length > 22 ? star.repo.name.slice(0, 20) + '…' : star.repo.name;
+      const width = text.length * 5.6;
+      const label = (x, y) => { if (record) refinedLabels.set(star.repo.full_name, { x, y, width: width * (options.visualStyle?.labelSize || 10) / 10, size: options.visualStyle?.labelSize || 10 }); return hiddenNodes.has(star.repo.full_name) ? '' : `<text class="repo-label" data-repo="${escape(star.repo.full_name)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}"${hiddenLabels.has(star.repo.full_name) ? ' style="display:none"' : ''}>${escape(text)}</text>`; };
+      if (!record && refinedLabels.has(star.repo.full_name)) { const pos = refinedLabels.get(star.repo.full_name); return label(pos.x, pos.y); }
+      if (Object.hasOwn(labelOffsets, star.repo.full_name)) {
+        const offset = labelOffsets[star.repo.full_name];
+        return label(star.x + offset.x, star.y + offset.y);
+      }
+      if (Object.hasOwn(labelPositions, star.repo.full_name)) {
+        const position = labelPositions[star.repo.full_name];
+        return label(Math.max(34 + width / 2, Math.min(866 - width / 2, position.x)), Math.max(28, Math.min(height - 43, position.y)));
+      }
+      for (const dy of [17, -13, 29, -25]) {
+        const x = Math.max(34 + width / 2, Math.min(866 - width / 2, star.x));
+        const y = star.y + dy;
+        const box = { left: x - width / 2 - 4, right: x + width / 2 + 4, top: y - 10, bottom: y + 3 };
+        if (box.top < 18 || box.bottom > height - 40) continue;
+        if (labelBoxes.some(other => box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top)) continue;
+        if (stars.some(other => other !== star && other.x > box.left - 5 && other.x < box.right + 5 && other.y > box.top - 5 && other.y < box.bottom + 5)) continue;
+        labelBoxes.push(box);
+        return label(x, y);
+      }
+      if (record && !hiddenNodes.has(star.repo.full_name) && !hiddenLabels.has(star.repo.full_name) && !['starPositions', 'labelOffsets', 'labelPositions'].some(key => Object.hasOwn(options[key] || {}, star.repo.full_name))) return label(Math.max(34 + width / 2, Math.min(866 - width / 2, star.x)), Math.min(height - 43, star.y + 17));
+      return '';
+    }).join('');
+  }
+  if (refinement.enabled && refinement.intensity > 0) {
+    renderLabels(true);
+    for (const star of stars) star.radius = star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference);
+    refineStars(stars, refinedLabels, options, { seed: options.seedMode ? seed : name, height, centerY, spreadY, reference });
+  }
   const visibleStars = stars.filter(star => !hiddenNodes.has(star.repo.full_name));
   const dust = Array.from({ length: profile.dustCount }, (_, i) => `<circle cx="${20 + hash(`${options.seedMode ? seed : name}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${options.seedMode ? seed : name}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
   // Compare complete language sets, including secondary HTML/CSS/JavaScript.
@@ -418,37 +465,7 @@ export function renderConstellation(account, repositories, options = {}) {
     const tooltip = repo.nodeKind && repo.nodeKind !== 'repository' ? `${repo.name} · ${repo.representedCount || repo.members.length} repositories · ${repo.members.join(', ')}` : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? ' · fork' : ''} · ${repositoryLanguages(repo).join(', ') || 'No detected languages'}`;
     return `<g class="repository"${graph.focus && !repo.organizationFocus ? ' opacity=".22"' : ""}${repo.organizationFocal ? ' data-organization-user="true"' : ""}${repo.organizationFocus ? ' data-organization-focus="true"' : ""}${lifecycleAttributes}${activityAttributes}${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}${lifecycle ? ` · ${lifecycle}` : ''}</title>${activityLayer}<circle class="star-halo"${phaseHint} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"/></g>`;
   }).join('');
-  // Try labels at every collection size, avoiding collisions where space is tight.
-  // Visibility is controlled by the visual styles, independently of repo count.
-  const labelBoxes = [];
-  const labelPriority = { repository: 0, language: 1, topic: 2, contributor: 3, dependency: 4, era: 5 };
-  const labelOrder = [...stars].sort((a, b) => (labelPriority[a.repo.nodeKind || 'repository'] ?? 6) - (labelPriority[b.repo.nodeKind || 'repository'] ?? 6));
-  const labels = labelOrder.map((star, index) => {
-    if (star.repo.organizationFocal && !hiddenNodes.has(star.repo.full_name)) return `<text class="repo-label organization-person-label" data-repo="${escape(star.repo.full_name)}" x="${star.x.toFixed(1)}" y="${(star.y + 26).toFixed(1)}" style="font-size:15px;font-weight:700">@${escape(star.repo.name)}</text>`;
-    if (index >= Math.ceil(stars.length * profile.labelFraction)) return '';
-    const text = star.repo.name.length > 22 ? star.repo.name.slice(0, 20) + '…' : star.repo.name;
-    const width = text.length * 5.6;
-    const label = (x, y) => hiddenNodes.has(star.repo.full_name) ? '' : `<text class="repo-label" data-repo="${escape(star.repo.full_name)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}"${hiddenLabels.has(star.repo.full_name) ? ' style="display:none"' : ''}>${escape(text)}</text>`;
-    if (Object.hasOwn(labelOffsets, star.repo.full_name)) {
-      const offset = labelOffsets[star.repo.full_name];
-      return label(star.x + offset.x, star.y + offset.y);
-    }
-    if (Object.hasOwn(labelPositions, star.repo.full_name)) {
-      const position = labelPositions[star.repo.full_name];
-      return label(Math.max(34 + width / 2, Math.min(866 - width / 2, position.x)), Math.max(28, Math.min(height - 43, position.y)));
-    }
-    for (const dy of [17, -13, 29, -25]) {
-      const x = Math.max(34 + width / 2, Math.min(866 - width / 2, star.x));
-      const y = star.y + dy;
-      const box = { left: x - width / 2 - 4, right: x + width / 2 + 4, top: y - 10, bottom: y + 3 };
-      if (box.top < 18 || box.bottom > height - 40) continue;
-      if (labelBoxes.some(other => box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top)) continue;
-      if (stars.some(other => other !== star && other.x > box.left - 5 && other.x < box.right + 5 && other.y > box.top - 5 && other.y < box.bottom + 5)) continue;
-      labelBoxes.push(box);
-      return label(x, y);
-    }
-    return '';
-  }).join('');
+  const labels = renderLabels();
   if (options.snapToRings !== undefined && typeof options.snapToRings !== 'boolean') throw new Error('snapToRings must be a boolean.');
   const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate)) && repos.length ? identityGeometry(options.seedMode ? seed : name) : null;
   const ringMarkup = geometry ? Array.from({ length: 4 }, (_, index) => {

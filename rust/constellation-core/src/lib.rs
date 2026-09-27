@@ -3,9 +3,17 @@ mod graph;
 mod identity;
 mod physics;
 mod projection;
+mod refinement;
 mod scene;
 
 use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn refine_layout(input: &str) -> Result<String, String> {
+    let input =
+        serde_json::from_str(input).map_err(|error| format!("Invalid refinement: {error}"))?;
+    serde_json::to_string(&refinement::refine(input)?).map_err(|error| error.to_string())
+}
 
 #[wasm_bindgen]
 pub fn project_nodes(input: &str) -> Result<String, String> {
