@@ -17,9 +17,12 @@ export function pluginOptions(value = {}) {
 export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
   const sources = new Map(), themes = new Map();
   const cache = new Map();
+  const cacheBudget = 8 * 1024 * 1024;
+  let cacheBytes = 0;
   let generation = 0;
   const host = {
-    clearCache() { generation++; cache.clear(); },
+    clearCache() { generation++; cache.clear(); cacheBytes = 0; },
+    get cacheStatistics() { return { entries: cache.size, estimatedBytes: cacheBytes, budgetBytes: cacheBudget }; },
     registerSource(plugin) {
       if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== 1 || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
       if (sources.has(plugin.id)) throw new Error(`Source plugin already registered: ${plugin.id}`);
@@ -40,7 +43,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
         const plugin = sources.get(source.source);
         if (!plugin) throw new Error(`Unknown source plugin: ${source.source}. Register it before loading.`);
         const key = JSON.stringify([account, source.source, source.id, source.options || {}]);
-        let items = cache.get(key);
+        let items = cache.get(key)?.items;
         const cached = Boolean(items);
         if (!items) {
           items = await plugin.load({ account, options: structuredClone(source.options || {}), signal, fetchImpl });
@@ -57,8 +60,14 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
           result.push({ ...structuredClone(item), full_name: id, language: item.language || 'External', private: false, pluginSource: source.source, pluginInstance: source.id, pluginId: item.id, stargazers_count: item.stargazers_count || 0 });
         }
         if (!cached) {
-          if (cache.size >= 32) cache.delete(cache.keys().next().value);
-          cache.set(key, structuredClone(items));
+          const bytes = (key.length + JSON.stringify(items).length) * 2;
+          if (bytes <= cacheBudget) {
+            while (cache.size >= 32 || cacheBytes + bytes > cacheBudget) {
+              const oldest = cache.keys().next().value;
+              cacheBytes -= cache.get(oldest).bytes; cache.delete(oldest);
+            }
+            cache.set(key, { items: structuredClone(items), bytes }); cacheBytes += bytes;
+          }
         }
       }
       return result.sort((a, b) => a.full_name.localeCompare(b.full_name));

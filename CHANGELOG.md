@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.3 — 2026-09-27
+
+- Bound source-cache retention by an 8 MiB estimated serialization budget as well as entry count; oversized snapshots remain usable without being retained.
+- Add cache accounting and a repeatable forced-GC profiling script. Twelve 2048-node metadata-heavy snapshots previously retained about 43 MiB on the development host.
+- Test budget eviction and full accounting reset on clear.
+
 ## 1.9.2 — 2026-09-27
 
 - Cache source responses only after validating every node, so malformed feeds can be retried without a forced refresh.

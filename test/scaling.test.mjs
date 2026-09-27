@@ -79,3 +79,13 @@ test('invalid and aborted responses never become reusable source snapshots', asy
   controller.abort(); resume([{ id: 'x', name: 'Too late' }]);
   await rejected;
 });
+
+test('source cache evicts by byte budget and clears retained accounting', async () => {
+  const host = createPluginHost().registerSource({ id: 'large', apiVersion: 1, load: async ({ options }) => [{ id: 'x', name: `View ${options.view}`, payload: 'x'.repeat(1500000) }] });
+  for (let view = 0; view < 5; view++) await host.load({ plugins: { sources: [{ id: 'one', source: 'large', options: { view } }] } });
+  const stats = host.cacheStatistics;
+  assert.ok(stats.entries > 0 && stats.entries < 5);
+  assert.ok(stats.estimatedBytes <= stats.budgetBytes);
+  host.clearCache();
+  assert.equal(host.cacheStatistics.entries, 0); assert.equal(host.cacheStatistics.estimatedBytes, 0);
+});
