@@ -4,6 +4,26 @@ import { studioPresets, presetOptions } from '../src/studio-presets.mjs';
 import { parseConfig, serializeConfig } from '../src/config-schema.mjs';
 import { createPreviewData } from '../src/preview-data.mjs';
 import { graphNodes, renderConstellation } from '../src/constellation.mjs';
+import { resolveTheme } from '../src/themes.mjs';
+import { encodeShare, decodeShare } from '../src/share-link.mjs';
+
+test('Mnix is a portable theme independent of the account preset', () => {
+  const options = { ...presetOptions('flagship-projects'), visualTheme: 'mnix', nodeColorMode: 'custom' };
+  const shared = decodeShare(encodeShare('https://example.com/', 'alice', options));
+  assert.equal(shared.options.visualTheme, 'mnix');
+  assert.equal(shared.options.arrangement, 'solar-system');
+  assert.deepEqual(resolveTheme(shared.options).colors, {
+    background: '#111111', foreground: '#f3f3f4', accent: '#e3de13', line: '#555a38', star: '#e3de13',
+  });
+  assert.equal(presetOptions('classic-constellation').visualTheme, 'mnix');
+});
+
+test('general presets leave organization-only views', () => {
+  const options = presetOptions('language-orbits', { accountType: 'organization', organizationView: 'collaboration' });
+  assert.equal(options.organizationView, 'projects');
+  assert.equal(options.nodeMode, 'languages');
+  assert.equal(options.accountType, 'organization');
+});
 
 test('built-in presets round-trip, render, and replace restrictive random settings', () => {
   const repositories = [{ name: 'example', full_name: 'collective/example', private: false, language: 'Rust', languages: { Rust: 100 }, created_at: '2020-01-01T00:00:00Z', stargazers_count: 20 }];

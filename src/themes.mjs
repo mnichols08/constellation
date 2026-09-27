@@ -1,5 +1,6 @@
 // Themes only supply visual defaults. Explicit configuration always wins.
 export const visualThemes = {
+  mnix: { label: 'Mnix (charcoal & yellow)', palette: ['#111111', '#f3f3f4', '#e3de13', '#555a38', '#e3de13'], glow: 2, opacity: .13, nodeColorMode: 'custom' },
   'github-dark': { label: 'GitHub Dark', palette: ['#0d1117', '#c9d1d9', '#58a6ff', '#30363d', '#79c0ff'], glow: 1, opacity: .28 },
   'deep-space': { label: 'Deep Space', palette: ['#080c24', '#dce6ff', '#a78bfa', '#53619c', '#93c5fd'], glow: 3, opacity: .24 },
   terminal: { label: 'Terminal Green', palette: ['#071409', '#a8f0a0', '#39d353', '#245c32', '#56f584'], glow: 1.5, opacity: .2, nodeShape: 'square', animate: false },
