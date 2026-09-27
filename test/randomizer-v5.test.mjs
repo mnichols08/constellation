@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { randomizeDesign, newDesignCode, randomizeMatchingDesign } from '../src/design-randomizer.mjs';
 import { motionParts, v5Parameters } from '../src/design-randomizer-v5.mjs';
 import { renderConstellation, graphNodes } from '../src/constellation.mjs';
@@ -11,6 +12,10 @@ import { aggregateActivity } from '../src/activity.mjs';
 import * as fixture from '../examples/fixtures/history.mjs';
 
 const code = (mask, seed = 'fixture') => `v5:m${mask}-y2026-f2012-${seed}`;
+test('adding themes preserves released v5 recipes', () => {
+  const recipes = Array.from({ length: 96 }, (_, i) => randomizeDesign(code('fff', String(i))));
+  assert.equal(createHash('sha256').update(JSON.stringify(recipes)).digest('hex'), 'a9913f20af8e85a47ce5999d44b5eddcde19da09d7014cd1082e4b3558710dfd');
+});
 test('randomize retries empty pinned selections while exact recipes keep their empty results', () => {
   const repos = [{ ...fixture.repositories[0], pinned: true, stargazers_count: 0 }, { ...fixture.repositories[1], pinned: false, stargazers_count: 100 }];
   const options = recipe => ({ ...recipe, repoSource: 'pinned', referenceDate: fixture.referenceDate });

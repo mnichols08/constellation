@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Add a searchable repository picker in the Projects panel, with explicit selection, bulk controls and automatic selection. Preserve chosen repositories in configs, presets, share links and workflow exports.
+
+- Load missing project data when applying built-in presets, and restore the previous design if loading fails or the preset renders no visible nodes. Only report success after updating the graph and exports.
+
+- Preserve curved connections during ring and floating animation, keeping endpoints attached across independent motion speeds.
+
+- Add adaptive Chingu and Code the Dream themes to the studio, core and theme packs, using their public brand palettes.
+- Freeze the v5 recipe theme choices so adding themes preserves previously shared designs.
+
 ## 2.0.0 — 2026-09-27
 
 - Export a single v6 config format incorporating refinement, plugins, theme packs and node-cap settings. Automatically read legacy version-1/unversioned configs, frozen v1:–v5: recipes and old share links.

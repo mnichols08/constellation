@@ -13,6 +13,8 @@ export const visualThemes = {
   rustacean: { label: 'Rustacean', palette: ['#221712', '#f3dccb', '#f29964', '#92674e', '#dea584'], glow: 1, opacity: .24, nodeShape: 'hexagon' },
   javascript: { label: 'JavaScript Yellow', palette: ['#191909', '#fffbd6', '#f1e05a', '#777340', '#f7df1e'], glow: 1, opacity: .2 },
   sudo: { label: 'sudo', palette: ['#061109', '#b8ffbe', '#39ff72', '#28633c', '#66ff99'], glow: 2, opacity: .18, nodeShape: 'square', effect: 'scanlines', animate: false },
+  chingu: { label: 'Chingu', transparent: true, lightPalette: ['#ecfdf5', '#064e3b', '#047857', '#059669', '#047857'], palette: ['#064e3b', '#ecfdf5', '#34d399', '#059669', '#a7f3d0'], glow: 1.5, opacity: .24, nodeColorMode: 'custom' },
+  'code-the-dream': { label: 'Code the Dream', transparent: true, lightPalette: ['#f1f2f2', '#12284c', '#c43d20', '#677b98', '#c43d20'], palette: ['#12284c', '#f1f2f2', '#ff5c35', '#677b98', '#f3c300'], glow: 1, opacity: .26, nodeColorMode: 'custom' },
 };
 
 export function themePalettes(preset) {

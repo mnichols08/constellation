@@ -1,5 +1,6 @@
 import { seededRandom, newSeed } from './seeded-random.mjs';
-import { visualThemes } from './themes.mjs';
+// Frozen with the v5 format: adding selectable themes must not change old recipes.
+const v5Themes = ['mnix', 'github-dark', 'deep-space', 'terminal', 'solarized', 'dracula', 'synthwave', 'monochrome', 'contribution', 'rustacean', 'javascript'];
 
 // Bit order is part of the v5 format. Never reorder released entries.
 export const motionParts = Object.freeze([
@@ -29,7 +30,7 @@ export function randomizeV5(code) {
   const pick = values => values[integer(0, values.length - 1)];
   const bool = () => random() < .5;
   const decimal = (min, max, step = .05) => Number((integer(Math.round(min / step), Math.round(max / step)) * step).toFixed(3));
-  const visualTheme = pick(Object.keys(visualThemes).filter(key => key !== 'sudo'));
+  const visualTheme = pick(v5Themes);
   const palette = dark => Object.fromEntries(['background', 'foreground', 'accent', 'line', 'star'].map((key, i) => {
     const ranges = dark ? [[4, 28], [185, 245], [100, 235], [55, 125], [130, 250]] : [[235, 255], [20, 65], [35, 125], [100, 160], [20, 100]];
     const [min, max] = ranges[i];

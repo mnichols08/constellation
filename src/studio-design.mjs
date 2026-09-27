@@ -1,3 +1,4 @@
+import { mountRepositoryPicker } from './repository-picker.mjs';
 import { layoutRefinementOptions } from './layout-refinement.mjs';
 import { rhythmDefaults } from './coding-rhythm.mjs';
 import { studioPresets, presetOptions } from './studio-presets.mjs';
@@ -16,7 +17,7 @@ import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
 export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
-export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates }) {
+export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories }) {
   const historyControls = mountStudioHistory(host, changed);
   const organizationControls = mountOrganizationControls(host, changed);
   let storage; try { storage = window.localStorage; } catch {}
@@ -85,7 +86,8 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
     if (preset.audience === 'organization' && current.options.accountData?.type !== 'Organization' && current.options.accountType !== 'organization') throw new Error('Load an organization first, then choose an organization preset.');
     presetApply.disabled = true;
     try {
-      await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { loadOrganization: preset.audience === 'organization' });
+      const applied = await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { loadOrganization: preset.audience === 'organization', loadPresetData: true, requireVisibleNodes: true, fallback: current });
+      if (!applied) { message(`${preset.label} has no visible projects for this account. Your previous design is restored.`, true); return; }
       presetMenu.open = false; message(`${preset.label} applied. Customize it or save it as your own preset.`);
     } finally { presetApply.disabled = false; }
   });
@@ -180,6 +182,17 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   control(filters, 'updatedWithin', 'Updated within', [['0', 'Any time'], ['1', 'Past year'], ['2', 'Past 2 years'], ['5', 'Past 5 years']]);
   control(filters, 'repoQuery', 'Repository name contains').maxLength = 200;
   control(filters, 'sortBy', 'Select projects by', [['stars', 'Stars'], ['updated', 'Recently updated'], ['name', 'Repository name']]);
+  const repositoryPicker = mountRepositoryPicker(section('Choose repositories'), {
+    message,
+    apply: async includeRepos => {
+      if (!current) return;
+      const cap = current.options.nodeCap || 100;
+      if (includeRepos && includeRepos.length > cap) throw new Error(`Choose at most ${cap} repositories, or increase the node cap first.`);
+      const options = { ...current.options, includeRepos };
+      if (includeRepos) Object.assign(options, { maxRepos: Math.max(1, includeRepos.length), includeForks: true, includeArchived: true, minStars: 0, updatedWithin: 0, repoQuery: '', languages: null, topics: null, showOther: true, hiddenNodes: [], selection: {} });
+      if (await apply({ version: 1, account: current.account, options }, { loadPresetData: true, fallback: current })) message(includeRepos ? `${includeRepos.length} repositories selected.` : 'Automatic repository selection restored.');
+    },
+  });
   const exports = section('Config, presets & export');
   control(exports, 'exportProfile', 'Output profile', [['custom', 'Current layout'], ['profile', 'Profile README'], ['repository', 'Repository README'], ['compact', 'Compact'], ['hero', 'Hero'], ['transparent', 'Transparent']]);
   const size = document.createElement('p'); size.id = 'svg-size'; size.className = 'export-note'; exports.append(size);
@@ -257,6 +270,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
       return { layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
+      repositoryPicker.update(account, repositoryPool(), options, selectedRepositories(options));
       const audience = options.accountData?.type === 'Organization' || options.accountType === 'organization' ? 'organization' : 'any';
       if (audience !== presetAudience) {
         presetSelect.value = audience === 'organization' ? 'organization-projects' : 'project-map';

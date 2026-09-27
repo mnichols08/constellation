@@ -12,7 +12,7 @@ import { createPreviewServer } from '../scripts/preview-server.mjs';
 const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => existsSync(path));
 
 test('headless studio: randomized codes, configs, presets, filters, keyboard, sharing and PNG', { skip: !browser && 'Set CONSTELLATION_BROWSER to a Chromium executable.', timeout: 60000 }, async t => {
-  let apiCalls = 0;
+  let apiCalls = 0, failPresetLanguage = false;
   const requestedUrls = [];
   const server = createPreviewServer({ fetchImpl: async url => {
     apiCalls++;
@@ -24,9 +24,10 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     if (url.includes('/repos/collective/')) return Response.json({ Rust: 100 });
     if (url.includes('/orgs/collective/events')) return Response.json([]);
     if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: account, type: 'User' });
+    if (failPresetLanguage && url.includes('/repos/partial/')) return Response.json({ message: 'Language data unavailable' }, { status: 503 });
     if (url.includes('/repos/mnichols08/') || url.includes('/repos/partial/')) return Response.json({ Rust: 100 });
     if (url.includes('/events/public')) return Response.json([{ id: '1', public: true, type: 'PushEvent', repo: { name: `${account}/repo-0` }, created_at: new Date(Date.now() - 3600000).toISOString(), payload: { secret: 'NEVER_RENDER' } }]);
-    if (account === 'partial') return Response.json(Array.from({ length: 60 }, (_, i) => ({ name: `repo-${i}`, full_name: `partial/repo-${i}`, language: 'Rust', stargazers_count: 100 - i, topics: ['tools'], created_at: '2018-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })));
+    if (account === 'partial') return Response.json(Array.from({ length: 60 }, (_, i) => ({ name: `repo-${i}`, full_name: `partial/repo-${i}`, language: 'Rust', stargazers_count: 100 - i, topics: ['tools'], created_at: '2018-01-01T00:00:00Z', updated_at: new Date(Date.UTC(2026,0,i+1)).toISOString() })));
     return Response.json(['Rust', 'JavaScript'].map((language, i) => ({ private: false, name: `repo-${i}`, full_name: `${account}/repo-${i}`, language, ...(account === 'mnichols08' ? {} : { languages: { [language]: 100 } }), topics: ['tools'], stargazers_count: 20 - i, created_at: (2018 + i * 4) + '-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })));
   } }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
@@ -69,6 +70,39 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.deepEqual(errors, []);
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
+  const curvedMotion = await evaluate(`(async () => {
+    const { renderConstellation } = await import('/src/constellation.mjs');
+    const repos = Array.from({length:12}, (_,i)=>({name:'r'+i,full_name:'o/r'+i,language:'Rust'}));
+    const results = [];
+    for (const motion of [
+      {ringAnimation:{enabled:true,speeds:[1,2,0,3],directions:['clockwise','counterclockwise','clockwise','clockwise']}},
+      {floatingAnimation:{enabled:true,mode:'orbit',amplitude:12,duration:8},starPositions:{'o/r0':{x:450,y:270}}}
+    ]) {
+      const host = document.createElement('div'); document.body.append(host);
+      host.innerHTML = renderConstellation('o',repos,{...motion,colorConnections:true});
+      const svg = host.querySelector('svg'); svg.pauseAnimations();
+      const edges = [...svg.querySelectorAll('path.shared-language')];
+      let maxError = 0, curved = 0;
+      for (const time of [0,3.71,17.3,61.1]) {
+        svg.setCurrentTime(time);
+        for (const edge of edges) {
+          const from = [...svg.querySelectorAll('circle.star')].find(n=>n.dataset.repo===edge.dataset.from);
+          const to = [...svg.querySelectorAll('circle.star')].find(n=>n.dataset.repo===edge.dataset.to);
+          const length = edge.getTotalLength(), start = edge.getPointAtLength(0), end = edge.getPointAtLength(length);
+          maxError = Math.max(maxError,Math.hypot(start.x-from.cx.animVal.value,start.y-from.cy.animVal.value),Math.hypot(end.x-to.cx.animVal.value,end.y-to.cy.animVal.value));
+          if (length > Math.hypot(end.x-start.x,end.y-start.y)+.01) curved++;
+        }
+      }
+      results.push({edges:edges.length,animations:svg.querySelectorAll('path.shared-language animate[attributeName="d"]').length,maxError,curved});
+      host.remove();
+    }
+    return results;
+  })()`);
+  for (const result of curvedMotion) {
+    assert.ok(result.edges > 0 && result.animations > 0);
+    assert.ok(result.maxError < .2, 'curved endpoints follow independently animated nodes: ' + JSON.stringify(result));
+    assert.ok(result.curved > 0, 'animated connections retain curvature');
+  }
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
   assert.ok(await evaluate(`(() => {
     const root = document.querySelector('#preview').firstChild.shadowRoot;
@@ -350,6 +384,29 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@partial')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#map-title').textContent`), '@partial’s sky', await evaluate(`document.querySelector('#status').textContent`));
   assert.equal(await evaluate(`document.querySelector('#max-repos').value`), '45', 'default pool matches the repositories hydrated on account load');
+  failPresetLanguage = true;
+  await evaluate(`document.querySelector('#builtin-preset').value='recent-work';document.querySelector('#apply-builtin-preset').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+  assert.doesNotMatch(await evaluate(`document.querySelector('#status').textContent`), /applied/);
+  assert.equal(await evaluate(`document.querySelector('#design-sortBy').value`), 'stars', 'failed preset restores controls');
+  await evaluate(`document.querySelector('#copy-config').click();`);
+  assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).sortBy`), 'stars', 'failed preset keeps exports');
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length>0`));
+  failPresetLanguage = false;
+  // A different preset can select repositories outside the hydrated top 45.
+  await evaluate(`document.querySelector('#builtin-preset').value='recent-work';document.querySelector('#apply-builtin-preset').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+  await evaluate(`document.querySelector('#copy-config').click();`);
+  assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).sortBy`), 'updated', 'preset updates exports as well as controls');
+  assert.equal(await evaluate(`document.querySelector('#load-projects').hidden`), true, 'preset hydrates its selected repository pool');
+  // Reject an unusable final render without losing the previous preset.
+  await evaluate(`(()=>{const input=document.querySelector('#design-minStars');const descriptor=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');Object.defineProperty(input,'value',{configurable:true,get(){return descriptor.get.call(this)},set(value){delete this.value;this.value='999999999'}});document.querySelector('#builtin-preset').value='minimal-readme';document.querySelector('#apply-builtin-preset').click();})()`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+  assert.match(await evaluate(`document.querySelector('#status').textContent`), /previous design is restored/);
+  assert.equal(await evaluate(`document.querySelector('#layout').value`), 'atlas');
+  await evaluate(`document.querySelector('#copy-config').click();`);
+  assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).sortBy`), 'updated');
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length>0`));
   const partialCalls = apiCalls;
   await evaluate(`input('design-minStars','999999999');document.querySelector('#randomize-motion').checked=false;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length`), 0);
@@ -360,6 +417,27 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.textContent`), /No projects match|No public repositories|No public pinned repositories/);
   }
   assert.equal(apiCalls, partialCalls, 'retrying partially cached designs stays local');
+  await evaluate(`document.querySelector('#clear-repository-selection').click();document.querySelector('#repository-search').value='partial/repo-59';document.querySelector('#repository-search').dispatchEvent(new Event('input'));`);
+  assert.equal(await evaluate(`document.querySelectorAll('#repository-picker-list input').length`), 1);
+  await evaluate(`document.querySelector('#select-visible-repositories').click();document.querySelector('#repository-search').value='partial/repo-0';document.querySelector('#repository-search').dispatchEvent(new Event('input'));document.querySelector('#repository-picker-list input').click();document.querySelector('#apply-repository-selection').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-repository-selection').disabled`)) break; await delay(50); }
+  await evaluate(`input('node-mode','repositories');document.querySelector('#copy-config').click();`);
+  const pickedConfig = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  assert.deepEqual(pickedConfig.includeRepos, ['partial/repo-0', 'partial/repo-59']);
+  assert.equal(pickedConfig.maxRepos, 2);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),n=>n.dataset.repo).sort()`), pickedConfig.includeRepos);
+  assert.match(await evaluate(`document.querySelector('#workflow').value`), /partial\/repo-59/);
+  await evaluate(`document.querySelector('#copy-share').click();`);
+  assert.deepEqual(await evaluate(`(async()=>{const {decodeShare}=await import('/src/share-link.mjs');return decodeShare(document.querySelector('#share-url').value).options.includeRepos;})()`), pickedConfig.includeRepos);
+  await evaluate(`document.querySelector('#close-share').click();document.querySelector('#clear-repository-selection').click();document.querySelector('#apply-repository-selection').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-repository-selection').disabled`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length`), 0);
+  await evaluate(`document.querySelector('#automatic-repositories').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#automatic-repositories').disabled`)) break; await delay(50); }
+  await evaluate(`document.querySelector('#copy-config').click();`);
+  assert.equal(JSON.parse(await evaluate(`document.querySelector('#config-json').value`)).includeRepos, undefined);
+  await evaluate(`document.querySelector('#config-json').value=${JSON.stringify(JSON.stringify(pickedConfig))};document.querySelector('#import-config').click();`);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#repository-picker-list input:checked'),n=>n.value).sort()`), pickedConfig.includeRepos);
   await evaluate(`document.querySelector('#account-mode').value='paired';document.querySelector('#account-mode').dispatchEvent(new Event('change'));document.querySelector('#organization-account').value='collective';account('alice');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('Organization universe')`)) break; await delay(50); }
   assert.match(await evaluate(`document.querySelector('#map-title').textContent`), /collective.*Organization universe.*alice/);
@@ -460,6 +538,19 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   for (const [mode, accent] of [['light', '#595600'], ['dark', '#e3de13']]) {
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: mode }] });
     assert.deepEqual(await evaluate(`(()=>{const svg=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg');const style=getComputedStyle(svg);return [style.backgroundColor,style.getPropertyValue('--sky-accent').trim(),!!svg.querySelector('ellipse[fill="url(#nebula)"]')];})()`), ['rgba(0, 0, 0, 0)', accent, false]);
+  }
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
+  for (const [id, darkAccent, lightAccent] of [['chingu', '#34d399', '#047857'], ['code-the-dream', '#ff5c35', '#c43d20']]) {
+    await evaluate(`document.querySelector('#design-visualTheme').value='${id}';document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));document.querySelector('#copy-config').click();`);
+    const branded = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+    assert.equal(branded.visualTheme, id);
+    assert.equal(branded.visualStyle.dark.accent, darkAccent);
+    assert.equal(branded.visualStyle.light.accent, lightAccent);
+    assert.equal(branded.nodeColorMode, 'custom');
+    for (const [mode, accent] of [['light', lightAccent], ['dark', darkAccent]]) {
+      await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: mode }] });
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg')).getPropertyValue('--sky-accent').trim()`), accent);
+    }
   }
   await cdp('Emulation.setEmulatedMedia', { features: [] });
   await cdp('Page.navigate', { url: `${base}/?user=alice&organization=collective&preset=organization-community&maxRepos=12` });
