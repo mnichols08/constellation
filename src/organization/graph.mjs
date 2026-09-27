@@ -1,3 +1,4 @@
+import { artifactPositions } from '../artifact-layouts.mjs';
 import { organizationOptions, organizationNodeMode } from './settings.mjs';
 import { groupRepository, normalizeContributors } from './model.mjs';
 export function organizationGraph(all, selected, options) {
@@ -75,14 +76,10 @@ export function organizationGraph(all, selected, options) {
   for (const node of nodes) if (node.members?.length > 100) { node.representedCount = node.members.length; node.members = node.members.slice(0, 100); }
   return { nodes, edges, focus: nodes.find(node => node.organizationFocal)?.full_name, focusProjects: [...focalProjects].sort(), total: repositoryNodes.length + (community ? people.length : 0) + ranked.length, repositoryCount: selected.length, note: note + ' Contributor totals are current; historical views filter project creation dates, not contributor tenure.', organization: true };
 }
-export function organizationPositions(graph, arrangement, compact) {
+export function organizationPositions(graph, arrangement, compact, seed = '', metric = 'stars') {
   const ordered = [...graph.nodes].sort((a, b) => a.full_name.localeCompare(b.full_name));
   const centerY = compact ? 126 : 270, scaleY = compact ? 85 : 190;
-  const positions = {}, groups = [...new Set(ordered.filter(node => node.nodeKind === 'repository').map(node => node.organizationGroup))].sort();
-  ordered.forEach((node, i) => {
-    const angle = i * 2.399963, radius = Math.sqrt((i + 1) / Math.max(1, ordered.length));
-    positions[node.full_name] = { x: 450 + Math.cos(angle) * radius * 350, y: centerY + Math.sin(angle) * radius * scaleY };
-  });
+  const positions = artifactPositions(ordered, 'galaxy', seed, compact, metric, node => node.nodeKind === 'repository' ? node.organizationGroup || node.language || 'Other' : node.nodeKind);
   if (arrangement === 'era-rings') {
     const eras = [...new Set(ordered.map(node => node.organizationGroup || node.name))].sort();
     eras.forEach((era, j) => {
@@ -91,15 +88,6 @@ export function organizationPositions(graph, arrangement, compact) {
     });
     return positions;
   }
-  for (const [j, group] of groups.entries()) {
-    const angle = j * 2.399963, radius = Math.sqrt((j + .5) / groups.length);
-    const members = ordered.filter(node => node.organizationGroup === group);
-    members.forEach((node, i) => { positions[node.full_name] = { x: 450 + Math.cos(angle) * 285 * radius + Math.cos(i * 2.4) * 30, y: centerY + Math.sin(angle) * scaleY * .7 * radius + Math.sin(i * 2.4) * 20 }; });
-  }
-  ordered.filter(node => node.nodeKind === 'contributor').forEach((node, i) => {
-    const anchors = node.members.map(id => positions[id]).filter(Boolean);
-    if (anchors.length) positions[node.full_name] = { x: anchors.reduce((sum, p) => sum + p.x, 0) / anchors.length + Math.cos(i * 2.4) * 25, y: anchors.reduce((sum, p) => sum + p.y, 0) / anchors.length + Math.sin(i * 2.4) * 25 };
-  });
   if (arrangement === 'collaboration-gravity') {
     // Settle a bounded sparse graph once. A spatial grid provides local repulsion.
     for (let iteration = 0; iteration < 80; iteration++) {

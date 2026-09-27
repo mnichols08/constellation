@@ -14,6 +14,10 @@ Open **Choose a preset** above the preview for a useful starting point:
 
 Applying an organization preset loads the data it needs, reusing cached results. Each preset replaces visual settings and filters, including random design codes, hidden nodes, and manual positions; save a custom preset first to keep an edited design. Account identity and any deliberately selected user focus are preserved. **Project map** and **Minimal README** are also available for any account. Presets can be customized, saved locally, exported as JSON, shared, or used in the daily workflow.
 
+Personal **Galaxy** and organization **Community galaxy** share their project placement. With the same projects, seed, and language grouping, project stars occupy the same positions. Adding technology or contributor nodes keeps those project anchors and places the additional nodes near their connected projects. Shared languages and topics retain their colors across account types, and node sizing and connection styling use the same controls. Project labels take priority in dense views. Contributor discovery no longer hides projects outside the scanned subset.
+
+The Community preset adds people to the same project atlas and retains its project limit and size mapping. Explicit year/prefix/topic grouping, Era rings, Collaboration gravity, and a focused user view still provide different arrangements when wanted. Manual positions continue to override generated placement.
+
 The suggested output repository for an organization is `ORGANIZATION/.github`; an explicitly chosen output repository is preserved. Use the generated snippet in the organization's profile README and install the workflow in the output repository shown in the studio.
 
 To map a person into an organization, choose **User in organization**, enter the **username in the first field** and the **organization in the second field**. Contributor diamonds, their projects, and contributors sharing those projects are highlighted. The organization remains the generated account; `organizationUser` records the highlighted username. Absence from a bounded scan is never presented as proof of no contributions.

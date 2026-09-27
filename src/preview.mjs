@@ -316,7 +316,15 @@ function render() {
   $('#limit-value').value = options.repoSource === 'pinned' ? 'All pins' : options.maxRepos;
   $('#map-title').textContent = isSample ? 'The sample sky' : options.accountData?.type === 'Organization' ? `${account} · Organization universe${options.organizationUser ? ` · @${options.organizationUser}` : ''}` : `@${account}’s sky`;
   $('#organization-status').textContent = options.accountData?.type === 'Organization' ? `${projected.note || 'Organization universe'} ${options.organizationData?.diagnostic || ''}` : `@${account} · Developer universe`;
-  if (projected.organization) { $('#node-mode-help').textContent = 'Contributors are derived from repository contributions. Lines show direct project participation. Era systems aggregate omitted projects.'; $('#node-legend').textContent = 'Project · Contributor (diamond) · Technology · Era system'; }
+  if (projected.organization) {
+    const kinds = new Set(projected.nodes.map(node => node.nodeKind || 'repository'));
+    $('#node-legend').textContent = Object.entries({ repository: 'Project', language: 'Language', topic: 'Topic', contributor: 'Contributor (diamond)', dependency: 'Dependency (hexagon)', era: 'Project group' }).filter(([kind]) => kinds.has(kind)).map(([, label]) => label).join(' · ');
+    $('#node-mode-help').textContent = kinds.has('contributor')
+      ? 'Projects use the same galaxy layout as personal accounts. Contributor diamonds sit near the projects they contribute to. Lines show observed participation; unscanned projects remain visible.'
+      : kinds.has('repository') ? 'Each star is a project, using the same language colors and sizing as personal accounts. Additional project groups summarize the rest of the organization.'
+        : 'Each node summarizes projects sharing a language, topic, dependency, or creation group. Size follows the selected mapping, just as in personal views.';
+    if (kinds.has('contributor')) $('#relationship-legend').textContent = 'Project participation';
+  }
   $('#sample-badge').hidden = !isSample;
   $('#workflow-note').textContent = options.repoSource === 'pinned' ? 'This workflow reads the repository owner’s current public pins on every run using GitHub’s automatic token. No personal token is needed in the workflow.' : 'This workflow generates a constellation for the repository owner, using the settings and CSS shown here.';
   if (!isSample) message(`Showing ${projected.nodes.length} ${options.nodeMode} from ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests.`);
@@ -401,7 +409,7 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
     }
     // Fetch languages for the configuration that will actually be applied. A new
     // account without a draft must not inherit the previous account's filters.
-    const loadOptions = restoring?.options || (changedAccount ? { accountType: $('#account-mode').value === 'organization' ? 'organization' : 'auto' } : { ...importedOptions, ...studio?.read(), maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked });
+    const loadOptions = restoring?.options || (changedAccount ? presetOptions('project-map', { accountType: $('#account-mode').value === 'organization' ? 'organization' : 'auto' }) : { ...importedOptions, ...studio?.read(), maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked });
     const nextRepositories = await data.load(nextAccount, { ...loadOptions, repoSource: source }, {
       refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
@@ -411,7 +419,7 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
     repositories = nextRepositories;
     loadedSource = source;
     isSample = false;
-    if (restoring || changedAccount) applyOptions(restoring?.options || { accountType: loadOptions.accountType });
+    if (restoring || changedAccount) applyOptions(loadOptions);
     form.elements.username.value = loadOptions.organizationUser || account;
     $('#organization-account').value = loadOptions.organizationUser ? account : '';
     $('#account-mode').value = loadOptions.organizationUser ? 'paired' : data.profile(account)?.type === 'Organization' ? 'organization' : 'auto';

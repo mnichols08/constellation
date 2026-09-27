@@ -1,5 +1,5 @@
 import { codingRhythmOptions } from './coding-rhythm.mjs';
-import { organizationEnabled, organizationOptions, organizationModes, organizationLayouts } from './organization/settings.mjs';
+import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
 import { organizationGraph, organizationPositions } from './organization/graph.mjs';
 import { visualCSS } from './visual-style.mjs';
@@ -115,8 +115,8 @@ export function selectRepositoryPool(repositories, options = {}) {
   const eligible = filterRepositoryMetadata(repositories, options, date).filter(repo => repo.private !== true && (repoSource !== 'pinned' || repo.pinned === true) && (includeForks || !repo.fork) && (!includeRepos || includeRepos.includes(repo.name) || includeRepos.includes(repo.full_name)));
   if (organizationEnabled(options)) {
     const focus = options.organizationUser?.toLowerCase(), records = options.organizationData?.records;
-    const community = ['community', 'collaboration'].includes(options.organizationView) || ['contributors', 'ecosystem', 'organization-community'].includes(options.nodeMode);
-    const scoped = community && records && eligible.some(repo => records[repo.full_name]) ? eligible.filter(repo => records[repo.full_name]) : eligible;
+    // Contributor coverage is a layer on the selected project map, not a filter.
+    const scoped = eligible;
     const relevant = focus && records ? scoped.filter(repo => records[repo.full_name]?.some(person => person.login?.toLowerCase() === focus)) : [];
     const prioritized = new Set(relevant.map(repo => repo.full_name));
     return [...scopeRepositories(relevant, options, 100), ...scopeRepositories(scoped.filter(repo => !prioritized.has(repo.full_name)), options, 100)].slice(0, options.maxRepos ?? 100);
@@ -283,10 +283,10 @@ export function renderConstellation(account, repositories, options = {}) {
   const graph = graphNodes(repositories, options);
   const repos = graph.nodes;
   starPositions = { ...artifactPositions(repos, arrangement, seed, compact, options.majorMetric), ...starPositions };
-  if (organizationLayouts.includes(arrangement)) starPositions = { ...organizationPositions(graph, arrangement, compact), ...options.starPositions };
+  if (organizationLayouts.includes(arrangement)) starPositions = { ...organizationPositions(graph, arrangement, compact, seed, options.majorMetric), ...options.starPositions };
   if (temporal.languageEvolution.enabled && temporal.languageEvolution.style === 'timeline') starPositions = { ...timelinePositions([...repos].sort((a, b) => a.full_name.localeCompare(b.full_name)), clock, compact), ...options.starPositions };
   nodeColors = { ...Object.fromEntries(repos.map(repo => [repo.full_name, mappedColor(repo, options.nodeColorMode, seed, reference)]).filter(([, color]) => color)), ...nodeColors };
-  const nodeMode = options.nodeMode ?? 'repositories';
+  const nodeMode = graph.organization ? organizationNodeMode(options) : options.nodeMode ?? 'repositories';
   const combinedMode = nodeMode === 'combined';
   const categoryMode = nodeMode !== 'repositories' && !combinedMode;
   for (const key of ['hiddenNodes', 'hiddenLabels']) {
@@ -299,7 +299,7 @@ export function renderConstellation(account, repositories, options = {}) {
   // A deterministic, account-seeded star field uses the full card instead of
   // narrow language columns that turn cross-language links into long fans.
   const ordered = [...repos].sort((a, b) => hash(a.full_name) - hash(b.full_name) || a.full_name.localeCompare(b.full_name));
-  const scene = computeScene({ account: options.seedMode ? seed : name, compact, arrangement: artifactLayouts.includes(arrangement) || organizationLayouts.includes(arrangement) ? 'field' : arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: graph.organization ? 'membership' : combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
+  const scene = computeScene({ account: options.seedMode ? seed : name, compact, arrangement: artifactLayouts.includes(arrangement) || organizationLayouts.includes(arrangement) ? 'field' : arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: graph.organization && nodeMode !== 'repositories' ? 'membership' : combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
     repos: ordered.map(repo => ({ name: repo.full_name, group: repo.language || 'Other',
       languages: repositoryLanguages(repo).filter(language => options.languages == null || options.languages.includes(language)),
       topics: (repo.topics || []).filter(topic => options.topics == null || options.topics.includes(topic)),
@@ -324,7 +324,7 @@ export function renderConstellation(account, repositories, options = {}) {
   const dust = Array.from({ length: profile.dustCount }, (_, i) => `<circle cx="${20 + hash(`${options.seedMode ? seed : name}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${options.seedMode ? seed : name}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
   // Compare complete language sets, including secondary HTML/CSS/JavaScript.
   const candidates = [];
-  if (graph.organization) {
+  if (graph.organization && nodeMode !== 'repositories') {
     const byId = new Map(stars.map(star => [star.repo.full_name, star]));
     for (const edge of graph.edges) {
       const from = byId.get(edge.from), to = byId.get(edge.to);
@@ -333,6 +333,7 @@ export function renderConstellation(account, repositories, options = {}) {
     }
   } else if (scene) for (const edge of scene.edges) {
     const from = stars[edge.from], to = stars[edge.to];
+    if (graph.organization && [from, to].some(star => star.repo.nodeKind !== 'repository')) continue;
     candidates.push({ from, to, key: `${edge.from}:${edge.to}`, sharedLanguages: edge.languages, sharedTopics: edge.topics, sharedRepositories: edge.members,
       shared: [...edge.languages, ...edge.topics.map(topic => `#${topic}`), ...(edge.members || [])], primary: edge.primary,
       distance: (from.x - to.x) ** 2 + (from.y - to.y) ** 2 });
@@ -341,6 +342,7 @@ export function renderConstellation(account, repositories, options = {}) {
     for (let j = i + 1; j < stars.length; j++) {
       const from = stars[i], to = stars[j];
       if (hiddenNodes.has(from.repo.full_name) || hiddenNodes.has(to.repo.full_name)) continue;
+      if (graph.organization && [from, to].some(star => star.repo.nodeKind !== 'repository')) continue;
       const relation = sharedConnections(from.repo, to.repo, options);
       if (relation.shared.length) candidates.push({ from, to, ...relation, key: `${i}:${j}`, distance: (from.x - to.x) ** 2 + (from.y - to.y) ** 2 });
     }
@@ -377,7 +379,7 @@ export function renderConstellation(account, repositories, options = {}) {
     const cy = (from.y + to.y) / 2 + dx / length * bend;
     const gradientId = `connection-color-${index}`;
     const gradient = colorConnections ? `<defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${to.x.toFixed(1)}" y2="${to.y.toFixed(1)}"><stop stop-color="${nodeColors[from.repo.full_name] || 'var(--sky-star)'}"/><stop offset="1" stop-color="${nodeColors[to.repo.full_name] || 'var(--sky-star)'}"/></linearGradient></defs>` : '';
-    const weight = graph.organization ? { width: .7 + (edge.strength || 1) * .3, opacity: .15 + (edge.strength || 1) * .12 } : connectionWeight(edge, options.connectionWeight);
+    const weight = connectionWeight(edge, options.connectionWeight) || (graph.focus ? {} : null);
     if (graph.focus) { const direct = from.repo.full_name === graph.focus || to.repo.full_name === graph.focus; weight.width = direct ? 2.5 : 1; weight.opacity = direct ? .95 : from.repo.organizationFocus && to.repo.organizationFocus ? .3 : .05; }
     const activeWeight = activitySettings.activityConnections ? Math.max(recent(from.repo.full_name)?.score || 0, recent(to.repo.full_name)?.score || 0) : 0;
     const edgeStyle = [colorConnections ? `stroke:url(#${gradientId})` : '', weight ? `stroke-width:${weight.width.toFixed(2)};opacity:${weight.opacity.toFixed(2)}` : '', activeWeight ? `opacity:${Math.min(.85, (weight?.opacity ?? (backbone.has(edge) ? .62 : .13)) + activeWeight * .2).toFixed(3)}` : ''].filter(Boolean).join(';');
@@ -403,7 +405,7 @@ export function renderConstellation(account, repositories, options = {}) {
   const points = visibleStars.map(({ repo, x, y }) => {
     const lifecycle = temporal.stellarAges.enabled && (!repo.nodeKind || repo.nodeKind === 'repository') ? projectLifecycle(repo, clock, temporal.stellarAges.thresholds, options.historyData?.events || []) : null;
     const lifecycleAttributes = lifecycle ? ` data-lifecycle="${lifecycle === 'archived' && !temporal.stellarAges.showArchivedRemnants ? 'quiet' : lifecycle}" data-age-mode="${temporal.stellarAges.mode}"` : '';
-    const radius = repo.organizationFocal ? 11 : repo.nodeKind === 'contributor' ? 2.5 + Math.min(5, Math.sqrt(repo.members.length)) : nodeRadius(repo, options.nodeSize || options.sizingMode, reference);
+    const radius = repo.organizationFocal ? 11 : nodeRadius(repo, options.nodeSize || options.sizingMode, reference);
     const glow = mappedGlow(repo, options.nodeGlowMode, seed, reference);
     const shape = repo.nodeKind === 'contributor' ? 'diamond' : repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(repo, options.nodeShape);
     const activity = !repo.nodeKind || repo.nodeKind === 'repository' ? recent(repo.full_name) : null;
@@ -418,7 +420,9 @@ export function renderConstellation(account, repositories, options = {}) {
   // Try labels at every collection size, avoiding collisions where space is tight.
   // Visibility is controlled by the visual styles, independently of repo count.
   const labelBoxes = [];
-  const labels = stars.map((star, index) => {
+  const labelPriority = { repository: 0, language: 1, topic: 2, contributor: 3, dependency: 4, era: 5 };
+  const labelOrder = [...stars].sort((a, b) => (labelPriority[a.repo.nodeKind || 'repository'] ?? 6) - (labelPriority[b.repo.nodeKind || 'repository'] ?? 6));
+  const labels = labelOrder.map((star, index) => {
     if (star.repo.organizationFocal && !hiddenNodes.has(star.repo.full_name)) return `<text class="repo-label organization-person-label" data-repo="${escape(star.repo.full_name)}" x="${star.x.toFixed(1)}" y="${(star.y + 26).toFixed(1)}" style="font-size:15px;font-weight:700">@${escape(star.repo.name)}</text>`;
     if (index >= Math.ceil(stars.length * profile.labelFraction)) return '';
     const text = star.repo.name.length > 22 ? star.repo.name.slice(0, 20) + '…' : star.repo.name;

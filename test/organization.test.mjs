@@ -7,8 +7,44 @@ import { graphNodes, renderConstellation } from '../src/constellation.mjs';
 import { serializeConfig, parseConfig } from '../src/config-schema.mjs';
 import { renderWorkflow } from '../src/export.mjs';
 import { createPreviewData } from '../src/preview-data.mjs';
+import { artifactPositions } from '../src/artifact-layouts.mjs';
+import { organizationPositions } from '../src/organization/graph.mjs';
+import { mappedColor } from '../src/visual-mapping.mjs';
 const repositories = count => Array.from({ length: count }, (_, i) => ({ name: `v${i % 12}-tier${i % 3}-team-${i}`, full_name: `community/v${i % 12}-tier${i % 3}-team-${i}`, private: false, created_at: `${2014 + i % 12}-01-01T00:00:00Z`, updated_at: '2026-01-01T00:00:00Z', pushed_at: '2026-01-01T00:00:00Z', language: i % 2 ? 'Rust' : 'JavaScript', languages: { [i % 2 ? 'Rust' : 'JavaScript']: 100 }, topics: [`topic-${i % 8}`], dependencies: ['example-package'], stargazers_count: count - i }));
 const options = { accountType: 'organization', organizationView: 'collaboration', organizationScope: 'featured', arrangement: 'community-galaxy', maxRepos: 100, showOther: true, animate: false, organization: { grouping: { mode: 'year' } } };
+
+test('personal and organization galaxies share project and technology anchors', () => {
+  const repos = repositories(30);
+  const common = { maxRepos: 100, showOther: true, seedMode: 'custom', seed: 'shared-map', nodeColorMode: 'language', nodeSize: 'stars' };
+  const personal = graphNodes(repos, { ...common, nodeMode: 'combined' });
+  const orgOptions = { ...common, accountType: 'organization', organizationScope: 'featured', organizationView: 'collaboration', organization: { grouping: { mode: 'language' } }, organizationData: { records: Object.fromEntries(repos.slice(0, 5).map(repo => [repo.full_name, [{ login: 'alice', contributions: 2 }]])) } };
+  const org = graphNodes(repos, orgOptions);
+  assert.equal(org.repositoryCount, 30, 'incomplete contributor scans do not remove unscanned projects');
+  for (const compact of [false, true]) {
+    const projects = artifactPositions(repos, 'galaxy', 'shared-map', compact);
+    const combined = artifactPositions(personal.nodes, 'galaxy', 'shared-map', compact);
+    const community = organizationPositions(org, 'community-galaxy', compact, 'shared-map');
+    assert.deepEqual(community, organizationPositions({ ...org, nodes: [...org.nodes].reverse() }, 'community-galaxy', compact, 'shared-map'));
+    for (const repo of repos) { assert.deepEqual(combined[repo.full_name], projects[repo.full_name]); assert.deepEqual(community[repo.full_name], projects[repo.full_name]); }
+    for (const node of personal.nodes) {
+      const counterpart = org.nodes.find(value => value.full_name === node.full_name);
+      assert.ok(counterpart);
+      assert.deepEqual(community[node.full_name], combined[node.full_name], 'shared categories keep their location');
+      assert.equal(mappedColor(node, 'language'), mappedColor(counterpart, 'language'), 'node colors have the same meaning');
+    }
+    for (const point of Object.values(community)) { assert.ok(point.x >= 32 && point.x <= 868); assert.ok(point.y >= 28 && point.y <= (compact ? 220 : 500)); }
+    const contributor = community['contributor:alice'];
+    assert.ok(Object.entries(community).filter(([id]) => id !== 'contributor:alice').every(([, point]) => Math.hypot(point.x - contributor.x, point.y - contributor.y) >= (compact ? 16 : 23)));
+  }
+  const svg = renderConstellation('community', repos, { ...orgOptions, arrangement: 'community-galaxy', nodeSize: 'uniform', starPositions: { [repos[0].full_name]: { x: 100, y: 100 } } });
+  assert.match(svg, /class="star" cx="100.0" cy="100.0" r="4.0"/);
+  assert.match(svg, /r="4.0" data-repo="contributor:alice"/, 'uniform sizing applies to people too');
+  assert.doesNotMatch(svg, /stroke-width:1.00;opacity:0.27/, 'organization links use the shared visual styling');
+  const projectSVG = renderConstellation('community', repos, { ...common, arrangement: 'galaxy', accountType: 'user' });
+  const orgSVG = renderConstellation('community', repos, { ...orgOptions, organizationView: 'projects', arrangement: 'community-galaxy' });
+  const connections = source => [...source.matchAll(/data-from="([^"]+)" data-to="([^"]+)"/g)].map(match => `${match[1]}:${match[2]}`).sort();
+  assert.deepEqual(connections(orgSVG), connections(projectSVG), 'project maps share the same relationship selection');
+});
 test('organization resolution, public pagination, scope bounds and reusable metadata', async () => {
   const repos = repositories(405), calls = [], memory = new Map();
   const storage = { getItem: key => memory.get(key), setItem: (key, value) => memory.set(key, value) };
