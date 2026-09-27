@@ -1,12 +1,15 @@
 {
   "name": "@constellation/core",
-  "version": "2.5.3",
+  "version": "2.6.0",
   "type": "module",
   "description": "Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.",
   "engines": {
     "node": ">=22"
   },
-  "exports": "./src/core-api.mjs",
+  "exports": {
+    ".": "./src/core-api.mjs",
+    "./browser-runtime": "./src/browser-runtime.mjs"
+  },
   "files": [
     "src",
     "README.md",

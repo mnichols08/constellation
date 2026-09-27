@@ -1,8 +1,15 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readdirSync } from 'node:fs';
 import { fetchPinnedRepositories } from '../src/constellation.mjs';
 
 const allowed = new Map([
+  ['/examples/web-component.html', ['../examples/web-component.html', 'text/html']],
+  ['/packages/web-component/index.mjs', ['../packages/web-component/index.mjs', 'text/javascript']],
+  ...readdirSync(new URL('../packages/core/src/', import.meta.url), { recursive: true }).filter(name => /\.(mjs|js|wasm)$/.test(name)).map(name => {
+    const path = name.replaceAll('\\', '/');
+    return [`/packages/core/src/${path}`, [`../packages/core/src/${path}`, path.endsWith('.wasm') ? 'application/wasm' : 'text/javascript']];
+  }),
   ...['scene', 'scene-layers', 'studio-layers', 'renderer-svg', 'data-pipeline', 'data-transforms', 'data-mappings', 'pipeline-cache', 'layout-api', 'layout-host'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/scaling.mjs', ['../src/scaling.mjs', 'text/javascript']],
   ...['plugin-host', 'json-feed-source', 'theme-packs'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),

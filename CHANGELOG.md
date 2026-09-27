@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0 — 2026-09-27
+
+- Add the browser-only @constellation/web-component package and `<constellation-view>` custom element.
+- Accept JSON configuration, records and compiled scenes through properties, attributes and HTTP(S) JSON loading.
+- Reuse the scene SVG renderer and interactive runtime inside Shadow DOM; add an import-map demo and browser tests.
+
 ## 2.5.3 — 2026-09-27
 
 - Add a deterministic hash-based Content Security Policy to offline HTML; disallow network connections and injected scripts/handlers while permitting bundled WASM.

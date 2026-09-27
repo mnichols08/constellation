@@ -12,3 +12,5 @@ await writeFile(new URL('index.mjs', themes), `// Versioned independently of the
 await writeFile(new URL('package.json', themes), JSON.stringify({ name: '@constellation/themes', version: await packageVersion(themes), type: 'module', exports: './index.mjs', files: ['index.mjs'], license: 'UNLICENSED' }, null, 2) + '\n');
 await copyFile(new URL('../src/json-feed-source.mjs', import.meta.url), new URL('index.mjs', source));
 await writeFile(new URL('package.json', source), JSON.stringify({ name: '@constellation/source-json', version: await packageVersion(source), type: 'module', exports: './index.mjs', files: ['index.mjs'], license: 'UNLICENSED' }, null, 2) + '\n');
+
+await import('./build-web-component.mjs');

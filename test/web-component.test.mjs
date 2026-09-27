@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { createPreviewServer } from '../scripts/preview-server.mjs';
+import { browser, openBrowser } from '../scripts/browser-harness.mjs';
+
+test('component renders isolated config and scene properties with accessible controls', { skip: !browser, timeout: 30000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  await waitFor(`Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('main')?.constellation)`);
+  assert.equal(await evaluate(`document.querySelector('constellation-view').shadowRoot.querySelectorAll('.star').length`), 3);
+  assert.equal(await evaluate(`document.querySelectorAll('.star').length`), 0);
+  assert.ok(await evaluate(`document.querySelector('constellation-view').shadowRoot.querySelector('[data-action=zoom-in]').getAttribute('aria-label')`));
+  assert.equal(await evaluate(`(() => { const view = document.querySelector('constellation-view'); const scene = view.scene; scene.nodes[0].metadata.name = 'mutated'; return view.scene.nodes[0].metadata.name === 'mutated'; })()`), false);
+  await evaluate(`const first = document.querySelector('constellation-view'); const second = document.createElement('constellation-view'); second.id = 'second'; second.scene = first.scene; document.body.append(second);`);
+  assert.equal(await evaluate(`document.querySelector('#second').shadowRoot.querySelectorAll('.star').length`), 3);
+  await evaluate(`document.querySelector('#second').shadowRoot.querySelector('[data-action=zoom-in]').click()`);
+  assert.notDeepEqual(await evaluate(`document.querySelector('#second').shadowRoot.querySelector('main').constellation.camera`), await evaluate(`document.querySelector('#view').shadowRoot.querySelector('main').constellation.camera`));
+  await evaluate(`document.querySelector('#second').setAttribute('config', '{bad-json')`);
+  assert.ok(await evaluate(`document.querySelector('#second').shadowRoot.querySelector('main') !== null`), 'bad updates preserve the last good view');
+  assert.deepEqual(errors, []);
+});
