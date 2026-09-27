@@ -1,3 +1,4 @@
+import { createLayers } from './scene-layers.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
 import { historyYears } from './history/historical-snapshot.mjs';
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
@@ -456,7 +457,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     metadata: { account: name, seed, referenceDate: options.referenceDate },
     viewport: { width: profile.width, height: profile.height, viewBox: [0, 0, 900, height] },
     nodes, edges, labels,
-    layers: ['background', 'starfield', 'rings', 'connections', 'nodes', 'labels', 'annotations', 'effects', 'selection'].map((id, order) => ({ id, order })),
+    layers: createLayers(),
     geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
     presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,

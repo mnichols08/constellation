@@ -1,3 +1,4 @@
+import { layerDefinitions } from './scene-layers.mjs';
 // Internal scene version, independent of the eventual stable public API version.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -62,7 +63,10 @@ function record(scene, path = '$') {
   for (const layer of scene.layers) {
     if (!id(layer?.id) || layers.has(layer.id) || !Number.isInteger(layer.order) || layer.order <= order) fail(`${path}.layers`, 'IDs and order must be unique and ascending');
     layers.add(layer.id); order = layer.order;
+    const definition = layerDefinitions.find(value => value.id === layer.id);
+    if (!definition || layer.type !== definition.type || JSON.stringify(layer.phases) !== JSON.stringify(definition.phases)) fail(`${path}.layers`, 'invalid layer type or phases');
   }
+  if (layers.size !== layerDefinitions.length) fail(`${path}.layers`, 'missing required layer');
   if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
 }
 

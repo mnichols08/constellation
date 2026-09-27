@@ -41,8 +41,8 @@ coordinates. These records contain no markup or executable callbacks.
 The `presentation` record carries resolved legacy styling, graph summary and
 temporal decoration data while rendering is extracted incrementally. It is an
 internal compatibility detail, not the final stable Scene API v1 contract.
-Layer records currently identify the intended composition; layer controls arrive
-in 2.2. Do not treat editing layer order as a supported operation yet.
+Layer records drive phased composition; see [Scene layers](layers.md).
+Visibility, opacity and ordering controls follow in the 2.2 patches.
 
 Time-lapse scenes contain a latest scene and historical frames for crossfade.
 The SVG time-lapse adapter renders these precomputed frames without rerunning

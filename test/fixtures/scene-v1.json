@@ -281,39 +281,77 @@
   "layers": [
     {
       "id": "background",
-      "order": 0
-    },
-    {
-      "id": "starfield",
-      "order": 1
-    },
-    {
-      "id": "rings",
-      "order": 2
-    },
-    {
-      "id": "connections",
-      "order": 3
-    },
-    {
-      "id": "nodes",
-      "order": 4
-    },
-    {
-      "id": "labels",
-      "order": 5
-    },
-    {
-      "id": "annotations",
-      "order": 6
+      "order": 0,
+      "phases": [
+        "backdrop"
+      ],
+      "type": "background"
     },
     {
       "id": "effects",
-      "order": 7
+      "order": 1,
+      "phases": [
+        "backdrop"
+      ],
+      "type": "effects"
+    },
+    {
+      "id": "rings",
+      "order": 2,
+      "phases": [
+        "world"
+      ],
+      "type": "rings"
+    },
+    {
+      "id": "starfield",
+      "order": 3,
+      "phases": [
+        "backdrop",
+        "world"
+      ],
+      "type": "starfield"
+    },
+    {
+      "id": "annotations",
+      "order": 4,
+      "phases": [
+        "underlay",
+        "overlay"
+      ],
+      "type": "annotations"
+    },
+    {
+      "id": "connections",
+      "order": 5,
+      "phases": [
+        "world"
+      ],
+      "type": "connections"
+    },
+    {
+      "id": "nodes",
+      "order": 6,
+      "phases": [
+        "world"
+      ],
+      "type": "nodes"
+    },
+    {
+      "id": "labels",
+      "order": 7,
+      "phases": [
+        "world"
+      ],
+      "type": "labels"
     },
     {
       "id": "selection",
-      "order": 8
+      "order": 8,
+      "phases": [
+        "interaction"
+      ],
+      "type": "selection"
     }
   ],
   "metadata": {

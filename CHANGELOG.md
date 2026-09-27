@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.0 — 2026-09-27
+
+- Render scenes through ordered background, effects, starfield, rings, connections, nodes, labels, annotations and selection layers.
+- Preserve camera and historical-animation semantics through fixed composition phases; logical starfield/annotation layers can contribute to multiple phases.
+- Validate and serialize layer type/phase records, add composition tests and document the layer architecture. Default SVG bytes remain unchanged.
+
 ## 2.1.3 — 2026-09-27
 
 - Add separate scene compile/serialize/parse/render benchmarks and a forced-GC retained-memory check for repeated 2,048-node processing.

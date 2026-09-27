@@ -22,7 +22,8 @@ async function copyModule(path) {
 }
 await copyModule(resolve(source, 'core-api.mjs'));
 const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
-await writeFile(resolve(target, 'package.json'), JSON.stringify({ name: '@constellation/core', version, type: 'module', description: 'Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.', engines: { node: '>=22' }, exports: './src/core-api.mjs', files: ['src', 'README.md', 'scene-api.md'], license: 'UNLICENSED' }, null, 2) + '\n');
+await writeFile(resolve(target, 'package.json'), JSON.stringify({ name: '@constellation/core', version, type: 'module', description: 'Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.', engines: { node: '>=22' }, exports: './src/core-api.mjs', files: ['src', 'README.md', 'scene-api.md', 'layers.md'], license: 'UNLICENSED' }, null, 2) + '\n');
 await copyFile(resolve(root, 'docs/core-api.md'), resolve(target, 'README.md'));
 await copyFile(resolve(root, 'docs/scene-api.md'), resolve(target, 'scene-api.md'));
+await copyFile(resolve(root, 'docs/layers.md'), resolve(target, 'layers.md'));
 console.log(`Built @constellation/core ${version} (${visited.size} files).`);
