@@ -4,7 +4,7 @@ import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
-import { visualThemes } from './themes.mjs';
+import { visualThemes, themePalettes } from './themes.mjs';
 import { exportSettings } from './export-image.mjs';
 import { seededRandom, resolveSeed } from './seeded-random.mjs';
 import { aggregateActivity } from './activity.mjs';
@@ -528,8 +528,8 @@ function applyOptions(options) {
   visualStyle = options.visualStyle || defaultVisualStyle();
   const preset = visualThemes[options.visualTheme || options.theme];
   if (!options.visualStyle && preset) {
-    const colors = Object.fromEntries(Object.keys(colorLabels).map((key, index) => [key, preset.palette[index]]));
-    visualStyle.light = { ...colors }; visualStyle.dark = { ...colors }; visualStyle.glow = preset.glow; visualStyle.secondaryOpacity = preset.opacity;
+    const palettes = themePalettes(preset);
+    visualStyle.light = palettes.light; visualStyle.dark = palettes.dark; visualStyle.glow = preset.glow; visualStyle.secondaryOpacity = preset.opacity;
   }
   if (!options.visualStyle && options.colors) { Object.assign(visualStyle.light, options.colors); Object.assign(visualStyle.dark, options.colors); }
   $('#custom-css').value = options.customCSS ?? options.css ?? '';
@@ -560,8 +560,7 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
   },
   theme: id => {
     const preset = visualThemes[id];
-    const colors = Object.fromEntries(Object.keys(colorLabels).map((key, index) => [key, preset.palette[index]]));
-    visualStyle = { ...visualStyle, light: { ...colors }, dark: { ...colors }, glow: preset.glow, secondaryOpacity: preset.opacity };
+    visualStyle = { ...visualStyle, ...themePalettes(preset), glow: preset.glow, secondaryOpacity: preset.opacity };
     for (const [key, value] of Object.entries({ nodeShape: preset.nodeShape || 'circle', effect: preset.effect || 'none', nodeColorMode: preset.nodeColorMode || 'custom' })) $(`#design-${key}`).value = value;
     if (preset.animate !== undefined) $('#animate').checked = preset.animate;
     buildVisualControls(); render();

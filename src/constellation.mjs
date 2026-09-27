@@ -218,6 +218,7 @@ export function renderConstellation(account, repositories, options = {}) {
   organizationOptions(options);
   const sourceHasRepositories = repositories.some(repo => repo.private !== true && (options.repoSource !== 'pinned' || repo.pinned === true));
   options = exportSettings(resolveTheme(options));
+  const transparent = options.transparentTheme || options.exportProfile === 'transparent';
   for (const key of ['starlightAnimate', 'activityAnimate']) if (options[key] !== undefined && typeof options[key] !== 'boolean') throw new Error(`${key} must be boolean.`);
   if (options.generatedAt !== undefined && !Number.isFinite(Date.parse(options.generatedAt))) throw new Error('generatedAt must be a valid date.');
   const temporal = historyOptions(options);
@@ -483,13 +484,13 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 ${compact ? '.heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}' : ''}
 ${options.visualStyle ? escape(visualCSS(options.visualStyle)) : ''}${escape(css)}${activitySettings.activityEffect !== 'off' ? activityCSS : ''}
 ${['space', 'milky-way'].includes(sky.mode) ? starfieldCSS : ''}
-${options.exportProfile === 'transparent' ? 'svg{background:transparent!important}.background{fill:none!important}' : ''}
+${transparent ? 'svg{background:transparent!important}.background{fill:none!important}' : ''}
 </style>
 <rect class="background" width="900" height="${height}" rx="${compact ? 12 : 18}"/>
-${options.exportProfile === 'transparent' ? '' : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * .43}" fill="url(#nebula)"/>`}
+${transparent ? '' : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * .43}" fill="url(#nebula)"/>`}
 
 ${decoration(options, height, visibleStars)}
-${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent: options.exportProfile === 'transparent' })}
+${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent })}
 <!--history-scene-start-->${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}${sky.mode === 'classic' ? `<g class="dust">${dust}</g>` : ''}<g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}<!--history-scene-end-->${historyLayer.note}${options.organizationUser && graph.organization ? `<g class="organization-focus-caption"><text x="450" y="26" text-anchor="middle" font-size="16" font-weight="600">@${escape(options.organizationUser)} → ${escape(name)}</text><text x="450" y="43" text-anchor="middle" font-size="10">${graph.focus ? `${graph.focusProjects.length} connected projects · bright lines show direct participation` : "No verified connection in the loaded results; expand or refresh the scan"}</text></g>` : ""}${graph.organization ? `<text class="organization-coverage" x="450" y="${height - 34}" text-anchor="middle" font-size="9">${escape(`${graph.nodes.length} nodes · ${graph.repositoryCount} selected projects · ${options.organizationData?.scanned || 0} repositories scanned for contributors`)}<title>${escape(graph.note)}</title></text>` : ""}
 ${visibleStars.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? 'All nodes are hidden. Restore visibility in Individual nodes.' : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : sourceHasRepositories ? 'No projects match these filters or historical year.' : options.repoSource === 'pinned' ? 'No public pinned repositories match this selection.' : 'No public repositories to show yet.'}</text>`}
 ${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}${activitySettings.activityEffect !== 'off' ? ` · ${activitySettings.activityEffect}: public activity / ${['1d', '7d', '30d'].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ''}`)}</text>` : ''}

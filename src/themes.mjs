@@ -1,6 +1,6 @@
 // Themes only supply visual defaults. Explicit configuration always wins.
 export const visualThemes = {
-  mnix: { label: 'Mnix (charcoal & yellow)', palette: ['#111111', '#f3f3f4', '#e3de13', '#555a38', '#e3de13'], glow: 2, opacity: .13, nodeColorMode: 'custom' },
+  mnix: { label: 'Mnix (adaptive, transparent)', transparent: true, lightPalette: ['#fafaf3', '#202516', '#595600', '#838d66', '#8b8500'], palette: ['#111111', '#f3f3f4', '#e3de13', '#555a38', '#e3de13'], glow: 2, opacity: .13, nodeColorMode: 'custom' },
   'github-dark': { label: 'GitHub Dark', palette: ['#0d1117', '#c9d1d9', '#58a6ff', '#30363d', '#79c0ff'], glow: 1, opacity: .28 },
   'deep-space': { label: 'Deep Space', palette: ['#080c24', '#dce6ff', '#a78bfa', '#53619c', '#93c5fd'], glow: 3, opacity: .24 },
   terminal: { label: 'Terminal Green', palette: ['#071409', '#a8f0a0', '#39d353', '#245c32', '#56f584'], glow: 1.5, opacity: .2, nodeShape: 'square', animate: false },
@@ -14,14 +14,22 @@ export const visualThemes = {
   sudo: { label: 'sudo', palette: ['#061109', '#b8ffbe', '#39ff72', '#28633c', '#66ff99'], glow: 2, opacity: .18, nodeShape: 'square', effect: 'scanlines', animate: false },
 };
 
+export function themePalettes(preset) {
+  const palette = values => Object.fromEntries(['background', 'foreground', 'accent', 'line', 'star'].map((key, i) => [key, values[i]]));
+  return { light: palette(preset.lightPalette || preset.palette), dark: palette(preset.palette) };
+}
+
 export function resolveTheme(options = {}) {
   const id = options.visualTheme || (visualThemes[options.theme] ? options.theme : null);
   if (!id || id === 'custom') return options;
   const preset = visualThemes[id];
   if (!preset) throw new Error('Unknown visual theme.');
-  const { label, palette, glow, opacity, ...defaults } = preset;
+  const { label, palette, lightPalette, transparent, glow, opacity, ...defaults } = preset;
   const colors = Object.fromEntries(['background', 'foreground', 'accent', 'line', 'star'].map((key, i) => [key, palette[i]]));
-  return { ...defaults, ...options, theme: visualThemes[options.theme] ? 'midnight' : options.theme || 'midnight',
+  const palettes = themePalettes(preset);
+  const variables = values => Object.entries({ ...values, ...options.colors }).map(([key, value]) => `--sky-${key}:${value}`).join(';');
+  const adaptiveCSS = lightPalette ? `svg{${variables(palettes.light)}}@media(prefers-color-scheme:dark){svg{${variables(palettes.dark)}}}` : '';
+  return { ...defaults, ...options, transparentTheme: !!transparent, theme: lightPalette ? 'auto' : visualThemes[options.theme] ? 'midnight' : options.theme || 'midnight',
     colors: { ...colors, ...options.colors },
-    css: `svg{background:var(--sky-background)}.star{filter:drop-shadow(0 0 ${glow}px var(--node-color,var(--sky-star)))}.shared-language[data-emphasis="secondary"]{opacity:${opacity}}\n${options.css || ''}` };
+    css: `${adaptiveCSS}svg{background:${transparent ? 'transparent' : 'var(--sky-background)'}}.star{filter:drop-shadow(0 0 ${glow}px var(--node-color,var(--sky-star)))}.shared-language[data-emphasis="secondary"]{opacity:${opacity}}\n${options.css || ''}` };
 }

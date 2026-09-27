@@ -48,7 +48,7 @@ Activity and age use the newest public repository update in the included data as
 
 ## Themes and layouts
 
-Built-in themes include Mnix (charcoal & yellow), GitHub Dark, Deep Space, Terminal Green, Solarized, Dracula, Synthwave, Monochrome, Contribution Graph, Rustacean, and JavaScript Yellow. They coordinate palettes, glow, secondary line opacity and selected shape/animation defaults. Applying a theme leaves project filters, placements, ring rotations and manual colors intact. Visual controls remain editable afterward. Configs can set `theme` to a preset name or use `visualTheme` alongside the existing `auto`, `light`, and `midnight` modes. Explicit config values override preset defaults. Try `"theme": "sudo"` for a small terminal easter egg.
+Built-in themes include Mnix (adaptive, transparent), GitHub Dark, Deep Space, Terminal Green, Solarized, Dracula, Synthwave, Monochrome, Contribution Graph, Rustacean, and JavaScript Yellow. They coordinate palettes, glow, secondary line opacity and selected shape/animation defaults. Applying a theme leaves project filters, placements, ring rotations and manual colors intact. Visual controls remain editable afterward. Configs can set `theme` to a preset name or use `visualTheme` alongside the existing `auto`, `light`, and `midnight` modes. Explicit config values override preset defaults. Try `"theme": "sudo"` for a small terminal easter egg.
 
 **Galaxy** groups primary languages into distinct clusters. **Solar System** selects up to four major nodes by stars or recent update (`majorMetric: "stars"` or `"updated"`) and positions related nodes around them. Ties use repository names. These arrangements feed deterministic positions into the existing Rust scene engine; manual coordinates override them. Existing field, orbital, force and ring arrangements remain available.
 
@@ -60,7 +60,7 @@ Optional `nodeShape` values are `circle`, `star`, `diamond`, `hexagon`, `square`
 
 **Choose a preset** offers Project map, Flagship projects, Technology atlas, Language orbits, Recent work, Project journey, Minimal README, and Classic Constellation for individual accounts. Organization-specific presets remain available when an organization is loaded.
 
-Your personal branch palette is available as **Mnix (charcoal & yellow)** under **Themes & visual mappings / Start with a theme**. Apply it to any layout, or set `visualTheme: "mnix"` in configuration / `theme=mnix` in a share URL. The **Classic Constellation** preset combines this theme with identity rings. Presets apply their own colors; choose Mnix afterward to use your palette with another preset's layout. Themes are preserved in saved configurations and share links.
+Your personal branch palette is available as **Mnix (adaptive, transparent)** under **Themes & visual mappings / Start with a theme**. It has a transparent background and automatically switches between your original light and dark palettes using the viewer's color preference. Apply it to any layout, or set `visualTheme: "mnix"` in configuration / `theme=mnix` in a share URL. The **Classic Constellation** preset combines this theme with identity rings. Presets apply their own colors; choose Mnix afterward to use your palette with another preset's layout. Themes are preserved in saved configurations and share links.
 
 Recent work selects recently updated repositories; its lifecycle halos use repository metadata. Project journey infers language eras from surviving projects' creation dates rather than historical snapshots. These presets do not require a contributor scan.
 

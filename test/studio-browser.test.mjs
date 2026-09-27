@@ -386,6 +386,12 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#dark-background').value`), '#111111');
   assert.equal(await evaluate(`document.querySelector('#dark-accent').value`), '#e3de13');
   assert.equal(await evaluate(`document.querySelector('#dark-line').value`), '#555a38');
+  assert.equal(await evaluate(`document.querySelector('#light-accent').value`), '#595600');
+  for (const [mode, accent] of [['light', '#595600'], ['dark', '#e3de13']]) {
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: mode }] });
+    assert.deepEqual(await evaluate(`(()=>{const svg=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg');const style=getComputedStyle(svg);return [style.backgroundColor,style.getPropertyValue('--sky-accent').trim(),!!svg.querySelector('ellipse[fill="url(#nebula)"]')];})()`), ['rgba(0, 0, 0, 0)', accent, false]);
+  }
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
   await cdp('Page.navigate', { url: `${base}/?user=alice&organization=collective&preset=organization-community&maxRepos=12` });
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title')?.textContent.includes('Organization universe')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#username').value`), 'alice');

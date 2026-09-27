@@ -16,6 +16,11 @@ test('Mnix is a portable theme independent of the account preset', () => {
     background: '#111111', foreground: '#f3f3f4', accent: '#e3de13', line: '#555a38', star: '#e3de13',
   });
   assert.equal(presetOptions('classic-constellation').visualTheme, 'mnix');
+  const svg = renderConstellation('alice', [], { theme: 'mnix' });
+  assert.match(svg, /--sky-accent:#595600/);
+  assert.match(svg, /@media\(prefers-color-scheme:dark\)\{svg\{[^}]*--sky-accent:#e3de13/);
+  assert.match(svg, /background:transparent!important/);
+  assert.doesNotMatch(svg, /<ellipse[^>]*fill="url\(#nebula\)"/);
 });
 
 test('general presets leave organization-only views', () => {
