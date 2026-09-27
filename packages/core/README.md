@@ -19,3 +19,14 @@ const explanation = explainFilters(repositories, result.config.options);
 `graphNodes`, `selectRepositories`, and `selectRepositoryPool` expose the existing projection and filtering steps. `rustAvailable` and `engineError` describe WASM initialization. GitHub acquisition helpers remain available separately from rendering through `fetchRepositories` and `fetchRepositoryLanguages`.
 
 CLI: `node src/cli.mjs validate --config settings.json` validates without fetching GitHub. Generation accepts `--dry-run` (compute without writing SVG, cache or Action outputs) and `--explain` (print the filter report as JSON). Use `--fixture repositories.json` for offline runs.
+
+Run `node src/cli.mjs --help` for flags or `--version` for the wrapper version. After `npm link` in the checkout, the same entry point is available as `constellation`. Validation exits 0 on success and 1 with actionable errors on stderr. An empty config is valid, but the `validate` command requires a file or inline config to avoid accidentally validating defaults. Use either `--config` or `CONSTELLATION_CONFIG_JSON`, never both.
+
+```sh
+node src/cli.mjs validate --config examples/active-developer.json
+node src/cli.mjs --username octocat --fixture repos.json --config settings.json --dry-run --explain
+```
+
+`--explain` reserves stdout for one JSON report; the generated-file message goes to stderr. The `excluded` list associates each excluded project with metadata, selection or limit reasons. Dry runs can fetch data unless `--fixture` is supplied. They do not publish or modify output files.
+
+Rebuild `packages/core` after source or WASM changes. A core tarball can be installed by path (`npm install ./constellation-core-1.7.3.tgz`). Package tests copy the built package outside the checkout and verify WASM initialization, rendering, validation and filtering there.

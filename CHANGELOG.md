@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.3 — 2026-09-27
+
+- Add `--help`, `-h`, and `--version`; clarify package-engine recovery errors.
+- Document package installation, CLI exit status, JSON output, offline fixtures, dry-run effects and exclusion reasons.
+- Preserve actionable errors for primitive refinement settings instead of leaking an `in`-operator TypeError.
+
 ## 1.7.2 — 2026-09-27
 
 - Report malformed node-color IDs, invalid ring arrays (including sparse arrays), and non-integer/out-of-range refinement intensity with specific field paths.

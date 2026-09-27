@@ -52,6 +52,8 @@ test('CLI validate is offline and dry-run explanations leave output files untouc
   await writeFile(fixture, JSON.stringify(repos));
   const env = { ...process.env, CONSTELLATION_CONFIG: '', CONSTELLATION_CONFIG_JSON: '', GITHUB_OUTPUT: join(dir, 'action-output') };
   const run = args => spawnSync(process.execPath, ['src/cli.mjs', ...args], { encoding: 'utf8', env, windowsHide: true });
+  const help = run(['--help']); assert.equal(help.status, 0); assert.match(help.stdout, /--dry-run/);
+  const version = run(['--version']); assert.equal(version.status, 0); assert.match(version.stdout, /^\d+\.\d+\.\d+\s*$/);
   const valid = run(['validate', '--config', config]);
   assert.equal(valid.status, 0, valid.stderr);
   assert.deepEqual(JSON.parse(valid.stdout), { valid: true, errors: [] });

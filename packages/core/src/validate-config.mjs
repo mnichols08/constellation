@@ -12,7 +12,7 @@ export function validateConfig(value) {
         }
       }
       if ('ringRotations' in options && (!Array.isArray(options.ringRotations) || options.ringRotations.length !== 4 || Array.from(options.ringRotations).some(angle => !Number.isFinite(angle) || angle < 0 || angle > 360))) errors.push({ path: 'ringRotations', message: 'Provide exactly four finite angles between 0 and 360 degrees.' });
-      if (options.layoutRefinement && 'intensity' in options.layoutRefinement && (!Number.isInteger(options.layoutRefinement.intensity) || options.layoutRefinement.intensity < 0 || options.layoutRefinement.intensity > 10)) errors.push({ path: 'layoutRefinement.intensity', message: 'Use an integer from 0 through 10.' });
+      if (options.layoutRefinement && typeof options.layoutRefinement === 'object' && 'intensity' in options.layoutRefinement && (!Number.isInteger(options.layoutRefinement.intensity) || options.layoutRefinement.intensity < 0 || options.layoutRefinement.intensity > 10)) errors.push({ path: 'layoutRefinement.intensity', message: 'Use an integer from 0 through 10.' });
     }
     if (errors.length) return { valid: false, errors };
     if (options && typeof options === 'object' && !Array.isArray(options)) {

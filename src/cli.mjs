@@ -12,9 +12,14 @@ import { createOrganizationData, attachFocusEvidence } from './organization/data
 import { organizationOptions } from './organization/settings.mjs';
 
 async function main() {
-  if (!rustAvailable) throw new Error(`Could not load the Rust engine: ${engineError?.message}. Restore src/wasm or run npm run build:rust.`);
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
+  if (values.help) {
+    console.log('Usage: constellation [validate] [options]\n\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --username NAME     GitHub account for generation\n  --fixture FILE      Read repositories offline\n  --output FILE       SVG destination\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate requires a config and makes no GitHub requests. See docs/core-api.md.');
+    return;
+  }
+  if (values.version) { console.log(JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version); return; }
+  if (!rustAvailable) throw new Error(`Could not load the Rust engine: ${engineError?.message}. Restore the core package WASM or run npm run build:rust and npm run build:core.`);
   if (positionals.length > 1 || (positionals.length && positionals[0] !== 'validate')) throw new Error('Expected validate --config file.json, or generation flags.');
   const configPath = values.config || process.env.CONSTELLATION_CONFIG;
   const config = await loadConfig(configPath, process.env.CONSTELLATION_CONFIG_JSON);
