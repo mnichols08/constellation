@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createScene, renderSceneHTML } from '../src/core-api.mjs';
+import { htmlBundleStatistics } from '../src/renderer-html.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/scene-svg-v2.json', import.meta.url)));
@@ -20,6 +21,15 @@ test('HTML export is deterministic and embeds escaped scene data', () => {
   const output = renderSceneHTML(dangerous);
   assert.ok(!output.includes('<script>window.injected'));
   assert.match(output, /\\u003c\/script\\u003e/);
+  assert.match(output, /Content-Security-Policy/);
+  const size = htmlBundleStatistics(scene);
+  assert.ok(size.runtimeBytes < 1024 * 1024);
+  assert.ok(size.wasmBytes > 100000);
+  for (const mutate of [
+    value => { value.presentation.options.colors = { star: '</style><script>alert(1)</script>' }; },
+    value => { value.presentation.nodeMode = '<script>alert(1)</script>'; },
+    value => { value.viewport.viewBox[3] = 1000000; },
+  ]) { const invalid = structuredClone(scene); mutate(invalid); assert.throws(() => renderSceneHTML(invalid)); }
 });
 
 test('standalone file supports selection, keyboard, camera and cleanup', { skip: !browser, timeout: 30000 }, async t => {
@@ -33,6 +43,8 @@ test('standalone file supports selection, keyboard, camera and cleanup', { skip:
   await writeFile(file, renderSceneHTML(linked));
   const { evaluate, waitFor, errors, cdp } = await openBrowser(t, pathToFileURL(file).href);
   await waitFor('Boolean(document.querySelector("main")?.constellation)');
+  await evaluate(`document.querySelector('main').setAttribute('onclick', 'window.injected=true'); document.querySelector('main').click()`);
+  assert.equal(await evaluate('Boolean(window.injected)'), false, 'CSP blocks injected handlers');
   const base = await evaluate('document.querySelector("main").constellation.camera');
   await evaluate('document.querySelector("[data-action=zoom-in]").click()');
   assert.ok((await evaluate('document.querySelector("main").constellation.camera'))[2] < base[2]);

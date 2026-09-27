@@ -17,5 +17,5 @@ export { createDataPipeline } from './pipeline-cache.mjs';
 export { layoutScene, layoutCapabilities, diagnoseLayout, BUILTIN_LAYOUTS } from './layout-api.mjs';
 export { createLayoutHost, LAYOUT_API_VERSION } from './layout-host.mjs';
 export { renderSceneSVG } from './renderer-svg.mjs';
-export { renderSceneHTML } from './renderer-html.mjs';
+export { renderSceneHTML, htmlBundleStatistics } from './renderer-html.mjs';
 export { serializeScene, parseScene, validateScene, sceneStatistics, SCENE_VERSION } from './scene.mjs';

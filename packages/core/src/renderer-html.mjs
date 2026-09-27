@@ -5,6 +5,18 @@ import { bindings, base64 } from './wasm/inline.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const scriptJSON = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+const runtimeScript = `${bindings}
+await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => char.charCodeAt(0)) });
+const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
+(${mountInteractive.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors } });`;
+const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runtimeScript));
+const scriptHash = btoa(String.fromCharCode(...new Uint8Array(digest)));
+export const htmlPolicy = `default-src 'none'; script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`;
+
+export function htmlBundleStatistics(scene) {
+  const bytes = value => new TextEncoder().encode(value).length;
+  return { htmlBytes: bytes(renderSceneHTML(scene)), sceneBytes: bytes(scriptJSON(scene)), runtimeBytes: bytes(runtimeScript), wasmBytes: Math.floor(base64.length * 3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0) };
+}
 
 export function interactiveMarkup(svg) {
   return `<main id="constellation" class="constellation-runtime" aria-label="Interactive constellation">
@@ -19,13 +31,10 @@ export function renderSceneHTML(scene, { title = 'Constellation' } = {}) {
   serializeScene(scene); // Validate before embedding either data or SVG.
   const svg = renderSceneSVG(scene);
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title>
+<html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escape(htmlPolicy)}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title>
 <style>body{margin:0;padding:16px;background:#080b11}${interactiveStyles}</style></head><body>
 ${interactiveMarkup(svg)}
 <script type="application/json" id="constellation-scene">${scriptJSON(scene)}</script>
-<script type="module">${bindings}
-await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => char.charCodeAt(0)) });
-const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
-(${mountInteractive.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors } });</script>
+<script type="module">${runtimeScript}</script>
 </body></html>\n`;
 }

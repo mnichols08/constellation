@@ -1,4 +1,5 @@
 import { layerDefinitions, validateLayerOptions, validateLayerOrder } from './scene-layers.mjs';
+import { historyOptions } from './history/settings.mjs';
 // Internal scene version, independent of the eventual stable public API version.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -24,6 +25,11 @@ function record(scene, path = '$') {
   if (!object(scene) || scene.version !== SCENE_VERSION) fail(path, 'unsupported scene version');
   if (!object(scene.metadata) || !id(scene.metadata.account) || !id(scene.metadata.seed) || !Number.isFinite(Date.parse(scene.metadata.referenceDate))) fail(path, 'invalid metadata');
   if (!object(scene.presentation)) fail(path, 'missing presentation data');
+  const options = scene.presentation.options;
+  if (!object(options)) fail(path, 'missing presentation options');
+  historyOptions(options);
+  if (options.colors !== undefined && (!object(options.colors) || Object.entries(options.colors).some(([key, color]) => !['background', 'foreground', 'accent', 'line', 'star'].includes(key) || typeof color !== 'string' || !/^#[a-f\d]{3}(?:[a-f\d]{3})?$/i.test(color)))) fail(path, 'invalid palette');
+  if (options.theme !== undefined && !['auto', 'midnight', 'light'].includes(options.theme)) fail(path, 'invalid theme');
   if (scene.kind === 'time-lapse') {
     if (!Array.isArray(scene.frames) || scene.frames.length > 7 || scene.latest?.kind !== 'scene') fail(path, 'invalid temporal frames');
     record(scene.latest, `${path}.latest`);
@@ -36,8 +42,12 @@ function record(scene, path = '$') {
     return;
   }
   if (scene.kind !== 'scene') fail(path, 'unknown scene kind');
+  const graph = scene.presentation.graph;
+  if (!object(graph) || !['repositories', 'languages', 'topics', 'combined', 'contributors', 'ecosystem', 'organization-community', 'dependencies', 'technology', 'eras'].includes(scene.presentation.nodeMode)) fail(path, 'invalid graph presentation');
+  for (const key of ['repositoryCount', 'total', 'nodeCount']) if (graph[key] !== undefined && (!Number.isInteger(graph[key]) || graph[key] < 0)) fail(path, 'invalid graph count');
+  if (!Number.isInteger(scene.presentation.totalConnections) || scene.presentation.totalConnections < 0) fail(path, 'invalid connection count');
   const viewport = scene.viewport;
-  if (!object(viewport) || !finite(viewport.width) || !finite(viewport.height) || viewport.width <= 0 || viewport.height <= 0 || !Array.isArray(viewport.viewBox) || viewport.viewBox.length !== 4 || !viewport.viewBox.every(finite) || viewport.viewBox[2] <= 0 || viewport.viewBox[3] <= 0) fail(path, 'invalid viewport');
+  if (!object(viewport) || !finite(viewport.width) || !finite(viewport.height) || viewport.width <= 0 || viewport.height <= 0 || viewport.width > 100000 || viewport.height > 100000 || !Array.isArray(viewport.viewBox) || viewport.viewBox.length !== 4 || !viewport.viewBox.every(value => finite(value) && Math.abs(value) <= 100000) || viewport.viewBox[2] <= 0 || viewport.viewBox[3] <= 0) fail(path, 'invalid viewport');
   for (const key of ['nodes', 'edges', 'labels', 'layers']) if (!Array.isArray(scene[key])) fail(`${path}.${key}`, 'expected array');
   if (scene.nodes.length > 2048 || scene.edges.length > 100000) fail(path, 'scene exceeds graph bounds');
   const nodes = new Set(), edges = new Set(), layers = new Set();
@@ -70,7 +80,7 @@ function record(scene, path = '$') {
   }
   if (layers.size !== layerDefinitions.length) fail(`${path}.layers`, 'missing required layer');
   validateLayerOrder(scene.layers);
-  if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
+  if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.length === 90 && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length > 6144 || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
 }
 
 export function assertScene(scene) {

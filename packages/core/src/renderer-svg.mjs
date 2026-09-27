@@ -123,7 +123,7 @@ export function renderSceneSVG(visualScene) {
     const glow = node.style.glow;
     const shape = node.style.shape;
     const activity = !repo.nodeKind || repo.nodeKind === 'repository' ? recent(repo.full_name) : null;
-    const activityAttributes = activity ? ` data-activity-score="${activity.score.toFixed(3)}" data-activity-count="${activity.eventCount}" data-latest-activity="${activity.latestEventAt}"` : '';
+    const activityAttributes = activity ? ` data-activity-score="${activity.score.toFixed(3)}" data-activity-count="${escape(activity.eventCount)}" data-latest-activity="${escape(activity.latestEventAt)}"` : '';
     const activityLayer = activityMarkup({ x, y, radius, id: repo.full_name, activity, effect: activitySettings.activityEffect, detail: activitySettings.activityDetail, seed, animate: animate && options.activityAnimate !== false });
     const phaseHour = rhythmSettings.codingRhythm && rhythmSettings.codingRhythmStyle !== 'hidden' && rhythmSettings.codingRhythmProjectHints ? options.codingRhythmData?.projectHours?.[repo.full_name] : undefined;
     const phaseHint = Number.isInteger(phaseHour) && phaseHour >= 0 && phaseHour < 24 ? ` style="opacity:${(.065 + phaseHour / 24 * .025).toFixed(3)}"` : '';

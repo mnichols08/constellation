@@ -29,3 +29,11 @@ A host runtime exposes `selectionState` as `{ start, end, path }`; `selectNode(i
 Find and Language filter the compiled nodes locally; they do not reload sources or change stored scene positions. Paths follow the remaining visible connections. Theme switches between the original scene palette and Midnight/Light, retaining per-node mappings. Reset restores the camera and selection; filter and theme controls retain your choices.
 
 The runtime exposes `setFilter({ query, language })` and `setTheme("original" | "midnight" | "light")`. Controls work without a server. The responsive SVG preserves its camera as its container resizes. Changes to the operating system reduced-motion preference immediately pause SVG animation and disable CSS animation.
+
+## Security and size
+
+Exports include a deterministic SHA-256 script allowlist and `default-src` set to `none`. The policy permits WASM compilation (`wasm-unsafe-eval`), but does not permit JavaScript eval or injected event handlers. Inline styles are needed for SVG presentation and trusted custom CSS. Network fetches, remote images, form submission and base URL overrides are blocked. Project links remain explicit user navigation. Hosts embedding the runtime must provide their own equivalent CSP; do not weaken an existing policy to accommodate untrusted CSS.
+
+Embedded scene JSON escapes HTML delimiters and Unicode line separators. Metadata is inserted with text APIs. Node links permit only HTTP(S), without embedded credentials. Source and layout modules still require explicit trusted-host registration; the export never interprets config as executable code. Imported scene records are validated, but custom CSS remains trusted styling and can alter appearance.
+
+`htmlBundleStatistics(scene)` reports HTML, scene JSON, embedded runtime and raw WASM bytes. Run `node scripts/benchmark-html.mjs` for size budgets and rendering timings. A reference run produced 603 KiB at 45 nodes and 3.5 MiB at 2,048 nodes; rendering took roughly 10–80 ms on the development machine. Timing is diagnostic, while byte budgets are enforced. Modern browsers with WebAssembly, modules and Web Crypto are supported.

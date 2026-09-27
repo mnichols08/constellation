@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.3 — 2026-09-27
+
+- Add a deterministic hash-based Content Security Policy to offline HTML; disallow network connections and injected scripts/handlers while permitting bundled WASM.
+- Validate imported scene palettes, graph presentation and geometry bounds; escape activity attributes defensively.
+- Report HTML/runtime/scene/WASM sizes and benchmark 45, 256 and 2,048 nodes. Expand browser escaping, CSP, keyboard and reduced-motion checks.
+
 ## 2.5.2 — 2026-09-27
 
 - Add local text/language filters and original, midnight and light theme switching to interactive exports.
