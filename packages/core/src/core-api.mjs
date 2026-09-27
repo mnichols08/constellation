@@ -13,5 +13,6 @@ export { createScene } from './constellation.mjs';
 export { normalizeRecords, toGraphRecords, DATA_RECORD_VERSION } from './data-pipeline.mjs';
 export { applyTransforms, validateTransforms } from './data-transforms.mjs';
 export { createDataPipeline } from './pipeline-cache.mjs';
+export { layoutScene, BUILTIN_LAYOUTS } from './layout-api.mjs';
 export { renderSceneSVG } from './renderer-svg.mjs';
 export { serializeScene, parseScene, validateScene, sceneStatistics, SCENE_VERSION } from './scene.mjs';

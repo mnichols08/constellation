@@ -1,3 +1,4 @@
+import { layoutScene } from './layout-api.mjs';
 import { normalizeMappings, mapRecord } from './data-mappings.mjs';
 import { createLayers } from './scene-layers.mjs';
 import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
@@ -9,24 +10,23 @@ import { scalingOptions } from './scaling.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
-import { organizationGraph, organizationPositions } from './organization/graph.mjs';
+import { organizationGraph } from './organization/graph.mjs';
 import { historyOptions } from './history/settings.mjs';
 import { referenceDate, historicalSnapshot } from './history/historical-snapshot.mjs';
-import { timelinePositions } from './history/history-svg.mjs';
 import { aggregateActivity } from './activity.mjs';
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
 import { resolveSeed } from './seeded-random.mjs';
 import { starfieldOptions } from './starfield.mjs';
 import { activityOptions, activityForNode } from './activity.mjs';
 import { resolveTheme } from './themes.mjs';
-import { artifactLayouts, artifactPositions } from './artifact-layouts.mjs';
+import { artifactLayouts } from './artifact-layouts.mjs';
 import { mappedColor, mappedGlow, mappingOptions, shapeFor } from './visual-mapping.mjs';
 import { filterRepositoryMetadata, compareRepositories } from './repository-filters.mjs';
 import { nodeRadius } from './node-sizing.mjs';
 import { exportSettings, profileDimensions } from './export-image.mjs';
 import { perspectiveOptions } from './perspective.mjs';
 import { ringAnimationOptions, floatingAnimationOptions } from './ring-animation.mjs';
-import { computeScene, identityGeometry, identityPoints, projectNodes, rustAvailable } from './engine.mjs';
+import { identityGeometry, identityPoints, projectNodes, rustAvailable } from './engine.mjs';
 
 export function username(value = '') {
   const name = value.trim().replace(/^https?:\/\/(www\.)?github\.com\//i, '').replace(/\/$/, '').replace(/^@/, '');
@@ -324,9 +324,6 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const stableOverview = options.nodeCap > 100;
   const simplified = stableOverview && repos.length > scaling.simplifyAbove;
   if (simplified) onDiagnostic?.({ code: 'large-graph-overview', reason: 'stable coordinates, sparse connections, bounded labels' });
-  if (!stableOverview) starPositions = { ...artifactPositions(repos, arrangement, seed, compact, options.majorMetric), ...starPositions };
-  if (!stableOverview && organizationLayouts.includes(arrangement)) starPositions = { ...organizationPositions(graph, arrangement, compact, seed, options.majorMetric), ...options.starPositions };
-  if (!stableOverview && temporal.languageEvolution.enabled && temporal.languageEvolution.style === 'timeline') starPositions = { ...timelinePositions([...repos].sort((a, b) => a.full_name.localeCompare(b.full_name)), clock, compact), ...options.starPositions };
   nodeColors = { ...Object.fromEntries(repos.map(repo => [repo.full_name, mappedColor(repo, options.nodeColorMode, seed, reference)]).filter(([, color]) => color)), ...nodeColors };
   const nodeMode = graph.organization ? organizationNodeMode(options) : options.nodeMode ?? 'repositories';
   const combinedMode = nodeMode === 'combined';
@@ -341,19 +338,14 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   // A deterministic, account-seeded star field uses the full card instead of
   // narrow language columns that turn cross-language links into long fans.
   const ordered = [...repos].sort((a, b) => hash(a.full_name) - hash(b.full_name) || a.full_name.localeCompare(b.full_name));
-  const scene = computeScene({ stableOverview, nodeCap: scaling.nodeCap, snapToRings: options.snapToRings, account: options.seedMode ? seed : name, compact, arrangement: artifactLayouts.includes(arrangement) || organizationLayouts.includes(arrangement) ? 'field' : arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: graph.organization && nodeMode !== 'repositories' ? 'membership' : combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
-    repos: ordered.map(repo => ({ name: repo.full_name, group: repo.language || 'Other',
-      languages: repositoryLanguages(repo).filter(language => options.languages == null || options.languages.includes(language)),
-      topics: (repo.topics || []).filter(topic => options.topics == null || options.topics.includes(topic)),
-      members: repo.members || [], kind: repo.nodeKind || 'repository', hidden: hiddenNodes.has(repo.full_name),
-      position: Object.hasOwn(starPositions, repo.full_name) ? [starPositions[repo.full_name].x, starPositions[repo.full_name].y] : null })) });
+  const scene = layoutScene({ nodes: ordered.map(repo => ({ id: repo.full_name, metadata: repo })) }, options, { account: name, seed, reference: clock, graph, signal });
   const centerY = compact ? 126 : 270;
   const spreadY = compact ? 88 : 192;
   const phase = (hash(options.seedMode ? seed : name) % 628) / 100;
   const stars = ordered.map((repo, index) => {
     const angle = index * 2.399963 + phase;
     const radius = ordered.length === 1 ? 0 : Math.sqrt((index + .6) / Math.max(1, ordered.length));
-    const position = scene ? { x: scene.positions[index][0], y: scene.positions[index][1] }
+    const position = scene ? scene.positions[repo.full_name]
       : Object.hasOwn(starPositions, repo.full_name) ? starPositions[repo.full_name] : null;
     return { repo, hub: hubs.find(hub => hub.language === (repo.language || 'Other')),
       x: position ? Math.max(32, Math.min(868, position.x)) : 450 + Math.cos(angle) * radius * 368,

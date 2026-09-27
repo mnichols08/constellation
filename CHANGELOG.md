@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.4.0 — 2026-09-27
+
+- Route all existing arrangements and stable large-graph overview through a scene-based layout interface returning ID-keyed positions.
+- Move artifact/organization/temporal position adapters to the layout boundary while retaining the canonical Rust graph engine, manual overrides and all defaults.
+- Isolate returned layout data from engine caches and test built-in determinism, manual positioning and original SVG parity. Document the transitional layout contract.
+
 ## 2.3.3 — 2026-09-27
 
 - Add explicitly owned normalization/transform caches bounded by entries and estimated bytes, with isolated results, observable hit/miss accounting and clear operations.
