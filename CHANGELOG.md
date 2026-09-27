@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2 — 2026-09-27
+
+- Report malformed node-color IDs, invalid ring arrays (including sparse arrays), and non-integer/out-of-range refinement intensity with specific field paths.
+- Return multiple independent validation errors together; preserve category IDs containing spaces and valid angle endpoints.
+
 ## 1.7.1 — 2026-09-27
 
 - Isolate returned projection data from the engine cache so API consumers cannot corrupt later renders by editing category members.

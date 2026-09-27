@@ -36,6 +36,14 @@ test('validation reports unknown fields and malformed JSON without throwing', ()
   assert.equal(validateConfig({ maxRepos: 100 }).valid, true);
 });
 
+test('validation reports precise paths for color keys, ring angles and refinement intensity', () => {
+  const result = validateConfig({ nodeColors: { 'bad id': '#123456' }, ringRotations: [0, 0, 0, 361], layoutRefinement: { intensity: 1.5 } });
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors.map(error => error.path), ['nodeColors.bad id', 'ringRotations', 'layoutRefinement.intensity']);
+  for (const ringRotations of [null, [0, 0, 0], Array(4), [0, NaN, 0, 0], [0, Infinity, 0, 0]]) assert.equal(validateConfig({ ringRotations }).valid, false);
+  assert.equal(validateConfig({ nodeColors: { 'language:Jupyter Notebook': '#123456', 'tester/a': '#abcdef' }, ringRotations: [0, 90, 180, 360] }).valid, true);
+});
+
 test('CLI validate is offline and dry-run explanations leave output files untouched', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-cli-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

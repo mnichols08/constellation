@@ -4,6 +4,17 @@ export function validateConfig(value) {
   try {
     const input = typeof value === 'string' ? JSON.parse(value) : value;
     const options = input?.version !== undefined && input?.options ? input.options : input;
+    const errors = [];
+    if (options && typeof options === 'object') {
+      if (options.nodeColors && typeof options.nodeColors === 'object' && !Array.isArray(options.nodeColors)) {
+        for (const id of Object.keys(options.nodeColors)) {
+          if (!/^(?:[^\s/:]+\/[^\s/]+|[a-z][a-z\d-]*:[^\x00-\x1f]+)$/i.test(id)) errors.push({ path: `nodeColors.${id}`, message: 'Use a repository ID (owner/name) or a namespaced node ID (for example language:Rust).' });
+        }
+      }
+      if ('ringRotations' in options && (!Array.isArray(options.ringRotations) || options.ringRotations.length !== 4 || Array.from(options.ringRotations).some(angle => !Number.isFinite(angle) || angle < 0 || angle > 360))) errors.push({ path: 'ringRotations', message: 'Provide exactly four finite angles between 0 and 360 degrees.' });
+      if (options.layoutRefinement && 'intensity' in options.layoutRefinement && (!Number.isInteger(options.layoutRefinement.intensity) || options.layoutRefinement.intensity < 0 || options.layoutRefinement.intensity > 10)) errors.push({ path: 'layoutRefinement.intensity', message: 'Use an integer from 0 through 10.' });
+    }
+    if (errors.length) return { valid: false, errors };
     if (options && typeof options === 'object' && !Array.isArray(options)) {
       const unknown = Object.keys(options).filter(key => !configFields.includes(key) && !['version', 'account', 'cssFile'].includes(key));
       if (unknown.length) return { valid: false, errors: unknown.map(path => ({ path, message: `Unknown setting "${path}". Check the configuration field name.` })) };
