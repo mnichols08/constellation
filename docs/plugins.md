@@ -1,5 +1,7 @@
 # Sources, themes and node renderers
 
+Run `node examples/plugin-demo.mjs` to create `.dist/plugin-demo.svg` offline. The example imports the separately packaged JSON source and themes, registers a custom path renderer, and combines two source instances with the same local node ID. Use it as a starting template for a source author.
+
 The core exposes `createPluginHost()`. Each host has an isolated registry; it does not discover or execute modules from config strings. Import trusted plugin modules in the application and call `registerSource`. The built-in `json-feed` source accepts `options.items` or an HTTP(S) `options.url` whose response is an array of nodes.
 
 ```js
@@ -18,6 +20,10 @@ const svg = host.render('octocat', nodes, options);
 ```
 
 Every source instance has a unique config `id`. Returned node IDs become `source:instance:encoded-id`; duplicate IDs within an instance produce an error. Different sources can return the same local ID. Source loading and returned nodes have deterministic ordering. Keep each loader deterministic for a given data snapshot; pass cancellation through `signal` and use the supplied `fetchImpl` in tests. GitLab can be implemented through the same loader contract by mapping its public projects to nodes; no GitLab adapter ships here.
+
+Node records require nonempty string `id` and `name`. Optional repository-like metadata includes `language`, `languages` (language-to-byte-count map), `topics` (string array), `stargazers_count`, and ISO date strings such as `created_at` and `updated_at`. Source instances have lowercase letter/digit/hyphen IDs, starting with a letter. Keep credentials in the application's fetch adapter, not in shared config. Loader errors reject the whole load; render only after the promise succeeds. Aborting a signal stops before the next loader and reaches fetch through the adapter.
+
+Test both successful and rejected loads, two instances sharing a local ID, duplicate local IDs, deterministic results with fixed fixtures, and config/share round trips. Applications can combine the returned nodes with GitHub records before calling `host.render`; merged ID collisions are reported. Studio hosts that load external modules must register them explicitly; the CLI/Action bundles the JSON adapter.
 
 Render hooks receive a copied node, SVG coordinates and radius. They return `{ path, fill? }`; paths use a -1..1 coordinate box, and fill is a six-digit hex color. The host retains the interactive node circle and supplies the custom path in its place visually. Arbitrary markup is not accepted. A direct render caller can also provide `nodeRenderer` in the fourth argument.
 

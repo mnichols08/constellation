@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.3 — 2026-09-27
+
+- Ship an executable offline plugin example using separately packaged source and theme modules, two source instances and a custom diamond renderer.
+- Add package READMEs and author guidance for metadata, cancellation, errors, credentials, deterministic fixtures and host integration.
+
 ## 1.8.2 — 2026-09-27
 
 - Preserve independently bumped extension package versions during builds; the themes package is now 1.0.1 while unchanged pack content remains 1.0.0.
