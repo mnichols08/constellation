@@ -12,8 +12,6 @@
 .builtin-preset-body { position: absolute; z-index: 9; top: 100%; left: 0; width: min(320px, calc(100vw - 50px)); padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 36px #0005; }
 .builtin-preset-body label { display: block; font-size: 12px; margin-bottom: 8px; }
 .builtin-preset-body select { width: 100%; }
-.builtin-preset-body .preset-keep-colors { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-.preset-keep-colors input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .builtin-preset-body p { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 12px 0; }
 .builtin-preset-body button { width: 100%; background: var(--accent); color: var(--page); }
 @media (max-width: 1200px) { .studio-ready .design-launcher { flex-wrap: wrap; } }
