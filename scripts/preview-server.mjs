@@ -10,7 +10,7 @@ const allowed = new Map([
     const path = name.replaceAll('\\', '/');
     return [`/packages/core/src/${path}`, [`../packages/core/src/${path}`, path.endsWith('.wasm') ? 'application/wasm' : 'text/javascript']];
   }),
-  ...['scene', 'scene-layers', 'studio-layers', 'renderer-svg', 'data-pipeline', 'data-transforms', 'data-mappings', 'pipeline-cache', 'layout-api', 'layout-host'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['scene', 'timeline', 'scene-layers', 'studio-layers', 'renderer-svg', 'data-pipeline', 'data-transforms', 'data-mappings', 'pipeline-cache', 'layout-api', 'layout-host'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/scaling.mjs', ['../src/scaling.mjs', 'text/javascript']],
   ...['plugin-host', 'json-feed-source', 'theme-packs'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/filter-explanation.mjs', ['../src/filter-explanation.mjs', 'text/javascript']],

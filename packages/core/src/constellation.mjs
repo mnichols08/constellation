@@ -1,4 +1,5 @@
 import { layoutScene } from './layout-api.mjs';
+import { createTimeline } from './timeline.mjs';
 import { createLayoutHost, validateLayoutReference } from './layout-host.mjs';
 import { normalizeMappings, mapRecord } from './data-mappings.mjs';
 import { createLayers } from './scene-layers.mjs';
@@ -222,6 +223,7 @@ export function renderConstellation(account, repositories, options = {}, runtime
 }
 
 export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {}) {
+  if (options.timeline !== undefined) return createTimeline(account, repositories, options, options.timeline, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost });
   signal?.throwIfAborted();
   const layers = createLayers(options.layers);
   validateTransforms(options.transforms);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.0 — 2026-09-27
+
+- Introduce a versioned temporal scene model with explicit reference dates, supplied historical snapshots and labelled current-metadata creation-date views.
+- Expose reliable created/updated/release metadata without inventing historical metrics; bound and validate frame dates.
+- Add offline Previous/Next date controls to HTML and component runtimes, static latest-scene SVG fallback, config integration and deterministic timeline tests.
+
 ## 2.6.3 — 2026-09-27
 
 - Verify the web component and core from an isolated external-consumer directory, including WASM/module loading and strict imported styling.

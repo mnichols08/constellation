@@ -22,6 +22,7 @@ fields.add('themePack');
 fields.add('nodeCap');
 fields.add('simplifyAbove');
 fields.add('layers');
+fields.add('timeline');
 fields.add('transforms');
 fields.add('mappings');
 fields.add('layoutEngine');

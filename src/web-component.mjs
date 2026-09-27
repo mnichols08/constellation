@@ -1,5 +1,5 @@
 import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost } from '@constellation/core';
-import { mountInteractive, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
+import { mountInteractive, mountTimeline, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
 export class ConstellationView extends HTMLElement {
   static observedAttributes = ['src', 'config', 'account', 'loading'];
@@ -126,7 +126,7 @@ export class ConstellationView extends HTMLElement {
       const markup = interactiveMarkup(renderSceneSVG(this.#scene));
       this.#runtime?.destroy();
       this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
-      this.#runtime = mountInteractive(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, emitReady: false });
+      this.#runtime = mountTimeline(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, emitReady: false, frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, mountInteractive);
       const first = !this.#initialized; this.#initialized = true;
       this.dispatchEvent(new CustomEvent(first ? 'scene-ready' : 'scene-change', { detail: { scene: this.scene }, bubbles: true, composed: true }));
       return true;
