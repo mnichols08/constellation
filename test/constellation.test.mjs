@@ -69,8 +69,10 @@ test('SVG is deterministic, escapes content, and respects styling and reduced mo
 });
 test('filters private repos and forks and handles empty accounts', () => {
   const svg = renderConstellation('octocat', [{ ...repo, private: true }, { ...repo, fork: true }], { includeForks: false });
-  assert.match(svg, /No public repositories/);
+  assert.match(svg, /No projects match these filters or historical year/);
   assert.match(svg, /0 public repositories/);
+  assert.match(renderConstellation('octocat', []), /No public repositories to show yet/);
+  assert.match(renderConstellation('octocat', [{ ...repo, private: true }]), /No public repositories to show yet/);
 });
 
 test('all shared-language edges include secondary languages across primary groups', () => {

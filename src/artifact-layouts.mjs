@@ -4,16 +4,22 @@ import { compareRepositories } from './repository-filters.mjs';
 export const artifactLayouts = ['galaxy', 'solar-system'];
 // Feed deterministic positions into the existing Rust scene/relationship engine.
 // Manual positions remain the final override, so dragging works in every layout.
-export function artifactPositions(nodes, mode, seed, compact = false, metric = 'stars') {
+export function artifactPositions(nodes, mode, seed, compact = false, metric = 'stars', groupBy = node => !node.nodeKind || node.nodeKind === 'repository' ? node.language || 'Other' : node.nodeKind) {
   if (!artifactLayouts.includes(mode)) return {};
+  const projects = nodes.filter(node => !node.nodeKind || node.nodeKind === 'repository');
+  if (projects.length && projects.length !== nodes.length) {
+    // Adding people or technologies leaves project anchors in place.
+    const anchors = artifactPositions(projects, mode, seed, compact, metric, groupBy);
+    return membershipPositions(nodes, anchors, seed, compact);
+  }
   const ordered = [...nodes].sort((a, b) => compareRepositories(a, b, metric));
   const yCenter = compact ? 126 : 270, yScale = compact ? 78 : 185;
   const random = seededRandom(seed), phase = random() * Math.PI * 2;
   const result = {};
   if (mode === 'galaxy') {
-    const groups = [...new Set(ordered.map(node => node.language || node.nodeKind || 'Other'))].sort();
+    const groups = [...new Set(ordered.map(groupBy))].sort();
     for (const [groupIndex, group] of groups.entries()) {
-      const members = ordered.filter(node => (node.language || node.nodeKind || 'Other') === group);
+      const members = ordered.filter(node => groupBy(node) === group);
       const angle = phase + groupIndex * Math.PI * 2 / groups.length;
       const cx = groups.length === 1 ? 0 : Math.cos(angle) * .6, cy = groups.length === 1 ? 0 : Math.sin(angle) * .6;
       members.forEach((node, i) => {
@@ -39,6 +45,31 @@ export function artifactPositions(nodes, mode, seed, compact = false, metric = '
         result[child.full_name] = { x: 450 + (cx + Math.cos(theta) * radius) * 365, y: yCenter + (cy + Math.sin(theta) * radius) * yScale };
       });
     });
+  }
+  return result;
+}
+export function membershipPositions(nodes, anchors, seed, compact = false) {
+  const result = { ...anchors }, occupied = Object.values(anchors);
+  const centerY = compact ? 126 : 270, height = compact ? 220 : 500;
+  // Technologies precede people so the shared language map stays recognizable.
+  const layer = { language: 0, topic: 1, dependency: 2, contributor: 3, era: 4 };
+  const additional = nodes.filter(node => !anchors[node.full_name]).sort((a, b) => (layer[a.nodeKind] ?? 5) - (layer[b.nodeKind] ?? 5) || a.full_name.localeCompare(b.full_name));
+  for (const node of additional) {
+    const linked = (node.members || []).map(id => anchors[id]).filter(Boolean);
+    const phase = seededRandom(`${seed}:${node.full_name}`)() * Math.PI * 2;
+    const center = linked.length ? {
+      x: linked.reduce((sum, p) => sum + p.x, 0) / linked.length,
+      y: linked.reduce((sum, p) => sum + p.y, 0) / linked.length,
+    } : { x: 450 + Math.cos(phase) * 330, y: centerY + Math.sin(phase) * (compact ? 75 : 180) };
+    let best, bestDistance = -1;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const angle = phase + attempt * 2.399963, radius = (compact ? 16 : 24) + Math.sqrt(attempt) * (compact ? 5 : 8);
+      const point = { x: Math.max(38, Math.min(862, center.x + Math.cos(angle) * radius)), y: Math.max(35, Math.min(height - 12, center.y + Math.sin(angle) * radius)) };
+      const distance = occupied.reduce((minimum, other) => Math.min(minimum, Math.hypot(point.x - other.x, point.y - other.y)), Infinity);
+      if (distance > bestDistance) { best = point; bestDistance = distance; }
+      if (distance >= (compact ? 16 : 23)) break;
+    }
+    result[node.full_name] = best; occupied.push(best);
   }
   return result;
 }

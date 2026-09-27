@@ -1,18 +1,25 @@
+import { rhythmDefaults } from './coding-rhythm.mjs';
+import { studioPresets, presetOptions } from './studio-presets.mjs';
+import { mountOrganizationControls } from './organization/studio.mjs';
+import { mountStudioHistory } from './history/studio-history.mjs';
+import { mountRandomizeMotion } from './studio-randomize-motion.mjs';
 import { parseConfig, serializeConfig } from './config-schema.mjs';
 import { createConfigStore } from './config-store.mjs';
 import { encodeShare, decodeShare } from './share-link.mjs';
 import { downloadBlob, svgToPNG } from './export-image.mjs';
 import { newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
-import { newDesignCode, randomizeDesign } from './design-randomizer.mjs';
+import { newDesignCode, randomizeDesign, randomizeMatchingDesign } from './design-randomizer.mjs';
 import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
-export const designDefaults = { seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
+export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
-export function mountStudioDesign({ host, changed, apply, theme, message }) {
+export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes }) {
+  const historyControls = mountStudioHistory(host, changed);
+  const organizationControls = mountOrganizationControls(host, changed);
   let storage; try { storage = window.localStorage; } catch {}
   const store = createConfigStore(storage);
-  let current, svg = '', saveTimer, pending;
+  let current, svg = '', saveTimer, pending, presetAudience;
   const controls = new Map();
   let syncSky = () => {};
   const section = title => {
@@ -51,14 +58,43 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   document.querySelector('.studio-header').after(hero);
   const heroTitle = document.createElement('div'); heroTitle.className = 'design-launcher-title'; heroTitle.textContent = 'Find your next universe';
   const heroNote = document.createElement('p'); heroNote.textContent = 'One click. A new sky. Keep the code to come back.'; heroTitle.append(heroNote); hero.append(heroTitle);
-  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v4:… (older codes also work)'; designCode.maxLength = 103;
+  const presetMenu = document.createElement('details'); presetMenu.className = 'builtin-preset-menu';
+  const presetSummary = document.createElement('summary'); presetSummary.textContent = 'Choose a preset'; presetMenu.append(presetSummary);
+  const presetBody = document.createElement('div'); presetBody.className = 'builtin-preset-body'; presetMenu.append(presetBody); hero.append(presetMenu);
+  const presetLabel = document.createElement('label'); presetLabel.htmlFor = 'builtin-preset'; presetLabel.textContent = 'Start with a useful view';
+  const presetSelect = document.createElement('select'); presetSelect.id = 'builtin-preset';
+  for (const preset of studioPresets) { const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label; presetSelect.append(option); }
+  const presetDescription = document.createElement('p'); presetDescription.id = 'builtin-preset-description'; presetSelect.setAttribute('aria-describedby', presetDescription.id);
+  const describePreset = () => { presetDescription.textContent = studioPresets.find(value => value.id === presetSelect.value)?.description || ''; };
+  presetSelect.addEventListener('change', describePreset); describePreset();
+  presetBody.append(presetLabel, presetSelect, presetDescription);
+  const presetApply = button(presetBody, 'apply-builtin-preset', 'Apply preset', async () => {
+    if (!current) return;
+    const preset = studioPresets.find(value => value.id === presetSelect.value);
+    if (preset.audience === 'organization' && current.options.accountData?.type !== 'Organization' && current.options.accountType !== 'organization') throw new Error('Load an organization first, then choose an organization preset.');
+    presetApply.disabled = true;
+    try {
+      await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { loadOrganization: preset.audience === 'organization' });
+      presetMenu.open = false; message(`${preset.label} applied. Customize it or save it as your own preset.`);
+    } finally { presetApply.disabled = false; }
+  });
+  presetMenu.addEventListener('keydown', event => { if (event.key === 'Escape') { presetMenu.open = false; presetSummary.focus(); } });
+  document.addEventListener('click', event => { if (!presetMenu.contains(event.target)) presetMenu.open = false; });
+  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v5:… (older codes also work)'; designCode.maxLength = 103;
   const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code';
   const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
-  const reseed = async code => { const recipe = randomizeDesign(code); const options = { ...current.options, ...recipe, starfield: recipe.starfield || { mode: 'classic' } }; await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
+  const recipeOptions = recipe => ({ ...recipe, organizationUser: current.options.organizationUser, accountType: current.options.accountType, organizationScope: current.options.organizationScope, organizationView: current.options.organizationView, organization: current.options.organization, repoSource: current.options.repoSource || 'all', codingRhythmTimezone: current.options.codingRhythmTimezone || 'UTC', starfield: recipe.starfield || { mode: 'classic' } });
+  const reseed = async code => { const options = recipeOptions(randomizeDesign(code)); await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
   const motionLabel = document.createElement('label'); motionLabel.className = 'randomize-motion';
   const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = !matchMedia('(prefers-reduced-motion: reduce)').matches; motionLabel.append(motion, ' Include motion');
-  const randomize = button(hero, 'randomize-design', '✦ Randomize design', () => reseed(newDesignCode({ motion: motion.checked }))); randomize.className = 'randomize-primary';
+  const randomize = button(hero, 'randomize-design', '✦ Randomize design', async () => {
+    const settings = { motion: motion.checked, animations: animationParts.read(), ...historyControls.bounds() };
+    const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(recipeOptions(candidate)));
+    if (!recipe) { message('No matching randomized design found in the loaded repositories. Your current design is unchanged.'); return; }
+    await reseed(recipe.designCode);
+  }); randomize.className = 'randomize-primary';
   hero.append(motionLabel);
+  const animationParts = mountRandomizeMotion(hero, motion, storage);
   hero.append(codeControls);
   button(codeControls, 'reseed-design', 'Restore code', () => reseed(designCode.value.trim()));
   control(seedPanel, 'seedMode', 'Seed mode', ['account', 'custom', 'random']);
@@ -67,6 +103,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   control(seedPanel, 'nodeShape', 'Node shape', ['circle', 'star', 'diamond', 'hexagon', 'square', 'mixed']);
   control(seedPanel, 'effect', 'Optional effect', ['none', 'grid', 'scanlines', 'coordinates']);
   control(seedPanel, 'legend', 'Show compact mapping legend', null, 'checkbox');
+  control(seedPanel, 'starlightAnimate', 'Animate repository twinkle', null, 'checkbox');
   const skyPanel = section('Background starfield');
   control(skyPanel, 'sky-mode', 'Sky', [['off', 'Off'], ['classic', 'Classic dust'], ['space', 'Deep space'], ['milky-way', 'Milky Way band']]);
   const skyDetails = document.createElement('div'); skyPanel.append(skyDetails);
@@ -83,7 +120,19 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   control(activityPanel, 'activityWindow', 'Activity window', [['1d', '24 hours'], ['7d', '7 days'], ['30d', '30 days'], ['auto', 'Auto']]);
   control(activityPanel, 'activityDetail', 'Event detail', [['simple', 'Simple'], ['event-types', 'Event types']]);
   control(activityPanel, 'activityConnections', 'Brighten active connections', null, 'checkbox');
+  control(activityPanel, 'activityAnimate', 'Animate activity effects', null, 'checkbox');
   const activityStatus = document.createElement('p'); activityStatus.id = 'activity-status'; activityStatus.className = 'export-note'; activityStatus.setAttribute('role', 'status'); activityPanel.append(activityStatus);
+  const rhythmPanel = section('Coding rhythm');
+  control(rhythmPanel, 'codingRhythmStyle', 'Coding rhythm', [['hidden', 'Off'], ['orbit', 'Orbit'], ['active-arc', 'Active arc'], ['halo', 'Halo']]);
+  control(rhythmPanel, 'codingRhythmWindow', 'Window', [['7d', '7 days'], ['14d', '14 days'], ['30d', '30 days']]);
+  const zoneMode = control(rhythmPanel, 'rhythmZoneMode', 'Timezone', [['UTC', 'UTC'], ['browser', 'Browser timezone'], ['custom', 'Custom timezone']]);
+  const zone = control(rhythmPanel, 'codingRhythmTimezone', 'Custom IANA timezone');
+  zone.maxLength = 100;
+  control(rhythmPanel, 'codingRhythmDays', 'Days of week', [['off', 'Off'], ['subtle', 'Subtle'], ['full', 'Full']]);
+  control(rhythmPanel, 'codingRhythmAnimate', 'Animate rhythm', null, 'checkbox');
+  control(rhythmPanel, 'codingRhythmPeakLabel', 'Show peak label', null, 'checkbox');
+  const syncRhythm = () => { zone.hidden = zoneMode.value !== 'custom'; zone.previousElementSibling.hidden = zone.hidden; };
+  zoneMode.addEventListener('input', syncRhythm);
   const filters = section('Repository filters');
   control(filters, 'minStars', 'Minimum GitHub stars', null, 'number');
   control(filters, 'includeArchived', 'Include archived repositories', null, 'checkbox');
@@ -123,23 +172,37 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   };
   window.addEventListener('pagehide', flush);
   function restore(options) {
+    organizationControls.restore(options);
+    historyControls.restore(options);
     designCode.value = options.designCode || '';
     if (/^v[34]:/i.test(options.designCode || '')) motion.checked = !options.designCode.slice(3).startsWith('still-');
+    animationParts.restore(options.designCode);
     const sky = starfieldOptions(options.starfield);
     for (const [key, input] of controls) {
       const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
       if (input.type === 'checkbox') input.checked = value; else input.value = value;
     }
+    controls.get('codingRhythmStyle').value = options.codingRhythm ? options.codingRhythmStyle || 'orbit' : 'hidden';
+    zoneMode.value = !options.codingRhythmTimezone || options.codingRhythmTimezone === 'UTC' ? 'UTC' : 'custom';
+    syncRhythm();
     syncSky();
   }
   restore({ starfield: defaultStarfield });
   return {
-    store, restore, flush,
+    store, restore, flush, historyRange: historyControls.range,
     read: () => {
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
-      return { ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-'))), starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      return { ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
-    update(account, options, source) { if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`; },
+    update(account, options, source) {
+      const audience = options.accountData?.type === 'Organization' || options.accountType === 'organization' ? 'organization' : 'any';
+      if (audience !== presetAudience) {
+        presetSelect.value = audience === 'organization' ? 'organization-projects' : 'project-map';
+        for (const option of presetSelect.options) option.disabled = audience !== 'organization' && studioPresets.find(preset => preset.id === option.value).audience === 'organization';
+        presetAudience = audience; describePreset();
+      }
+      if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`;
+    },
     shared() { try { return decodeShare(location.href); } catch (error) { message(error.message, true); return null; } },
   };
 }

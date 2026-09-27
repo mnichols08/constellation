@@ -2,6 +2,8 @@
 
 Create a constellation of your public GitHub projects and keep it updated in your README.
 
+Explore [History & Evolution](docs/designs.md#history--evolution): contribution orbits, language eras, stellar ages, open-source galaxies, and animated growth. See the [showcase gallery](examples/README.md#history--evolution).
+
 ![Example GitHub constellation](./dist/constellation.svg)
 
 The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
@@ -88,13 +90,15 @@ The image updates daily. Clicking it takes viewers to this project's GitHub repo
 
 The studio keeps the live design beside a compact inspector (above it on mobile). Choose **Look**, **Motion**, **Projects**, **Nodes**, or **Save** to reveal one group of controls at a time. Settings scroll independently of the preview. **Hide controls** gives the design the full workspace; click a node to open its editor. Language/topic filters are under **Projects**, and workflow setup is under **Save**.
 
-Start with a coordinated theme in **Look**, or use the prominent **Randomize design** toolbar. Enable **Include motion** for independent per-ring rotation, speed, direction, spin/sway, sway angle and easing, combined with floating motion and varied perspective; leave it unchecked for a still design. Save the resulting `v4:…` design code and enter it again to regenerate the same randomized visual choices. Existing `v1:…`, `v2:…` and `v3:…` codes still work. Seeded palettes, glow, layout variation and animation phases are reproducible; export JSON to retain your later manual edits too.
+Click **View full screen** to explore the original SVG at full resolution. Drag to pan, scroll or pinch to zoom, or use the zoom buttons. **Fit** centers the entire image; **100%** uses its exported dimensions. Double-click zooms in (Shift-double-click zooms out). Arrow keys pan, `+` / `−` zoom, `0` fits, and `1` restores 100%. **Close** or Escape returns to the studio without changing the design. If browser fullscreen is unavailable, the viewer fills the browser window.
+
+Start with a theme in **Look**, or use **Randomize design** to vary visual settings, filters, activity and history layers. **Include motion → Animation parts** controls which layers may animate, including each ring independently. Save the resulting `v5:…` code to replay the choices; `v1`–`v4` codes still work. Export JSON to retain later manual edits. See the [randomizer guide](docs/designs.md#randomize-then-return-to-a-design).
 
 **Recent activity** adds Glow, Pulse, Comet trails, or Ripple to repositories with recent public GitHub events. The daily workflow refreshes the image, so active projects brighten and older activity fades. Node size, colors and placement keep their existing meaning. Choose a 24-hour, 7-day, 30-day or automatic window; reduced motion retains a static halo, trail or ring. Activity is off by default.
 
 [Try the Active Developer example](examples/active-developer.json), or add `"activityEffect": "comet", "activityWindow": "7d"` to your config. Public events are fetched once per account load/refresh, never while customizing. Fetch failures produce a diagnostic and still generate the image. GitHub's [events API](https://docs.github.com/en/rest/activity/events#list-public-events-for-a-user) can be delayed and has a limited history; this is a visual activity signal, not exact contribution tracking. See [activity settings and scoring](docs/designs.md#recent-public-activity).
 
-**Background starfield** generates a layered Deep Space sky or a Milky Way band, with adjustable density, brightness, depth and subtle twinkle. Generate another background without moving projects, or reuse its saved seed. Background stars are decorative and never become graph nodes. Old configs and `v1:` designs keep classic dust; new `v2:`/`v3:`/`v4:` designs include the generated starfield.
+**Background starfield** generates a layered Deep Space sky or a Milky Way band, with adjustable density, brightness, depth and subtle twinkle. Generate another background without moving projects, or reuse its saved seed. Background stars are decorative and never become graph nodes. Old configs and `v1:` designs keep classic dust; `v2:`–`v5:` designs include the generated starfield.
 
 Map node size to stars, activity, age, language/topic counts, or category membership. Map glow to stars or activity, choose language/seeded/category colors, and weight connections by shared metadata. Manual node colors still override mappings. Try **Galaxy** for language clusters or **Solar System** for major repositories and their related nodes. Rings distribute points across all four rings before adding another point to a ring.
 
@@ -213,3 +217,7 @@ The studio now starts in **Full atlas** with a randomized hue for every node. Co
 **Perspective → Follow your view** supports live pointer tilt on desktop and device tilt on supported phones/tablets. Click **Enable device tilt** to request sensor access, then hold the device comfortably to establish a neutral position; **Recenter device tilt** resets it. The device mode requires a secure context (HTTPS or localhost) and may request browser permission ([browser API requirements](https://developer.mozilla.org/en-US/docs/Web/API/DeviceOrientationEvent/requestPermission_static)). CSS renders the 3D tilt; a small event-driven handler supplies its angles. Reduced-motion preferences pause tracking. Turn live tilt off to edit positions. Live tracking only affects the studio preview; exported SVGs retain their configured perspective and animation.
 
 Selecting a node now updates **Download SVG**, the style preview, and the workflow to the same highlighted constellation. Shift-selecting a second node exports the highlighted path. Unrelated nodes remain dimmed, matching the interactive view; colors, perspective, and animation are preserved. **Clear selection** restores full-constellation exports. Workflows save `selection: { "start": "node-id", "end": "optional-node-id" }`; if the selected node disappears from later data, the full graph is shown instead.
+
+## Organization universes
+
+Load a GitHub organization automatically, or enter a username plus an organization to highlight shared projects and collaborators. Explore community, collaboration, technology and era views with bounded contributor scans and cached public data. See [organization setup, limits and data coverage](docs/organizations.md).

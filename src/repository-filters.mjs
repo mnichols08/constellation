@@ -7,8 +7,9 @@ export function repositoryFilterOptions(options = {}) {
 
 export const updatedTime = repo => Date.parse(repo.pushed_at || repo.updated_at) || 0;
 
-export function filterRepositoryMetadata(repos, options = {}, now = Date.now()) {
+export function filterRepositoryMetadata(repos, options = {}, now) {
   const { minStars, includeArchived, updatedWithin, repoQuery } = repositoryFilterOptions(options);
+  if (updatedWithin && !Number.isFinite(now)) throw new Error('Temporal filtering requires a reference date.');
   const query = repoQuery.trim().toLowerCase();
   return repos.filter(repo => (repo.stargazers_count || 0) >= minStars && (includeArchived || !repo.archived)
     && (!updatedWithin || updatedTime(repo) >= now - updatedWithin * 365.25 * 86400000)

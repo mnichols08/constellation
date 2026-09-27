@@ -53,6 +53,16 @@ test('workflow preserves arbitrary category selections and empty graphs stay exp
   assert.match(renderConstellation('user', repos, { languages: [] }), /No projects match these filters/);
 });
 
+test('metadata and historical filters do not claim that a populated profile has no repositories', () => {
+  for (const options of [{ minStars: 1000000 }, { repoQuery: 'does-not-exist' }, { historicalYear: 2000 }]) {
+    const svg = renderConstellation('user', repos, options);
+    assert.match(svg, /No projects match these filters or historical year/);
+    assert.doesNotMatch(svg, /No public repositories to show yet/);
+  }
+  assert.match(renderConstellation('user', [], {}), /No public repositories to show yet/);
+  assert.match(renderConstellation('user', repos, { repoSource: 'pinned' }), /No public pinned repositories match this selection/);
+});
+
 test('curved paths preserve every selected relationship and emphasize only a spanning forest', () => {
   const connected = Array.from({ length: 12 }, (_, i) => ({ ...repos[0], name: `repo-${i}`, full_name: `user/repo-${i}` }));
   const svg = renderConstellation('user', connected, { layout: 'compact', connectionDensity: 'all' });

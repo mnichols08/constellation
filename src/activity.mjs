@@ -18,13 +18,13 @@ export function normalizePublicEvents(input) {
     if (!event || event.public !== true || !Object.hasOwn(eventKinds, event.type) || typeof event.repo?.name !== 'string' || !repoPattern.test(event.repo.name) || typeof event.created_at !== 'string' || !Number.isFinite(Date.parse(event.created_at))) return [];
     const id = typeof event.id === 'string' ? event.id.slice(0, 80) : `${event.type}:${event.repo.name}:${event.created_at}`;
     if (seen.has(id)) return []; seen.add(id);
-    return [{ id, repository: event.repo.name, kind: eventKinds[event.type], createdAt: new Date(event.created_at).toISOString(), newRepository: event.type === 'CreateEvent' && event.payload?.ref_type === 'repository' }];
+    return [{ id, repository: event.repo.name, kind: eventKinds[event.type], createdAt: new Date(event.created_at).toISOString(), newRepository: event.type === 'CreateEvent' && event.payload?.ref_type === 'repository', ...(event.type === 'PullRequestEvent' && event.payload?.action === 'closed' && event.payload?.pull_request?.merged === true ? { merged: true } : {}) }];
   }).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id)).slice(0, 300);
 }
 
 export function sanitizeActivityEvents(input) {
   if (!Array.isArray(input)) return [];
-  return normalizePublicEvents(input.map(event => ({ id: event?.id, public: true, type: Object.keys(eventKinds).find(key => eventKinds[key] === event?.kind), repo: { name: event?.repository }, created_at: event?.createdAt, payload: { ref_type: event?.newRepository ? 'repository' : '' } })));
+  return normalizePublicEvents(input.filter(event => event?.public !== false && event?.private !== true).map(event => ({ id: event?.id, public: true, type: Object.keys(eventKinds).find(key => eventKinds[key] === event?.kind), repo: { name: event?.repository }, created_at: event?.createdAt, payload: { ref_type: event?.newRepository ? 'repository' : '', action: event?.merged ? 'closed' : '', pull_request: { merged: event?.merged === true } } })));
 }
 
 export function recencyDecay(ageHours) {

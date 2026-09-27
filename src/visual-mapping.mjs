@@ -17,7 +17,10 @@ export function activityScore(repo, reference) {
 }
 export function mappedColor(repo, mode = 'custom', seed = '', reference = 0) {
   if (mode === 'custom') return null;
-  if (mode === 'language') return languageColors[repo.language || repo.name] || paletteColor(repo.language || repo.name, 'language');
+  if (mode === 'language') {
+    const key = repo.nodeKind && repo.nodeKind !== 'repository' ? repo.nodeKind === 'contributor' ? 'Contributors' : repo.name : repo.language || repo.name;
+    return languageColors[key] || paletteColor(key, 'language');
+  }
   if (mode === 'seeded') return paletteColor(repo.full_name, seed);
   if (mode === 'category') return paletteColor(repo.nodeKind === 'repository' || !repo.nodeKind ? repo.topics?.[0] || repo.language || 'Other' : repo.name, 'category');
   if (mode === 'contribution') return ['#263b2c', '#0e4429', '#006d32', '#26a641', '#39d353'][Math.min(4, Math.floor(activityScore(repo, reference) * 5))];

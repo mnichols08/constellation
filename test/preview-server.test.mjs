@@ -31,6 +31,7 @@ test('local studio authenticates upstream only, retains data, and never serves .
   const token = 'test-local-secret';
   const base = await serve(t, { token, fetchImpl: async (url, options) => {
     calls.push({ url, options });
+    if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'octocat', type: 'User' });
     return Response.json(url.includes('/users/') ? [{ name: 'demo', full_name: 'octocat/demo' }] : { JavaScript: 100 });
   } });
   const html = await (await fetch(base)).text();
@@ -41,7 +42,7 @@ test('local studio authenticates upstream only, retains data, and never serves .
   const data = createPreviewData({ fetchImpl: createPreviewFetch({ proxyBase: `${base}/api/github` }) });
   await data.load('octocat', { maxRepos: 5 });
   await data.load('octocat', { maxRepos: 5 });
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(calls.every(({ url, options }) => url.startsWith('https://api.github.com/') && !url.includes(token) && options.headers.Authorization === `Bearer ${token}`));
   assert.ok(!JSON.stringify(data.snapshot('octocat')).includes(token));
 });

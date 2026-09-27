@@ -7,8 +7,9 @@ export function boundedSize(value, ceiling = 10000) {
   return 2.7 + 3.3 * Math.min(1, Math.log1p(Math.max(0, Number.isFinite(value) ? value : 0)) / Math.log1p(ceiling));
 }
 
-export function nodeRadius(node, mode = 'legacy', now = Date.now()) {
+export function nodeRadius(node, mode = 'legacy', now) {
   if (!sizingModes.includes(mode)) throw new Error('Invalid node sizing mode.');
+  if (['age', 'activity'].includes(mode) && !Number.isFinite(now)) throw new Error('Temporal node sizing requires a reference date.');
   if (mode === 'legacy') return 2.7 + Math.min(3.3, Math.log2((node.stargazers_count || 0) + 1) / 2);
   if (mode === 'uniform') return 4;
   const category = node.nodeKind && node.nodeKind !== 'repository';

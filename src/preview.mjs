@@ -1,3 +1,6 @@
+import { deriveCodingRhythm } from './coding-rhythm.mjs';
+import { presetOptions } from './studio-presets.mjs';
+import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
@@ -14,7 +17,7 @@ import { mountLabelEditor } from './label-editor.mjs';
 import { mountGraphExplorer } from './graph-explorer.mjs';
 import { rustAvailable, identityPoints } from './engine.mjs';
 
-import { createPreviewData, createPreviewFetch, createPinnedFetch } from './preview-data.mjs';
+import { createPreviewData, createPreviewFetch, createPinnedFetch, canRenderPreview } from './preview-data.mjs';
 
 let storage;
 try { storage = window.sessionStorage; } catch {}
@@ -22,13 +25,24 @@ const proxyBase = document.querySelector('meta[name="constellation-api"]')?.cont
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
-let studio, restoreForm, workspace;
+let studio, restoreForm, workspace, imageViewer;
 let importedOptions = {};
 const $ = selector => document.querySelector(selector);
 if (proxyBase) $('.form-note').textContent = localAuth
   ? 'Using your local GitHub token. Loaded data is retained; customization makes no additional GitHub requests.'
   : 'No local GitHub token found. Add GH_TOKEN to .env and restart npm run preview to authenticate. Loaded data is retained while customizing.';
 const form = $('#account-form');
+function syncAccountMode() {
+  const mode = $('#account-mode').value;
+  $('#organization-account').hidden = mode !== 'paired';
+  $('#organization-account').required = mode === 'paired';
+  form.elements.username.placeholder = mode === 'organization' ? 'Organization name or URL' : mode === 'paired' ? 'GitHub username' : 'Username or organization';
+}
+$('#account-mode').addEventListener('change', () => {
+  if ($('#account-mode').value === 'organization' && $('#organization-account').value.trim()) form.elements.username.value = $('#organization-account').value.trim();
+  syncAccountMode();
+});
+syncAccountMode();
 const status = $('#status');
 const preview = $('#preview');
 const download = $('.download');
@@ -134,7 +148,7 @@ let repositories = Object.entries(sampleGroups).flatMap(([language, names]) => n
 })));
 let isSample = true;
 let loadedSource = 'all';
-repositories = repositories.map((repo, index) => ({ ...repo, pinned: index < 6, pin_order: index }));
+repositories = repositories.map((repo, index) => ({ ...repo, pinned: index < 6, pin_order: index, created_at: `${2012 + index % 15}-01-01T00:00:00Z`, pushed_at: `${index % 4 ? 2025 : 2026}-01-01T00:00:00Z`, archived: index === 15 }));
 let url;
 let workflowUrl;
 
@@ -173,6 +187,8 @@ function render() {
   const generatedCSS = visualCSS(visualStyle);
   $('#generated-css').value = generatedCSS;
   const options = { ...importedOptions, ...studio?.read(), theme: importedOptions.theme || 'auto', layout: $('#layout').value, maxRepos: Number($('#max-repos').value), animate: $('#animate').checked, includeForks: $('#forks').checked, bridges: $('#bridges').checked, connectionDensity: $('#connection-density').value, connectionBasis: $('#connection-basis').value, languages: filterSelection.languages, topics: filterSelection.topics, showOther: $('#show-other').checked, css: `${generatedCSS}\n${$('#custom-css').value}` };
+  options.accountData = isSample ? undefined : data.profile(account);
+  options.organizationData = isSample ? undefined : data.organization(account);
   options.layout = exportSettings(options).layout;
   options.visualStyle = structuredClone(visualStyle);
   options.customCSS = $('#custom-css').value;
@@ -228,14 +244,17 @@ function render() {
   $('#load-projects').hidden = isSample || !missing;
   $('#load-projects').textContent = `Load data for ${missing} more projects`;
   $('#load-projects').disabled = loading;
-  if (missing) {
+  if (missing && options.accountData?.type !== 'Organization') {
     message(`${missing} projects need language data. Click Load data to apply this project pool. The previous image and exports are retained; no requests are made while customizing.`);
     return;
   }
   const projected = graphNodes(repositories, options);
   const generatedAt = new Date().toISOString();
   const activitySnapshot = isSample ? sampleActivity(repositories) : data.activity(account);
+  options.historyData = activitySnapshot;
+  studio.historyRange(repositories, generatedAt);
   options.activityData = activitySnapshot ? aggregateActivity(activitySnapshot.events, selectRepositories(repositories, options), options, activitySnapshot.asOf) : undefined;
+  options.codingRhythmData = activitySnapshot ? deriveCodingRhythm(activitySnapshot.events, options, options.activityMetricDate || activitySnapshot.asOf) : undefined;
   const activityStatus = $('#activity-status');
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
@@ -265,6 +284,7 @@ function render() {
     $('#workflow').value = renderWorkflow(isSample ? null : account, options);
     updateSnippet();
     studio?.update(account, options, captured);
+    imageViewer?.update(captured, account);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
     $('#download-workflow').href = workflowUrl;
@@ -282,15 +302,33 @@ function render() {
   mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { const previous = graphSelection.start, previousEnd = graphSelection.end; graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start && (selection.start !== previous || selection.end !== previousEnd)) workspace?.reveal($('#color-node')); });
   const eligible = repositories.filter(repo => repo.private !== true && (options.includeForks || !repo.fork));
   const shown = selectRepositories(repositories, options);
+  const resetFilters = $('#reset-project-filters');
+  const emptySelection = repositories.some(repo => repo.private !== true) && !projected.nodes.some(node => !options.hiddenNodes.includes(node.full_name));
+  resetFilters.hidden = !emptySelection;
+  resetFilters.onclick = () => {
+    applyOptions({ ...options, includeRepos: undefined, languages: null, topics: null, showOther: true, includeForks: true, includeArchived: true, minStars: 0, updatedWithin: 0, repoQuery: '', hiddenNodes: [], nodeMode: 'repositories', historicalYear: undefined, timeLapse: undefined, history: { ...options.history, mode: 'current', year: null, timeLapse: { ...options.history?.timeLapse, enabled: false } } });
+    render();
+  };
   $('#filter-summary').textContent = `${repositories.length} loaded · ${shown.length} included · ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} rendered · ${Math.max(0, projected.total - projected.nodes.length)} omitted by graph limit. ` + `${shown.length} matching projects from ${options.repoSource === 'pinned' ? `${selected.length} public pinned repositories` : `a pool of ${selected.length}`}.${categoryMode ? ` Showing ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} of ${projected.total} ${combinedMode ? 'nodes' : options.nodeMode}${projected.total > projected.nodes.length ? combinedMode ? ' (up to 256 nodes, retaining repositories and the most represented categories)' : ' (the 100 most represented categories)' : ''}.` : ''} ${options.repoSource === 'pinned' ? 'Your profile pins define the project pool; language, topic, and fork filters still apply.' : 'Increase the project limit to explore more.'} ${options.languages?.length === 0 || options.topics?.length === 0 ? 'Choose a category or All to show projects.' : ''}`;
   $('#repo-count').textContent = shown.length;
   $('#language-count').textContent = new Set(shown.flatMap(repositoryLanguages)).size;
   $('#star-count').textContent = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(shown.reduce((total, repo) => total + (repo.stargazers_count || 0), 0));
   $('#limit-value').value = options.repoSource === 'pinned' ? 'All pins' : options.maxRepos;
-  $('#map-title').textContent = isSample ? 'The sample sky' : `@${account}’s sky`;
+  $('#map-title').textContent = isSample ? 'The sample sky' : options.accountData?.type === 'Organization' ? `${account} · Organization universe${options.organizationUser ? ` · @${options.organizationUser}` : ''}` : `@${account}’s sky`;
+  $('#organization-status').textContent = options.accountData?.type === 'Organization' ? `${projected.note || 'Organization universe'} ${options.organizationData?.diagnostic || ''}` : `@${account} · Developer universe`;
+  if (projected.organization) {
+    const kinds = new Set(projected.nodes.map(node => node.nodeKind || 'repository'));
+    $('#node-legend').textContent = Object.entries({ repository: 'Project', language: 'Language', topic: 'Topic', contributor: 'Contributor (diamond)', dependency: 'Dependency (hexagon)', era: 'Project group' }).filter(([kind]) => kinds.has(kind)).map(([, label]) => label).join(' · ');
+    $('#node-mode-help').textContent = kinds.has('contributor')
+      ? 'Projects use the same galaxy layout as personal accounts. Contributor diamonds sit near the projects they contribute to. Lines show observed participation; unscanned projects remain visible.'
+      : kinds.has('repository') ? 'Each star is a project, using the same language colors and sizing as personal accounts. Additional project groups summarize the rest of the organization.'
+        : 'Each node summarizes projects sharing a language, topic, dependency, or creation group. Size follows the selected mapping, just as in personal views.';
+    if (kinds.has('contributor')) $('#relationship-legend').textContent = 'Project participation';
+  }
   $('#sample-badge').hidden = !isSample;
   $('#workflow-note').textContent = options.repoSource === 'pinned' ? 'This workflow reads the repository owner’s current public pins on every run using GitHub’s automatic token. No personal token is needed in the workflow.' : 'This workflow generates a constellation for the repository owner, using the settings and CSS shown here.';
   if (!isSample) message(`Showing ${projected.nodes.length} ${options.nodeMode} from ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests.`);
+  if (emptySelection) message(`Loaded ${repositories.length} public repositories for @${account}, but the current filters, history year or node visibility exclude them. Reset project filters to show them.`);
 }
 
 for (const control of controls) control.addEventListener('input', render);
@@ -355,12 +393,13 @@ for (const button of document.querySelectorAll('[data-filter]')) button.addEvent
   filterSelection[button.dataset.filter] = button.dataset.selection === 'all' ? null : []; render();
 });
 async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value, explicitConfig) {
+  const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
   const restoring = explicitConfig || (nextAccount.toLowerCase() !== account.toLowerCase() ? studio?.store.draft(nextAccount) : null);
   if (restoring) source = restoring.options.repoSource || 'all';
   if (loading) return;
   loading = true;
   $('#repo-source').disabled = true;
-  for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = true;
+  for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data'), $('#reset-project-filters')]) button.disabled = true;
   preview.setAttribute('aria-busy', 'true');
   message('Loading project data… You can keep adjusting styles.');
   try {
@@ -368,17 +407,23 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
       $('#token-help').open = true;
       throw new Error('Pinned previews require a personal access token. Create one using the token setup below, save GH_TOKEN in the local project .env, and restart npm run preview. The daily workflow uses GitHub’s automatic token.');
     }
-    const nextRepositories = await data.load(nextAccount, { ...(restoring?.options || studio?.read()), maxRepos: restoring?.options.maxRepos ?? Number($('#max-repos').value), includeForks: restoring?.options.includeForks ?? $('#forks').checked, repoSource: source }, {
+    // Fetch languages for the configuration that will actually be applied. A new
+    // account without a draft must not inherit the previous account's filters.
+    const loadOptions = restoring?.options || (changedAccount ? presetOptions('project-map', { accountType: $('#account-mode').value === 'organization' ? 'organization' : 'auto' }) : { ...importedOptions, ...studio?.read(), maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked });
+    const nextRepositories = await data.load(nextAccount, { ...loadOptions, repoSource: source }, {
       refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
-    if (!$('#output-repository').value || $('#output-repository').value === `${account}/${account}`) $('#output-repository').value = `${nextAccount}/${nextAccount}`;
+    if (!$('#output-repository').value || [ `${account}/${account}`, `${account}/.github` ].includes($('#output-repository').value)) $('#output-repository').value = data.profile(nextAccount)?.type === 'Organization' ? `${nextAccount}/.github` : `${nextAccount}/${nextAccount}`;
     studio?.flush();
-    const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
     account = nextAccount;
     repositories = nextRepositories;
     loadedSource = source;
     isSample = false;
-    if (restoring || changedAccount) applyOptions(restoring?.options || {});
+    if (restoring || changedAccount) applyOptions(loadOptions);
+    form.elements.username.value = loadOptions.organizationUser || account;
+    $('#organization-account').value = loadOptions.organizationUser ? account : '';
+    $('#account-mode').value = loadOptions.organizationUser ? 'paired' : data.profile(account)?.type === 'Organization' ? 'organization' : 'auto';
+    syncAccountMode();
     $('#repo-source').value = source;
     $('#refresh-data').hidden = false;
     render();
@@ -394,13 +439,27 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
   } finally {
     loading = false;
     $('#repo-source').disabled = false;
-    for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = false;
+    for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data'), $('#reset-project-filters')]) button.disabled = false;
     preview.setAttribute('aria-busy', 'false');
   }
 }
 form.addEventListener('submit', event => {
   event.preventDefault();
-  try { loadAccount(username(form.elements.username.value)); }
+  try {
+    const name = username(form.elements.username.value), organization = $('#organization-account').value.trim(), mode = $('#account-mode').value;
+    if (mode === 'organization') {
+      const draft = studio.store.draft(name);
+      const options = draft?.options?.accountType === 'organization' && !draft.options.organizationUser ? draft.options : presetOptions('organization-projects');
+      loadAccount(name, false, 'all', { account: name, options });
+    }
+    else if (mode === 'paired') {
+      if (!organization) throw new Error('Enter the organization to connect with this user.');
+      const settings = studio.read();
+      const discovery = settings.organization.contributors.enabled ? settings.organization : presetOptions('organization-community').organization;
+      loadAccount(username(organization), false, 'all', { account: username(organization), options: { organizationScope: settings.organizationScope, organization: discovery, accountType: 'organization', organizationUser: name, organizationView: 'collaboration', arrangement: 'community-galaxy', maxRepos: 100, showOther: true } });
+    }
+    else loadAccount(name);
+  }
   catch (error) { message(error.message, true); }
 });
 $('#load-projects').addEventListener('click', () => loadAccount(account));
@@ -486,14 +545,17 @@ function applyOptions(options) {
 for (const [value, text] of [['galaxy', 'Galaxy · language clusters'], ['solar-system', 'Solar System · major repositories']]) {
   const option = document.createElement('option'); option.value = value; option.textContent = text; option.disabled = !rustAvailable; $('#arrangement').append(option);
 }
+for (const [value, label] of [['community-galaxy', 'Community galaxy'], ['collaboration-gravity', 'Collaboration gravity'], ['era-rings', 'Era rings']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; $('#arrangement').append(option); }
+for (const [value, label] of [['contributors', 'Contributors'], ['ecosystem', 'Full ecosystem'], ['organization-community', 'Organization community'], ['dependencies', 'Dependencies']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; $('#node-mode').append(option); }
 buildVisualControls();
 restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
-  apply: async config => {
-    if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && (config.options.repoSource || 'all') !== loadedSource)) {
+  hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
+  apply: async (config, { loadOrganization = false } = {}) => {
+    if (loading) throw new Error('Wait for the account to finish loading before applying a preset.');
+    if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && ((config.options.repoSource || 'all') !== loadedSource || loadOrganization))) {
       if (!await loadAccount(config.account, false, config.options.repoSource || 'all', config)) throw new Error('Could not load this configuration account.');
-      form.elements.username.value = config.account;
     } else { applyOptions(config.options); render(); }
   },
   theme: id => {
@@ -505,7 +567,9 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
     buildVisualControls(); render();
   }, message,
 });
+$('#load-organization').addEventListener('click', () => loadAccount(account));
 workspace = mountStudioLayout();
+imageViewer = mountImageViewer($('.design-launcher'));
 const initialDraft = studio.store.draft(account);
 if (initialDraft) applyOptions(initialDraft.options);
 liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });

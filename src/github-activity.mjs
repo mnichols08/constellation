@@ -1,12 +1,12 @@
 import { username } from './constellation.mjs';
 import { normalizePublicEvents } from './activity.mjs';
 
-export async function fetchPublicActivity(account, { token, fetchImpl = fetch, signal, asOf = new Date().toISOString() } = {}) {
+export async function fetchPublicActivity(account, { token, fetchImpl = fetch, signal, accountType = 'user', asOf = new Date().toISOString() } = {}) {
   const events = [];
   try {
     const name = username(account);
     for (let page = 1; page <= 3; page++) {
-      const response = await fetchImpl(`https://api.github.com/users/${name}/events/public?per_page=100&page=${page}`, {
+      const response = await fetchImpl(`https://api.github.com/${accountType === 'organization' ? 'orgs' : 'users'}/${name}/events${accountType === 'organization' ? '' : '/public'}?per_page=100&page=${page}`, {
         signal: signal || AbortSignal.timeout(20000), redirect: 'error',
         headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });

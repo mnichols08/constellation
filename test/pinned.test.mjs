@@ -59,7 +59,7 @@ test('pin and all-repository snapshots are separate, cached, refreshable, and re
   let pinCalls = 0, allCalls = 0, fail = false;
   const pinned = { name: 'pinned', full_name: 'someone/pinned', language: 'Rust', languages: { Rust: 100 }, pinned: true };
   const all = { name: 'owned', full_name: 'octocat/owned', language: 'CSS', languages: { CSS: 100 } };
-  const args = { storage, fetchPinned: async () => { pinCalls++; if (fail) throw Error('Token rejected'); return [pinned]; }, fetchImpl: async url => { if (url.includes('/events/public')) return Response.json([]); allCalls++; return Response.json([all]); } };
+  const args = { storage, fetchPinned: async () => { pinCalls++; if (fail) throw Error('Token rejected'); return [pinned]; }, fetchImpl: async url => { if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'octocat', type: 'User' }); if (url.includes('/events/public')) return Response.json([]); allCalls++; return Response.json([all]); } };
   let data = createPreviewData(args);
   await data.load('octocat', {});
   await data.load('octocat', { repoSource: 'pinned' });
