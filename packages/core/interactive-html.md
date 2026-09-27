@@ -25,3 +25,7 @@ Run `node examples/interactive-demo.mjs` to generate a small offline example in 
 Select a node to see its description, language and star count. Source-provided HTTP(S) project links open safely in a new tab. Shift-click or Shift-Enter on a second node traces the shortest path across visible connections. Both endpoints remain visible when no path exists. Path computation uses the embedded Rust/WASM engine, with no network requests.
 
 A host runtime exposes `selectionState` as `{ start, end, path }`; `selectNode(id, { extend: true, focus: false })` extends a selection programmatically. Clear selection resets details and highlights. Selection layer visibility controls highlighting without disabling accessible details.
+
+Find and Language filter the compiled nodes locally; they do not reload sources or change stored scene positions. Paths follow the remaining visible connections. Theme switches between the original scene palette and Midnight/Light, retaining per-node mappings. Reset restores the camera and selection; filter and theme controls retain your choices.
+
+The runtime exposes `setFilter({ query, language })` and `setTheme("original" | "midnight" | "light")`. Controls work without a server. The responsive SVG preserves its camera as its container resizes. Changes to the operating system reduced-motion preference immediately pause SVG animation and disable CSS animation.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.2 — 2026-09-27
+
+- Add local text/language filters and original, midnight and light theme switching to interactive exports.
+- Keep keyboard targets and Rust path traversal aligned with visible nodes; clear selections hidden by filtering.
+- Observe responsive canvas sizes and reduced-motion changes, including pausing SVG animation; clean up observers on disposal.
+
 ## 2.5.1 — 2026-09-27
 
 - Add node details, safe project links, and explicit selection/path state to interactive exports.

@@ -11,11 +11,13 @@ export function mountInteractive(root, source, options = {}) {
   const base = [...scene.viewport.viewBox];
   const records = new Map(scene.nodes.map(node => [node.id, node]));
   const groups = [...svg.querySelectorAll('.repository')].filter(group => group.style.display !== 'none');
-  const ids = [...new Set(groups.map(group => group.querySelector('.star')?.dataset.repo).filter(id => records.has(id)))];
+  const allIds = [...new Set(groups.map(group => group.querySelector('.star')?.dataset.repo).filter(id => records.has(id)))];
+  let ids = [...allIds];
   const groupId = group => group.querySelector('.star')?.dataset.repo;
   let camera = [...base], selected = null, endpoint = null, path = [], dragging = null, moved = false;
   const edges = [...svg.querySelectorAll('.shared-language')].filter(edge => ids.includes(edge.dataset.from) && ids.includes(edge.dataset.to));
-  const pairs = Uint32Array.from(edges.flatMap(edge => [ids.indexOf(edge.dataset.from), ids.indexOf(edge.dataset.to)]));
+  let pairs = Uint32Array.from(edges.flatMap(edge => [ids.indexOf(edge.dataset.from), ids.indexOf(edge.dataset.to)]));
+  let filter = { query: '', language: '' }, theme = 'original';
   const announce = text => { if (status) status.textContent = text; };
   const emit = (type, detail) => root.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
   const applyCamera = () => { svg.setAttribute('viewBox', camera.join(' ')); emit('camera-change', { viewBox: [...camera] }); };
@@ -105,6 +107,53 @@ export function mountInteractive(root, source, options = {}) {
     setCamera([(left + right - width) / 2, (top + bottom - height) / 2, width, height]);
   }
   function reset() { clearSelection(); setCamera(base); }
+  function setFilter(value = {}) {
+    if (typeof value.query !== 'undefined' && typeof value.query !== 'string' || typeof value.language !== 'undefined' && typeof value.language !== 'string') throw new Error('Filter query and language must be text.');
+    filter = { query: value.query || '', language: value.language || '' };
+    const query = filter.query.trim().toLowerCase();
+    ids = allIds.filter(id => {
+      const data = records.get(id).metadata;
+      return (!query || `${id} ${data.name} ${data.description || ''}`.toLowerCase().includes(query)) && (!filter.language || data.language === filter.language);
+    });
+    const visible = new Set(ids);
+    for (const group of groups) { group.toggleAttribute('data-filtered', !visible.has(groupId(group))); group.setAttribute('tabindex', groupId(group) === ids[0] ? '0' : '-1'); }
+    for (const label of svg.querySelectorAll('.repo-label')) label.toggleAttribute('data-filtered', !visible.has(label.dataset.repo));
+    for (const edge of edges) edge.toggleAttribute('data-filtered', !visible.has(edge.dataset.from) || !visible.has(edge.dataset.to));
+    pairs = Uint32Array.from(edges.filter(edge => !edge.hasAttribute('data-filtered')).flatMap(edge => [ids.indexOf(edge.dataset.from), ids.indexOf(edge.dataset.to)]));
+    if (selected && !visible.has(selected) || endpoint && !visible.has(endpoint)) clearSelection();
+    else highlight();
+    const search = root.querySelector('[data-search]'), language = root.querySelector('[data-language]');
+    if (search) search.value = filter.query;
+    if (language) language.value = filter.language;
+    announce(`${ids.length} of ${allIds.length} nodes visible.`); emit('filter-change', { ...filter, visible: ids.length });
+  }
+  function setTheme(value) {
+    const palettes = { midnight: { background: '#111111', foreground: '#f3f3f4', accent: '#e3de13', line: '#555a38', star: '#e3de13' }, light: { background: '#fafaf3', foreground: '#202516', accent: '#595600', line: '#838d66', star: '#8b8500' } };
+    if (value !== 'original' && !Object.hasOwn(palettes, value)) throw new Error('Unknown interactive theme.');
+    theme = value;
+    for (const key of Object.keys(palettes.midnight)) {
+      if (value === 'original') svg.style.removeProperty(`--sky-${key}`);
+      else svg.style.setProperty(`--sky-${key}`, palettes[value][key]);
+    }
+    svg.style.background = value === 'original' ? '' : palettes[value].background;
+    root.dataset.theme = value;
+    const control = root.querySelector('[data-theme]'); if (control) control.value = value;
+    emit('theme-change', { theme });
+  }
+  const search = root.querySelector('[data-search]'), language = root.querySelector('[data-language]'), themeControl = root.querySelector('[data-theme]');
+  if (search) listen(search, 'input', () => setFilter({ ...filter, query: search.value }));
+  if (language) {
+    for (const name of [...new Set(scene.nodes.map(node => node.metadata.language).filter(value => typeof value === 'string' && value))].sort()) {
+      const option = document.createElement('option'); option.value = name; option.textContent = name; language.append(option);
+    }
+    listen(language, 'change', () => setFilter({ ...filter, language: language.value }));
+  }
+  if (themeControl) listen(themeControl, 'change', () => setTheme(themeControl.value));
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  const updateMotion = () => { root.toggleAttribute('data-reduced-motion', motion.matches); if (motion.matches) { svg.pauseAnimations?.(); svg.setCurrentTime?.(0); } else svg.unpauseAnimations?.(); };
+  listen(motion, 'change', updateMotion); updateMotion();
+  const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(entries => { const { width, height } = entries[0].contentRect; emit('view-resize', { width, height }); }) : null;
+  resize?.observe(root.querySelector('[data-canvas]'));
   svg.setAttribute('role', 'group'); svg.setAttribute('tabindex', '0');
   for (const group of groups) {
     const id = groupId(group), record = records.get(id);
@@ -147,7 +196,7 @@ export function mountInteractive(root, source, options = {}) {
     if (event.key === '-') { event.preventDefault(); zoom(1.25); }
     if (event.key === 'Escape') clearSelection();
   });
-  const api = { selectNode, clearSelection, fit, reset, setCamera, get camera() { return [...camera]; }, get selection() { return selected; }, get selectionState() { return { start: selected, end: endpoint, path: [...path] }; }, destroy() { abort.abort(); dragging = null; delete root.constellation; } };
+  const api = { selectNode, clearSelection, fit, reset, setCamera, setFilter, setTheme, get filter() { return { ...filter }; }, get theme() { return theme; }, get camera() { return [...camera]; }, get selection() { return selected; }, get selectionState() { return { start: selected, end: endpoint, path: [...path] }; }, destroy() { abort.abort(); resize?.disconnect(); dragging = null; delete root.constellation; } };
   root.constellation = api;
   announce('Select a node to focus. Drag to pan; use the zoom controls or mouse wheel.');
   emit('scene-ready', { nodes: ids.length });
@@ -158,6 +207,8 @@ export const interactiveStyles = `
 .constellation-runtime{font:14px system-ui,sans-serif;color:#e9edf5;background:#11151e;border-radius:12px;overflow:hidden;max-width:1200px;margin:auto}
 .constellation-toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px;align-items:center}
 .constellation-toolbar button{font:inherit;color:inherit;background:#283143;border:1px solid #52617c;border-radius:6px;padding:8px 12px;cursor:pointer}
+.constellation-toolbar input,.constellation-toolbar select{font:inherit;max-width:180px;padding:6px;border-radius:4px}.constellation-toolbar label{display:flex;gap:6px;align-items:center}
+.constellation-runtime [data-filtered]{display:none!important}
 .constellation-toolbar button:focus-visible,.constellation-runtime .repository:focus-visible{outline:3px solid #a9cdfb;outline-offset:3px}
 .constellation-canvas{height:70vh;min-height:280px;overflow:hidden}
 .constellation-canvas>svg{display:block;width:100%;height:100%;touch-action:none}
@@ -166,5 +217,5 @@ export const interactiveStyles = `
 .constellation-details{padding:0 16px 16px}.constellation-details:empty{display:none}.constellation-details a{color:#a9cdfb}
 [data-interactive-selection] .repository:not([data-related]),[data-interactive-selection] .repo-label:not([data-related]){opacity:.2}
 [data-interactive-selection] .shared-language:not([data-related]){opacity:.07}
-@media(prefers-reduced-motion:reduce){.constellation-runtime *{scroll-behavior:auto;transition:none!important}}
+@media(prefers-reduced-motion:reduce){.constellation-runtime *{scroll-behavior:auto;transition:none!important;animation:none!important}}
 `;
