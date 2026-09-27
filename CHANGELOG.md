@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0 — 2026-09-27
+
+- Build a standalone, versioned `@constellation/core` ESM package with its complete dependency closure and WASM. The CLI/Action consumes that package internally.
+- Add programmatic config validation, actionable config load failures, and the offline `validate --config` command.
+- Add `--dry-run` and JSON `--explain`; expose the same filter report in the studio's summary data.
+
 ## 1.6.3 — 2026-09-27
 
 - Clarify refinement limits, off-ring reservations, and the distinction between dragging locks and saved manual placements.

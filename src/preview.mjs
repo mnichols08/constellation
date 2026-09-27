@@ -15,6 +15,7 @@ import { readmeSnippet, renderWorkflow, installationLinks } from './export.mjs';
 import { defaultVisualStyle, visualCSS, randomNodeColors } from './visual-style.mjs';
 import { mountLabelEditor } from './label-editor.mjs';
 import { mountGraphExplorer } from './graph-explorer.mjs';
+import { explainFilters } from './filter-explanation.mjs';
 import { rustAvailable, identityPoints } from './engine.mjs';
 
 import { createPreviewData, createPreviewFetch, createPinnedFetch, canRenderPreview } from './preview-data.mjs';
@@ -307,6 +308,8 @@ function render({ requireVisibleNodes = false } = {}) {
   mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { const previous = graphSelection.start, previousEnd = graphSelection.end; graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start && (selection.start !== previous || selection.end !== previousEnd)) workspace?.reveal($('#color-node')); });
   const eligible = repositories.filter(repo => repo.private !== true && (options.includeForks || !repo.fork));
   const shown = selectRepositories(repositories, options);
+  const filterExplanation = explainFilters(repositories, options);
+  $('#filter-summary').dataset.explanation = JSON.stringify(filterExplanation);
   const resetFilters = $('#reset-project-filters');
   const emptySelection = repositories.some(repo => repo.private !== true) && !projected.nodes.some(node => !options.hiddenNodes.includes(node.full_name));
   resetFilters.hidden = !emptySelection;

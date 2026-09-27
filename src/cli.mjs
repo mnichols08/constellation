@@ -1,9 +1,10 @@
+#!/usr/bin/env node
 import { codingRhythmOptions, deriveCodingRhythm } from './coding-rhythm.mjs';
 import { needsHistoryEvents } from './history/settings.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { parseArgs } from 'node:util';
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, renderConstellation } from './constellation.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, renderConstellation, explainFilters } from '../packages/core/src/core-api.mjs';
 import { loadConfig } from './config.mjs';
 import { rustAvailable, engineError } from './engine.mjs';
 import { aggregateActivity, activityOptions, normalizePublicEvents } from './activity.mjs';
@@ -11,13 +12,19 @@ import { fetchPublicActivity } from './github-activity.mjs';
 import { createOrganizationData, attachFocusEvidence } from './organization/data.mjs';
 import { organizationOptions } from './organization/settings.mjs';
 
-try {
+async function main() {
   if (!rustAvailable) throw new Error(`Could not load the Rust engine: ${engineError?.message}. Restore src/wasm or run npm run build:rust.`);
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
-  const { values } = parseArgs({ options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false } } });
-  const account = username(values.username || process.env.CONSTELLATION_USERNAME);
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' } } });
+  if (positionals.length > 1 || (positionals.length && positionals[0] !== 'validate')) throw new Error('Expected validate --config file.json, or generation flags.');
   const configPath = values.config || process.env.CONSTELLATION_CONFIG;
   const config = await loadConfig(configPath, process.env.CONSTELLATION_CONFIG_JSON);
+  if (positionals[0] === 'validate') {
+    if (!configPath && !process.env.CONSTELLATION_CONFIG_JSON) throw new Error('validate requires --config file.json or CONSTELLATION_CONFIG_JSON.');
+    console.log(JSON.stringify({ valid: true, errors: [] }));
+    return;
+  }
+  const account = username(values.username || process.env.CONSTELLATION_USERNAME);
   const cacheFile = '.cache/constellation-organization.json';
   let savedCache = '{}';
   try { savedCache = await readFile(cacheFile, 'utf8'); } catch {}
@@ -33,7 +40,7 @@ try {
   if (accountData.type === 'Organization') {
     config.organizationData = values.fixture ? { records: Object.fromEntries(listed.map(repo => [repo.full_name, repo.contributors || []])), metadataComplete: true } : { ...await organization.contributors(listed, config, { refresh: values['refresh-data'] }), discovered: listed.length, metadataComplete: discovery?.complete ?? true };
     config.organizationData = attachFocusEvidence(config.organizationData, focus, config.organizationUser, listed);
-    if (!values.fixture) { await mkdir(dirname(cacheFile), { recursive: true }); await writeFile(cacheFile, savedCache); }
+    if (!values.fixture && !values['dry-run']) { await mkdir(dirname(cacheFile), { recursive: true }); await writeFile(cacheFile, savedCache); }
     if (discovery?.diagnostic) console.warn(discovery.diagnostic);
     if (config.organizationData.diagnostic) console.warn(config.organizationData.diagnostic);
   }
@@ -55,13 +62,16 @@ try {
     activityData = aggregateActivity(snapshot.events, selectRepositories(repos, config), config, snapshot.asOf);
   }
   const svg = renderConstellation(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
+  if (values.explain) console.log(JSON.stringify(explainFilters(repos, config)));
+  if (values['dry-run']) return;
   const output = values.output || process.env.CONSTELLATION_OUTPUT || 'dist/constellation.svg';
   if (/[\r\n]/.test(output)) throw new Error('Invalid output path.');
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, svg);
   if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `svg=${output}\n`);
-  console.log(`Generated ${output} for @${account}.`);
-} catch (error) {
+  (values.explain ? console.error : console.log)(`Generated ${output} for @${account}.`);
+}
+try { await main(); } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
 }

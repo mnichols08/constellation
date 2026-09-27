@@ -8,6 +8,8 @@ Use **Nodes → Refine layout** for optional overlap reduction (intensity 0–10
 
 Refinement defaults to off; enabling it does not guarantee collision-free labels. **Lock positions** controls dragging. Saved manual placements stay protected regardless of that switch.
 
+The [standalone core API](docs/core-api.md) includes rendering, validation and filter reports. Run `node src/cli.mjs validate --config settings.json` to check a config; use `--dry-run --explain` with generation flags to inspect filtering without writing an SVG.
+
 ![Example GitHub constellation](./dist/constellation.svg)
 
 The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
