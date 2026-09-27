@@ -227,3 +227,7 @@ Animation is decorative, not the current time. Reduced motion hides the travelin
 ## History & Evolution
 
 Contribution orbits, inferred language eras, stellar ages, foreign galaxies and historical growth share a public-only temporal model. Open **Projects → History & evolution** in the studio. See the [history guide](history.md) for configuration, data limitations, API behavior and time-lapse size safeguards, or explore the [four showcase presets](../examples/README.md#history--evolution).
+
+## First visit
+
+A first visit in a browser shows the original landing page. Load an account or choose **Explore the sample studio** to enter the editor. Later visits open the studio directly; shared account/design links also go straight to the studio. The visit is remembered locally in that browser. Clearing site storage restores the landing page; if local storage is unavailable, the landing page remains available on each fresh visit.

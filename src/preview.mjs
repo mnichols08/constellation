@@ -27,6 +27,10 @@ const localAuth = document.querySelector('meta[name="constellation-auth"]')?.con
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
 let studio, restoreForm, workspace, imageViewer;
+function enterStudio() {
+  if (!workspace) workspace = mountStudioLayout();
+  document.documentElement.dataset.entry = 'studio';
+}
 let importedOptions = {};
 const $ = selector => document.querySelector(selector);
 if (proxyBase) $('.form-note').textContent = localAuth
@@ -440,6 +444,7 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
     $('#repo-source').value = source;
     $('#refresh-data').hidden = false;
     if (!render({ requireVisibleNodes })) throw new Error('This configuration could not render a populated graph.');
+    enterStudio();
     return true;
   } catch (error) {
     if (!isSample) $('#repo-source').value = loadedSource;
@@ -602,13 +607,17 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
   }, message,
 });
 $('#load-organization').addEventListener('click', () => loadAccount(account));
-workspace = mountStudioLayout();
+if (document.documentElement.dataset.entry === 'studio') enterStudio();
+$('#open-studio').disabled = false;
+$('#open-studio').addEventListener('click', () => { enterStudio(); $('#username').focus(); });
 imageViewer = mountImageViewer($('.design-launcher'));
 const initialDraft = studio.store.draft(account);
 if (initialDraft) applyOptions(initialDraft.options);
 liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });
 render();
 
+// Remember a successfully initialized visit, even if the visitor stays on the landing page.
+try { localStorage.setItem('constellation:visited', '1'); } catch {}
 const initialShare = studio.shared();
 if (initialShare) {
   if (initialShare.account === account) { applyOptions(initialShare.options); render(); }

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore the original landing layout on the first browser visit, open the studio directly on later visits and shared links, and hide the landing-to-studio loading flash.
+
 - Add a searchable repository picker in the Projects panel, with explicit selection, bulk controls and automatic selection. Preserve chosen repositories in configs, presets, share links and workflow exports.
 
 - Load missing project data when applying built-in presets, and restore the previous design if loading fails or the preset renders no visible nodes. Only report success after updating the graph and exports.
