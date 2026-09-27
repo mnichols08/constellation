@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.2 — 2026-09-27
+
+- Cache collision rectangles inside Rust refinement and update them only when a pair moves, preserving candidate order and costs.
+- Add `node scripts/benchmark-refinement.mjs`: uncached WASM timings for 64, 128 and 256 nodes, with snapping on/off and determinism checks. Timings depend on the host; use the same host for comparisons.
+
 ## 1.6.1 — 2026-09-27
 
 - Reserve ring anchors for locked pairs as well as hidden nodes when their saved position is off-ring. This also protects pairs pinned by hidden labels.
