@@ -1,5 +1,6 @@
 import { layerDefinitions, validateLayerOptions, validateLayerOrder } from './scene-layers.mjs';
 import { historyOptions } from './history/settings.mjs';
+import { validateHierarchy } from './hierarchy-model.mjs';
 // Internal scene version, independent of the eventual stable public API version.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -80,6 +81,7 @@ function record(scene, path = '$') {
   }
   if (layers.size !== layerDefinitions.length) fail(`${path}.layers`, 'missing required layer');
   validateLayerOrder(scene.layers);
+  if (scene.hierarchy !== undefined) validateHierarchy(scene.hierarchy, record);
   if (scene.timeline !== undefined) {
     const timeline = scene.timeline;
     if (!object(timeline) || timeline.version !== 1 || !Array.isArray(timeline.frames) || timeline.frames.length < 1 || timeline.frames.length > 64 || timeline.referenceDate !== scene.metadata.referenceDate) fail(path, 'invalid timeline');

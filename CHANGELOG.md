@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.0 — 2026-09-27
+
+- Introduce declarative hierarchical scene catalogs with node-to-child references and supplied scene definitions.
+- Compile children through existing pipelines/layouts, preserve static root SVG fallback, and serialize deterministic catalogs.
+- Validate references, cycles, size bounds and cancellation; document data provenance and programmatic authoring.
+
 ## 2.7.3 — 2026-09-27
 
 - Add bounded, observable per-host timeline caching with cloned results, cancellation and custom-layout bypass.

@@ -4,6 +4,7 @@ import { readdirSync } from 'node:fs';
 import { fetchPinnedRepositories } from '../src/constellation.mjs';
 
 const allowed = new Map([
+  ['/src/hierarchy-model.mjs', ['../src/hierarchy-model.mjs', 'text/javascript']],
   ['/examples/web-component.html', ['../examples/web-component.html', 'text/html']],
   ['/packages/web-component/index.mjs', ['../packages/web-component/index.mjs', 'text/javascript']],
   ...readdirSync(new URL('../packages/core/src/', import.meta.url), { recursive: true }).filter(name => /\.(mjs|js|wasm)$/.test(name)).map(name => {
