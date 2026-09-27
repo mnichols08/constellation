@@ -373,6 +373,14 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#layout').value`), 'compact', 'readable URL settings override saved drafts');
   assert.equal(await evaluate(`document.querySelector('#arrangement').value`), 'solar-system');
   assert.equal(await evaluate(`document.querySelector('#max-repos').value`), '12');
+  await evaluate(`document.querySelector('#dark-accent').value='#e3de13';document.querySelector('#dark-accent').dispatchEvent(new Event('input'));`);
+  for (const [id, keep, expected] of [['flagship-projects', true, '#e3de13'], ['language-orbits', false, '#ff79c6'], ['classic-constellation', false, '#e3de13']]) {
+    await evaluate(`document.querySelector('#preset-keep-colors').checked=${keep};document.querySelector('#builtin-preset').value='${id}';document.querySelector('#apply-builtin-preset').click();`);
+    for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
+    assert.match(await evaluate(`document.querySelector('#status').textContent`), /applied/);
+    assert.equal(await evaluate(`document.querySelector('#dark-accent').value`), expected, id + ' respects the color preference');
+    assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length > 0`), id + ' renders account nodes');
+  }
   await cdp('Page.navigate', { url: `${base}/?user=alice&organization=collective&preset=organization-community&maxRepos=12` });
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title')?.textContent.includes('Organization universe')`)) break; await delay(50); }
   assert.equal(await evaluate(`document.querySelector('#username').value`), 'alice');

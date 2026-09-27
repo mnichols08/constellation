@@ -56,6 +56,14 @@ Ring points now spread across all four rings before a ring receives another poin
 
 Optional `nodeShape` values are `circle`, `star`, `diamond`, `hexagon`, `square`, and `mixed`. Shapes use shared SVG clip definitions and retain the existing animated circle anchors. `effect` offers `none`, `grid`, `scanlines`, or `coordinates` (small hexadecimal IDs). Effects are static, lightweight decorations. `legend: true` adds a compact explanation of the selected visual mappings. Reduced-motion behavior remains active.
 
+## Built-in account presets
+
+**Choose a preset** offers Project map, Flagship projects, Technology atlas, Language orbits, Recent work, Project journey, Minimal README, and Classic Constellation for individual accounts. Organization-specific presets remain available when an organization is loaded.
+
+**Keep my colors** is checked by default. It preserves your light/dark palettes, node color mapping and manual node colors while applying the new layout and filters. Seeded palettes also retain their seed. Uncheck it to use a preset's own colors. **Classic Constellation** restores the original charcoal, olive and yellow scheme with its adaptive light palette when this option is unchecked. The resulting settings are included in saved configurations and share links; URL presets use their own colors unless explicitly overridden.
+
+Recent work selects recently updated repositories; its lifecycle halos use repository metadata. Project journey infers language eras from surviving projects' creation dates rather than historical snapshots. These presets do not require a contributor scan.
+
 ## Portable config and local drafts
 
 **Config, presets & export** supports copying/downloading JSON, pasting/importing JSON, file import, named local presets, and restoring/resetting the account draft. Drafts save automatically in localStorage, independently of sessionStorage GitHub data. Storage failures leave the studio usable and report how to download the design instead. Presets are local to the browser and GitHub account; deleting a preset does not delete an exported file.
@@ -83,7 +91,7 @@ https://mnichols08.github.io/constellation/?user=octocat&design=v5:m008-y2026-f2
 | `organization` | Organization to load; works without a user |
 | `accountType` | `auto`, `user`, or `organization` for the account in `user` |
 | `organizationUser` | Optional person to highlight when `user` is the organization account |
-| `preset` | `project-map`, `minimal-readme`, `organization-projects`, `organization-featured`, `organization-community`, `organization-technology`, or `organization-history` |
+| `preset` | `project-map`, `classic-constellation`, `flagship-projects`, `technology-atlas`, `language-orbits`, `recent-work`, `project-journey`, `minimal-readme`, `organization-projects`, `organization-featured`, `organization-community`, `organization-technology`, or `organization-history` |
 | `design` | Reproducible `v1`–`v5` design code |
 | `theme`, `visualTheme` | Color mode (`auto`, `light`, `midnight`) or named visual theme such as `deep-space` or `terminal` |
 | `arrangement`, `layout` | Arrangement such as `galaxy` or `solar-system`; format `atlas` or `compact` |

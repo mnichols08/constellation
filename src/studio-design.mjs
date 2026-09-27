@@ -68,13 +68,16 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const describePreset = () => { presetDescription.textContent = studioPresets.find(value => value.id === presetSelect.value)?.description || ''; };
   presetSelect.addEventListener('change', describePreset); describePreset();
   presetBody.append(presetLabel, presetSelect, presetDescription);
+  const keepColorsLabel = document.createElement('label'); keepColorsLabel.className = 'preset-keep-colors';
+  const keepColors = document.createElement('input'); keepColors.id = 'preset-keep-colors'; keepColors.type = 'checkbox'; keepColors.checked = true;
+  keepColorsLabel.append(keepColors, 'Keep my colors'); presetBody.append(keepColorsLabel);
   const presetApply = button(presetBody, 'apply-builtin-preset', 'Apply preset', async () => {
     if (!current) return;
     const preset = studioPresets.find(value => value.id === presetSelect.value);
     if (preset.audience === 'organization' && current.options.accountData?.type !== 'Organization' && current.options.accountType !== 'organization') throw new Error('Load an organization first, then choose an organization preset.');
     presetApply.disabled = true;
     try {
-      await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { loadOrganization: preset.audience === 'organization' });
+      await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options, { keepColors: keepColors.checked }) }, { loadOrganization: preset.audience === 'organization' });
       presetMenu.open = false; message(`${preset.label} applied. Customize it or save it as your own preset.`);
     } finally { presetApply.disabled = false; }
   });
