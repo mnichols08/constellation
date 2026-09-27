@@ -9,11 +9,37 @@ import { scalingOptions } from './scaling.mjs';
 
 export const BUILTIN_LAYOUTS = Object.freeze(['field', 'orbital', 'force', 'rings', ...artifactLayouts, ...organizationLayouts]);
 
+export function layoutCapabilities(id = 'rings', { nodeCap, nodeMode = 'repositories', organization = false } = {}) {
+  if (id !== 'stable-overview' && !BUILTIN_LAYOUTS.includes(id)) throw new Error(`Unknown layout: ${id}`);
+  const effective = nodeCap > 100 || id === 'stable-overview' ? 'stable-overview' : id;
+  return {
+    id: effective, requested: id,
+    maxNodes: effective === 'stable-overview' ? 2048 : nodeMode === 'combined' || organization && nodeMode !== 'repositories' ? 256 : 100,
+    manualPositioning: true, ringSnapping: true, deterministicSeed: true,
+    animation: true, refinement: true, requiresWasm: effective !== 'field',
+    ringSnappingPhase: effective === 'rings' || effective === 'stable-overview' ? 'layout-and-editing' : 'editing-and-refinement',
+  };
+}
+
+export function diagnoseLayout(scene, options = {}, context = {}) {
+  const organization = Boolean(context.graph?.organization || scene.presentation?.graph?.organization);
+  const capabilities = layoutCapabilities(options.arrangement || (rustAvailable ? 'rings' : 'field'), { ...options, nodeMode: organization ? organizationNodeMode(options) : options.nodeMode, organization });
+  const diagnostics = [];
+  if (scene.nodes.length > capabilities.maxNodes) diagnostics.push({ code: 'layout-size', severity: 'error', message: `${capabilities.id} supports at most ${capabilities.maxNodes} nodes for this graph mode.` });
+  if (capabilities.requiresWasm && !rustAvailable) diagnostics.push({ code: 'layout-wasm', severity: 'error', message: `${capabilities.id} requires the bundled Rust/WASM engine.` });
+  if (capabilities.id !== capabilities.requested) diagnostics.push({ code: 'layout-overview', severity: 'info', message: `Using stable-overview instead of ${capabilities.requested} for nodeCap > 100.` });
+  return { capabilities, diagnostics };
+}
+
 // All positions are keyed by stable scene node ID. The accompanying relationship
 // result preserves the existing Rust graph selection while callers migrate.
 export function layoutScene(scene, options = {}, context = {}) {
   const { signal } = context; signal?.throwIfAborted();
   if (!scene || !Array.isArray(scene.nodes)) throw new Error('Layout requires scene nodes.');
+  const report = diagnoseLayout(scene, options, context);
+  for (const diagnostic of report.diagnostics) context.onDiagnostic?.(diagnostic);
+  const error = report.diagnostics.find(diagnostic => diagnostic.severity === 'error');
+  if (error) throw new Error(error.message);
   const records = scene.nodes.map(node => {
     if (!node || typeof node.id !== 'string' || !node.metadata || node.id !== node.metadata.full_name) throw new Error('Layout nodes require matching IDs and metadata.');
     return node.metadata;

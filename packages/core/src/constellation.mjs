@@ -338,7 +338,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   // A deterministic, account-seeded star field uses the full card instead of
   // narrow language columns that turn cross-language links into long fans.
   const ordered = [...repos].sort((a, b) => hash(a.full_name) - hash(b.full_name) || a.full_name.localeCompare(b.full_name));
-  const scene = layoutScene({ nodes: ordered.map(repo => ({ id: repo.full_name, metadata: repo })) }, options, { account: name, seed, reference: clock, graph, signal });
+  const scene = layoutScene({ nodes: ordered.map(repo => ({ id: repo.full_name, metadata: repo })) }, options, { account: name, seed, reference: clock, graph, signal, onDiagnostic });
   const centerY = compact ? 126 : 270;
   const spreadY = compact ? 88 : 192;
   const phase = (hash(options.seedMode ? seed : name) % 628) / 100;

@@ -1,8 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutScene, createScene, serializeScene, parseScene } from '../src/core-api.mjs';
+import { layoutScene, layoutCapabilities, diagnoseLayout, createScene, serializeScene, parseScene } from '../src/core-api.mjs';
 const records = ['Rust', 'Python', 'Rust'].map((language, i) => ({ name: `p-${i}`, full_name: `layout/p-${i}`, language, stargazers_count: i * 10 }));
 const options = { referenceDate: '2026-09-01T00:00:00Z', animate: false };
+test('layout capabilities describe effective overview mode and validate graph bounds', () => {
+  assert.equal(layoutCapabilities('rings').maxNodes, 100);
+  assert.equal(layoutCapabilities('galaxy', { nodeMode: 'combined' }).maxNodes, 256);
+  const overview = layoutCapabilities('galaxy', { nodeCap: 2048 });
+  assert.equal(overview.id, 'stable-overview'); assert.equal(overview.maxNodes, 2048);
+  assert.equal(overview.manualPositioning, true); assert.equal(overview.refinement, true);
+  overview.maxNodes = 1;
+  assert.equal(layoutCapabilities('galaxy', { nodeCap: 2048 }).maxNodes, 2048);
+  const tooLarge = { nodes: Array.from({ length: 101 }, (_, i) => ({ id: `layout/${i}`, metadata: { full_name: `layout/${i}`, name: String(i) } })) };
+  assert.equal(diagnoseLayout(tooLarge).diagnostics[0].code, 'layout-size');
+  assert.throws(() => layoutScene(tooLarge), /at most 100/);
+  assert.equal(diagnoseLayout(tooLarge, { nodeCap: 2048 }).diagnostics[0].code, 'layout-overview');
+});
 test('existing layouts share the scene interface and preserve seeded/manual coordinates', () => {
   for (const arrangement of ['field', 'rings', 'orbital', 'force', 'galaxy', 'solar-system']) {
     const settings = { ...options, arrangement, starPositions: { 'layout/p-0': { x: 123, y: 234 } } };

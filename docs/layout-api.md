@@ -28,6 +28,15 @@ interface before refinement and scene serialization; SVG rendering does not
 rerun layout. The deprecated non-WASM field fallback remains in the compatibility
 compiler until its planned removal.
 
-This is the transitional 2.x interface. Capability declarations, trusted host
-registration and additional execution hardening follow in the remaining 2.4
-patches before the stable 3.0 contract is declared.
+`layoutCapabilities(id, options)` reports the effective layout, requested layout,
+maximum node count, manual-position, ring-snapping, deterministic-seed, animation,
+refinement and WASM capabilities. Regular repository layouts support 100 nodes;
+membership graphs support 256; stable overview supports 2,048. A node cap above
+100 selects stable overview without changing the established compatibility rule.
+Snapping metadata distinguishes initial layout snapping from editing/refinement.
+
+`diagnoseLayout(scene, options, context)` returns capabilities and diagnostics.
+Execution reports automatic overview selection and rejects unsupported graph sizes
+or unavailable required WASM before computation. Metadata is returned as isolated
+data. This remains the transitional 2.x contract; explicit host registration and
+execution hardening follow before the stable 3.0 contract is declared.

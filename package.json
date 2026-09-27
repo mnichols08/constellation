@@ -1,6 +1,6 @@
 {
   "name": "constellation",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "private": true,
   "bin": { "constellation": "src/cli.mjs" },
   "type": "module",

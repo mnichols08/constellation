@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.4.1 — 2026-09-27
+
+- Expose layout capability metadata for graph sizes, manual positioning, ring snapping, deterministic seeds, animation, refinement and WASM requirements.
+- Diagnose effective stable-overview selection and reject unsupported graph sizes before invoking the engine.
+- Add capability isolation, mode-boundary and diagnostic tests; document capability semantics without changing layout defaults.
+
 ## 2.4.0 — 2026-09-27
 
 - Route all existing arrangements and stable large-graph overview through a scene-based layout interface returning ID-keyed positions.
