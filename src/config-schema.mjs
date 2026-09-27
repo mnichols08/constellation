@@ -20,6 +20,7 @@ fields.add('plugins');
 fields.add('themePack');
 fields.add('nodeCap');
 fields.add('simplifyAbove');
+fields.add('layers');
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: 'enabled intensity',

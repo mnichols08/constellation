@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.1 — 2026-09-27
+
+- Add declarative v6 layer visibility, opacity and ordering controls, preserving all defaults and coordinates.
+- Validate order constraints around backgrounds, connections, nodes and labels; preserve deterministic tie ordering and fixed camera phases. Selection supports visibility without inventing a separate opacity behavior.
+- Preserve controls through scene/config/workflow export and test malformed controls, ordering and unchanged node geometry.
+
 ## 2.2.0 — 2026-09-27
 
 - Render scenes through ordered background, effects, starfield, rings, connections, nodes, labels, annotations and selection layers.

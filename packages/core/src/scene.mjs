@@ -1,4 +1,4 @@
-import { layerDefinitions } from './scene-layers.mjs';
+import { layerDefinitions, validateLayerOptions, validateLayerOrder } from './scene-layers.mjs';
 // Internal scene version, independent of the eventual stable public API version.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -63,10 +63,12 @@ function record(scene, path = '$') {
   for (const layer of scene.layers) {
     if (!id(layer?.id) || layers.has(layer.id) || !Number.isInteger(layer.order) || layer.order <= order) fail(`${path}.layers`, 'IDs and order must be unique and ascending');
     layers.add(layer.id); order = layer.order;
+    validateLayerOptions({ [layer.id]: { visible: layer.visible, opacity: layer.opacity, order: layer.order } });
     const definition = layerDefinitions.find(value => value.id === layer.id);
     if (!definition || layer.type !== definition.type || JSON.stringify(layer.phases) !== JSON.stringify(definition.phases)) fail(`${path}.layers`, 'invalid layer type or phases');
   }
   if (layers.size !== layerDefinitions.length) fail(`${path}.layers`, 'missing required layer');
+  validateLayerOrder(scene.layers);
   if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
 }
 
@@ -102,10 +104,10 @@ export function sceneStatistics(scene) {
   return {
     version: scene.version, kind: scene.kind,
     nodes: current.nodes.length,
-    visibleNodes: current.nodes.filter(node => !node.interaction.hidden).length,
+    visibleNodes: current.layers.find(layer => layer.id === 'nodes')?.visible === false ? 0 : current.nodes.filter(node => !node.interaction.hidden).length,
     edges: current.edges.length,
     labels: current.labels.length,
-    visibleLabels: current.labels.filter(label => !label.hidden).length,
+    visibleLabels: current.layers.find(layer => layer.id === 'labels')?.visible === false ? 0 : current.labels.filter(label => !label.hidden).length,
     layers: current.layers.map(layer => layer.id),
     frames: scene.kind === 'time-lapse' ? scene.frames.length + 1 : 1,
     referenceDate: scene.metadata.referenceDate,

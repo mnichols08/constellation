@@ -281,77 +281,95 @@
   "layers": [
     {
       "id": "background",
+      "opacity": 1,
       "order": 0,
       "phases": [
         "backdrop"
       ],
-      "type": "background"
+      "type": "background",
+      "visible": true
     },
     {
       "id": "effects",
+      "opacity": 1,
       "order": 1,
       "phases": [
         "backdrop"
       ],
-      "type": "effects"
+      "type": "effects",
+      "visible": true
     },
     {
       "id": "rings",
+      "opacity": 1,
       "order": 2,
       "phases": [
         "world"
       ],
-      "type": "rings"
+      "type": "rings",
+      "visible": true
     },
     {
       "id": "starfield",
+      "opacity": 1,
       "order": 3,
       "phases": [
         "backdrop",
         "world"
       ],
-      "type": "starfield"
+      "type": "starfield",
+      "visible": true
     },
     {
       "id": "annotations",
+      "opacity": 1,
       "order": 4,
       "phases": [
         "underlay",
         "overlay"
       ],
-      "type": "annotations"
+      "type": "annotations",
+      "visible": true
     },
     {
       "id": "connections",
+      "opacity": 1,
       "order": 5,
       "phases": [
         "world"
       ],
-      "type": "connections"
+      "type": "connections",
+      "visible": true
     },
     {
       "id": "nodes",
+      "opacity": 1,
       "order": 6,
       "phases": [
         "world"
       ],
-      "type": "nodes"
+      "type": "nodes",
+      "visible": true
     },
     {
       "id": "labels",
+      "opacity": 1,
       "order": 7,
       "phases": [
         "world"
       ],
-      "type": "labels"
+      "type": "labels",
+      "visible": true
     },
     {
       "id": "selection",
+      "opacity": 1,
       "order": 8,
       "phases": [
         "interaction"
       ],
-      "type": "selection"
+      "type": "selection",
+      "visible": true
     }
   ],
   "metadata": {

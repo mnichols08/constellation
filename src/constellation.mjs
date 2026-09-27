@@ -218,6 +218,7 @@ export function renderConstellation(account, repositories, options = {}, runtime
 }
 
 export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
+  const layers = createLayers(options.layers);
   const scaling = scalingOptions(options);
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
@@ -457,7 +458,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     metadata: { account: name, seed, referenceDate: options.referenceDate },
     viewport: { width: profile.width, height: profile.height, viewBox: [0, 0, 900, height] },
     nodes, edges, labels,
-    layers: createLayers(),
+    layers,
     geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
     presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,

@@ -2,6 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createScene, renderSceneSVG, serializeScene, parseScene } from '../src/core-api.mjs';
 import { composeLayers } from '../src/scene-layers.mjs';
+import { parseConfig, serializeConfig } from '../src/config-schema.mjs';
+import { renderWorkflow } from '../src/export.mjs';
+
+test('layer controls survive config, workflow and scene round trips without moving nodes', () => {
+  const repositories = [{ name: 'core', full_name: 'layers/core', language: 'Rust' }];
+  const options = { referenceDate: '2026-09-01T00:00:00Z' };
+  const layers = { rings: { visible: false }, starfield: { opacity: 0.25, order: 8 }, labels: { visible: false } };
+  const base = createScene('layers', repositories, options);
+  const changed = createScene('layers', repositories, { ...options, layers });
+  assert.deepEqual(changed.nodes, base.nodes);
+  assert.deepEqual(parseConfig(serializeConfig('layers', { layers })).options.layers, layers);
+  assert.match(renderWorkflow('layers', { layers }), /"opacity": 0.25/);
+  const svg = renderSceneSVG(parseScene(serializeScene(changed)));
+  assert.doesNotMatch(svg, /<g class="identity-ring"|<text class="repo-label"/);
+  assert.match(svg, /data-scene-layer="starfield" opacity="0.25"/);
+  assert.ok(svg.indexOf('class="star"') < svg.indexOf('class="dust"'));
+});
+
+test('layer controls reject unsafe payloads and orders that break rendering semantics', () => {
+  for (const layers of [null, [], { nodes: { opacity: NaN } }, { nodes: { visible: 'no' } }, { nodes: { html: '<script>' } }, { unknown: {} }, { connections: { order: 99 } }, { background: { order: 99 } }, { selection: { opacity: 0.5 } }]) {
+    assert.throws(() => createScene('layers', [], { layers }), /[Ll]ayer/);
+  }
+});
 
 test('layers compose in deterministic scene order within camera-safe phases', () => {
   const scene = createScene('layers', [], { referenceDate: '2026-09-01T00:00:00Z' });
