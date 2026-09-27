@@ -41,7 +41,7 @@ test('local studio authenticates upstream only, retains data, and never serves .
   const data = createPreviewData({ fetchImpl: createPreviewFetch({ proxyBase: `${base}/api/github` }) });
   await data.load('octocat', { maxRepos: 5 });
   await data.load('octocat', { maxRepos: 5 });
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.ok(calls.every(({ url, options }) => url.startsWith('https://api.github.com/') && !url.includes(token) && options.headers.Authorization === `Bearer ${token}`));
   assert.ok(!JSON.stringify(data.snapshot('octocat')).includes(token));
 });
@@ -69,7 +69,7 @@ test('proxy rejects foreign origins, unexpected hosts, writes, and non-allowlist
   });
   assert.equal(hostStatus, 403);
   assert.equal((await fetch(path, { method: 'POST' })).status, 405);
-  for (const route of ['/api/github/user', '/api/github/repos/owner/project/contents', '/api/github/users/octocat/repos?url=https://example.com']) {
+  for (const route of ['/api/github/users/octocat/events', '/api/github/users/octocat/events/public?private=true', '/api/github/user', '/api/github/repos/owner/project/contents', '/api/github/users/octocat/repos?url=https://example.com']) {
     assert.equal((await fetch(base + route)).status, 404);
   }
   assert.equal(calls, 0);

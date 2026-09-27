@@ -62,7 +62,8 @@ export function animateRingSVG(svg, settings, geometry, stars, center, spread, e
   let animated = svg.replace(/<g class="repository"[^>]*>[\s\S]*?<\/g>/g, group => {
     const id = group.match(/data-repo="([^"]+)"/)?.[1], node = byId.get(id);
     if (!node?.motion) return group;
-    return group.replace(/<circle\b[^>]*\/>/g, circle => circle.slice(0, -2) + '>' + animation('cx', node.motion, 0) + animation('cy', node.motion, 1) + '</circle>');
+    return group.replace(/<circle\b[^>]*\/>/g, circle => circle.slice(0, -2) + '>' + animation('cx', node.motion, 0) + animation('cy', node.motion, 1) + '</circle>')
+      .replace(/<path class="activity-comet[^>]*\/>/g, path => path.slice(0, -2) + `><animateTransform attributeName="transform" type="translate" values="${node.motion.values.map(([x, y]) => `${(x - node.x).toFixed(2)} ${(y - node.y).toFixed(2)}`).join(';')}" dur="${node.motion.duration}s" repeatCount="indefinite"/></path>`);
   }).replace(/<text class="repo-label"[^>]*>[\s\S]*?<\/text>/g, label => {
     const id = label.match(/data-repo="([^"]+)"/)?.[1], node = byId.get(id);
     return !node?.motion ? label : label.replace('</text>', animation('x', node.motion, 0, coordinate(label, 'x') - node.x) + animation('y', node.motion, 1, coordinate(label, 'y') - node.y) + '</text>');

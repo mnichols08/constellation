@@ -1,0 +1,175 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { setTimeout as delay } from 'node:timers/promises';
+import { createPreviewServer } from '../scripts/preview-server.mjs';
+
+const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => existsSync(path));
+
+test('headless studio: randomized codes, configs, presets, filters, keyboard, sharing and PNG', { skip: !browser && 'Set CONSTELLATION_BROWSER to a Chromium executable.', timeout: 60000 }, async t => {
+  let apiCalls = 0;
+  const server = createPreviewServer({ fetchImpl: async url => {
+    apiCalls++;
+    const account = new URL(url).pathname.split('/')[2];
+    if (url.includes('/events/public')) return Response.json([{ id: '1', public: true, type: 'PushEvent', repo: { name: `${account}/repo-0` }, created_at: new Date(Date.now() - 3600000).toISOString(), payload: { secret: 'NEVER_RENDER' } }]);
+    return Response.json(['Rust', 'JavaScript'].map((language, i) => ({ name: `repo-${i}`, full_name: `${account}/repo-${i}`, language, languages: { [language]: 100 }, topics: ['tools'], stargazers_count: 20 - i, updated_at: '2026-01-01T00:00:00Z' })));
+  } }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const profile = await mkdtemp(join(tmpdir(), 'constellation-browser-'));
+  // Hosted Linux runners restrict Chrome's namespace sandbox. This isolated
+  // test browser only loads our localhost fixtures and uses a disposable profile.
+  const runnerArgs = process.env.GITHUB_ACTIONS === 'true' && process.platform === 'linux' ? ['--no-sandbox'] : [];
+  const child = spawn(browser, ['--headless=new', ...runnerArgs, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+  let launchError = '', diagnostics = '';
+  child.on('error', error => { launchError = error.message; });
+  child.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-8000); });
+  let socket, cdp;
+  t.after(async () => {
+    if (cdp) try { await cdp('Browser.close'); } catch {}
+    socket?.close(); child.kill();
+    for (let i = 0; i < 20; i++) { try { await rm(profile, { recursive: true, force: true }); break; } catch { await delay(100); } }
+  });
+  let port;
+  for (let i = 0; i < 150; i++) {
+    if (launchError || child.exitCode !== null) break;
+    try { port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await delay(100); }
+  }
+  assert.ok(port, `Chromium did not start: ${launchError || diagnostics || 'DevTools port unavailable'}`);
+  const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
+  let next = 0; const pending = new Map(), errors = [];
+  socket.addEventListener('message', event => {
+    const message = JSON.parse(event.data);
+    if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
+    const item = pending.get(message.id); if (!item) return;
+    pending.delete(message.id); clearTimeout(item.timer); message.error ? item.reject(Error(message.error.message)) : item.resolve(message.result);
+  });
+  cdp = (method, params = {}) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, { resolve, reject, timer: setTimeout(() => { pending.delete(id); reject(Error(`CDP timeout: ${method}`)); }, 10000) }); socket.send(JSON.stringify({ id, method, params })); });
+  const evaluate = async expression => { const value = await cdp('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (value.exceptionDetails) throw Error(value.exceptionDetails.exception?.description || value.exceptionDetails.text); return value.result.value; };
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Page.navigate', { url: base });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
+  assert.deepEqual(errors, []);
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
+  await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  assert.equal(await evaluate(`document.querySelectorAll('.inspector-panel:not([hidden])').length`), 1);
+  assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-look');
+  assert.ok(await evaluate(`(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>0&&r.bottom<innerHeight&&r.height>300;})()`));
+  assert.deepEqual(await evaluate(`(async()=>{const original=new DOMParser().parseFromString(await(await fetch('/')).text(),'text/html');return [...original.querySelectorAll('input[id],select[id],textarea[id],button[id]')].filter(el=>!document.getElementById(el.id)).map(el=>el.id);})()`), [], 'all customization controls remain available');
+  await evaluate(`click('tab-motion');document.querySelector('#animate-rings').closest('details').open=true;`);
+  const previewBeforeScroll = await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`);
+  await evaluate(`document.querySelector('.inspector-scroll').scrollTop=500;`);
+  assert.equal(await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`), previewBeforeScroll);
+  await evaluate(`document.querySelector('#perspective-enabled').closest('details').open=true;`);
+  await delay(50);
+  assert.equal(await evaluate(`document.querySelector('#animate-rings').closest('details').open`), false);
+  await evaluate(`document.querySelector('#tab-motion').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`);
+  assert.equal(await evaluate(`document.activeElement.id`), 'tab-projects');
+  await evaluate(`click('toggle-customization');`);
+  assert.equal(await evaluate(`document.querySelector('#studio-inspector').hidden`), true);
+  await evaluate(`click('toggle-customization');click('tab-look');document.querySelector('.design-code-menu > summary').click();`);
+  assert.equal(await evaluate(`document.querySelector('.design-code-menu').open`), true);
+  await evaluate(`document.querySelector('#design-code').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`);
+  assert.equal(await evaluate(`document.querySelector('.design-code-menu').open`), false);
+  await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length`), 0, 'v1 codes keep their original background');
+  const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
+  await evaluate(`click('randomize-design');`);
+  assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v4:motion-/);
+  assert.equal(await evaluate(`document.querySelector('#link-ring-motion').checked`), false);
+  assert.ok(await evaluate(`(async()=>{
+    const {randomizeDesign}=await import('/src/design-randomizer.mjs');
+    const recipe=randomizeDesign(document.querySelector('#design-code').value);
+    const rings=['speeds','directions','modes','amplitudes','easing'].every((key,j)=>recipe.ringAnimation[key].every((value,i)=>String(value)===document.getElementById('ring-'+['speed','direction','motion','sway','easing'][j]+'-'+i).value));
+    const perspective=Object.entries(recipe.perspective).every(([key,value])=>{const el=document.getElementById('perspective-'+key);return typeof value==='boolean'?el.checked===value:el.value===String(value);});
+    return rings&&perspective;
+  })()`));
+
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('animate,animateTransform'))`));
+  await evaluate(`click('randomize-motion');click('randomize-design');`);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v4:still-/);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('animate,animateTransform').length`), 0);
+  await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`), first);
+  await evaluate(`input('preset-name','README');click('save-preset');input('design-nodeSize','uniform');click('load-preset');`);
+  await delay(50);
+  assert.notEqual(await evaluate(`document.querySelector('#design-nodeSize').value`), 'uniform');
+  await evaluate(`input('config-json',JSON.stringify({version:1,account:'your-universe',nodeSize:'topics',seedMode:'custom',seed:'imported',arrangement:'galaxy',nodeMode:'combined'}));click('import-config');`);
+  await delay(50);
+  assert.equal(await evaluate(`document.querySelector('#design-nodeSize').value`), 'topics');
+  assert.equal(await evaluate(`document.querySelector('#arrangement').value`), 'galaxy');
+  const graphPositions = await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),node=>[node.dataset.repo,node.getAttribute('cx'),node.getAttribute('cy')])`);
+  await evaluate(`input('design-sky-mode','milky-way');input('design-sky-density','80');input('design-sky-seed','browser-sky');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length`), 400);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),node=>[node.dataset.repo,node.getAttribute('cx'),node.getAttribute('cy')])`), graphPositions);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.starfield-twinkle')).animationName`), 'none');
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await evaluate(`input('design-activityEffect','comet');input('design-visualTheme','deep-space');document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
+    const pageShot = await cdp('Page.captureScreenshot');
+    await mkdir('.dist', { recursive: true }); await writeFile('.dist/studio-preview.png', Buffer.from(pageShot.data, 'base64'));
+    const clip = await evaluate(`(()=>{const r=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').getBoundingClientRect();return {x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height,scale:1};})()`);
+    const screenshot = await cdp('Page.captureScreenshot', { clip, captureBeyondViewport: true });
+    await mkdir('.dist', { recursive: true }); await writeFile('.dist/starfield-preview.png', Buffer.from(screenshot.data, 'base64'));
+  }
+  await evaluate(`input('design-minStars','40');`);
+  assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /5 included/);
+  await evaluate(`input('design-minStars','0'); const node=document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository');node.focus();node.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository').getAttribute('aria-pressed')`), 'true');
+  assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-nodes');
+  assert.equal(await evaluate(`(async()=>{const {svgToPNG}=await import('/src/export-image.mjs');const source=await(await fetch(document.querySelector('.download').href)).text();const blob=await svgToPNG(source);return blob.type==='image/png'&&blob.size>1000;})()`), true);
+  const share = await evaluate(`(async()=>{const {encodeShare}=await import('/src/share-link.mjs');return encodeShare(location.href,'your-universe',{seedMode:'custom',seed:'shared',nodeSize:'age',arrangement:'solar-system'});})()`);
+  await cdp('Page.navigate', { url: share });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#design-seed')?.value==='shared'`)) break; await delay(100); }
+  assert.equal(await evaluate(`document.querySelector('#design-nodeSize').value`), 'age');
+  await delay(500);
+  await cdp('Page.navigate', { url: base });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#design-seed')?.value==='shared'`)) break; await delay(100); }
+  assert.equal(await evaluate(`document.querySelector('#design-seed').value`), 'shared');
+  await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.account = name => { document.querySelector('#username').value=name; document.querySelector('#account-form').requestSubmit(); };account('tester');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
+  assert.equal(apiCalls, 2);
+  await evaluate(`input('design-activityEffect','comet');input('design-activityWindow','1d');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.activity-comet').length`), 1);
+  assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.innerHTML`), /NEVER_RENDER/);
+  await evaluate(`input('design-nodeShape','square');input('design-repoQuery','repo-0');`);
+  assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /1 included/);
+  assert.equal(apiCalls, 2, 'customization never fetches');
+  await evaluate(`account('another');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@another')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'circle');
+  await evaluate(`account('tester');`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'square');
+  assert.equal(await evaluate(`document.querySelector('#design-repoQuery').value`), 'repo-0');
+  assert.equal(apiCalls, 4, 'returning to loaded accounts uses cached data');
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await evaluate(`document.querySelector('#tab-look').click();document.querySelector('#design-sky-mode').closest('details').open=true;`);
+  await delay(50);
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'mobile has no horizontal overflow');
+  const mobileBounds = await evaluate(`(()=>{const p=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('.controls').getBoundingClientRect();return {previewHeight:p.height,previewBottom:p.bottom,controlsTop:c.top,controlsBottom:c.bottom,viewport:innerHeight};})()`);
+  assert.ok(mobileBounds.previewHeight>100&&mobileBounds.previewBottom<=mobileBounds.controlsTop&&mobileBounds.controlsBottom<mobileBounds.viewport, `mobile keeps preview above the bounded controls: ${JSON.stringify(mobileBounds)}`);
+  await evaluate(`document.querySelector('.design-launcher').style.paddingBottom='48px';`);
+  await delay(100);
+  assert.ok(await evaluate(`document.querySelector('.controls').getBoundingClientRect().bottom<innerHeight`), 'workspace adapts when toolbar height changes');
+  const mobilePreviewTop=await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`);
+  await evaluate(`document.querySelector('.inspector-scroll').scrollTop=200;`);
+  assert.equal(await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`), mobilePreviewTop);
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    await evaluate(`document.querySelector('.inspector-scroll').scrollTop=0;`);
+    const mobileShot=await cdp('Page.captureScreenshot');
+    await writeFile('.dist/studio-mobile.png',Buffer.from(mobileShot.data,'base64'));
+  }
+  assert.deepEqual(errors, []);
+});

@@ -10,7 +10,7 @@ function fixture() {
   const repos = Array.from({ length: 8 }, (_, i) => ({ name: `repo-${i}`, full_name: `octocat/repo-${i}`, stargazers_count: 8 - i }));
   const fetchImpl = async url => {
     calls.push(url);
-    return { ok: true, json: async () => url.includes('/users/') ? repos : { JavaScript: 100, CSS: 20 } };
+    return { ok: true, json: async () => url.includes('/events/public') ? [] : url.includes('/users/') ? repos : { JavaScript: 100, CSS: 20 } };
   };
   return { calls, storage, fetchImpl };
 }
@@ -19,7 +19,7 @@ test('customization, returning to an account, and tab reloads reuse the first sn
   const f = fixture();
   let data = createPreviewData(f);
   const repos = await data.load('Octocat', { maxRepos: 5 });
-  assert.equal(f.calls.length, 6);
+  assert.equal(f.calls.length, 7);
   for (const maxRepos of [1, 3, 5]) {
     renderConstellation('octocat', repos, { maxRepos, css: '.star { opacity: .8; }', topics: [], theme: 'auto' });
     assert.equal(selectRepositoryPool(data.snapshot('octocat'), { maxRepos }).length, maxRepos);
@@ -27,13 +27,13 @@ test('customization, returning to an account, and tab reloads reuse the first sn
   await data.load('OCTOCAT', { maxRepos: 5 });
   data = createPreviewData(f);
   await data.load('octocat', { maxRepos: 5 });
-  assert.equal(f.calls.length, 6);
+  assert.equal(f.calls.length, 7);
   assert.equal(selectRepositoryPool(data.snapshot('octocat'), { maxRepos: 8 }).filter(repo => !repo.languages).length, 3);
-  assert.equal(f.calls.length, 6, 'changing the pool does not fetch');
+  assert.equal(f.calls.length, 7, 'changing the pool does not fetch');
   await data.load('octocat', { maxRepos: 8 });
-  assert.equal(f.calls.length, 9, 'explicit load fetches only missing languages');
+  assert.equal(f.calls.length, 10, 'explicit load fetches only missing languages');
   await data.load('octocat', { maxRepos: 5 }, { refresh: true });
-  assert.equal(f.calls.length, 15, 'explicit refresh fetches a fresh list and selected languages');
+  assert.equal(f.calls.length, 17, 'explicit refresh fetches a fresh list and selected languages');
 });
 
 test('partial successes survive a failed load and a tab reload', async () => {
@@ -63,5 +63,5 @@ test('storage restrictions do not break in-memory caching and concurrent loads a
   const data = createPreviewData(f);
   await Promise.all([data.load('octocat', { maxRepos: 5 }), data.load('octocat', { maxRepos: 5 })]);
   await data.load('octocat', { maxRepos: 5 });
-  assert.equal(f.calls.length, 6);
+  assert.equal(f.calls.length, 7);
 });

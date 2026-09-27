@@ -1,3 +1,14 @@
+import { githubMark } from './github-mark.mjs';
+import { resolveSeed } from './seeded-random.mjs';
+import { starfieldOptions, renderStarfield, starfieldCSS } from './starfield.mjs';
+import { activityOptions, activityForNode } from './activity.mjs';
+import { activityMarkup, activityCSS } from './activity-effects.mjs';
+import { resolveTheme } from './themes.mjs';
+import { artifactLayouts, artifactPositions } from './artifact-layouts.mjs';
+import { mappedColor, mappedGlow, connectionWeight, mappingOptions, metricReference, shapeFor, shapeDefinitions, decoration } from './visual-mapping.mjs';
+import { filterRepositoryMetadata, compareRepositories } from './repository-filters.mjs';
+import { nodeRadius } from './node-sizing.mjs';
+import { exportSettings, profileDimensions } from './export-image.mjs';
 import { focusSVG } from './selection.mjs';
 import { perspectiveOptions, perspectiveMarkup } from './perspective.mjs';
 import { animateRingSVG, ringAnimationOptions, floatingAnimationOptions } from './ring-animation.mjs';
@@ -42,7 +53,7 @@ export async function fetchPinnedRepositories(account, { token, signal, fetchImp
   fragment Pins on PinnableItemConnection {
     pageInfo { hasNextPage endCursor }
     nodes { ... on Repository {
-      name nameWithOwner isPrivate isFork stargazerCount primaryLanguage { name }
+      name nameWithOwner isPrivate isFork isArchived description homepageUrl createdAt updatedAt pushedAt forkCount issues(states: OPEN) { totalCount } stargazerCount primaryLanguage { name }
       repositoryTopics(first: 100) { nodes { topic { name } } }
     } }
   }`;
@@ -67,6 +78,7 @@ export async function fetchPinnedRepositories(account, { token, signal, fetchImp
       if (!repo || repo.isPrivate === true) continue;
       if (repo.isPrivate !== false || typeof repo.name !== 'string' || !/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(repo.nameWithOwner || '') || !Array.isArray(repo.repositoryTopics?.nodes)) throw new Error('Unexpected GitHub pinned repository response.');
       repositories.push({ name: repo.name, full_name: repo.nameWithOwner, private: false, fork: repo.isFork,
+        description: repo.description, homepage: repo.homepageUrl, archived: repo.isArchived, created_at: repo.createdAt, updated_at: repo.updatedAt, pushed_at: repo.pushedAt, forks_count: repo.forkCount, open_issues_count: repo.issues?.totalCount,
         stargazers_count: repo.stargazerCount, language: repo.primaryLanguage?.name || null,
         topics: repo.repositoryTopics.nodes.map(node => node.topic.name), pinned: true, pin_order: repositories.length });
     }
@@ -80,11 +92,12 @@ export async function fetchPinnedRepositories(account, { token, signal, fetchImp
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 
-export function selectRepositoryPool(repositories, { maxRepos = 45, includeForks = true, includeRepos, repoSource = 'all' } = {}) {
+export function selectRepositoryPool(repositories, options = {}) {
+  const { maxRepos = 45, includeForks = true, includeRepos, repoSource = 'all', sortBy = 'stars' } = options;
   if (!['all', 'pinned'].includes(repoSource)) throw new Error('repoSource must be all or pinned.');
   if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > 100) throw new Error('maxRepos must be an integer between 1 and 100.');
-  return repositories.filter(repo => repo.private !== true && (repoSource !== 'pinned' || repo.pinned === true) && (includeForks || !repo.fork) && (!includeRepos || includeRepos.includes(repo.name) || includeRepos.includes(repo.full_name)))
-    .sort((a, b) => repoSource === 'pinned' ? (a.pin_order || 0) - (b.pin_order || 0) : (b.stargazers_count || 0) - (a.stargazers_count || 0) || a.full_name.localeCompare(b.full_name)).slice(0, repoSource === 'pinned' ? 100 : maxRepos);
+  return filterRepositoryMetadata(repositories, options).filter(repo => repo.private !== true && (repoSource !== 'pinned' || repo.pinned === true) && (includeForks || !repo.fork) && (!includeRepos || includeRepos.includes(repo.name) || includeRepos.includes(repo.full_name)))
+    .sort((a, b) => repoSource === 'pinned' ? (a.pin_order || 0) - (b.pin_order || 0) : compareRepositories(a, b, sortBy)).slice(0, repoSource === 'pinned' ? 100 : maxRepos);
 }
 
 export function selectRepositories(repositories, options = {}) {
@@ -171,7 +184,15 @@ export const themes = {
 };
 
 export function renderConstellation(account, repositories, options = {}) {
+  options = exportSettings(resolveTheme(options));
+  mappingOptions(options);
   const name = username(account);
+  const seed = resolveSeed(name, options);
+  const sky = starfieldOptions(options.starfield);
+  const activitySettings = activityOptions(options);
+  const recent = id => activitySettings.activityEffect === 'off' ? null : activityForNode(id, options.activityData);
+  nodeRadius({}, options.nodeSize || options.sizingMode, 0);
+  const reference = metricReference(selectRepositories(repositories, options), options.metricDate);
   const generatedDate = options.generatedAt === undefined ? null : new Date(options.generatedAt);
   if (generatedDate && !Number.isFinite(generatedDate.getTime())) throw new Error('generatedAt must be a valid date.');
   const generatedLabel = generatedDate ? `Generated ${generatedDate.toISOString().slice(0, 19).replace('T', ' ')} UTC` : '';
@@ -184,7 +205,7 @@ export function renderConstellation(account, repositories, options = {}) {
   const compact = layout === 'compact';
   const colorConnections = options.colorConnections ?? false;
   if (typeof colorConnections !== 'boolean') throw new Error('colorConnections must be a boolean.');
-  const nodeColors = options.nodeColors ?? {};
+  let nodeColors = options.nodeColors ?? {};
   if (typeof nodeColors !== 'object' || Array.isArray(nodeColors) || Object.values(nodeColors).some(color => typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color))) throw new Error('nodeColors must map node IDs to 6 digit hex colors.');
   const perspective = perspectiveOptions(options.perspective);
   const floatingAnimation = floatingAnimationOptions(options.floatingAnimation);
@@ -194,15 +215,16 @@ export function renderConstellation(account, repositories, options = {}) {
   const ringRotations = options.ringRotations ?? [ringRotation, ringRotation, ringRotation, ringRotation];
   if (!Array.isArray(ringRotations) || ringRotations.length !== 4 || ringRotations.some(angle => !Number.isFinite(angle) || angle < 0 || angle > 360)) throw new Error('ringRotations must contain four angles between 0 and 360 degrees.');
   const { arrangement = rustAvailable ? 'rings' : 'field', identityRing = true } = options;
-  if (!['field', 'orbital', 'force', 'rings'].includes(arrangement)) throw new Error('Arrangement must be rings, field, orbital or force.');
+  if (!['field', 'orbital', 'force', 'rings', ...artifactLayouts].includes(arrangement)) throw new Error('Arrangement must be rings, field, orbital or force.');
   if (typeof identityRing !== 'boolean') throw new Error('identityRing must be a boolean.');
   if (!rustAvailable && arrangement !== 'field') throw new Error('This arrangement needs the Rust engine. Reload the studio or run npm run build:rust.');
   const height = compact ? 280 : 560;
+  const profile = profileDimensions(options.exportProfile, height);
   const labelPositions = options.labelPositions ?? {};
   const labelOffsets = options.labelOffsets ?? {};
   if (typeof labelOffsets !== 'object' || Array.isArray(labelOffsets) || Object.values(labelOffsets).some(position => !position || !Number.isFinite(position.x) || !Number.isFinite(position.y))) throw new Error('labelOffsets must map node IDs to finite x and y offsets.');
   if (typeof labelPositions !== 'object' || Array.isArray(labelPositions) || Object.values(labelPositions).some(position => !position || !Number.isFinite(position.x) || !Number.isFinite(position.y))) throw new Error('labelPositions must map repository names to finite x and y coordinates.');
-  const starPositions = options.starPositions ?? {};
+  let starPositions = options.starPositions ?? {};
   if (typeof starPositions !== 'object' || Array.isArray(starPositions) || Object.values(starPositions).some(position => !position || !Number.isFinite(position.x) || !Number.isFinite(position.y))) throw new Error('starPositions must map repository names to finite x and y coordinates.');
   if (theme !== 'auto' && !themes[theme]) throw new Error('Theme must be auto, midnight or light.');
   if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > 100) throw new Error('maxRepos must be an integer between 1 and 100.');
@@ -215,6 +237,8 @@ export function renderConstellation(account, repositories, options = {}) {
   // CSS is local, trusted configuration, but must never escape its XML text node.
   const graph = graphNodes(repositories, options);
   const repos = graph.nodes;
+  starPositions = { ...artifactPositions(repos, arrangement, seed, compact, options.majorMetric), ...starPositions };
+  nodeColors = { ...Object.fromEntries(repos.map(repo => [repo.full_name, mappedColor(repo, options.nodeColorMode, seed, reference)]).filter(([, color]) => color)), ...nodeColors };
   const nodeMode = options.nodeMode ?? 'repositories';
   const combinedMode = nodeMode === 'combined';
   const categoryMode = nodeMode !== 'repositories' && !combinedMode;
@@ -228,7 +252,7 @@ export function renderConstellation(account, repositories, options = {}) {
   // A deterministic, account-seeded star field uses the full card instead of
   // narrow language columns that turn cross-language links into long fans.
   const ordered = [...repos].sort((a, b) => hash(a.full_name) - hash(b.full_name) || a.full_name.localeCompare(b.full_name));
-  const scene = computeScene({ account: name, compact, arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
+  const scene = computeScene({ account: options.seedMode ? seed : name, compact, arrangement: artifactLayouts.includes(arrangement) ? 'field' : arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
     repos: ordered.map(repo => ({ name: repo.full_name, group: repo.language || 'Other',
       languages: repositoryLanguages(repo).filter(language => options.languages == null || options.languages.includes(language)),
       topics: (repo.topics || []).filter(topic => options.topics == null || options.topics.includes(topic)),
@@ -236,7 +260,7 @@ export function renderConstellation(account, repositories, options = {}) {
       position: Object.hasOwn(starPositions, repo.full_name) ? [starPositions[repo.full_name].x, starPositions[repo.full_name].y] : null })) });
   const centerY = compact ? 126 : 270;
   const spreadY = compact ? 88 : 192;
-  const phase = (hash(name) % 628) / 100;
+  const phase = (hash(options.seedMode ? seed : name) % 628) / 100;
   const stars = ordered.map((repo, index) => {
     const angle = index * 2.399963 + phase;
     const radius = ordered.length === 1 ? 0 : Math.sqrt((index + .6) / Math.max(1, ordered.length));
@@ -247,7 +271,7 @@ export function renderConstellation(account, repositories, options = {}) {
       y: position ? Math.max(28, Math.min(height - 60, position.y)) : centerY + Math.sin(angle) * radius * spreadY };
   });
   const visibleStars = stars.filter(star => !hiddenNodes.has(star.repo.full_name));
-  const dust = Array.from({ length: 85 }, (_, i) => `<circle cx="${20 + hash(`${name}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${name}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
+  const dust = Array.from({ length: profile.dustCount }, (_, i) => `<circle cx="${20 + hash(`${options.seedMode ? seed : name}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${options.seedMode ? seed : name}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
   // Compare complete language sets, including secondary HTML/CSS/JavaScript.
   const candidates = [];
   if (scene) for (const edge of scene.edges) {
@@ -296,7 +320,10 @@ export function renderConstellation(account, repositories, options = {}) {
     const cy = (from.y + to.y) / 2 + dx / length * bend;
     const gradientId = `connection-color-${index}`;
     const gradient = colorConnections ? `<defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${to.x.toFixed(1)}" y2="${to.y.toFixed(1)}"><stop stop-color="${nodeColors[from.repo.full_name] || 'var(--sky-star)'}"/><stop offset="1" stop-color="${nodeColors[to.repo.full_name] || 'var(--sky-star)'}"/></linearGradient></defs>` : '';
-    return `${gradient}<path class="shared-language"${colorConnections ? ` style="stroke:url(#${gradientId})"` : ''} data-from="${escape(from.repo.full_name)}" data-to="${escape(to.repo.full_name)}" data-languages="${escape(sharedLanguages.join(', '))}" data-topics="${escape(sharedTopics.join(', '))}" data-repositories="${escape(sharedRepositories.join(', '))}" data-emphasis="${backbone.has(edge) ? 'primary' : 'secondary'}" d="M${from.x.toFixed(1)} ${from.y.toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}"><title>${escape(from.repo.name)} ↔ ${escape(to.repo.name)} · ${escape(shared.join(', '))}</title></path>`;
+    const weight = connectionWeight(edge, options.connectionWeight);
+    const activeWeight = activitySettings.activityConnections ? Math.max(recent(from.repo.full_name)?.score || 0, recent(to.repo.full_name)?.score || 0) : 0;
+    const edgeStyle = [colorConnections ? `stroke:url(#${gradientId})` : '', weight ? `stroke-width:${weight.width.toFixed(2)};opacity:${weight.opacity.toFixed(2)}` : '', activeWeight ? `opacity:${Math.min(.85, (weight?.opacity ?? (backbone.has(edge) ? .62 : .13)) + activeWeight * .2).toFixed(3)}` : ''].filter(Boolean).join(';');
+    return `${gradient}<path class="shared-language"${edgeStyle ? ` style="${edgeStyle}"` : ''} data-from="${escape(from.repo.full_name)}" data-to="${escape(to.repo.full_name)}" data-languages="${escape(sharedLanguages.join(', '))}" data-topics="${escape(sharedTopics.join(', '))}" data-repositories="${escape(sharedRepositories.join(', '))}" data-emphasis="${backbone.has(edge) ? 'primary' : 'secondary'}" d="M${from.x.toFixed(1)} ${from.y.toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}"><title>${escape(from.repo.name)} ↔ ${escape(to.repo.name)} · ${escape(shared.join(', '))}</title></path>`;
   }).join('');
   // Join language regions with the shortest available visual bridges. These are
   // composition guides, not inferred technical relationships or dependencies.
@@ -316,14 +343,21 @@ export function renderConstellation(account, repositories, options = {}) {
     }
   }
   const points = visibleStars.map(({ repo, x, y }) => {
-    const radius = 2.7 + Math.min(3.3, Math.log2((repo.stargazers_count || 0) + 1) / 2);
+    const radius = nodeRadius(repo, options.nodeSize || options.sizingMode, reference);
+    const glow = mappedGlow(repo, options.nodeGlowMode, seed, reference);
+    const shape = shapeFor(repo, options.nodeShape);
+    const activity = !repo.nodeKind || repo.nodeKind === 'repository' ? recent(repo.full_name) : null;
+    const activityAttributes = activity ? ` data-activity-score="${activity.score.toFixed(3)}" data-activity-count="${activity.eventCount}" data-latest-activity="${activity.latestEventAt}"` : '';
+    const activityLayer = activityMarkup({ x, y, radius, id: repo.full_name, activity, effect: activitySettings.activityEffect, detail: activitySettings.activityDetail, seed, animate });
+    const starStyle = `${shape !== 'circle' ? `clip-path:url(#shape-${shape});` : ''}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ''}`;
     const tooltip = repo.nodeKind && repo.nodeKind !== 'repository' ? `${repo.name} · ${repo.members.length} repositories · ${repo.members.join(', ')}` : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? ' · fork' : ''} · ${repositoryLanguages(repo).join(', ') || 'No detected languages'}`;
-    return `<g class="repository"${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}</title><circle class="star-halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="animation-delay:-${hash(repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"/></g>`;
+    return `<g class="repository"${activityAttributes}${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}</title>${activityLayer}<circle class="star-halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"/></g>`;
   }).join('');
   // Try labels at every collection size, avoiding collisions where space is tight.
   // Visibility is controlled by the visual styles, independently of repo count.
   const labelBoxes = [];
-  const labels = stars.map(star => {
+  const labels = stars.map((star, index) => {
+    if (index >= Math.ceil(stars.length * profile.labelFraction)) return '';
     const text = star.repo.name.length > 22 ? star.repo.name.slice(0, 20) + '…' : star.repo.name;
     const width = text.length * 5.6;
     const label = (x, y) => hiddenNodes.has(star.repo.full_name) ? '' : `<text class="repo-label" data-repo="${escape(star.repo.full_name)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}"${hiddenLabels.has(star.repo.full_name) ? ' style="display:none"' : ''}>${escape(text)}</text>`;
@@ -348,12 +382,12 @@ export function renderConstellation(account, repositories, options = {}) {
     return '';
   }).join('');
   if (options.snapToRings !== undefined && typeof options.snapToRings !== 'boolean') throw new Error('snapToRings must be a boolean.');
-  const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate)) && repos.length ? identityGeometry(name) : null;
+  const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate)) && repos.length ? identityGeometry(options.seedMode ? seed : name) : null;
   const ringMarkup = geometry ? Array.from({ length: 4 }, (_, index) => {
     const ring = geometry.slice(2 + index * 22, 24 + index * 22);
     return `<g><circle class="identity-arc" data-ring="${index}" cx="240" cy="240" r="${ring[0]}" stroke-dasharray="${ring[2]} ${ring[3]}" transform="rotate(${(ring[1] + ringRotations[index]) % 360} 240 240)"/></g>`;
   }).join('') : '';
-  const ringPoints = geometry ? identityPoints(name, repos.length, ringRotations) : [];
+  const ringPoints = geometry ? identityPoints(options.seedMode ? seed : name, repos.length, ringRotations) : [];
   const pointMarkup = Array.from({ length: ringPoints.length / 3 }, (_, i) => {
     const [x, y, radius] = ringPoints.slice(i * 3, i * 3 + 3);
     const sx = Number((450 + (x - 240) * 368 / 172).toFixed(1));
@@ -365,10 +399,10 @@ export function renderConstellation(account, repositories, options = {}) {
     return `<circle class="identity-point" data-node="${escape(owner.full_name)}"${hidden ? ' style="display:none"' : ''} cx="${x}" cy="${y}" r="${radius}" data-snap-x="${sx}" data-snap-y="${sy}" data-occupied="${escape(JSON.stringify(occupied))}"/>`;
   }).join('');
   const camera = perspectiveMarkup(perspective, centerY, height);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="${height}" viewBox="0 0 900 ${height}" role="img" aria-labelledby="title description">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height}" viewBox="0 0 900 ${height}" role="img" aria-labelledby="title description">
 <title id="title">${escape(title ?? `${name}’s GitHub constellation`)}</title>
 <desc id="description">${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : 'public repositories'} arranged in a deterministic ${arrangement === 'rings' ? 'identity ring point layout' : arrangement === 'field' ? 'star field' : arrangement === 'orbital' ? 'orbital layout' : 'force layout'}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === 'both' ? 'languages and topics' : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${selectedEdges.size} of ${scene?.total ?? candidates.length} shared connections shown. Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps. Star size reflects ${combinedMode ? 'GitHub stars for repositories and repository count for categories' : categoryMode ? 'repository count' : 'GitHub stars'}. ${geometry ? 'Identity rings are seeded by the account name; ring points provide placement anchors for nodes. ' : ''}${visibleStars.map(star => escape(star.repo.name)).join(', ')}.</desc>
-<defs><radialGradient id="nebula"><stop stop-color="var(--sky-background)" stop-opacity=".13"/><stop offset="1" stop-color="var(--sky-background)" stop-opacity="0"/></radialGradient><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<defs>${options.nodeShape && options.nodeShape !== 'circle' ? shapeDefinitions : ''}<radialGradient id="nebula"><stop stop-color="var(--sky-background)" stop-opacity=".13"/><stop offset="1" stop-color="var(--sky-background)" stop-opacity="0"/></radialGradient><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 <style>
 ${paletteCSS}
 svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);font:13px system-ui,sans-serif}text{fill:currentColor}.background{fill:none;stroke:none}.dust{fill:var(--sky-foreground)}.connections{fill:none;stroke:var(--sky-line);stroke-width:.9;opacity:.8}.shared-language{stroke-linecap:round}.shared-language[data-emphasis="primary"]{stroke:var(--sky-accent);opacity:.62}.shared-language[data-emphasis="secondary"]{opacity:.13}.star{fill:var(--sky-star);${animate ? 'animation:twinkle 6s ease-in-out infinite;' : ''}}.language circle{fill:var(--sky-accent)}.language text{text-anchor:middle;fill:var(--sky-accent);font-weight:600}.repo-label{text-anchor:middle;font-size:10px;stroke:none}.caption{font-size:12px;opacity:.65}.heading{font-size:23px;font-weight:600}@keyframes twinkle{0%,100%{opacity:.45}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.star{animation:none}}
@@ -380,15 +414,20 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 .credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}a{text-decoration:none}
 .generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
 ${compact ? '.heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}' : ''}
-${escape(css)}
+${escape(css)}${activitySettings.activityEffect !== 'off' ? activityCSS : ''}
+${['space', 'milky-way'].includes(sky.mode) ? starfieldCSS : ''}
+${options.exportProfile === 'transparent' ? 'svg{background:transparent!important}.background{fill:none!important}' : ''}
 </style>
 <rect class="background" width="900" height="${height}" rx="${compact ? 12 : 18}"/>
-<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * .43}" fill="url(#nebula)"/>
+${options.exportProfile === 'transparent' ? '' : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * .43}" fill="url(#nebula)"/>`}
 
-${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}<g class="dust">${dust}</g><g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}
+${decoration(options, height, visibleStars)}
+${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent: options.exportProfile === 'transparent' })}
+${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}${sky.mode === 'classic' ? `<g class="dust">${dust}</g>` : ''}<g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}
 ${visibleStars.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? 'All nodes are hidden. Restore visibility in Individual nodes.' : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : selectRepositoryPool(repositories, options).length ? 'No projects match these filters.' : options.repoSource === 'pinned' ? 'No public pinned repositories match this selection.' : 'No public repositories to show yet.'}</text>`}
+${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}${activitySettings.activityEffect !== 'off' ? ` · ${activitySettings.activityEffect}: public activity / ${['1d', '7d', '30d'].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ''}`)}</text>` : ''}
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}
-<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer"><text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>
+<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer">${githubMark.replace('<svg ', `<svg x="744" y="${height - 23}" `)}<text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>
 </svg>\n`;
   return animateRingSVG(focusSVG(svg, options.selection), ringAnimation, geometry, visibleStars, centerY, spreadY, escape, floatingAnimation, Array.from({ length: ringPoints.length / 3 }, (_, i) => ({ x: 450 + (ringPoints[i * 3] - 240) * 368 / 172, y: centerY + (ringPoints[i * 3 + 1] - 240) * spreadY / 172 })));
 }

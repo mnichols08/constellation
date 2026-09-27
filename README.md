@@ -42,9 +42,9 @@ The image updates daily without changing your README. The workflow uses the repo
 
 ## Set up
 
-1. Open the [constellation studio](https://mnichols08.github.io/constellation/), enter your GitHub username, and click **Find my stars**.
+1. Open the [constellation studio](https://mnichols08.github.io/constellation/), enter your GitHub username, and click **Load GitHub**.
 2. Choose your projects, languages, topics, layout, and colors. Use **Advanced CSS overrides** for custom styling. Light and dark palettes are included automatically.
-3. Under **Your daily workflow**, enter the **Repository running this workflow**, such as `mnichols08/mnichols08` for a profile README. Use a public repository so everyone can view the image.
+3. Under **Save → Daily GitHub workflow**, enter the **Repository running this workflow**, such as `mnichols08/mnichols08` for a profile README. Use a public repository so everyone can view the image.
 4. Click **Add to my GitHub profile** to open GitHub with the workflow and your settings already filled in. Commit it to the default branch. If you already have the workflow, replace its contents using **Copy workflow**. **Download workflow** is also available; save it as `.github/workflows/constellation.yml`.
 5. In that repository, open **Actions → Daily constellation → Run workflow**. The workflow creates an `output` branch and saves `constellation.svg` at its root. Existing files on that branch are preserved.
 6. In the studio, click **Copy README snippet**, paste it into your README, and commit the change.
@@ -85,6 +85,24 @@ Made with [GitHub Constellation](https://github.com/mnichols08/constellation) by
 The image updates daily. Clicking it takes viewers to this project's GitHub repository. You can also run the workflow manually at any time.
 
 ## Change your configuration
+
+The studio keeps the live design beside a compact inspector (above it on mobile). Choose **Look**, **Motion**, **Projects**, **Nodes**, or **Save** to reveal one group of controls at a time. Settings scroll independently of the preview. **Hide controls** gives the design the full workspace; click a node to open its editor. Language/topic filters are under **Projects**, and workflow setup is under **Save**.
+
+Start with a coordinated theme in **Look**, or use the prominent **Randomize design** toolbar. Enable **Include motion** for independent per-ring rotation, speed, direction, spin/sway, sway angle and easing, combined with floating motion and varied perspective; leave it unchecked for a still design. Save the resulting `v4:…` design code and enter it again to regenerate the same randomized visual choices. Existing `v1:…`, `v2:…` and `v3:…` codes still work. Seeded palettes, glow, layout variation and animation phases are reproducible; export JSON to retain your later manual edits too.
+
+**Recent activity** adds Glow, Pulse, Comet trails, or Ripple to repositories with recent public GitHub events. The daily workflow refreshes the image, so active projects brighten and older activity fades. Node size, colors and placement keep their existing meaning. Choose a 24-hour, 7-day, 30-day or automatic window; reduced motion retains a static halo, trail or ring. Activity is off by default.
+
+[Try the Active Developer example](examples/active-developer.json), or add `"activityEffect": "comet", "activityWindow": "7d"` to your config. Public events are fetched once per account load/refresh, never while customizing. Fetch failures produce a diagnostic and still generate the image. GitHub's [events API](https://docs.github.com/en/rest/activity/events#list-public-events-for-a-user) can be delayed and has a limited history; this is a visual activity signal, not exact contribution tracking. See [activity settings and scoring](docs/designs.md#recent-public-activity).
+
+**Background starfield** generates a layered Deep Space sky or a Milky Way band, with adjustable density, brightness, depth and subtle twinkle. Generate another background without moving projects, or reuse its saved seed. Background stars are decorative and never become graph nodes. Old configs and `v1:` designs keep classic dust; new `v2:`/`v3:`/`v4:` designs include the generated starfield.
+
+Map node size to stars, activity, age, language/topic counts, or category membership. Map glow to stars or activity, choose language/seeded/category colors, and weight connections by shared metadata. Manual node colors still override mappings. Try **Galaxy** for language clusters or **Solar System** for major repositories and their related nodes. Rings distribute points across all four rings before adding another point to a ring.
+
+**Repository filters** adds minimum stars, archived status, recent updates, name matching and project sorting. **Config, presets & export** saves account-specific local drafts and named presets, imports/exports versioned JSON, and creates share links. Tokens and API caches are excluded. Share links omit manual coordinates and authored CSS; JSON preserves both.
+
+Choose Profile README, Repository README, Compact, Hero or Transparent output profiles, then download SVG or a high-resolution static PNG. Optional shapes, compact legends and lightweight effects stay inside the SVG. Keyboard selection, arrow-key placement and reduced-motion support remain available.
+
+See the [example designs](examples/README.md) and [design/config guide](docs/designs.md) for reproducible codes, mapping details, config compatibility, share-link limits, output sizes, and generating multiple images.
 
 Adjust your settings in the studio, download a new workflow, replace `.github/workflows/constellation.yml`, and run it again. When upgrading an older workflow, replace the whole file to remove its old image-commit step.
 
