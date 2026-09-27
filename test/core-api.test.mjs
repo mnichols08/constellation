@@ -24,6 +24,9 @@ test('core imports and renders outside the repository with bundled WASM', async 
   await cp(new URL('../packages/core', import.meta.url), dir, { recursive: true });
   const core = await import(pathToFileURL(join(dir, 'src/core-api.mjs')));
   assert.equal(core.rustAvailable, true, core.engineError?.message);
+  const scene = core.createScene('tester', repos, { animate: false, referenceDate: '2026-09-01T00:00:00Z' });
+  assert.equal(core.renderSceneSVG(core.parseScene(core.serializeScene(scene))), core.renderSceneSVG(scene));
+  await access(join(dir, 'scene-api.md'));
   assert.equal(core.renderConstellation('tester', repos, { animate: false }), renderConstellation('tester', repos, { animate: false }));
   assert.equal(core.validateConfig({ maxRepos: 0 }).valid, false);
   assert.deepEqual(core.explainFilters(repos, { languages: ['Rust'] }), explainFilters(repos, { languages: ['Rust'] }));

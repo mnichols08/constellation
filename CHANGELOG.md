@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.1.3 — 2026-09-27
+
+- Add separate scene compile/serialize/parse/render benchmarks and a forced-GC retained-memory check for repeated 2,048-node processing.
+- Test large-scene references, label bounds and isolation, every existing example config, and scene API consumption outside the repository.
+- Include scene documentation in the distributable core package and document measured performance and memory costs. Existing SVG byte fixtures remain unchanged.
+
 ## 2.1.2 — 2026-09-27
 
 - Add CLI `--scene` statistics/diagnostics and `--scene-json` inspection without SVG, cache writes or Action outputs. Support explicit JSON output paths and dry runs.
