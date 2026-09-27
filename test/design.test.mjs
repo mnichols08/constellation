@@ -164,11 +164,11 @@ test('drafts and presets are account-scoped, validated and tolerate unavailable 
   assert.equal(createConfigStore({ getItem() { throw Error(); } }).draft('tester'), null);
 });
 
-test('share links round-trip Unicode configs, bound size, omit coordinates/CSS, reject corruption', () => {
+test('share links round-trip Unicode configs and manual edits, bound size, reject corruption', () => {
   const options = { seedMode: 'custom', seed: '🌌 Rust', nodeMode: 'combined', nodeSize: 'stars', ringRotations: [0, 10, 20, 30], starPositions: { x: { x: 1, y: 2 } }, css: '.star{opacity:.5}', GH_TOKEN: 'nope' };
   const link = encodeShare('https://example.test/studio?token=nope#old', 'tester', options);
   assert.ok(link.length < 8000); assert.ok(!link.includes('token'));
-  const decoded = decodeShare(link); assert.equal(decoded.options.seed, options.seed); assert.equal(decoded.options.starPositions, undefined); assert.equal(decoded.options.css, undefined);
+  const decoded = decodeShare(link); assert.equal(decoded.options.seed, options.seed); assert.deepEqual(decoded.options.starPositions, options.starPositions); assert.equal(decoded.options.css, options.css);
   for (const href of ['https://example.test?view=@@', 'https://example.test?view=e30&user=tester', link.replace('user=tester', 'user=other')]) assert.throws(() => decodeShare(href));
   assert.throws(() => encodeShare('https://example.test', 'tester', { hiddenNodes: Array(3000).fill('a-long-repository') }));
   assert.equal(decodeShare('https://example.test'), null);

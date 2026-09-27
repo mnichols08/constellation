@@ -10,7 +10,7 @@ The live canvas stays visible while the inspector scrolls. Desktop places contro
 - **Motion:** independent rings, perspective, floating nodes, activity and starlight.
 - **Projects:** source, limits, language/topic filters, repository filters and account help.
 - **Nodes:** graph mode, individual colors/visibility, placement, labels and connections. Selecting a node opens its controls.
-- **Save:** presets, configuration, PNG, sharing, README snippet and daily workflow.
+- **Save:** presets, configuration, PNG, README snippet and daily workflow. **Share link** is in the main toolbar.
 
 Sections expand on demand, one at a time within each tab. Randomize and Download SVG remain in the toolbar. **Hide controls** expands the preview; **Customize** brings settings back. Open **Design code** in the toolbar to copy or restore a recipe. Switching panels never changes the design or fetches data.
 
@@ -62,7 +62,41 @@ Optional `nodeShape` values are `circle`, `star`, `diamond`, `hexagon`, `square`
 
 New files have `version: 1` and ordinary human-readable render options. An optional `account` identifies the studio account; the Action still uses its configured username or repository owner. Old unversioned Action/config payloads continue to work. Imports validate nested values, reject prototype keys and future versions, and exclude tokens, caches and unknown runtime fields. Imported CSS must be self-contained: no imports, external URLs, CSS escapes or expressions. Existing trusted unversioned CLI CSS behavior is retained.
 
-**Copy share link** includes account, filters, mappings, theme/palettes, seed/design code, colors, visibility, ring settings and graph selection. It excludes manual coordinates, label offsets and authored CSS. Links stop at 8,000 characters; download JSON for larger designs. Opening a valid link takes precedence over a saved local draft. Sharing a config fetches current public repository data, not a frozen API snapshot. Pins still require the existing local authenticated preview.
+## URL parameters and sharing
+
+Click **Share link** in the toolbar, then **Copy link**. The dialog also provides a selectable URL and **Open link**. Links include account, filters, mappings, palettes, seed/design code, node colors, visibility, ring settings, graph selection, manual coordinates, label offsets, and authored CSS. Tokens and runtime API data are excluded. Localhost previews generate links to the public studio. Links stop at 8,000 characters; download JSON for larger designs instead of silently dropping edits.
+
+Opening a valid link takes precedence over a saved local draft. Sharing fetches current public repository data, not a frozen API snapshot; use the SVG download to keep the generated image unchanged. Pins still require the existing local authenticated preview.
+
+Readable links work without an encoded configuration:
+
+```text
+https://mnichols08.github.io/constellation/?user=octocat&preset=project-map&maxRepos=25
+https://mnichols08.github.io/constellation/?organization=github&preset=organization-community
+https://mnichols08.github.io/constellation/?user=USERNAME&organization=ORGANIZATION
+https://mnichols08.github.io/constellation/?user=octocat&design=v5:m008-y2026-f2012-my-sky
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `user` | GitHub account to load; with `organization`, the person to highlight |
+| `organization` | Organization to load; works without a user |
+| `accountType` | `auto`, `user`, or `organization` for the account in `user` |
+| `organizationUser` | Optional person to highlight when `user` is the organization account |
+| `preset` | `project-map`, `minimal-readme`, `organization-projects`, `organization-featured`, `organization-community`, `organization-technology`, or `organization-history` |
+| `design` | Reproducible `v1`–`v5` design code |
+| `theme`, `visualTheme` | Color mode (`auto`, `light`, `midnight`) or named visual theme such as `deep-space` or `terminal` |
+| `arrangement`, `layout` | Arrangement such as `galaxy` or `solar-system`; format `atlas` or `compact` |
+| `nodeMode`, `nodeSize`, `nodeColorMode` | The same node and mapping values used by configuration JSON |
+| `maxRepos`, `minStars`, `sortBy`, `repoQuery` | Project limit, minimum stars, selection order, and name filter |
+| `animate`, `includeForks`, `includeArchived`, `codingRhythm` | `true`/`false` or `1`/`0` |
+| `seed`, `seedMode` | Layout seed; supplying `seed` alone selects custom seed mode |
+| `organizationScope`, `organizationView` | Organization selection and view settings |
+| `repoSource` | `all` or `pinned` |
+| `codingRhythmTimezone`, `historicalYear` | IANA timezone or historical year |
+| `view` | Encoded complete configuration written by **Share link**; existing links remain supported |
+
+Settings are applied in this order: encoded `view`, optional `preset`, optional `design`, then explicit parameter overrides. A theme override replaces saved palettes; custom CSS can still override styling. Generated links expose common settings beside `view` so you can edit them directly. A `view` must match its account parameter. Duplicate or invalid recognized parameters produce an error instead of loading a different design. Use URL encoding for spaces, `#` characters, and other special characters in parameter values.
 
 ## Output profiles and file size
 
