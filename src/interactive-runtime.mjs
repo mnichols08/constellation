@@ -199,7 +199,7 @@ export function mountInteractive(root, source, options = {}) {
   const api = { selectNode, clearSelection, fit, reset, setCamera, setFilter, setTheme, get filter() { return { ...filter }; }, get theme() { return theme; }, get camera() { return [...camera]; }, get selection() { return selected; }, get selectionState() { return { start: selected, end: endpoint, path: [...path] }; }, destroy() { abort.abort(); resize?.disconnect(); dragging = null; delete root.constellation; } };
   root.constellation = api;
   announce('Select a node to focus. Drag to pan; use the zoom controls or mouse wheel.');
-  emit('scene-ready', { nodes: ids.length });
+  if (options.emitReady !== false) emit('scene-ready', { nodes: ids.length });
   return api;
 }
 

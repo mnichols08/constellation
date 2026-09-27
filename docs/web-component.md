@@ -15,3 +15,11 @@ Properties `config`, `records` and `scene` accept isolated JSON data. Assigning 
 Each element uses Shadow DOM for SVG styles and controls. It shares the HTML export's accessible pan/zoom, selection, details, path highlighting, filtering, themes and reduced-motion behavior. Errors appear as an accessible message when no previous view exists and dispatch an `error` event. Source URLs follow the embedding page's CSP and CORS policies. Imported custom CSS must be self-contained; no config text is executed.
 
 Run the existing preview server and open `/examples/web-component.html` for a browser example.
+
+## Methods and events
+
+After `scene-ready`, call `selectNode(id, { focus, extend })`, `clearSelection()`, `fit()`, `reset()`, `setFilter({ query, language })`, or `setTheme(name)`. The `selection` getter returns an isolated `{ start, end, path }` value. Unknown/hidden node IDs throw; camera methods called before readiness throw a descriptive error.
+
+`await setConfig(config)` returns whether a connected view was rendered successfully. `loadScene(sceneOrJSON)` validates and renders synchronously, returning the same boolean. Assigning data while disconnected stages it for connection. These update methods report errors through the event rather than an unhandled promise rejection.
+
+Listen on the element for `scene-ready` (first render per connection), `scene-change` (subsequent renders), `node-select`, `node-hover`, and `error`. Events bubble and cross the Shadow DOM boundary. Scene events include an isolated scene in `detail.scene`; selection includes `id`, node metadata, start/end and path; hover includes `id`; errors include `message`. Handlers may immediately use the imperative API. Programmatic selection uses the same event path as keyboard and pointer interaction.

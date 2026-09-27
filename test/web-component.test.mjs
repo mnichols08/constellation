@@ -19,5 +19,13 @@ test('component renders isolated config and scene properties with accessible con
   assert.notDeepEqual(await evaluate(`document.querySelector('#second').shadowRoot.querySelector('main').constellation.camera`), await evaluate(`document.querySelector('#view').shadowRoot.querySelector('main').constellation.camera`));
   await evaluate(`document.querySelector('#second').setAttribute('config', '{bad-json')`);
   assert.ok(await evaluate(`document.querySelector('#second').shadowRoot.querySelector('main') !== null`), 'bad updates preserve the last good view');
+  await evaluate(`window.componentEvents = []; const secondView = document.querySelector('#second'); for (const type of ['scene-change','node-select','node-hover','error']) secondView.addEventListener(type, event => window.componentEvents.push({type, detail:event.detail})); secondView.selectNode(secondView.scene.nodes[0].id, {focus:false});`);
+  assert.ok(await evaluate(`document.querySelector('#second').selection.start`));
+  await evaluate(`document.querySelector('#second').clearSelection(); document.querySelector('#second').fit(); document.querySelector('#second').reset();`);
+  assert.equal(await evaluate(`document.querySelector('#second').selection.start`), null);
+  assert.equal(await evaluate(`document.querySelector('#second').setConfig({version:6,account:'next',options:{animate:false}})`), true);
+  assert.ok(await evaluate(`window.componentEvents.some(event => event.type === 'scene-change' && event.detail.scene.metadata.account === 'next')`));
+  assert.equal(await evaluate(`document.querySelector('#second').loadScene({version:99})`), false);
+  assert.ok(await evaluate(`window.componentEvents.some(event => event.type === 'error')`));
   assert.deepEqual(errors, []);
 });

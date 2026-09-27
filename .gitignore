@@ -4,3 +4,4 @@ rust/**/target/
 .DS_Store
 .dist
 .cache/
+dist/interactive-demo.html

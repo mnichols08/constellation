@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1 — 2026-09-27
+
+- Expose component selection, clear, fit/reset, filtering, theme, setConfig and loadScene methods.
+- Emit scene-ready only once the imperative API is usable, scene-change on replacement, and composed selection/hover/error events.
+- Validate strict configuration styling before updates and test API/event behavior across independent elements.
+
 ## 2.6.0 — 2026-09-27
 
 - Add the browser-only @constellation/web-component package and `<constellation-view>` custom element.
