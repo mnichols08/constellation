@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.1 — 2026-09-27
+
+- Build organization → repository detail scenes from already-loaded project, language, topic, dependency and contributor metadata.
+- Bound child generation, preserve scan-coverage notes, exclude private repository references, and make no additional API requests.
+- Test verified contributor/technology membership and document honest scope/provenance.
+
 ## 2.8.0 — 2026-09-27
 
 - Introduce declarative hierarchical scene catalogs with node-to-child references and supplied scene definitions.

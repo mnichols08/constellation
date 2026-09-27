@@ -19,3 +19,9 @@ Every entry has a unique ID, title, and either a compiled `scene` or a declarati
 The serializable `hierarchy.version: 1` catalog contains scenes sorted by ID and a root ID. The enclosing scene is a copy of that root and provides ordinary static SVG fallback. Inputs are isolated, links must resolve, cycles are rejected, and compilation respects cancellation. Catalogs are bounded to 64 scenes, 16 levels and 16,384 aggregate nodes, including temporal frames.
 
 Hierarchy datasets use the programmatic API or scene JSON rather than embedding large record collections into v6 share configurations. This keeps scene navigation distinct from source loading and preserves the existing config size/security boundary.
+
+## Organization detail views
+
+`createOrganizationHierarchy(account, repositories, options, { maxProjects: 24, ...runtime })` creates a project overview with child ecosystem scenes. Each child uses the selected repository’s supplied languages, topics, dependency metadata and verified contributors from `options.organizationData`. It reuses the existing organization graph and Rust layout, makes no API requests, and retains scan-coverage notes. Missing contributor scans remain missing; current participation does not imply historical tenure.
+
+The root respects existing repository filtering and organization scope. Up to `maxProjects` (1–63) displayed projects receive detail links; others stay visible in the overview. Private repositories and their contributor references are excluded from the generated catalog. Metadata and API caching remain the responsibility of the existing source/organization loader. Internal components/packages require explicit source data and are never inferred from language names.
