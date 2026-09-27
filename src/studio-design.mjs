@@ -5,7 +5,7 @@ import { mountStudioHistory } from './history/studio-history.mjs';
 import { mountRandomizeMotion } from './studio-randomize-motion.mjs';
 import { parseConfig, serializeConfig } from './config-schema.mjs';
 import { createConfigStore } from './config-store.mjs';
-import { encodeShare, decodeShare } from './share-link.mjs';
+import { encodeShare, decodeShare, publicShareBase } from './share-link.mjs';
 import { downloadBlob, svgToPNG } from './export-image.mjs';
 import { newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
@@ -151,7 +151,26 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const file = document.createElement('input'); file.type = 'file'; file.accept = '.json,application/json'; file.id = 'config-file';
   file.addEventListener('change', async () => { try { const selected = file.files[0]; if (!selected) return; if (selected.size > 250000) throw new Error('Configuration is too large.'); const text = await selected.text(); const config = parseConfig(text, current.account); await apply(config); json.value = text; message('Configuration imported.'); } catch (error) { message(error.message, true); } finally { file.value = ''; } });
   fileLabel.append(file); exports.append(fileLabel);
-  button(exports, 'copy-share', 'Copy share link', async () => { const link = encodeShare(location.href, current.account, current.options); try { await navigator.clipboard.writeText(link); message('Share link copied. Manual coordinates and CSS remain JSON-only.'); } catch { json.value = link; json.focus(); json.select(); message('Select and copy the share link below.'); } });
+  const shareDialog = document.createElement('dialog'); shareDialog.id = 'share-dialog'; shareDialog.setAttribute('aria-labelledby', 'share-title');
+  shareDialog.innerHTML = `<h2 id="share-title">Share this constellation</h2>
+    <p>Your link keeps this design, filters, colors, and manual positions. It loads current public GitHub data when opened.</p>
+    <label for="share-url">Constellation link</label><input id="share-url" type="url" readonly>
+    <p id="share-feedback" role="status">Copy the link and send it to anyone. Download the SVG to keep a snapshot of today's image.</p>
+    <div class="share-actions"><button type="button" id="copy-share-link">Copy link</button><a id="open-share-link" target="_blank" rel="noopener noreferrer">Open link ↗</a><button type="button" id="close-share">Done</button></div>`;
+  document.body.append(shareDialog);
+  const shareURL = shareDialog.querySelector('#share-url'), shareFeedback = shareDialog.querySelector('#share-feedback');
+  button(hero, 'copy-share', 'Share link', () => {
+    if (!current) throw new Error('Load a design first.');
+    const link = encodeShare(publicShareBase(location.href), current.account, { ...current.options, customCSS: document.querySelector('#custom-css').value });
+    shareURL.value = link; shareDialog.querySelector('#open-share-link').href = link;
+    shareFeedback.textContent = 'Copy the link and send it to anyone. Download the SVG to keep a snapshot of today’s image.';
+    shareDialog.showModal(); shareURL.focus(); shareURL.select();
+  });
+  shareDialog.querySelector('#copy-share-link').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(shareURL.value); shareFeedback.textContent = 'Link copied. Ready to share.'; }
+    catch { shareURL.focus(); shareURL.select(); shareFeedback.textContent = 'The link is selected. Press Ctrl+C or ⌘C to copy it.'; }
+  });
+  shareDialog.querySelector('#close-share').addEventListener('click', () => shareDialog.close());
   button(exports, 'download-png', 'Download PNG (2× or higher)', async () => { downloadBlob(await svgToPNG(svg), 'constellation.png'); message('PNG downloaded.'); });
   const presetName = document.createElement('input'); presetName.id = 'preset-name'; presetName.placeholder = 'README'; presetName.maxLength = 80; presetName.setAttribute('aria-label', 'Preset name'); exports.append(presetName);
   const presets = document.createElement('select'); presets.id = 'saved-presets'; presets.setAttribute('aria-label', 'Saved presets'); exports.append(presets);

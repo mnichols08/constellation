@@ -70,6 +70,11 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  await evaluate(`click('copy-share');`);
+  assert.equal(await evaluate(`document.querySelector('#share-dialog').open`), true, await evaluate(`document.querySelector('#status').textContent`));
+  assert.ok(await evaluate(`document.querySelector('#share-url').value.startsWith('https://mnichols08.github.io/constellation/')`), 'sharing from localhost creates a public link');
+  assert.equal(await evaluate(`document.querySelector('#copy-share').closest('.design-launcher') !== null`), true);
+  await evaluate(`click('close-share');`);
   const viewerCalls = apiCalls;
   await cdp('Runtime.evaluate', { expression: `document.querySelector('#view-fullscreen').focus();click('view-fullscreen');`, userGesture: true });
   for (let i = 0; i < 40; i++) { if (await evaluate(`document.fullscreenElement?.id === 'image-viewer-surface'`)) break; await delay(25); }
@@ -362,6 +367,21 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'organization form and launcher do not overflow on mobile');
   await evaluate(`document.querySelector('.builtin-preset-menu').open=false;`);
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  assert.deepEqual(errors, []);
+  await cdp('Page.navigate', { url: `${base}/?user=mnichols08&preset=minimal-readme&arrangement=solar-system&maxRepos=12&animate=false` });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title')?.textContent.includes('@mnichols08')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#layout').value`), 'compact', 'readable URL settings override saved drafts');
+  assert.equal(await evaluate(`document.querySelector('#arrangement').value`), 'solar-system');
+  assert.equal(await evaluate(`document.querySelector('#max-repos').value`), '12');
+  await cdp('Page.navigate', { url: `${base}/?user=alice&organization=collective&preset=organization-community&maxRepos=12` });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title')?.textContent.includes('Organization universe')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#username').value`), 'alice');
+  assert.equal(await evaluate(`document.querySelector('#organization-account').value`), 'collective');
+  assert.equal(await evaluate(`document.querySelector('#max-repos').value`), '12');
+  await evaluate(`document.querySelector('#copy-share').click();`);
+  assert.equal(await evaluate(`document.querySelector('#share-dialog').open`), true);
+  assert.equal(await evaluate(`(async()=>{const {decodeShare}=await import('/src/share-link.mjs');return decodeShare(document.querySelector('#share-url').value).options.organizationUser;})()`), 'alice');
+  await evaluate(`document.querySelector('#close-share').click();`);
   assert.deepEqual(errors, []);
   if (process.env.CONSTELLATION_SCREENSHOT) {
     const studioShot = await cdp('Page.captureScreenshot');
