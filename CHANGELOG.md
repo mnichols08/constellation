@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.1.2 — 2026-09-27
+
+- Add CLI `--scene` statistics/diagnostics and `--scene-json` inspection without SVG, cache writes or Action outputs. Support explicit JSON output paths and dry runs.
+- Add `--reference-date` for reproducible CLI generation, `sceneStatistics` for hosts, and plugin-host scene compilation retaining custom icons and themes.
+- Test offline inspection, exact fixed-date repeatability, mutually exclusive output modes and dry-run/Action output boundaries.
+
 ## 2.1.1 — 2026-09-27
 
 - Canonicalize scene JSON key ordering and add a fixed-date scene snapshot alongside original SVG parity fixtures.

@@ -1,4 +1,5 @@
-import { renderConstellation } from './constellation.mjs';
+import { createScene } from './constellation.mjs';
+import { renderSceneSVG } from './renderer-svg.mjs';
 import { validateThemePack } from './theme-packs.mjs';
 import { jsonFeedSource } from './json-feed-source.mjs';
 
@@ -74,6 +75,9 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
       return result.sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
     render(account, nodes, options = {}, runtime = {}) {
+      return renderSceneSVG(host.createScene(account, nodes, options, runtime));
+    },
+    createScene(account, nodes, options = {}, runtime = {}) {
       const ids = new Set();
       for (const node of nodes) {
         if (ids.has(node.full_name)) throw new Error(`Duplicate graph node ID: ${node.full_name}`);
@@ -81,7 +85,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
       }
       let themePack = options.themePack;
       if (themePack && !themePack.preset) themePack = themes.get(`${themePack.id}@${themePack.version}`) || themePack;
-      return renderConstellation(account, nodes, { ...options, ...(themePack ? { themePack } : {}) }, {
+      return createScene(account, nodes, { ...options, ...(themePack ? { themePack } : {}) }, {
         ...runtime,
         nodeRenderer: context => runtime.nodeRenderer?.(context) ?? sources.get(context.node.pluginSource)?.renderNode?.(context),
       });

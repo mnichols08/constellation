@@ -91,3 +91,19 @@ export function parseScene(json) {
   if (typeof json !== 'string' || json.length > 32 * 1024 * 1024) throw new Error('Scene JSON must be text no larger than 32 MiB.');
   return assertScene(JSON.parse(json));
 }
+
+export function sceneStatistics(scene) {
+  assertScene(scene);
+  const current = scene.kind === 'time-lapse' ? scene.latest : scene;
+  return {
+    version: scene.version, kind: scene.kind,
+    nodes: current.nodes.length,
+    visibleNodes: current.nodes.filter(node => !node.interaction.hidden).length,
+    edges: current.edges.length,
+    labels: current.labels.length,
+    visibleLabels: current.labels.filter(label => !label.hidden).length,
+    layers: current.layers.map(layer => layer.id),
+    frames: scene.kind === 'time-lapse' ? scene.frames.length + 1 : 1,
+    referenceDate: scene.metadata.referenceDate,
+  };
+}

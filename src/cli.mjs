@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { serializeScene, sceneStatistics } from './scene.mjs';
 import { codingRhythmOptions, deriveCodingRhythm } from './coding-rhythm.mjs';
 import { needsHistoryEvents } from './history/settings.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
@@ -13,9 +14,9 @@ import { organizationOptions } from './organization/settings.mjs';
 
 async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, from: { type: 'string' }, workflow: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, from: { type: 'string' }, workflow: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, scene: { type: 'boolean' }, 'scene-json': { type: 'boolean' }, 'reference-date': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
   if (values.help) {
-    console.log('Usage: constellation [validate|migrate] [options]\n\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v2.md.');
+    console.log('Usage: constellation [validate|migrate] [options]\n\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v2.md.');
     return;
   }
   if (values.version) { console.log(JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version); return; }
@@ -30,6 +31,11 @@ async function main() {
     else process.stdout.write(result);
     return;
   }
+  if (values.scene && values['scene-json']) throw new Error('Use either --scene or --scene-json.');
+  if ((values.scene || values['scene-json']) && positionals.length) throw new Error('Scene inspection is a generation option.');
+  if (values['scene-json'] && values.explain) throw new Error('--scene-json cannot share stdout with --explain; use --scene --explain.');
+  if (values['reference-date'] && !Number.isFinite(Date.parse(values['reference-date']))) throw new Error('--reference-date must be a valid ISO date.');
+  const inspectScene = values.scene || values['scene-json'];
   const configPath = values.config || process.env.CONSTELLATION_CONFIG;
   const config = await loadConfig(configPath, process.env.CONSTELLATION_CONFIG_JSON);
   if (positionals[0] === 'validate') {
@@ -53,7 +59,7 @@ async function main() {
   if (accountData.type === 'Organization') {
     config.organizationData = values.fixture ? { records: Object.fromEntries(listed.map(repo => [repo.full_name, repo.contributors || []])), metadataComplete: true } : { ...await organization.contributors(listed, config, { refresh: values['refresh-data'] }), discovered: listed.length, metadataComplete: discovery?.complete ?? true };
     config.organizationData = attachFocusEvidence(config.organizationData, focus, config.organizationUser, listed);
-    if (!values.fixture && !values['dry-run']) { await mkdir(dirname(cacheFile), { recursive: true }); await writeFile(cacheFile, savedCache); }
+    if (!values.fixture && !values['dry-run'] && !inspectScene) { await mkdir(dirname(cacheFile), { recursive: true }); await writeFile(cacheFile, savedCache); }
     if (discovery?.diagnostic) console.warn(discovery.diagnostic);
     if (config.organizationData.diagnostic) console.warn(config.organizationData.diagnostic);
   }
@@ -64,7 +70,7 @@ async function main() {
   const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
   const pluginHost = createPluginHost();
   const repos = [...listed.map(repo => byName.get(repo.full_name) || repo), ...await pluginHost.load(config, { account, refresh: values['refresh-data'] })];
-  const generatedAt = new Date().toISOString();
+  const generatedAt = new Date(values['reference-date'] || Date.now()).toISOString();
   let activityData, codingRhythmData, historyData;
   if (needsHistoryEvents(config) || activityOptions(config).activityEffect !== 'off' || (codingRhythmOptions(config).codingRhythm && config.codingRhythmStyle !== 'hidden')) {
     const snapshot = values['activity-fixture'] ? { events: normalizePublicEvents(JSON.parse(await readFile(values['activity-fixture'], 'utf8'))), asOf: config.activityMetricDate || generatedAt }
@@ -74,6 +80,17 @@ async function main() {
     historyData = snapshot;
     codingRhythmData = deriveCodingRhythm(snapshot.events, config, config.activityMetricDate || snapshot.asOf);
     activityData = aggregateActivity(snapshot.events, selectRepositories(repos, config), config, snapshot.asOf);
+  }
+  if (inspectScene) {
+    const diagnostics = [];
+    const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt }, { onDiagnostic: diagnostic => diagnostics.push(diagnostic) });
+    const result = values['scene-json'] ? serializeScene(scene) : JSON.stringify({ ...sceneStatistics(scene), diagnostics, ...(values.explain ? { filters: explainFilters(repos, config) } : {}) }, null, 2) + '\n';
+    if (values.output && !values['dry-run']) {
+      if (/[\r\n]/.test(values.output)) throw new Error('Invalid output path.');
+      await mkdir(dirname(values.output), { recursive: true });
+      await writeFile(values.output, result);
+    } else process.stdout.write(result);
+    return;
   }
   const svg = pluginHost.render(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
   if (values.explain) console.log(JSON.stringify(explainFilters(repos, config)));

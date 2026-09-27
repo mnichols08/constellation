@@ -1,5 +1,21 @@
 # Scene pipeline
 
+Inspect scenes without producing SVG:
+
+```sh
+node src/cli.mjs --username example --fixture repos.json --scene --explain
+node src/cli.mjs --username example --fixture repos.json --scene-json --reference-date 2026-09-01T00:00:00Z --output scene.json
+```
+
+`--scene` reports counts, layer IDs, omitted-label diagnostics and, with
+`--explain`, filter counts. `--scene-json` emits canonical scene JSON. Both default
+to stdout; explicit `--output` writes JSON, and `--dry-run` forces stdout. Neither
+writes SVG, organization cache files or Action outputs. Fixture mode stays offline
+unless configuration explicitly includes network source plugins. `--reference-date`
+fixes the generation clock. `sceneStatistics(scene)` provides the same counts to
+host applications; `pluginHost.createScene(...)` preserves registered source icons
+and theme resolution without rendering.
+
 Constellation 2.1 introduces a serializable internal scene between graph/layout
 computation and rendering. The existing `renderConstellation` API composes
 `createScene` and `renderSceneSVG`, so CLI, Action, Studio and source plugins retain
