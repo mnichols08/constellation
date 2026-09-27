@@ -10,6 +10,8 @@ The root `action.yml` is the Marketplace entry point. No npm publication is requ
 
 For breaking changes, create a new major tag and update the studio and README examples deliberately. Users on `v1` must continue receiving compatible behavior.
 
+For 2.0.0, keep `v1` on the tested v1.9.3 commit and create `v2` at the tested v2.0.0 commit. Rebuild `packages/core` with `npm run build:core` after Rust/JS changes, and verify isolated package tests. Include the v6 migration guide and stable extension API policy in the release notes. The root Action description is the Marketplace listing metadata; Marketplace publication still requires the release-editor opt-in described above.
+
 Creating a release through the CLI does not by itself opt it into Marketplace. Complete the Marketplace checkbox in GitHub's web release editor and verify the listing before advertising a Marketplace badge.
 
 Reference: [GitHub's publishing instructions](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).

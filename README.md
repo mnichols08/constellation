@@ -4,6 +4,16 @@ Create a constellation of your public GitHub projects and keep it updated in you
 
 Explore [History & Evolution](docs/designs.md#history--evolution): contribution orbits, language eras, stellar ages, open-source galaxies, and animated growth. See the [showcase gallery](examples/README.md#history--evolution).
 
+Use **Nodes → Refine layout** for optional overlap reduction (intensity 0–10). Manual and hidden pairs stay fixed. Tab to studio nodes and press Enter or Space to select them; Shift-select traces a path. The filter summary reports omitted labels and their reasons.
+
+Refinement defaults to off; enabling it does not guarantee collision-free labels. **Lock positions** controls dragging. Saved manual placements stay protected regardless of that switch.
+
+The [standalone core API](docs/core-api.md) includes rendering, validation and filter reports. Run `node src/cli.mjs validate --config settings.json` to check a config; use `--dry-run --explain` with generation flags to inspect filtering without writing an SVG.
+
+[Source plugins and theme packs](docs/plugins.md) extend the core with external data and versioned Look presets. A JSON-feed source and a custom node-path hook are included; see [the feed config](examples/json-feed.json).
+
+For larger graphs, [opt into the stable overview](docs/scaling.md) with `nodeCap` up to 2048. It reuses unchanged node coordinates across filters and simplifies connections and labels. Existing configs retain their layouts and limits.
+
 ![Example GitHub constellation](./dist/constellation.svg)
 
 The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
@@ -29,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mnichols08/constellation@v1
+      - uses: mnichols08/constellation@v2
         with:
           publish: 'true'
 ```
@@ -87,6 +97,8 @@ Made with [GitHub Constellation](https://github.com/mnichols08/constellation) by
 The image updates daily. Clicking it takes viewers to this project's GitHub repository. You can also run the workflow manually at any time.
 
 ## Change your configuration
+
+Version 2 exports the v6 config format. Existing JSON configs, v1:–v5: design recipes and share links migrate automatically on import. For saved files and workflows, use `constellation migrate`; see the [v2 migration guide](docs/migration-v2.md). Source API version 1 and theme-pack contracts are now stable. The non-WASM browser fallback is deprecated.
 
 **Nodes → Refine layout** adds a static overlap-reduction pass, off by default. Set intensity from 0–10; manual and hidden node/label pairs stay fixed. Ring snapping constrains moves to ring points or movable-pair swaps; turn it off for free nudges. The setting `"layoutRefinement": { "enabled": true, "intensity": 5 }` works in the studio, config files, workflows and share links. See [layout refinement](docs/designs.md#refine-layout) for bounds and limitations.
 

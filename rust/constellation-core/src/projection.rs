@@ -11,6 +11,8 @@ pub struct Repository {
 #[derive(Deserialize)]
 pub struct Input {
     pub mode: String,
+    #[serde(default)]
+    pub cap: Option<usize>,
     pub repos: Vec<Repository>,
 }
 
@@ -33,7 +35,9 @@ pub fn project(input: Input) -> Result<Projection, String> {
     if !["languages", "topics", "combined"].contains(&input.mode.as_str()) {
         return Err("Nodes must represent languages, topics or combined".into());
     }
-    if input.repos.len() > 100 {
+    let cap = input.cap.unwrap_or(if combined { 256 } else { 100 });
+    if cap == 0 || cap > 2048 { return Err("Invalid node cap".into()); }
+    if input.repos.len() > input.cap.unwrap_or(100) {
         return Err("At most 100 source repositories are supported".into());
     }
     let mut groups: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
@@ -78,11 +82,7 @@ pub fn project(input: Input) -> Result<Projection, String> {
             .then(a.label.cmp(&b.label))
             .then(a.kind.cmp(&b.kind))
     });
-    nodes.truncate(if combined {
-        256 - repositories.len()
-    } else {
-        100
-    });
+    nodes.truncate(cap.saturating_sub(repositories.len()));
     nodes.extend(repositories);
     Ok(Projection { nodes, total })
 }
@@ -93,6 +93,7 @@ mod tests {
     #[test]
     fn projection_deduplicates_members_and_namespaces_node_ids() {
         let output = project(Input {
+            cap: None,
             mode: "topics".into(),
             repos: vec![
                 Repository {
@@ -116,6 +117,7 @@ mod tests {
     #[test]
     fn categories_are_bounded_and_count_reports_omitted_nodes() {
         let output = project(Input {
+            cap: None,
             mode: "languages".into(),
             repos: vec![Repository {
                 id: "o/a".into(),

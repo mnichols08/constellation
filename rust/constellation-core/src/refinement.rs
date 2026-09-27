@@ -69,7 +69,7 @@ fn valid(node: &Node, p: [f64; 2], origin: [f64; 2], limit: f64, height: f64) ->
 
 fn local_cost(
     input: &Input,
-    positions: &[[f64; 2]],
+    bounds_cache: &[[[f64; 4]; 2]],
     i: usize,
     p: [f64; 2],
     skip: Option<usize>,
@@ -79,7 +79,7 @@ fn local_cost(
     let mut cost = distance(p, [node.x, node.y]) * 0.015;
     for (j, other) in input.nodes.iter().enumerate() {
         if j != i && Some(j) != skip && !other.hidden {
-            cost += overlap_boxes(bounds, boxes(other, positions[j]));
+            cost += overlap_boxes(bounds, bounds_cache[j]);
         }
     }
     cost
@@ -88,7 +88,7 @@ fn local_cost(
 // Bounded deterministic coordinate descent. Each accepted move reduces overlap
 // plus a tether penalty; no seed, clock or continuous simulation is involved.
 pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
-    if input.nodes.len() > 256
+    if input.nodes.len() > 2048
         || input.intensity > 10
         || !input.height.is_finite()
         || input.height < 160.0
@@ -112,11 +112,12 @@ pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
     if input
         .anchors
         .as_ref()
-        .is_some_and(|a| a.len() > 256 || a.iter().flatten().any(|v| !v.is_finite()))
+        .is_some_and(|a| a.len() > 2048 || a.iter().flatten().any(|v| !v.is_finite()))
     {
         return Err("Invalid refinement anchors".into());
     }
     let mut positions: Vec<_> = input.nodes.iter().map(|n| [n.x, n.y]).collect();
+    let mut bounds_cache: Vec<_> = input.nodes.iter().map(|n| boxes(n, [n.x, n.y])).collect();
     if input.intensity == 0 {
         return Ok(positions);
     }
@@ -150,7 +151,7 @@ pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
             candidates.retain(|p| valid(node, *p, origin, limit, input.height));
             let mut best_delta = -1e-7;
             let mut best = None;
-            let baseline = local_cost(&input, &positions, i, current, None);
+            let baseline = local_cost(&input, &bounds_cache, i, current, None);
             for p in candidates {
                 if input.anchors.is_some()
                     && positions.iter().enumerate().any(|(j, q)| {
@@ -185,22 +186,22 @@ pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
                         continue;
                     }
                 }
-                // Hidden nodes also reserve their associated anchor, even when
+                // Fixed nodes also reserve their associated anchor, even when
                 // their current layout position is not on that anchor.
                 if input.anchors.as_ref().is_some_and(|anchors| {
                     anchors.iter().enumerate().any(|(j, a)| {
                         j != i
-                            && input.nodes.get(j).is_some_and(|n| n.hidden)
+                            && input.nodes.get(j).is_some_and(|n| n.hidden || n.locked)
                             && distance(*a, p) < 0.1
                     })
                 }) {
                     continue;
                 }
-                let mut delta = local_cost(&input, &positions, i, p, occupant) - baseline;
+                let mut delta = local_cost(&input, &bounds_cache, i, p, occupant) - baseline;
                 if let Some(j) = occupant {
                     delta += overlap(node, current, &input.nodes[j], positions[j]);
-                    delta += local_cost(&input, &positions, j, current, Some(i))
-                        - local_cost(&input, &positions, j, positions[j], Some(i));
+                    delta += local_cost(&input, &bounds_cache, j, current, Some(i))
+                        - local_cost(&input, &bounds_cache, j, positions[j], Some(i));
                     delta += overlap(node, p, &input.nodes[j], current)
                         - overlap(node, current, &input.nodes[j], positions[j]);
                 }
@@ -212,8 +213,10 @@ pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
             if let Some((p, other)) = best {
                 if let Some(j) = other {
                     positions[j] = current;
+                    bounds_cache[j] = boxes(&input.nodes[j], current);
                 }
                 positions[i] = p;
+                bounds_cache[i] = boxes(node, p);
                 changed = true;
             }
         }
@@ -310,7 +313,7 @@ mod tests {
         data.nodes[0].x = f64::NAN;
         assert!(refine(data).is_err());
         let mut data = input();
-        data.nodes = vec![node(400.0); 257];
+        data.nodes = vec![node(400.0); 2049];
         assert!(refine(data).is_err());
     }
     #[test]
@@ -325,5 +328,16 @@ mod tests {
             assert!(anchors.contains(&result[i]));
             assert_ne!(result[i], anchors[1]);
         }
+    }
+
+    #[test]
+    fn off_ring_locked_pairs_reserve_their_anchor() {
+        let mut data = input();
+        data.nodes[1].locked = true;
+        data.anchors = Some(vec![[400.0, 100.0], [420.0, 100.0], [404.0, 100.0]]);
+        let result = refine(data).unwrap();
+        assert_eq!(result[1], [402.0, 100.0]);
+        assert_ne!(result[0], [420.0, 100.0]);
+        assert_ne!(result[2], [420.0, 100.0]);
     }
 }

@@ -37,8 +37,8 @@ fn rounded(value: f64) -> f64 {
 // Return one point per node, visiting every ring before adding another point
 // to a ring. Existing coordinates remain stable as the node count grows.
 pub(crate) fn points(input: &str, count: usize) -> Result<Vec<f64>, &'static str> {
-    if count > 256 {
-        return Err("At most 256 ring points are supported");
+    if count > 2048 {
+        return Err("At most 2048 ring points are supported");
     }
     let geometry = generate(input, 0)?;
     let mut rings: Vec<Vec<f64>> = geometry[2..]

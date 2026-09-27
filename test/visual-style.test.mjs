@@ -34,7 +34,7 @@ test('visual edits and both palettes survive workflow export unchanged', () => {
   const options = { theme: 'auto', css: `${css}\n.credit{opacity:.5}` };
   const workflow = renderWorkflow('octocat', options);
   const restored = JSON.parse(workflow.split('          config-json: |\n')[1].split('      - name:')[0]);
-  assert.deepEqual(restored, options);
+  assert.deepEqual(restored, { ...options, version: 6 });
   assert.equal(renderConstellation('octocat', [], restored), renderConstellation('octocat', [], options));
   assert.throws(() => visualCSS({ ...style, glow: 'none;}' }));
   assert.throws(() => visualCSS({ ...style, dark: { star: 'red;}' } }));

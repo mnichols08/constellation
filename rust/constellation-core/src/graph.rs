@@ -2,7 +2,7 @@ use crate::geometry::{constrain, Node, NODE_RADIUS};
 use crate::physics;
 use std::collections::{BTreeSet, VecDeque};
 
-const MAX_NODES: u32 = 256;
+const MAX_NODES: u32 = 2048;
 const MAX_DIMENSION: f64 = 100_000.0;
 const MAX_DELTA: f64 = 0.05;
 const MAX_STEP: f64 = 1.0 / 120.0;
@@ -29,7 +29,7 @@ impl Graph {
     pub fn new(count: u32, pairs: &[u32], width: f64, height: f64) -> Result<Self, &'static str> {
         validate_viewport(width, height)?;
         if count > MAX_NODES {
-            return Err("The simulation supports at most 256 nodes");
+            return Err("The simulation supports at most 2048 nodes");
         }
         if pairs.len() % 2 != 0 {
             return Err("Edges must contain complete pairs of node indices");
@@ -198,7 +198,7 @@ mod tests {
             assert!(Graph::new(1, &[], width, 400.0).is_err());
             assert!(Graph::new(1, &[], 640.0, width).is_err());
         }
-        assert!(Graph::new(257, &[], 640.0, 400.0).is_err());
+        assert!(Graph::new(2049, &[], 640.0, 400.0).is_err());
         for pairs in [&[0][..], &[0, 3], &[1, 1]] {
             assert!(Graph::new(3, pairs, 640.0, 400.0).is_err());
         }

@@ -48,7 +48,7 @@ test('workflow preserves arbitrary category selections and empty graphs stay exp
   const options = { languages: ['CSS', 'HTML'], topics: ['web'], connectionBasis: 'both', showOther: false, connectionDensity: 'all' };
   const workflow = renderWorkflow('user', options);
   const restored = JSON.parse(workflow.split('          config-json: |\n')[1].split('      - name:')[0]);
-  assert.deepEqual(restored, options);
+  assert.deepEqual(restored, { ...options, version: 6 });
   assert.equal(renderConstellation('user', repos, restored), renderConstellation('user', repos, options));
   assert.match(renderConstellation('user', repos, { languages: [] }), /No projects match these filters/);
 });

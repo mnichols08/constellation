@@ -1,5 +1,5 @@
 name: GitHub Constellation
-description: Generate an animated SVG of public GitHub repositories connected by language.
+description: Generate a GitHub constellation SVG with v6 configs, source plugins and versioned themes. Accepts legacy configs; see the v2 migration guide.
 branding:
   icon: star
   color: purple
@@ -20,7 +20,7 @@ inputs:
     description: Destination branch when publish is true; existing files are preserved
     default: output
   config:
-    description: Optional JSON configuration path in the caller workspace
+    description: Optional v6 or legacy JSON configuration path in the caller workspace
     default: ''
   config-json:
     description: Inline JSON settings including CSS, as exported by the controller; use instead of config

@@ -24,7 +24,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect) {
   const pairs = edges.flatMap(edge => [names.indexOf(edge.dataset.from), names.indexOf(edge.dataset.to)]);
   const style = document.createElement('style');
   style.textContent = `
-    .repository{cursor:pointer}.repository:focus-visible{outline:none}.repository:focus-visible .star-halo{opacity:.65}
+    .repository{cursor:pointer}.repository:focus-visible{outline:2px solid var(--sky-accent);outline-offset:4px}.repository:focus-visible .star-halo{opacity:.65}
     .explore-hit{fill:transparent;pointer-events:all}
     ${selectionCSS}
     .repository,.repo-label,.shared-language{transition:opacity .18s ease}

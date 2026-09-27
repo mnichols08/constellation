@@ -16,6 +16,21 @@ const base = { animate: false, referenceDate: '2026-09-27T00:00:00Z', seedMode: 
 const enabled = { ...base, layoutRefinement: { enabled: true, intensity: 8 } };
 const coordinates = svg => [...svg.matchAll(/<circle class="star" cx="([^"]+)" cy="([^"]+)"[^>]*data-repo="([^"]+)"/g)].map(m => [m[3], Number(m[1]), Number(m[2])]);
 
+test('documented refinement defaults and intensity limits remain stable', () => {
+  assert.deepEqual(layoutRefinementOptions(), { enabled: false, intensity: 5 });
+  assert.deepEqual(layoutRefinementOptions({ enabled: true }), { enabled: true, intensity: 5 });
+  for (const intensity of [0, 10]) assert.equal(layoutRefinementOptions({ intensity }).intensity, intensity);
+});
+
+test('refinement never writes to fixed nodes or labels', () => {
+  const repo = repos[0];
+  const star = Object.freeze({ repo, x: 400, y: 100, radius: 6 });
+  const label = Object.freeze({ x: 400, y: 117, width: 70, size: 10 });
+  for (const protection of [{ hiddenNodes: [repo.full_name] }, { hiddenLabels: [repo.full_name] }, { starPositions: { [repo.full_name]: { x: 400, y: 100 } } }]) {
+    refineStars([star], new Map([[repo.full_name, label]]), { ...enabled, ...protection, snapToRings: true }, { seed: 'tester', height: 280, centerY: 126, spreadY: 88 });
+  }
+});
+
 test('disabled and zero refinement preserve SVG bytes in every existing arrangement', () => {
   for (const arrangement of ['field', 'rings', 'orbital', 'force', 'galaxy', 'solar-system']) {
     const options = { ...base, arrangement };
