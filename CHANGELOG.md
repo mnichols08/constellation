@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.3.2 — 2026-09-27
+
+- Add declarative size, color, glow and opacity mappings with simple stars/language/activity/age forms and safe field/expression forms.
+- Support bounded numeric scales, categorical hex colors and explicit missing-value fallbacks; keep manual node color precedence and pass mapped sizes to Rust refinement.
+- Preserve derived metrics through transforms, isolate historical metadata, and keep invisible mapped nodes out of keyboard interaction. Add mapping validation and parity tests.
+
 ## 2.3.1 — 2026-09-27
 
 - Add deterministic declarative filter, sort, limit, derive, group, map and deduplicate transforms with isolated outputs and stage reports.

@@ -1,3 +1,4 @@
+import { normalizeMappings, mapRecord } from './data-mappings.mjs';
 import { createLayers } from './scene-layers.mjs';
 import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
 import { applyTransforms, validateTransforms } from './data-transforms.mjs';
@@ -222,6 +223,7 @@ export function renderConstellation(account, repositories, options = {}, runtime
 export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
   const layers = createLayers(options.layers);
   validateTransforms(options.transforms);
+  const mappings = normalizeMappings(options.mappings);
   // Legacy inputs can repeat IDs in records later excluded by privacy, fork or
   // explicit repository filters. Check the resulting graph's identity instead.
   const normalized = normalizeRecords(repositories, { onDiagnostic, deferIdentityCheck: true });
@@ -254,7 +256,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   }
   // Privacy and fork exclusion cannot be bypassed by grouping or field mapping.
   const transformed = applyTransforms(options.transforms?.length
-    ? normalizeRecords(repositories, { deferIdentityCheck: true }).records.filter(record => record.attributes.private !== true && (options.includeForks !== false || !record.attributes.fork))
+    ? normalized.records.filter(record => record.attributes.private !== true && (options.includeForks !== false || !record.attributes.fork))
+      .map(record => temporal.history.mode !== 'historical' ? record : { ...record, attributes: historicalSnapshot([record.attributes], clock)[0] })
+      .filter(record => record.attributes)
     : normalized.records, options.transforms);
   if (options.transforms?.length) repositories = toGraphRecords(transformed.records);
   mappingOptions(options);
@@ -352,6 +356,13 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
       x: position ? Math.max(32, Math.min(868, position.x)) : 450 + Math.cos(angle) * radius * 368,
       y: position ? Math.max(28, Math.min(height - 60, position.y)) : centerY + Math.sin(angle) * radius * spreadY };
   });
+  const recordsById = new Map(transformed.records.map(record => [record.id, record]));
+  for (const star of stars) {
+    const record = recordsById.get(star.repo.full_name) || normalizeRecords([star.repo]).records[0];
+    star.mapping = mapRecord({ ...record, attributes: star.repo }, mappings, { reference, activity: recent(star.repo.full_name)?.score });
+    if (star.mapping.color && !Object.hasOwn(options.nodeColors || {}, star.repo.full_name)) nodeColors[star.repo.full_name] = star.mapping.color;
+    star.radius = star.mapping.size ?? (star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference));
+  }
   const refinedLabels = new Map();
   function renderLabels(record = false) {
     // Try labels at every collection size, avoiding collisions where space is tight.
@@ -402,7 +413,6 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   }
   if (refinement.enabled && refinement.intensity > 0) {
     renderLabels(true);
-    for (const star of stars) star.radius = star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference);
     refineStars(stars, refinedLabels, options, { seed: options.seedMode ? seed : name, height, centerY, spreadY, reference });
   }
   const visibleStars = stars.filter(star => !hiddenNodes.has(star.repo.full_name));
@@ -460,10 +470,10 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const ringPoints = geometry ? identityPoints(options.seedMode ? seed : name, repos.length, ringRotations) : [];
   const nodes = stars.map(star => ({
     id: star.repo.full_name, metadata: star.repo,
-    geometry: { x: star.x, y: star.y, radius: star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference) },
-    style: { color: nodeColors[star.repo.full_name] ?? null, glow: mappedGlow(star.repo, options.nodeGlowMode, seed, reference), shape: star.repo.nodeKind === 'contributor' ? 'diamond' : star.repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(star.repo, options.nodeShape) },
+    geometry: { x: star.x, y: star.y, radius: star.radius },
+    style: { color: nodeColors[star.repo.full_name] ?? null, glow: star.mapping.glow ?? mappedGlow(star.repo, options.nodeGlowMode, seed, reference), opacity: star.mapping.opacity ?? 1, shape: star.repo.nodeKind === 'contributor' ? 'diamond' : star.repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(star.repo, options.nodeShape) },
     interaction: { hidden: hiddenNodes.has(star.repo.full_name), labelHidden: hiddenLabels.has(star.repo.full_name) },
-    icon: hiddenNodes.has(star.repo.full_name) ? null : nodeRenderer?.({ node: structuredClone(star.repo), x: star.x, y: star.y, radius: nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference) }) ?? null,
+    icon: hiddenNodes.has(star.repo.full_name) ? null : nodeRenderer?.({ node: structuredClone(star.repo), x: star.x, y: star.y, radius: star.radius }) ?? null,
   }));
   const edges = [...selectedEdges].sort((a, b) => Number(backbone.has(a)) - Number(backbone.has(b))).map(edge => ({
     id: JSON.stringify([edge.from.repo.full_name, edge.to.repo.full_name]),

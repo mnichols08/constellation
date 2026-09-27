@@ -409,6 +409,7 @@
       "style": {
         "color": null,
         "glow": null,
+        "opacity": 1,
         "shape": "circle"
       }
     },
@@ -443,6 +444,7 @@
       "style": {
         "color": null,
         "glow": null,
+        "opacity": 1,
         "shape": "circle"
       }
     },
@@ -477,6 +479,7 @@
       "style": {
         "color": null,
         "glow": null,
+        "opacity": 1,
         "shape": "circle"
       }
     },
@@ -511,6 +514,7 @@
       "style": {
         "color": null,
         "glow": null,
+        "opacity": 1,
         "shape": "circle"
       }
     }

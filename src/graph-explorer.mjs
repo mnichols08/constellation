@@ -4,7 +4,7 @@ import { graphSelection, rustAvailable } from './engine.mjs';
 export function mountGraphExplorer(host, panel, selection, onSelect, { highlight = true } = {}) {
   const shadow = host.shadowRoot;
   const svg = shadow.querySelector('svg');
-  const nodes = [...svg.querySelectorAll('.repository')];
+  const nodes = [...svg.querySelectorAll('.repository')].filter(node => node.style.display !== 'none');
   const names = nodes.map(node => node.querySelector('.star').dataset.repo);
   const metadata = new Map(nodes.map(node => {
     const star = node.querySelector('.star');
@@ -20,7 +20,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
   selection = { start: names.includes(selection.start) ? selection.start : null, end: names.includes(selection.end) ? selection.end : null };
   if (!selection.start) selection.end = null;
   onSelect(selection);
-  const edges = [...svg.querySelectorAll('.shared-language')];
+  const edges = [...svg.querySelectorAll('.shared-language')].filter(edge => names.includes(edge.dataset.from) && names.includes(edge.dataset.to));
   const pairs = edges.flatMap(edge => [names.indexOf(edge.dataset.from), names.indexOf(edge.dataset.to)]);
   const style = document.createElement('style');
   style.textContent = `

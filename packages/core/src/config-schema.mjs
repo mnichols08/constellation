@@ -22,6 +22,7 @@ fields.add('nodeCap');
 fields.add('simplifyAbove');
 fields.add('layers');
 fields.add('transforms');
+fields.add('mappings');
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: 'enabled intensity',

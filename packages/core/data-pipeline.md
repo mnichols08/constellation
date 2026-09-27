@@ -89,3 +89,44 @@ Grouping reports only supplied members and metrics; it invents no repository
 architecture or historical data. The existing lower-level `graphNodes` function
 continues accepting graph-ready repository records; use `toGraphRecords` after
 explicit transforms when calling it directly.
+
+## Visual mappings
+
+Common mappings do not need expressions:
+
+```json
+{
+  "version": 6,
+  "mappings": {
+    "size": "stars",
+    "color": "language",
+    "glow": "activity",
+    "opacity": "age"
+  }
+}
+```
+
+Each channel also accepts a `field` or safe `expression`. Numeric channels specify
+two-number `domain` and `range` arrays, optional linear/sqrt/log `scale`, and an
+optional numeric `fallback`. Values clamp to the domain. Size ranges are 0.5–20
+scene units; glow and opacity ranges are 0–1. Reversed output ranges are supported.
+Color mappings accept a `categories` object of six-digit hex colors and optional
+hex `fallback`, or `palette: "language"`. Missing values preserve the legacy style
+unless a fallback is supplied. Explicit per-node colors retain precedence.
+
+```json
+{
+  "mappings": {
+    "size": { "field": "metrics.score", "domain": [0, 100], "range": [3, 12] },
+    "color": { "field": "attributes.language", "categories": { "Rust": "#dea584" }, "fallback": "#888888" }
+  }
+}
+```
+
+Derived metrics remain available to mappings. `metrics.age` is elapsed days since
+the supplied creation date at the fixed reference date. `metrics.activity` uses a
+supplied metric or public-event score when available, otherwise the existing
+updated-date recency proxy. It is not an invented historical activity count.
+Mappings resolve into scene geometry/style; Rust refinement receives the resolved
+radius. Zero-opacity markers are excluded from keyboard interaction. Existing
+node size/color/glow options remain supported and unchanged without mappings.

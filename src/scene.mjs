@@ -48,6 +48,7 @@ function record(scene, path = '$') {
     if (!object(node.metadata) || node.metadata.full_name !== node.id || typeof node.metadata.name !== 'string') fail(`${path}.nodes.${node.id}`, 'invalid metadata');
     if (!object(node.style) || !(node.style.color === null || /^#[a-f\d]{6}$/i.test(node.style.color)) || !(node.style.glow === null || finite(node.style.glow)) || !['circle', 'diamond', 'square', 'hexagon', 'star'].includes(node.style.shape)) fail(`${path}.nodes.${node.id}`, 'invalid style');
     if (!object(node.interaction) || typeof node.interaction.hidden !== 'boolean' || typeof node.interaction.labelHidden !== 'boolean') fail(`${path}.nodes.${node.id}`, 'invalid interaction metadata');
+    if (node.style.opacity !== undefined && (!finite(node.style.opacity) || node.style.opacity < 0 || node.style.opacity > 1)) fail(`${path}.nodes.${node.id}`, 'invalid opacity');
   }
   for (const edge of scene.edges) {
     if (!id(edge?.id) || edges.has(edge.id) || !nodes.has(edge.from) || !nodes.has(edge.to) || edge.from === edge.to) fail(`${path}.edges`, 'invalid ID or endpoints');
@@ -105,7 +106,7 @@ export function sceneStatistics(scene) {
   return {
     version: scene.version, kind: scene.kind,
     nodes: current.nodes.length,
-    visibleNodes: visible('nodes') ? current.nodes.filter(node => !node.interaction.hidden).length : 0,
+    visibleNodes: visible('nodes') ? current.nodes.filter(node => !node.interaction.hidden && node.style.opacity !== 0).length : 0,
     edges: current.edges.length,
     labels: current.labels.length,
     visibleLabels: visible('labels') ? current.labels.filter(label => !label.hidden).length : 0,

@@ -12,7 +12,7 @@ import { seededRandom, resolveSeed } from './seeded-random.mjs';
 import { aggregateActivity } from './activity.mjs';
 import { sampleActivity } from './sample-activity.mjs';
 import { mountLiveTilt } from './live-tilt.mjs';
-import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation, graphNodes } from './constellation.mjs';
+import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation } from './constellation.mjs';
 import { readmeSnippet, renderWorkflow, installationLinks } from './export.mjs';
 import { defaultVisualStyle, visualCSS, randomNodeColors } from './visual-style.mjs';
 import { mountLabelEditor } from './label-editor.mjs';
