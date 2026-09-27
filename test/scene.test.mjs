@@ -2,9 +2,44 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { createScene, renderSceneSVG, renderConstellation, serializeScene } from '../src/core-api.mjs';
+import { createScene, renderSceneSVG, renderConstellation, serializeScene, parseScene, validateScene } from '../src/core-api.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/scene-svg-v2.json', import.meta.url)));
+const snapshot = await readFile(new URL('./fixtures/scene-v1.json', import.meta.url), 'utf8');
+
+test('scene snapshot, IDs and ordering are stable across cache state and object key order', () => {
+  const options = fixture.cases[0].options;
+  const scene = createScene(fixture.account, fixture.repositories, options);
+  assert.equal(serializeScene(scene), snapshot);
+  createScene('another-account', fixture.repositories, { ...options, arrangement: 'force' });
+  const reordered = fixture.repositories.map(repo => Object.fromEntries(Object.entries(repo).reverse()));
+  assert.equal(serializeScene(createScene(fixture.account, reordered, options)), snapshot);
+  assert.equal(serializeScene(parseScene(snapshot)), snapshot);
+  assert.deepEqual(validateScene(scene), { valid: true, errors: [] });
+});
+
+test('malformed scene data fails at the scene boundary with diagnostics', () => {
+  const mutations = [
+    scene => { scene.nodes[0].geometry.x = NaN; },
+    scene => { scene.nodes[1].id = scene.nodes[0].id; },
+    scene => { scene.edges[0].to = 'absent'; },
+    scene => { scene.layers[1].order = scene.layers[0].order; },
+    scene => { scene.labels[0].x = Infinity; },
+    scene => { scene.nodes[0].style.color = 'red;stroke:url(https://example.com)'; },
+    scene => { scene.geometry.ringPoints.push(1); },
+    scene => { scene.metadata.callback = () => {}; },
+    scene => { scene.metadata.cycle = scene; },
+  ];
+  for (const mutate of mutations) {
+    const scene = parseScene(snapshot);
+    mutate(scene);
+    assert.equal(validateScene(scene).valid, false);
+    assert.throws(() => renderSceneSVG(scene), /Scene/);
+    assert.throws(() => serializeScene(scene), /Scene/);
+  }
+  assert.throws(() => parseScene('{"version":99}'), /version/);
+  assert.throws(() => parseScene('{"__proto__":{}}'), /unsafe/);
+});
 
 test('scene rendering and JSON round trips preserve original 2.0 SVG bytes', () => {
   for (const { options, sha256 } of fixture.cases) {

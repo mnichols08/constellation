@@ -39,6 +39,15 @@ descriptors survive serialization. Compilation isolates the returned data from
 the caller's records. Supply a fixed `referenceDate` for reproducible fixtures;
 the compatibility default still uses the current time.
 
+`serializeScene` writes canonical JSON with sorted object keys and preserves the
+semantic array order. `parseScene` reads that format and rejects invalid versions,
+duplicate IDs, dangling edges, malformed geometry, invalid ordering, cycles,
+non-finite values and executable/non-JSON records. `validateScene` returns
+`{ valid, errors }` without throwing. Rendering validates the scene boundary too.
+Identical inputs, seed and reference date produce stable IDs, ordering and
+geometry regardless of engine cache state. The compatibility wrapper's implicit
+current clock is intentionally not a reproducibility guarantee.
+
 At this stage scenes are internal trusted records. JSON serialization is for
 fixtures and debugging, not a new untrusted configuration import boundary.
 Continue using config parsing/migration for user-provided settings. The SVG

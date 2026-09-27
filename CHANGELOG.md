@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.1.1 — 2026-09-27
+
+- Canonicalize scene JSON key ordering and add a fixed-date scene snapshot alongside original SVG parity fixtures.
+- Validate scene IDs, edge references, geometry, style, labels, ordered layers and temporal frames. Reject cycles, executable records, unsafe keys and non-finite numbers before serialization/rendering.
+- Expose diagnostic validation and bounded scene parsing; test determinism across cache state and record property ordering.
+
 ## 2.1.0 — 2026-09-27
 
 - Introduce isolated, serializable scenes with node/edge IDs, geometry, styling, interaction metadata, labels and layer identities. Keep Rust/WASM as the layout engine.

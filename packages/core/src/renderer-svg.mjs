@@ -1,4 +1,5 @@
 import { renderNodeIcon } from './theme-packs.mjs';
+import { assertScene } from './scene.mjs';
 import { ringOccupancy } from './scaling.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { visualCSS } from './visual-style.mjs';
@@ -35,6 +36,7 @@ const themes = {
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 
 export function renderSceneSVG(visualScene) {
+  assertScene(visualScene);
   if (visualScene.kind === 'time-lapse') {
     const { account, repositories, options, reference } = visualScene.presentation;
     return renderTimeLapse(account, repositories, options, (_account, _repositories, settings) => {

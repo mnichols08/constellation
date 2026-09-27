@@ -11,4 +11,4 @@ export { migrateConfig, migrateWorkflow } from './migrate.mjs';
 export { CONFIG_VERSION } from './config-schema.mjs';
 export { createScene } from './constellation.mjs';
 export { renderSceneSVG } from './renderer-svg.mjs';
-export { serializeScene } from './scene.mjs';
+export { serializeScene, parseScene, validateScene, SCENE_VERSION } from './scene.mjs';
