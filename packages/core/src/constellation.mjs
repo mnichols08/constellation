@@ -1,4 +1,5 @@
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
+import { renderNodeIcon } from './theme-packs.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
@@ -215,7 +216,7 @@ export const themes = {
   light: { background: '#fafaf3', foreground: '#202516', accent: '#595600', line: '#838d66', star: '#8b8500' },
 };
 
-export function renderConstellation(account, repositories, options = {}, { onDiagnostic } = {}) {
+export function renderConstellation(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
   const sourceHasRepositories = repositories.some(repo => repo.private !== true && (options.repoSource !== 'pinned' || repo.pinned === true));
@@ -455,6 +456,7 @@ export function renderConstellation(account, repositories, options = {}, { onDia
     }
   }
   const points = visibleStars.map(({ repo, x, y }) => {
+    const customIcon = renderNodeIcon(nodeRenderer?.({ node: structuredClone(repo), x, y, radius: nodeRadius(repo, options.nodeSize || options.sizingMode, reference) }), { x, y, radius: nodeRadius(repo, options.nodeSize || options.sizingMode, reference) });
     const lifecycle = temporal.stellarAges.enabled && (!repo.nodeKind || repo.nodeKind === 'repository') ? projectLifecycle(repo, clock, temporal.stellarAges.thresholds, options.historyData?.events || []) : null;
     const lifecycleAttributes = lifecycle ? ` data-lifecycle="${lifecycle === 'archived' && !temporal.stellarAges.showArchivedRemnants ? 'quiet' : lifecycle}" data-age-mode="${temporal.stellarAges.mode}"` : '';
     const radius = repo.organizationFocal ? 11 : nodeRadius(repo, options.nodeSize || options.sizingMode, reference);
@@ -465,9 +467,9 @@ export function renderConstellation(account, repositories, options = {}, { onDia
     const activityLayer = activityMarkup({ x, y, radius, id: repo.full_name, activity, effect: activitySettings.activityEffect, detail: activitySettings.activityDetail, seed, animate: animate && options.activityAnimate !== false });
     const phaseHour = rhythmSettings.codingRhythm && rhythmSettings.codingRhythmStyle !== 'hidden' && rhythmSettings.codingRhythmProjectHints ? options.codingRhythmData?.projectHours?.[repo.full_name] : undefined;
     const phaseHint = Number.isInteger(phaseHour) && phaseHour >= 0 && phaseHour < 24 ? ` style="opacity:${(.065 + phaseHour / 24 * .025).toFixed(3)}"` : '';
-    const starStyle = `${repo.organizationFocus ? "stroke:var(--sky-accent);stroke-width:1.5;" : ""}${shape !== 'circle' ? `clip-path:url(#shape-${shape});` : ''}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ''}`;
+    const starStyle = `${customIcon ? "fill:transparent;stroke:none;" : ""}${repo.organizationFocus ? "stroke:var(--sky-accent);stroke-width:1.5;" : ""}${shape !== 'circle' ? `clip-path:url(#shape-${shape});` : ''}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ''}`;
     const tooltip = repo.nodeKind && repo.nodeKind !== 'repository' ? `${repo.name} · ${repo.representedCount || repo.members.length} repositories · ${repo.members.join(', ')}` : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? ' · fork' : ''} · ${repositoryLanguages(repo).join(', ') || 'No detected languages'}`;
-    return `<g class="repository"${graph.focus && !repo.organizationFocus ? ' opacity=".22"' : ""}${repo.organizationFocal ? ' data-organization-user="true"' : ""}${repo.organizationFocus ? ' data-organization-focus="true"' : ""}${lifecycleAttributes}${activityAttributes}${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}${lifecycle ? ` · ${lifecycle}` : ''}</title>${activityLayer}<circle class="star-halo"${phaseHint} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"/></g>`;
+    return `<g class="repository"${graph.focus && !repo.organizationFocus ? ' opacity=".22"' : ""}${repo.organizationFocal ? ' data-organization-user="true"' : ""}${repo.organizationFocus ? ' data-organization-focus="true"' : ""}${lifecycleAttributes}${activityAttributes}${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}${lifecycle ? ` · ${lifecycle}` : ''}</title>${activityLayer}<circle class="star-halo"${phaseHint} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"${customIcon ? ' style="display:none"' : ''}/>${customIcon}</g>`;
   }).join('');
   const labels = renderLabels();
   if (options.snapToRings !== undefined && typeof options.snapToRings !== 'boolean') throw new Error('snapToRings must be a boolean.');

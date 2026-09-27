@@ -4,6 +4,8 @@ import { visualCSS } from './visual-style.mjs';
 import { sizingModes } from './node-sizing.mjs';
 import { historyFields } from './history/settings.mjs';
 import { organizationFields } from './organization/settings.mjs';
+import { pluginOptions } from './plugin-host.mjs';
+import { validateThemePack } from './theme-packs.mjs';
 
 export const CONFIG_VERSION = 1;
 export const MAX_CONFIG_BYTES = 250000;
@@ -13,6 +15,8 @@ for (const key of historyFields) fields.add(key);
 for (const key of organizationFields) fields.add(key);
 for (const key of ['starlightAnimate', 'activityAnimate']) fields.add(key);
 fields.add('layoutRefinement');
+fields.add('plugins');
+fields.add('themePack');
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: 'enabled intensity',
@@ -36,6 +40,8 @@ export function normalizeConfig(input) {
   inspect(input);
   if (JSON.stringify(input).length > MAX_CONFIG_BYTES) throw new Error('Configuration is too large.');
   const options = Object.fromEntries(Object.entries(input).filter(([key]) => fields.has(key)));
+  if ('plugins' in options) pluginOptions(options.plugins);
+  if ('themePack' in options) validateThemePack(options.themePack, { reference: true });
   for (const key of ['animate', 'includeForks', 'bridges', 'showOther', 'snapToRings', 'identityRing', 'colorConnections']) {
     if (key in options && typeof options[key] !== 'boolean') throw new Error(`${key} must be boolean.`);
   }
@@ -64,7 +70,7 @@ export function normalizeConfig(input) {
   }
   if ('codingRhythmTimezone' in options) options.codingRhythmTimezone = resolveRhythmTimezone(options.codingRhythmTimezone);
   // Reuse the rendering validators, including legacy fields and motion settings.
-  renderConstellation('validation', [], options);
+  renderConstellation('validation', [], options.themePack && !options.themePack.preset ? { ...options, themePack: undefined } : options);
   return JSON.parse(JSON.stringify(options));
 }
 

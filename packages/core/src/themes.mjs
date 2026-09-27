@@ -1,3 +1,4 @@
+import { validateThemePack } from './theme-packs.mjs';
 // Themes only supply visual defaults. Explicit configuration always wins.
 export const visualThemes = {
   mnix: { label: 'Mnix (adaptive, transparent)', transparent: true, lightPalette: ['#fafaf3', '#202516', '#595600', '#838d66', '#8b8500'], palette: ['#111111', '#f3f3f4', '#e3de13', '#555a38', '#e3de13'], glow: 2, opacity: .13, nodeColorMode: 'custom' },
@@ -20,9 +21,10 @@ export function themePalettes(preset) {
 }
 
 export function resolveTheme(options = {}) {
-  const id = options.visualTheme || (visualThemes[options.theme] ? options.theme : null);
+  if (options.themePack) validateThemePack(options.themePack, { reference: true });
+  const id = options.themePack?.id || options.visualTheme || (visualThemes[options.theme] ? options.theme : null);
   if (!id || id === 'custom') return options;
-  const preset = visualThemes[id];
+  const preset = options.themePack?.preset || (options.themePack && options.themePack.version !== '1.0.0' ? null : visualThemes[id]);
   if (!preset) throw new Error('Unknown visual theme.');
   const { label, palette, lightPalette, transparent, glow, opacity, ...defaults } = preset;
   const colors = Object.fromEntries(['background', 'foreground', 'accent', 'line', 'star'].map((key, i) => [key, palette[i]]));

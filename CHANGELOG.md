@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0 — 2026-09-27
+
+- Add isolated source registries, namespaced source instances, duplicate-ID errors and a working JSON-feed source for the core and CLI/Action.
+- Package existing Look presets as independent 1.0.0 theme packs, with exact references or portable embedded presets.
+- Add node-renderer hooks for custom SVG paths while retaining node metadata and hit targets.
+- Document the source authoring contract, JSON-feed example and GitLab extension point. Preserve plugin and theme config in existing exports.
+
 ## 1.7.3 — 2026-09-27
 
 - Add `--help`, `-h`, and `--version`; clarify package-engine recovery errors.

@@ -10,6 +10,8 @@ Refinement defaults to off; enabling it does not guarantee collision-free labels
 
 The [standalone core API](docs/core-api.md) includes rendering, validation and filter reports. Run `node src/cli.mjs validate --config settings.json` to check a config; use `--dry-run --explain` with generation flags to inspect filtering without writing an SVG.
 
+[Source plugins and theme packs](docs/plugins.md) extend the core with external data and versioned Look presets. A JSON-feed source and a custom node-path hook are included; see [the feed config](examples/json-feed.json).
+
 ![Example GitHub constellation](./dist/constellation.svg)
 
 The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).

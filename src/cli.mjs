@@ -4,7 +4,7 @@ import { needsHistoryEvents } from './history/settings.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { parseArgs } from 'node:util';
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, renderConstellation, explainFilters, rustAvailable, engineError } from '../packages/core/src/core-api.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost } from '../packages/core/src/core-api.mjs';
 import { loadConfig } from './config.mjs';
 import { aggregateActivity, activityOptions, normalizePublicEvents } from './activity.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
@@ -53,7 +53,8 @@ async function main() {
   // Retain the full public list for historical selection without fetching languages
   // for every repository. Older frames can use their known primary language.
   const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
-  const repos = listed.map(repo => byName.get(repo.full_name) || repo);
+  const pluginHost = createPluginHost();
+  const repos = [...listed.map(repo => byName.get(repo.full_name) || repo), ...await pluginHost.load(config, { account })];
   const generatedAt = new Date().toISOString();
   let activityData, codingRhythmData, historyData;
   if (needsHistoryEvents(config) || activityOptions(config).activityEffect !== 'off' || (codingRhythmOptions(config).codingRhythm && config.codingRhythmStyle !== 'hidden')) {
@@ -65,7 +66,7 @@ async function main() {
     codingRhythmData = deriveCodingRhythm(snapshot.events, config, config.activityMetricDate || snapshot.asOf);
     activityData = aggregateActivity(snapshot.events, selectRepositories(repos, config), config, snapshot.asOf);
   }
-  const svg = renderConstellation(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
+  const svg = pluginHost.render(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
   if (values.explain) console.log(JSON.stringify(explainFilters(repos, config)));
   if (values['dry-run']) return;
   const output = values.output || process.env.CONSTELLATION_OUTPUT || 'dist/constellation.svg';

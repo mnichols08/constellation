@@ -3,3 +3,6 @@ export { parseConfig, serializeConfig, normalizeConfig } from './config-schema.m
 export { validateConfig } from './validate-config.mjs';
 export { explainFilters } from './filter-explanation.mjs';
 export { rustAvailable, engineError } from './engine.mjs';
+export { createPluginHost } from './plugin-host.mjs';
+export { jsonFeedSource } from './json-feed-source.mjs';
+export { validateThemePack } from './theme-packs.mjs';
