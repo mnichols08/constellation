@@ -33,7 +33,7 @@ test('path selections include only the traced edges and handle disconnected endp
 test('focused SVG preserves animation and focus in its reduced-motion fallback', () => {
   const svg = renderConstellation('octocat', repos, { selection: { start: 'o/a' }, ringAnimation: { enabled: true } });
   assert.match(svg, /<animate /);
-  assert.match(svg, /<line class="shared-language" data-related/);
+  assert.match(svg, /<path class="shared-language" data-related/);
   const encoded = svg.match(/href="data:image\/svg\+xml,([^"]+)"/)[1];
   const fallback = decodeURIComponent(encoded);
   assert.match(fallback, /data-focus-start="o\/a"/);

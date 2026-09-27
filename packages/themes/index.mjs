@@ -212,5 +212,55 @@ export const themePacks = [
       "effect": "scanlines",
       "animate": false
     }
+  },
+  {
+    "id": "chingu",
+    "version": "1.0.0",
+    "preset": {
+      "label": "Chingu",
+      "transparent": true,
+      "lightPalette": [
+        "#ecfdf5",
+        "#064e3b",
+        "#047857",
+        "#059669",
+        "#047857"
+      ],
+      "palette": [
+        "#064e3b",
+        "#ecfdf5",
+        "#34d399",
+        "#059669",
+        "#a7f3d0"
+      ],
+      "glow": 1.5,
+      "opacity": 0.24,
+      "nodeColorMode": "custom"
+    }
+  },
+  {
+    "id": "code-the-dream",
+    "version": "1.0.0",
+    "preset": {
+      "label": "Code the Dream",
+      "transparent": true,
+      "lightPalette": [
+        "#f1f2f2",
+        "#12284c",
+        "#c43d20",
+        "#677b98",
+        "#c43d20"
+      ],
+      "palette": [
+        "#12284c",
+        "#f1f2f2",
+        "#ff5c35",
+        "#677b98",
+        "#f3c300"
+      ],
+      "glow": 1,
+      "opacity": 0.26,
+      "nodeColorMode": "custom"
+    }
   }
 ];

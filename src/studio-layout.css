@@ -193,3 +193,8 @@
 .share-actions button, .share-actions a { padding: 10px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font-size: 12px; text-decoration: none; }
 .share-actions #copy-share-link { background: var(--accent); color: var(--page); border-color: var(--accent); }
 .share-actions #close-share { margin-left: auto; }
+
+.repository-picker-list { max-height: 300px; overflow: auto; margin-top: 12px; }
+.repository-picker-list label { justify-content: flex-start; margin: 0; padding: 8px 0; }
+.repository-picker-list span { overflow-wrap: anywhere; min-width: 0; }
+.repository-picker-actions { display: flex; flex-wrap: wrap; gap: 6px; }

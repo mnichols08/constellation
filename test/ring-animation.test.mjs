@@ -19,7 +19,7 @@ test('animated SVG carries independent motion, static reduced-motion fallback an
   assert.match(svg, /dur="60s"/);
   assert.match(svg, /dur="30s"/);
   assert.match(svg, /to="-360 240 240"/);
-  assert.match(svg, /<line class="shared-language"/);
+  assert.match(svg, /<path class="shared-language"/);
   assert.match(svg, /attributeName="x1"/);
   assert.match(svg, /attributeName="x2"/);
   assert.match(svg, /class="ring-motion-still"/);

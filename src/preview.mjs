@@ -405,7 +405,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => upda
 for (const button of document.querySelectorAll('[data-filter]')) button.addEventListener('click', () => {
   filterSelection[button.dataset.filter] = button.dataset.selection === 'all' ? null : []; render();
 });
-async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value, explicitConfig) {
+async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value, explicitConfig, { requireVisibleNodes = false } = {}) {
   const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
   const restoring = explicitConfig || (nextAccount.toLowerCase() !== account.toLowerCase() ? studio?.store.draft(nextAccount) : null);
   if (restoring) source = restoring.options.repoSource || 'all';
@@ -439,7 +439,7 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
     syncAccountMode();
     $('#repo-source').value = source;
     $('#refresh-data').hidden = false;
-    render();
+    if (!render({ requireVisibleNodes })) throw new Error('This configuration could not render a populated graph.');
     return true;
   } catch (error) {
     if (!isSample) $('#repo-source').value = loadedSource;
@@ -565,24 +565,32 @@ restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
   hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
+  repositoryPool: () => repositories,
+  selectedRepositories: options => selectRepositories(repositories, options),
   repositoryCandidates: options => selectRepositories(repositories, { ...options, includeRepos: undefined, maxRepos: 100 }),
-  apply: async (config, { loadOrganization = false, requireVisibleNodes = false, fallback } = {}) => {
+  apply: async (config, { loadOrganization = false, loadPresetData = false, requireVisibleNodes = false, fallback } = {}) => {
     if (loading) throw new Error('Wait for the account to finish loading before applying a preset.');
-    if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && ((config.options.repoSource || 'all') !== loadedSource || loadOrganization))) {
-      if (!await loadAccount(config.account, false, config.options.repoSource || 'all', config)) throw new Error('Could not load this configuration account.');
-    } else {
-      applyOptions(config.options);
-      if (requireVisibleNodes) {
-        try {
-          if (render({ requireVisibleNodes })) return true;
-        } catch (error) {
-          if (fallback) { applyOptions(fallback.options); render({ requireVisibleNodes: true }); }
-          throw error;
-        }
-        if (fallback) { applyOptions(fallback.options); render({ requireVisibleNodes: true }); }
-        return false;
-      }
+    const previous = { account, repositories, loadedSource, isSample };
+    const restore = () => {
+      if (!fallback) return;
+      ({ account, repositories, loadedSource, isSample } = previous);
+      applyOptions(fallback.options);
       render();
+    };
+    try {
+      const missingPresetData = loadPresetData && !isSample && data.profile(account)?.type !== 'Organization' &&
+        selectRepositoryPool(repositories, config.options).some(repo => !repo.languages);
+      if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && ((config.options.repoSource || 'all') !== loadedSource || loadOrganization || missingPresetData))) {
+        if (!await loadAccount(config.account, false, config.options.repoSource || 'all', config, { requireVisibleNodes })) throw new Error($('#status').textContent || 'Could not apply this configuration. The previous design is restored.');
+        return true;
+      }
+      applyOptions(config.options);
+      const applied = render({ requireVisibleNodes });
+      if (!applied && requireVisibleNodes) { restore(); return false; }
+      return applied;
+    } catch (error) {
+      restore();
+      throw error;
     }
   },
   theme: id => {

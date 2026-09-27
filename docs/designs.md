@@ -79,9 +79,19 @@ With **Snap nodes to ring points** enabled, accepted moves land on valid ring an
 
 Refinement is deterministic for the same repository data and settings and is independent of motion or reduced-motion preferences. The browser, CLI and Action call the same WASM function. SVG contains the resulting coordinates; configurations, workflows, saved presets and share links retain the setting and manual coordinates so the result is recomputed from the same inputs. Live GitHub data can change future output. This is an additive config field; existing `v1`–`v5` recipes are unchanged and no new recipe version is required. Randomizing styling or animations preserves this setting.
 
+## Choose repositories
+
+Open **Projects > Choose repositories** to search the loaded account's repositories and check the projects you want. **Select shown** adds the search results to your selection; **Clear selection** unchecks everything. Click **Apply selection** to update the graph and load any missing language data. Selecting no repositories intentionally produces an empty graph.
+
+An explicit selection clears conflicting project filters and hidden nodes and sets the project limit to the selection size, up to the configured node cap. Historical views and organization scope still apply. **Use automatic selection** removes the explicit list and uses the current filters and project limit. Only repositories loaded for the current account and source are listed; private repositories are excluded.
+
+Selections use `includeRepos` and survive saved presets, configuration files, share links and workflow exports. Applying a built-in preset replaces this selection with the preset's defaults.
+
 ## Built-in account presets
 
-**Choose a preset** offers Project map, Flagship projects, Technology atlas, Language orbits, Recent work, Project journey, Minimal README, and Classic Constellation for individual accounts. Organization-specific presets remain available when an organization is loaded.
+**Chingu** and **Code the Dream** are available under **Themes & visual mappings / Start with a theme** for any account or layout. Chingu uses the emerald and mint colors from [chingu.io](https://www.chingu.io/). Code the Dream uses the navy, coral and yellow from its [brand standards](https://codethedream.org/logo/), with a darker coral for contrast on light backgrounds. Both have transparent backgrounds and include light and dark palettes. Choose the theme after applying a layout preset to replace that preset's colors. Use `visualTheme: "chingu"` or `visualTheme: "code-the-dream"` in configuration, or `theme=chingu` / `theme=code-the-dream` in a share URL. Saved configurations and theme packs retain these selections.
+
+**Choose a preset** offers Project map, Flagship projects, Technology atlas, Language orbits, Recent work, Project journey, Minimal README, and Classic Constellation for individual accounts. Organization-specific presets remain available when an organization is loaded. Applying a built-in preset loads any missing language data for its selected projects. If data loading fails or the preset cannot show any nodes, the previous design and exports are restored.
 
 Your personal branch palette is available as **Mnix (adaptive, transparent)** under **Themes & visual mappings / Start with a theme**. It has a transparent background and automatically switches between your original light and dark palettes using the viewer's color preference. Apply it to any layout, or set `visualTheme: "mnix"` in configuration / `theme=mnix` in a share URL. The **Classic Constellation** preset combines this theme with identity rings. Presets apply their own colors; choose Mnix afterward to use your palette with another preset's layout. Themes are preserved in saved configurations and share links.
 

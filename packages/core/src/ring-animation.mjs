@@ -79,7 +79,27 @@ export function animateRingSVG(svg, settings, geometry, stars, center, spread, e
   }).replace(/<path class="shared-language"[^>]*>[\s\S]*?<\/path>/g, path => {
     const from = byId.get(path.match(/data-from="([^"]+)"/)?.[1]), to = byId.get(path.match(/data-to="([^"]+)"/)?.[1]);
     if (!from || !to) return path;
-    return path.replace('<path', '<line').replace(/ d="[^"]*"/, ` x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}"`).replace('</path>', animation('x1', from.motion, 0) + animation('y1', from.motion, 1) + animation('x2', to.motion, 0) + animation('y2', to.motion, 1) + '</line>');
+    if (!from.motion && !to.motion) return path;
+    const coordinates = path.match(/ d="M([\d.-]+) ([\d.-]+)Q([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]+)"/);
+    if (!coordinates) return path;
+    const [x1, y1, cx, cy, x2, y2] = coordinates.slice(1).map(Number);
+    const dx = x2 - x1, dy = y2 - y1, lengthSquared = dx * dx + dy * dy;
+    // Express the control point along and perpendicular to the chord. Each
+    // endpoint contributes independently, preserving different ring periods.
+    const along = lengthSquared ? ((cx - x1) * dx + (cy - y1) * dy) / lengthSquared : .5;
+    const bend = lengthSquared ? ((cy - y1) * dx - (cx - x1) * dy) / lengthSquared : 0;
+    const curveMotion = (node, start) => {
+      if (!node.motion) return '';
+      const values = node.motion.values.map(([x, y]) => {
+        const ox = x - node.x, oy = y - node.y;
+        const weight = start ? 1 - along : along, normal = start ? -bend : bend;
+        const control = `${(weight * ox - normal * oy).toFixed(2)} ${(weight * oy + normal * ox).toFixed(2)}`;
+        const endpoint = `${ox.toFixed(2)} ${oy.toFixed(2)}`;
+        return `M${start ? endpoint : '0 0'}Q${control} ${start ? '0 0' : endpoint}`;
+      });
+      return `<animate attributeName="d" additive="sum" values="${values.join(';')}" dur="${node.motion.duration}s" repeatCount="indefinite"/>`;
+    };
+    return path.replace('</path>', curveMotion(from, true) + curveMotion(to, false) + '</path>');
   }).replace(/<g class="bridges">[\s\S]*?<\/g>/g, group => group.replace(/<path d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)">([\s\S]*?)<\/path>/g, (_, x1, y1, x2, y2, title) => {
     const from = motion(Number(x1), Number(y1)), to = motion(Number(x2), Number(y2));
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${title}${animation('x1', from, 0)}${animation('y1', from, 1)}${animation('x2', to, 0)}${animation('y2', to, 1)}</line>`;
