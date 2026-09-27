@@ -1,5 +1,11 @@
 # Sources, themes and node renderers
 
+## Compatibility policy (core 2.x)
+
+`PLUGIN_API_VERSION` is 1. Core 2.x guarantees `createPluginHost`, `registerSource`, `registerThemePack`, `load`, `render`, and `clearCache`; source `id`, `apiVersion`, `load(context)`, optional `renderNode(context)`; loader account/options/signal/fetch arguments; namespaced result IDs; and the documented `{ path, fill? }` renderer descriptor. Theme packs retain `{ id, version, preset }`, with exact release versions and explicit config taking precedence. Changing or removing these contracts requires a new core major version. Additive optional capabilities may ship in minor releases; fixes may ship in patches. Hosts reject unsupported source API versions explicitly. Diagnostic counters and benchmark timings are observational, not layout contracts.
+
+Pack authors version changed preset content independently and retain earlier content versions for saved designs. A pack package release may change packaging without changing the contained content versions. Core does not silently upgrade an exact theme reference.
+
 Run `node examples/plugin-demo.mjs` to create `.dist/plugin-demo.svg` offline. The example imports the separately packaged JSON source and themes, registers a custom path renderer, and combines two source instances with the same local node ID. Use it as a starting template for a source author.
 
 The core exposes `createPluginHost()`. Each host has an isolated registry; it does not discover or execute modules from config strings. Import trusted plugin modules in the application and call `registerSource`. The built-in `json-feed` source accepts `options.items` or an HTTP(S) `options.url` whose response is an array of nodes.

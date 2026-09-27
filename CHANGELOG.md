@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0 — 2026-09-27
+
+- Export a single v6 config format incorporating refinement, plugins, theme packs and node-cap settings. Automatically read legacy version-1/unversioned configs, frozen v1:–v5: recipes and old share links.
+- Add offline `migrate --config`, `--from` and `--workflow` commands with a complete migration guide. Preserve resolved appearance and manual/hidden-node settings; keep legacy recipe seeds as provenance.
+- Commit to source API version 1 and the documented theme contract throughout core 2.x.
+- Explicitly deprecate the non-WASM browser fallback with a load-time warning; removal is deferred to the next major. CLI/Action WASM requirements remain unchanged.
+- Update Action/Marketplace metadata, generated workflows and README quick-start to v2. No new visualization features are introduced.
+
 ## 1.9.3 — 2026-09-27
 
 - Bound source-cache retention by an 8 MiB estimated serialization budget as well as entry count; oversized snapshots remain usable without being retained.

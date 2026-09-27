@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mnichols08/constellation@v1
+      - uses: mnichols08/constellation@v2
         with:
           publish: 'true'
 ```
@@ -97,6 +97,8 @@ Made with [GitHub Constellation](https://github.com/mnichols08/constellation) by
 The image updates daily. Clicking it takes viewers to this project's GitHub repository. You can also run the workflow manually at any time.
 
 ## Change your configuration
+
+Version 2 exports the v6 config format. Existing JSON configs, v1:–v5: design recipes and share links migrate automatically on import. For saved files and workflows, use `constellation migrate`; see the [v2 migration guide](docs/migration-v2.md). Source API version 1 and theme-pack contracts are now stable. The non-WASM browser fallback is deprecated.
 
 **Nodes → Refine layout** adds a static overlap-reduction pass, off by default. Set intensity from 0–10; manual and hidden node/label pairs stay fixed. Ring snapping constrains moves to ring points or movable-pair swaps; turn it off for free nudges. The setting `"layoutRefinement": { "enabled": true, "intensity": 5 }` works in the studio, config files, workflows and share links. See [layout refinement](docs/designs.md#refine-layout) for bounds and limitations.
 

@@ -6,8 +6,9 @@ import { historyFields } from './history/settings.mjs';
 import { organizationFields } from './organization/settings.mjs';
 import { pluginOptions } from './plugin-host.mjs';
 import { validateThemePack } from './theme-packs.mjs';
+import { randomizeDesign } from './design-randomizer.mjs';
 
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 6;
 export const MAX_CONFIG_BYTES = 250000;
 const fields = new Set('theme layout maxRepos animate includeForks bridges connectionDensity connectionBasis languages topics showOther css repoSource arrangement ringAnimation perspective floatingAnimation ringRotation ringRotations identityRing snapToRings nodeMode hiddenNodes hiddenLabels colorConnections nodeColors labelOffsets labelPositions starPositions selection colors title includeRepos minStars includeArchived updatedWithin repoQuery sortBy sizingMode exportProfile visualStyle customCSS seedMode seed nodeSize nodeColorMode nodeGlowMode connectionWeight nodeShape effect legend visualTheme metricDate majorMetric designCode starfield activityEffect activityWindow activityDetail activityConnections activityMetricDate'.split(' '));
 for (const key of Object.keys(rhythmDefaults)) fields.add(key);
@@ -37,7 +38,7 @@ function inspect(value, depth = 0) {
   }
 }
 
-export function normalizeConfig(input) {
+export function normalizeConfig(input, { trustedCSS = false } = {}) {
   if (!object(input)) throw new Error('Configuration must be a JSON object.');
   inspect(input);
   if (JSON.stringify(input).length > MAX_CONFIG_BYTES) throw new Error('Configuration is too large.');
@@ -50,7 +51,7 @@ export function normalizeConfig(input) {
   for (const key of ['css', 'customCSS']) {
     if (key in options && typeof options[key] !== 'string') throw new Error(`${key} must be text.`);
     // Keep CSS self-contained. XML text escaping remains the renderer's responsibility.
-    if (options[key] && /(?:@import|url\s*\(|expression\s*\(|\\)/i.test(options[key].replace(/\/\*[\s\S]*?\*\//g, ''))) throw new Error('Imported CSS must be self-contained, without URLs, imports, escapes or expressions.');
+    if (!trustedCSS && options[key] && /(?:@import|url\s*\(|expression\s*\(|\\)/i.test(options[key].replace(/\/\*[\s\S]*?\*\//g, ''))) throw new Error('Imported CSS must be self-contained, without URLs, imports, escapes or expressions.');
   }
   for (const [key, names] of Object.entries(nested)) if (key in options) {
     if (!object(options[key])) throw new Error(`${key} must be an object.`);
@@ -78,11 +79,11 @@ export function normalizeConfig(input) {
 
 export function parseConfig(value, fallbackAccount = 'your-universe') {
   if (typeof value === 'string' && value.length > MAX_CONFIG_BYTES) throw new Error('Configuration is too large.');
-  const input = typeof value === 'string' ? JSON.parse(value) : value;
+  const input = typeof value === 'string' ? /^v[1-5]:/i.test(value.trim()) ? randomizeDesign(value.trim()) : JSON.parse(value) : value;
   if (!object(input)) throw new Error('Configuration must be a JSON object.');
   inspect(input);
-  if ('version' in input && input.version !== CONFIG_VERSION) throw new Error('Unsupported configuration version.');
-  return { version: CONFIG_VERSION, account: username(input.account || fallbackAccount), options: normalizeConfig('options' in input && 'version' in input ? input.options : input) };
+  if ('version' in input && ![1, CONFIG_VERSION].includes(input.version)) throw new Error('Unsupported configuration version. Use constellation migrate for legacy design codes or configs.');
+  return { version: CONFIG_VERSION, account: username(input.account || fallbackAccount), options: normalizeConfig('options' in input && 'version' in input ? input.options : input, { trustedCSS: input.version === CONFIG_VERSION }) };
 }
 
 export const serializeConfig = (account, options) => {

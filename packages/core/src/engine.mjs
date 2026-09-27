@@ -11,7 +11,10 @@ try {
     : await (await fetch(url)).arrayBuffer();
   await bindings.default({ module_or_path: module });
   core = bindings;
-} catch (error) { engineError = error; }
+} catch (error) {
+  engineError = error;
+  console.warn('Constellation: the non-WASM fallback is deprecated in v2 and will be removed in the next major release. Restore the bundled WASM engine for supported rendering.');
+}
 
 export const rustAvailable = Boolean(core);
 const stableCoordinates = new Map();

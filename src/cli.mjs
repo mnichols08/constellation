@@ -4,7 +4,7 @@ import { needsHistoryEvents } from './history/settings.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { parseArgs } from 'node:util';
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost } from '../packages/core/src/core-api.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost, migrateConfig, migrateWorkflow } from '../packages/core/src/core-api.mjs';
 import { loadConfig } from './config.mjs';
 import { aggregateActivity, activityOptions, normalizePublicEvents } from './activity.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
@@ -13,14 +13,23 @@ import { organizationOptions } from './organization/settings.mjs';
 
 async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, from: { type: 'string' }, workflow: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
   if (values.help) {
-    console.log('Usage: constellation [validate] [options]\n\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --username NAME     GitHub account for generation\n  --fixture FILE      Read repositories offline\n  --output FILE       SVG destination\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate requires a config and makes no GitHub requests. See docs/core-api.md.');
+    console.log('Usage: constellation [validate|migrate] [options]\n\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v2.md.');
     return;
   }
   if (values.version) { console.log(JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version); return; }
   if (!rustAvailable) throw new Error(`Could not load the Rust engine: ${engineError?.message}. Restore the core package WASM or run npm run build:rust and npm run build:core.`);
-  if (positionals.length > 1 || (positionals.length && positionals[0] !== 'validate')) throw new Error('Expected validate --config file.json, or generation flags.');
+  if (positionals.length > 1 || (positionals.length && !['validate', 'migrate'].includes(positionals[0]))) throw new Error('Expected validate, migrate, or generation flags.');
+  if (positionals[0] === 'migrate') {
+    if ([values.config, values.from, values.workflow].filter(Boolean).length !== 1) throw new Error('migrate requires exactly one of --config FILE, --from CODE_OR_URL, or --workflow FILE.');
+    const input = values.from || await readFile(values.config || values.workflow, 'utf8');
+    const settings = { account: values.username || process.env.CONSTELLATION_USERNAME || 'your-universe' };
+    const result = values.workflow ? migrateWorkflow(input, settings) : JSON.stringify(migrateConfig(input, settings), null, 2) + '\n';
+    if (values.output && !values['dry-run']) { await mkdir(dirname(values.output), { recursive: true }); await writeFile(values.output, result); }
+    else process.stdout.write(result);
+    return;
+  }
   const configPath = values.config || process.env.CONSTELLATION_CONFIG;
   const config = await loadConfig(configPath, process.env.CONSTELLATION_CONFIG_JSON);
   if (positionals[0] === 'validate') {

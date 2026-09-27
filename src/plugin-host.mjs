@@ -3,6 +3,7 @@ import { validateThemePack } from './theme-packs.mjs';
 import { jsonFeedSource } from './json-feed-source.mjs';
 
 const identifier = value => typeof value === 'string' && /^[a-z][a-z\d-]{0,63}$/.test(value);
+export const PLUGIN_API_VERSION = 1;
 export function pluginOptions(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => key !== 'sources') || !Array.isArray(value.sources ?? [])) throw new Error('plugins must contain a sources array.');
   const ids = new Set();
@@ -24,7 +25,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
     clearCache() { generation++; cache.clear(); cacheBytes = 0; },
     get cacheStatistics() { return { entries: cache.size, estimatedBytes: cacheBytes, budgetBytes: cacheBudget }; },
     registerSource(plugin) {
-      if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== 1 || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
+      if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== PLUGIN_API_VERSION || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
       if (sources.has(plugin.id)) throw new Error(`Source plugin already registered: ${plugin.id}`);
       sources.set(plugin.id, Object.freeze({ id: plugin.id, apiVersion: plugin.apiVersion, load: plugin.load, renderNode: plugin.renderNode })); return host;
     },
