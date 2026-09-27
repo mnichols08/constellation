@@ -16,6 +16,12 @@ const base = { animate: false, referenceDate: '2026-09-27T00:00:00Z', seedMode: 
 const enabled = { ...base, layoutRefinement: { enabled: true, intensity: 8 } };
 const coordinates = svg => [...svg.matchAll(/<circle class="star" cx="([^"]+)" cy="([^"]+)"[^>]*data-repo="([^"]+)"/g)].map(m => [m[3], Number(m[1]), Number(m[2])]);
 
+test('documented refinement defaults and intensity limits remain stable', () => {
+  assert.deepEqual(layoutRefinementOptions(), { enabled: false, intensity: 5 });
+  assert.deepEqual(layoutRefinementOptions({ enabled: true }), { enabled: true, intensity: 5 });
+  for (const intensity of [0, 10]) assert.equal(layoutRefinementOptions({ intensity }).intensity, intensity);
+});
+
 test('refinement never writes to fixed nodes or labels', () => {
   const repo = repos[0];
   const star = Object.freeze({ repo, x: 400, y: 100, radius: 6 });

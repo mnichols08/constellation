@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.3 — 2026-09-27
+
+- Clarify refinement limits, off-ring reservations, and the distinction between dragging locks and saved manual placements.
+- Browser regressions verify focus, button labels, Enter/Space activation and Escape on every displayed sample node, plus visible keyboard focus.
+- Test documented refinement defaults and intensity endpoints.
+
 ## 1.6.2 — 2026-09-27
 
 - Cache collision rectangles inside Rust refinement and update them only when a pair moves, preserving candidate order and costs.

@@ -70,6 +70,24 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  assert.ok(await evaluate(`(() => {
+    const root = document.querySelector('#preview').firstChild.shadowRoot;
+    const nodes = [...root.querySelectorAll('.repository')];
+    return nodes.length > 0 && nodes.every(node => {
+      node.focus();
+      if (root.activeElement !== node || node.tabIndex !== 0 || node.getAttribute('role') !== 'button' || !node.getAttribute('aria-label')) return false;
+      node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      if (node.getAttribute('aria-pressed') !== 'true') return false;
+      node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      node.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+      if (node.getAttribute('aria-pressed') !== 'true') return false;
+      node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return node.getAttribute('aria-pressed') === 'false';
+    });
+  })()`), 'every rendered studio node is focusable and supports keyboard selection');
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+  assert.equal(await evaluate(`(() => { const root = document.querySelector('#preview').firstChild.shadowRoot; const node = root.querySelector('.repository'); node.focus(); return getComputedStyle(node).outlineStyle; })()`), 'solid');
+  await evaluate(`click('tab-look');`);
   assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').checked`), false);
   assert.equal(await evaluate(`document.querySelector('#design-refinement-intensity').disabled`), true);
   assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').closest('.inspector-panel').id`), 'panel-nodes');
