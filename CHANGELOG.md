@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.3 — 2026-09-27
+
+- Add bounded, observable per-host timeline caching with cloned results, cancellation and custom-layout bypass.
+- Support canonical record inputs and supplied activity snapshots; enforce 64 frames and 16,384 aggregate frame nodes.
+- Test sparse/empty history, large frame counts, eviction and abort behavior; validate embedded CSS across every frame.
+- Add a runnable timeline example and cache/export-size benchmark; document historical evidence and scaling limits.
+
 ## 2.7.2 — 2026-09-27
 
 - Add labelled date scrubbing, Then/Now shortcuts and nearest-snapshot date selection.

@@ -35,3 +35,11 @@ The Date slider navigates the available snapshots; its accessible value includes
 Compare with Now displays the selected frame beside the final scene, synchronizes the camera and reports added/removed node counts. The comparison uses the full compiled frame populations; local interactive filters do not redefine those totals. When the earlier frame uses current metadata, the comparison explicitly warns that its metrics are not historical growth data. The Now panel is static and has isolated SVG styles/IDs. Small screens stack the two views.
 
 Both the exported runtime and web component expose `setFrame(index)`, `setDate(date)` and `compareWithNow(boolean)`. The component reports a descriptive error when these methods are used on a scene without a timeline.
+
+## Caching, sparse history and limits
+
+`createTimelineHost({ maxEntries: 4, maxBytes: 16777216 })` returns an explicit host with `create(account, records, options, definition, runtime)`, `clear()` and `cacheStatistics`. Cached results are cloned, LRU eviction counts keys and values toward the byte budget, and oversized results are not retained. Cancellation is checked before work and before retention. Calls with registered layout engines, node renderers or diagnostic callbacks bypass the cache. Hosts do not share mutable state.
+
+A timeline is limited to 64 frames and 16,384 aggregate frame nodes; lower graph caps or fewer snapshots reduce output size. Empty historical frames are valid. Missing creation dates do not fabricate early membership. Canonical normalized records are accepted, and `temporalMetadata` preserves source-provided activity snapshot dates with finite numeric metrics. The current reference-date frame always uses the current input records.
+
+Run `node scripts/benchmark-timeline.mjs` to measure compilation, cached retrieval and export sizes. A five-frame, 256-node reference example produced about 2.34 MiB of self-contained HTML. Run `node examples/timeline-demo.mjs` for a creation-date example in `dist/timeline-demo.html`. Its evidence labels deliberately distinguish current metrics from historical measurements.

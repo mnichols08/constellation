@@ -121,7 +121,7 @@ export class ConstellationView extends HTMLElement {
     if (!this.isConnected || !this.#visible || !this.#scene) return false;
     try {
       // Validate custom styling before inserting renderer-owned SVG markup.
-      const scenes = this.#scene.kind === 'time-lapse' ? [this.#scene, this.#scene.latest, ...this.#scene.frames.map(frame => frame.scene)] : [this.#scene];
+      const scenes = this.#scene.kind === 'time-lapse' ? [this.#scene, this.#scene.latest, ...this.#scene.frames.map(frame => frame.scene)] : [this.#scene, ...this.#scene.timeline?.frames.map(frame => frame.scene) || []];
       for (const scene of scenes) for (const key of ['css', 'customCSS']) {
         const css = scene.presentation.options[key];
         if (css && /(?:@import|url\s*\(|expression\s*\(|\\)/i.test(css.replace(/\/\*[\s\S]*?\*\//g, ''))) throw new Error('Embedded scene CSS must be self-contained.');

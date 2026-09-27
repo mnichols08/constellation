@@ -83,10 +83,12 @@ function record(scene, path = '$') {
   if (scene.timeline !== undefined) {
     const timeline = scene.timeline;
     if (!object(timeline) || timeline.version !== 1 || !Array.isArray(timeline.frames) || timeline.frames.length < 1 || timeline.frames.length > 64 || timeline.referenceDate !== scene.metadata.referenceDate) fail(path, 'invalid timeline');
-    let previous = '';
+    let previous = '', totalNodes = 0;
     for (const frame of timeline.frames) {
       if (typeof frame.date !== 'string' || !Number.isFinite(Date.parse(frame.date)) || new Date(frame.date).toISOString() !== frame.date || frame.date <= previous || frame.date > timeline.referenceDate || frame.id !== frame.date || !['snapshot', 'current', 'current-metadata'].includes(frame.evidence) || frame.scene?.kind !== 'scene' || frame.scene.timeline !== undefined || frame.scene.metadata.referenceDate !== frame.date) fail(path, 'invalid timeline frame');
       record(frame.scene, `${path}.timeline.${frame.id}`); previous = frame.date;
+      totalNodes += frame.scene.nodes.length;
+      if (totalNodes > 16384) fail(path, 'timeline exceeds aggregate node bounds');
     }
     if (previous !== timeline.referenceDate) fail(path, 'timeline must end at the reference date');
   }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTimeline, serializeScene, parseScene, renderSceneSVG, renderSceneHTML, temporalMetadata } from '../src/core-api.mjs';
+import { createTimeline, createTimelineHost, serializeScene, parseScene, renderSceneSVG, renderSceneHTML, temporalMetadata } from '../src/core-api.mjs';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,6 +10,27 @@ import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 const records = [{ name: 'compiler', full_name: 'demo/compiler', created_at: '2020-01-01', updated_at: '2026-01-01', language: 'Rust', stargazers_count: 100 }, { name: 'runtime', full_name: 'demo/runtime', created_at: '2024-01-01', language: 'Rust', stargazers_count: 20 }];
 const referenceDate = '2026-09-01T00:00:00.000Z';
 const options = { referenceDate, animate: false };
+
+test('sparse timelines and bounded snapshot caches remain isolated and cancellable', () => {
+  const host = createTimelineHost({ maxEntries: 1 });
+  const first = host.create('demo', records, options, { dates: ['1990-01-01'] });
+  assert.equal(first.timeline.frames[0].scene.nodes.length, 0);
+  first.nodes[0].metadata.name = 'mutated';
+  assert.notEqual(host.create('demo', records, options, { dates: ['1990-01-01'] }).nodes[0].metadata.name, 'mutated');
+  assert.equal(host.cacheStatistics.hits, 1);
+  host.create('demo', records, options, { dates: [] });
+  assert.equal(host.cacheStatistics.entries, 1);
+  const abort = new AbortController(); abort.abort();
+  assert.throws(() => host.create('demo', records, options, { dates: [] }, { signal: abort.signal }), /abort/i);
+  const tiny = createTimelineHost({ maxBytes: 1 }); tiny.create('demo', records, options, { dates: [] });
+  assert.equal(tiny.cacheStatistics.entries, 0);
+  const dates = Array.from({ length: 63 }, (_, i) => `${1970 + i % 50}-${String(Math.floor(i / 50) + 1).padStart(2, '0')}-01`).filter(date => date < '2026');
+  const large = createTimeline('demo', [], options, { dates });
+  assert.equal(large.timeline.frames.length, 64);
+  assert.equal(parseScene(serializeScene(large)).timeline.frames.length, 64);
+  assert.throws(() => createTimeline('demo', [], options, { dates: [...dates, '2025-12-01'] }), /64/);
+  host.clear(); assert.equal(host.cacheStatistics.entries, 0);
+});
 
 test('timeline distinguishes current metadata from supplied historical snapshots', () => {
   const timeline = createTimeline('demo', records, options, { dates: ['2021-01-01'] });

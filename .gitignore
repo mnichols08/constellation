@@ -5,3 +5,4 @@ rust/**/target/
 .dist
 .cache/
 dist/interactive-demo.html
+dist/timeline-demo.html
