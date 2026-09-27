@@ -1,5 +1,6 @@
 import { createScene } from './constellation.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
+import { normalizeRecords } from './data-pipeline.mjs';
 import { validateThemePack } from './theme-packs.mjs';
 import { jsonFeedSource } from './json-feed-source.mjs';
 
@@ -77,11 +78,16 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
     render(account, nodes, options = {}, runtime = {}) {
       return renderSceneSVG(host.createScene(account, nodes, options, runtime));
     },
+    async loadRecords(config = {}, context = {}) {
+      return normalizeRecords(await host.load(config, context), context);
+    },
     createScene(account, nodes, options = {}, runtime = {}) {
       const ids = new Set();
       for (const node of nodes) {
-        if (ids.has(node.full_name)) throw new Error(`Duplicate graph node ID: ${node.full_name}`);
-        ids.add(node.full_name);
+        const id = node?.type === 'record' ? node.id : node?.full_name;
+        if (id === undefined) continue; // Normalization reports malformed records.
+        if (ids.has(id)) throw new Error(`Duplicate graph node ID: ${id}`);
+        ids.add(id);
       }
       let themePack = options.themePack;
       if (themePack && !themePack.preset) themePack = themes.get(`${themePack.id}@${themePack.version}`) || themePack;

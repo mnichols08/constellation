@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.3.0 — 2026-09-27
+
+- Route scene compilation through isolated normalized data records with stable IDs, labels, kinds, metrics, source provenance and preserved metadata.
+- Keep source API 1 loaders working; add normalized plugin-host loading and a compatibility adapter to the existing graph interface.
+- Report rejected records and pipeline counts, prevent ID collisions, and test rendering parity, isolation and cancellation. Document the data pipeline.
+
 ## 2.2.3 — 2026-09-27
 
 - Apply annotation visibility/opacity to time-lapse captions and honor disabled highlights during Studio keyboard selection while retaining node details.

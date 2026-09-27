@@ -1,4 +1,5 @@
 import { createLayers } from './scene-layers.mjs';
+import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
 import { historyYears } from './history/historical-snapshot.mjs';
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
@@ -219,6 +220,10 @@ export function renderConstellation(account, repositories, options = {}, runtime
 
 export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
   const layers = createLayers(options.layers);
+  // Legacy inputs can repeat IDs in records later excluded by privacy, fork or
+  // explicit repository filters. Check the resulting graph's identity instead.
+  const normalized = normalizeRecords(repositories, { onDiagnostic, deferIdentityCheck: true });
+  repositories = toGraphRecords(normalized.records);
   const scaling = scalingOptions(options);
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
@@ -297,6 +302,11 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   // CSS is local, trusted configuration, but must never escape its XML text node.
   const graph = graphNodes(repositories, options);
   const repos = graph.nodes;
+  const graphIds = new Set();
+  for (const repo of repos) {
+    if (graphIds.has(repo.full_name)) throw new Error(`Duplicate graph node ID: ${repo.full_name}`);
+    graphIds.add(repo.full_name);
+  }
   const stableOverview = options.nodeCap > 100;
   const simplified = stableOverview && repos.length > scaling.simplifyAbove;
   if (simplified) onDiagnostic?.({ code: 'large-graph-overview', reason: 'stable coordinates, sparse connections, bounded labels' });
@@ -462,6 +472,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
     presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,
-      totalConnections: scene?.total ?? candidates.length, nodeMode, hasHistory },
+      totalConnections: scene?.total ?? candidates.length, nodeMode, hasHistory,
+      pipeline: { ...normalized.statistics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
   }));
 }

@@ -3,6 +3,9 @@
 Core 2.1 also exports `createScene`, `renderSceneSVG` and `serializeScene` for
 inspection and rendering of isolated scene records. See [Scene pipeline](scene-api.md).
 
+Core 2.3 accepts normalized data records alongside existing repository objects.
+See [Data pipeline](data-pipeline.md) for source compatibility and diagnostics.
+
 Core 2.x exports `CONFIG_VERSION = 6`, `migrateConfig(value, { account }?)`, and `migrateWorkflow(text, { account }?)`. Migration returns a canonical v6 config object or updated workflow text. Legacy JSON, v1:–v5: recipes and old share links remain readable. New exports use v6; see `docs/migration-v2.md`. The source/theme compatibility policy is in `docs/plugins.md`.
 
 `@constellation/core` is an ESM package for Node 22+ and browsers with WebAssembly. It includes its WASM binary and has no runtime npm dependencies. Build it with `npm run build:core`, then run `npm pack ./packages/core`. The package works without the CLI, GitHub Action, studio, or Rust toolchain. The generated package is committed so the Action needs no install step. Edit `src/`, then rebuild the package.

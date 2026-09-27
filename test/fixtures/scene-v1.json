@@ -528,6 +528,13 @@
       "exportProfile": "custom",
       "referenceDate": "2026-09-01T00:00:00.000Z"
     },
+    "pipeline": {
+      "graphNodes": 4,
+      "loaded": 4,
+      "normalized": 4,
+      "rejected": 0,
+      "sceneNodes": 4
+    },
     "sourceHasRepositories": true,
     "totalConnections": 6
   },
