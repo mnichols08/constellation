@@ -155,7 +155,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length`), 0, 'v1 codes keep their original background');
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
-  await evaluate(`click('randomize-design');`);
+  await evaluate(`document.querySelector('#randomize-full').checked=true;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-motion').checked=true;click('randomize-design');`);
   assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
   assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:mfff-/);
   assert.equal(await evaluate(`(async()=>{const {randomizeDesign}=await import('/src/design-randomizer.mjs');return document.querySelector('#link-ring-motion').checked===randomizeDesign(document.querySelector('#design-code').value).ringAnimation.linked;})()`), true);
@@ -291,7 +291,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#design-minStars').value`), '0');
   assert.equal(await evaluate(`document.querySelector('#load-projects').hidden`), true, 'the displayed pool already has language data');
   const requestsBeforeRandomizing = apiCalls;
-  await evaluate(`document.querySelector('#randomize-motion').checked=true;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));for(const input of document.querySelectorAll('.randomize-motion-parts input')){input.checked=input.id==='randomize-ring2';input.dispatchEvent(new Event('input'));}document.querySelector('#randomize-design').click();`);
+  await evaluate(`document.querySelector('#randomize-full').checked=true;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-motion').checked=true;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));for(const input of document.querySelectorAll('.randomize-motion-parts input')){input.checked=input.id==='randomize-ring2';input.dispatchEvent(new Event('input'));}document.querySelector('#randomize-design').click();`);
   assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:m008-/);
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length > 0`), 'randomization selects a nonempty design');
   assert.equal(await evaluate(`document.querySelector('#design-starlightAnimate').checked`), false);
@@ -381,6 +381,20 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     assert.equal(await evaluate(`document.querySelector('#dark-accent').value`), expected, id + ' applies its theme');
     assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length > 0`), id + ' renders account nodes');
   }
+  await evaluate(`document.querySelector('#randomize-full').checked=false;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-styling').checked=false;document.querySelector('#randomize-motion').checked=true;document.querySelector('#copy-config').click();`);
+  const lockedLook = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  await evaluate(`document.querySelector('#randomize-design').click();document.querySelector('#copy-config').click();`);
+  const motionOnly = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  for (const key of ['visualTheme', 'visualStyle', 'nodeColors', 'arrangement', 'nodeMode', 'maxRepos', 'seed', 'includeRepos']) assert.deepEqual(motionOnly[key], lockedLook[key], 'animation shuffle preserves ' + key);
+  assert.equal(motionOnly.designCode, undefined);
+  assert.match(await evaluate(`document.querySelector('#status').textContent`), /Selected parts randomized|configuration/i);
+  await evaluate(`document.querySelector('#randomize-motion').checked=false;document.querySelector('#randomize-repositories').checked=true;document.querySelector('#randomize-design').click();document.querySelector('#copy-config').click();`);
+  const projectsOnly = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  assert.ok(projectsOnly.includeRepos.length > 0);
+  for (const key of ['visualStyle', 'arrangement', 'seed', 'ringAnimation', 'floatingAnimation']) assert.deepEqual(projectsOnly[key], motionOnly[key], 'repository shuffle preserves ' + key);
+  await evaluate(`document.querySelector('#randomize-repositories').checked=false;document.querySelector('#randomize-styling').checked=true;document.querySelector('#randomize-design').click();document.querySelector('#copy-config').click();`);
+  const styleOnly = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  for (const key of ['includeRepos', 'arrangement', 'nodeMode', 'ringAnimation', 'floatingAnimation', 'animate']) assert.deepEqual(styleOnly[key], projectsOnly[key], 'styling shuffle preserves ' + key);
   assert.equal(await evaluate(`document.querySelector('#preset-keep-colors')`), null);
   await evaluate(`document.querySelector('#design-visualTheme').value='mnix';document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
   assert.equal(await evaluate(`document.querySelector('#dark-background').value`), '#111111');

@@ -552,6 +552,7 @@ restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
   hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
+  repositoryCandidates: options => selectRepositories(repositories, { ...options, includeRepos: undefined, maxRepos: 100 }),
   apply: async (config, { loadOrganization = false } = {}) => {
     if (loading) throw new Error('Wait for the account to finish loading before applying a preset.');
     if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && ((config.options.repoSource || 'all') !== loadedSource || loadOrganization))) {
