@@ -39,4 +39,42 @@ Snapping metadata distinguishes initial layout snapping from editing/refinement.
 Execution reports automatic overview selection and rejects unsupported graph sizes
 or unavailable required WASM before computation. Metadata is returned as isolated
 data. This remains the transitional 2.x contract; explicit host registration and
-execution hardening follow before the stable 3.0 contract is declared.
+execution hardening precede the stable 3.0 contract.
+
+## Trusted registration
+
+```js
+import { createPluginHost } from '@constellation/core';
+const host = createPluginHost().registerLayout({
+  id: 'example-grid', apiVersion: 1,
+  capabilities: {
+    maxNodes: 100, manualPositioning: true, ringSnapping: false,
+    deterministicSeed: true, animation: true, refinement: true,
+  },
+  layout(scene, options, context) {
+    context.signal?.throwIfAborted();
+    return Object.fromEntries(scene.nodes.map((node, i) => [node.id, {
+      x: 80 + (i % 10) * 80, y: 50 + Math.floor(i / 10) * 40,
+    }]));
+  },
+});
+const scene = host.createScene('example', repositories, { layoutEngine: 'example-grid' });
+```
+
+Configs may select a registered `layoutEngine` and supply declarative
+`layoutOptions`. They cannot name module URLs or execute code. Parsing validates
+the reference shape; rendering requires registration in the trusted host. The CLI
+and ordinary Studio do not automatically load external layouts.
+
+`createLayoutHost()` also provides `register`, `describe`, `list` and `run` for
+standalone embedding. Registries are per-host. Registered callbacks and capability
+data are snapshotted, and callbacks receive isolated scene/options records plus
+seed/reference/cancellation context. The callback synchronously returns exactly
+one finite position per node; asynchronous layout work must be completed by the
+host before synchronous scene rendering. Unsupported capabilities fail explicitly.
+
+Rust constructs the relationship graph before the callback and recalculates its
+geometry afterward. Manual positions override callback positions, and refinement
+still uses Rust. The underlying Rust graph-size bounds also apply. This prepares
+real extension boundaries for force/grid/radial packages without creating empty
+packages or loading executable modules from config.

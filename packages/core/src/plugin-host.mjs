@@ -2,6 +2,7 @@ import { createScene } from './constellation.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
 import { normalizeRecords } from './data-pipeline.mjs';
 import { createDataPipeline } from './pipeline-cache.mjs';
+import { createLayoutHost } from './layout-host.mjs';
 import { validateThemePack } from './theme-packs.mjs';
 import { jsonFeedSource } from './json-feed-source.mjs';
 
@@ -20,6 +21,7 @@ export function pluginOptions(value = {}) {
 
 export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
   const pipeline = createDataPipeline();
+  const layoutHost = createLayoutHost();
   const sources = new Map(), themes = new Map();
   const cache = new Map();
   const cacheBudget = 8 * 1024 * 1024;
@@ -28,6 +30,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
   const host = {
     clearCache() { generation++; cache.clear(); cacheBytes = 0; pipeline.clear(); },
     get pipelineCacheStatistics() { return pipeline.cacheStatistics; },
+    registerLayout(definition) { layoutHost.register(definition); return host; },
     get cacheStatistics() { return { entries: cache.size, estimatedBytes: cacheBytes, budgetBytes: cacheBudget }; },
     registerSource(plugin) {
       if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== PLUGIN_API_VERSION || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
@@ -96,6 +99,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
       if (themePack && !themePack.preset) themePack = themes.get(`${themePack.id}@${themePack.version}`) || themePack;
       return createScene(account, nodes, { ...options, ...(themePack ? { themePack } : {}) }, {
         pipeline,
+        layoutHost,
         ...runtime,
         nodeRenderer: context => runtime.nodeRenderer?.(context) ?? sources.get(context.node.pluginSource)?.renderNode?.(context),
       });

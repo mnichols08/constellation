@@ -1,4 +1,5 @@
 import { layoutScene } from './layout-api.mjs';
+import { createLayoutHost, validateLayoutReference } from './layout-host.mjs';
 import { normalizeMappings, mapRecord } from './data-mappings.mjs';
 import { createLayers } from './scene-layers.mjs';
 import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
@@ -220,11 +221,12 @@ export function renderConstellation(account, repositories, options = {}, runtime
   return renderSceneSVG(createScene(account, repositories, options, runtime));
 }
 
-export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer, pipeline, signal } = {}) {
+export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {}) {
   signal?.throwIfAborted();
   const layers = createLayers(options.layers);
   validateTransforms(options.transforms);
   const mappings = normalizeMappings(options.mappings);
+  validateLayoutReference(options);
   // Legacy inputs can repeat IDs in records later excluded by privacy, fork or
   // explicit repository filters. Check the resulting graph's identity instead.
   const normalized = (pipeline?.normalize || normalizeRecords)(repositories, { onDiagnostic, deferIdentityCheck: true, signal });
@@ -246,9 +248,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     const resolved = { ...options, ...temporal };
     const years = historyYears(repositories, clock, temporal.history.maxHistoricalFrames);
     const base = { ...resolved, history: { ...temporal.history, mode: 'current', timeLapse: { ...settings, enabled: false } }, timeLapse: false, historicalYear: undefined, generatedAt: new Date(clock).toISOString(), referenceDate: new Date(clock).toISOString() };
-    const latest = createScene(account, repositories, base, { onDiagnostic, nodeRenderer, pipeline, signal });
+    const latest = createScene(account, repositories, base, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost });
     const frames = settings.mode === 'crossfade' && years.length > 1 && options.animate !== false
-      ? years.slice(0, -1).map(year => ({ year, scene: createScene(account, repositories, { ...base, history: { ...base.history, mode: 'historical', year } }, { onDiagnostic, nodeRenderer, pipeline, signal }) })) : [];
+      ? years.slice(0, -1).map(year => ({ year, scene: createScene(account, repositories, { ...base, history: { ...base.history, mode: 'historical', year } }, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost }) })) : [];
     return JSON.parse(JSON.stringify({ version: 1, kind: 'time-lapse', metadata: latest.metadata, latest, frames, presentation: { account, repositories: repositories.filter(repo => repo.private !== true), options: resolved, reference: clock } }));
   }
   if (temporal.history.mode === 'historical') {
@@ -338,7 +340,8 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   // A deterministic, account-seeded star field uses the full card instead of
   // narrow language columns that turn cross-language links into long fans.
   const ordered = [...repos].sort((a, b) => hash(a.full_name) - hash(b.full_name) || a.full_name.localeCompare(b.full_name));
-  const scene = layoutScene({ nodes: ordered.map(repo => ({ id: repo.full_name, metadata: repo })) }, options, { account: name, seed, reference: clock, graph, signal, onDiagnostic });
+  const runLayout = layoutHost?.run || (options.layoutEngine ? createLayoutHost().run : layoutScene);
+  const scene = runLayout({ nodes: ordered.map(repo => ({ id: repo.full_name, metadata: repo })) }, options, { account: name, seed, reference: clock, graph, signal, onDiagnostic });
   const centerY = compact ? 126 : 270;
   const spreadY = compact ? 88 : 192;
   const phase = (hash(options.seedMode ? seed : name) % 628) / 100;

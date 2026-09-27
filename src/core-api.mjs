@@ -14,5 +14,6 @@ export { normalizeRecords, toGraphRecords, DATA_RECORD_VERSION } from './data-pi
 export { applyTransforms, validateTransforms } from './data-transforms.mjs';
 export { createDataPipeline } from './pipeline-cache.mjs';
 export { layoutScene, layoutCapabilities, diagnoseLayout, BUILTIN_LAYOUTS } from './layout-api.mjs';
+export { createLayoutHost, LAYOUT_API_VERSION } from './layout-host.mjs';
 export { renderSceneSVG } from './renderer-svg.mjs';
 export { serializeScene, parseScene, validateScene, sceneStatistics, SCENE_VERSION } from './scene.mjs';

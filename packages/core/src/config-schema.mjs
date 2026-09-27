@@ -7,6 +7,7 @@ import { organizationFields } from './organization/settings.mjs';
 import { pluginOptions } from './plugin-host.mjs';
 import { validateThemePack } from './theme-packs.mjs';
 import { randomizeDesign } from './design-randomizer.mjs';
+import { validateLayoutReference } from './layout-host.mjs';
 
 export const CONFIG_VERSION = 6;
 export const MAX_CONFIG_BYTES = 250000;
@@ -23,6 +24,8 @@ fields.add('simplifyAbove');
 fields.add('layers');
 fields.add('transforms');
 fields.add('mappings');
+fields.add('layoutEngine');
+fields.add('layoutOptions');
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: 'enabled intensity',
@@ -46,6 +49,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   inspect(input);
   if (JSON.stringify(input).length > MAX_CONFIG_BYTES) throw new Error('Configuration is too large.');
   const options = Object.fromEntries(Object.entries(input).filter(([key]) => fields.has(key)));
+  validateLayoutReference(options);
   if ('plugins' in options) pluginOptions(options.plugins);
   if ('themePack' in options) validateThemePack(options.themePack, { reference: true });
   for (const key of ['animate', 'includeForks', 'bridges', 'showOther', 'snapToRings', 'identityRing', 'colorConnections']) {
@@ -76,7 +80,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   }
   if ('codingRhythmTimezone' in options) options.codingRhythmTimezone = resolveRhythmTimezone(options.codingRhythmTimezone);
   // Reuse the rendering validators, including legacy fields and motion settings.
-  renderConstellation('validation', [], options.themePack && !options.themePack.preset ? { ...options, themePack: undefined } : options);
+  renderConstellation('validation', [], { ...options, layoutEngine: undefined, layoutOptions: undefined, ...(options.themePack && !options.themePack.preset ? { themePack: undefined } : {}) });
   return JSON.parse(JSON.stringify(options));
 }
 

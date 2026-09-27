@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.4.2 — 2026-09-27
+
+- Add per-host trusted layout registration with snapshotted callbacks/capabilities and isolated scene/options inputs.
+- Allow declarative layout references and options while rejecting module URLs and requiring explicit registration at render time.
+- Validate complete finite position results and capability requests, preserve manual overrides, and retain Rust relationship construction/refinement. Add working extension docs and registration tests.
+
 ## 2.4.1 — 2026-09-27
 
 - Expose layout capability metadata for graph sizes, manual positioning, ring snapping, deterministic seeds, animation, refinement and WASM requirements.
