@@ -1,5 +1,6 @@
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
 import { presetOptions } from './studio-presets.mjs';
+import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
@@ -24,7 +25,7 @@ const proxyBase = document.querySelector('meta[name="constellation-api"]')?.cont
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
-let studio, restoreForm, workspace;
+let studio, restoreForm, workspace, imageViewer;
 let importedOptions = {};
 const $ = selector => document.querySelector(selector);
 if (proxyBase) $('.form-note').textContent = localAuth
@@ -283,6 +284,7 @@ function render() {
     $('#workflow').value = renderWorkflow(isSample ? null : account, options);
     updateSnippet();
     studio?.update(account, options, captured);
+    imageViewer?.update(captured, account);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
     $('#download-workflow').href = workflowUrl;
@@ -559,6 +561,7 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
 });
 $('#load-organization').addEventListener('click', () => loadAccount(account));
 workspace = mountStudioLayout();
+imageViewer = mountImageViewer($('.design-launcher'));
 const initialDraft = studio.store.draft(account);
 if (initialDraft) applyOptions(initialDraft.options);
 liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });

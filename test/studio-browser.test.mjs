@@ -70,6 +70,51 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  const viewerCalls = apiCalls;
+  await cdp('Runtime.evaluate', { expression: `document.querySelector('#view-fullscreen').focus();click('view-fullscreen');`, userGesture: true });
+  for (let i = 0; i < 40; i++) { if (await evaluate(`document.fullscreenElement?.id === 'image-viewer-surface'`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.fullscreenElement?.id`), 'image-viewer-surface', 'a user gesture enters native fullscreen');
+  assert.equal(await evaluate(`document.querySelector('#image-viewer').open`), true);
+  await evaluate(`document.querySelector('.image-viewer-stage img').decode()`);
+  assert.equal(await evaluate(`(async()=>await (await fetch(document.querySelector('.image-viewer-stage img').src)).text() === await (await fetch(document.querySelector('.download').href)).text())()`), true, 'viewer uses the complete exported SVG');
+  const fitZoom = await evaluate(`parseInt(document.querySelector('#viewer-zoom').value)`);
+  await evaluate(`click('viewer-zoom-in');`);
+  assert.ok(await evaluate(`parseInt(document.querySelector('#viewer-zoom').value)`) > fitZoom);
+  await evaluate(`click('viewer-actual');`);
+  assert.equal(await evaluate(`document.querySelector('#viewer-zoom').value`), '100%');
+  const beforePan = await evaluate(`document.querySelector('.image-viewer-stage img').style.transform`);
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 500, y: 300, button: 'left', clickCount: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 560, y: 340, button: 'left', buttons: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 560, y: 340, button: 'left', clickCount: 1 });
+  assert.notEqual(await evaluate(`document.querySelector('.image-viewer-stage img').style.transform`), beforePan, 'drag pans the image');
+  await evaluate(`document.querySelector('.image-viewer-stage').dispatchEvent(new WheelEvent('wheel',{deltaY:-150,clientX:550,clientY:350,cancelable:true}));`);
+  assert.ok(await evaluate(`parseInt(document.querySelector('#viewer-zoom').value)`) > 100, 'wheel zooms');
+  await evaluate(`document.querySelector('.image-viewer-stage').dispatchEvent(new KeyboardEvent('keydown',{key:'0',bubbles:true}));`);
+  assert.equal(await evaluate(`parseInt(document.querySelector('#viewer-zoom').value)`), fitZoom, 'keyboard fits the image');
+  await cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 500, y: 300, id: 0 }, { x: 600, y: 300, id: 1 }] });
+  await cdp('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 460, y: 300, id: 0 }, { x: 640, y: 300, id: 1 }] });
+  await cdp('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  assert.ok(await evaluate(`parseInt(document.querySelector('#viewer-zoom').value)`) > fitZoom, 'two-finger pinch zooms');
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    await mkdir('.dist', { recursive: true });
+    const shot = await cdp('Page.captureScreenshot');
+    await writeFile('.dist/fullscreen-viewer.png', Buffer.from(shot.data, 'base64'));
+  }
+  await evaluate(`document.exitFullscreen()`);
+  for (let i = 0; i < 40; i++) { if (await evaluate(`!document.fullscreenElement && document.activeElement.id === 'view-fullscreen'`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelector('#image-viewer').open`), false, 'exiting browser fullscreen closes the viewer');
+  assert.equal(await evaluate(`document.activeElement.id`), 'view-fullscreen', 'closing returns keyboard focus');
+  assert.equal(await evaluate(`document.body.style.overflow`), '');
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`click('view-fullscreen');`);
+  assert.ok(await evaluate(`document.querySelector('#image-viewer').scrollWidth<=innerWidth`), 'viewer controls fit on mobile');
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  assert.equal(await evaluate(`document.querySelector('#image-viewer').open`), false, 'Escape closes the viewer');
+  await evaluate(`click('view-fullscreen');click('viewer-close');`);
+  assert.equal(await evaluate(`document.querySelector('#image-viewer').open`), false, 'Close button closes the viewer');
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  assert.equal(apiCalls, viewerCalls, 'viewing and zooming require no API calls');
   await evaluate(`input('design-codingRhythmStyle','orbit');input('design-codingRhythmWindow','14d');input('design-rhythmZoneMode','browser');`);
   assert.equal(await evaluate(`document.querySelector('#design-codingRhythmStyle').closest('.inspector-panel').id`), 'panel-motion');
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.coding-rhythm-hour').length`), 24);
