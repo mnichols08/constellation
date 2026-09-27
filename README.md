@@ -88,6 +88,8 @@ The image updates daily. Clicking it takes viewers to this project's GitHub repo
 
 ## Change your configuration
 
+**Nodes → Refine layout** adds a static overlap-reduction pass, off by default. Set intensity from 0–10; manual and hidden node/label pairs stay fixed. Ring snapping constrains moves to ring points or movable-pair swaps; turn it off for free nudges. The setting `"layoutRefinement": { "enabled": true, "intensity": 5 }` works in the studio, config files, workflows and share links. See [layout refinement](docs/designs.md#refine-layout) for bounds and limitations.
+
 The studio keeps the live design beside a compact inspector (above it on mobile). Choose **Look**, **Motion**, **Projects**, **Nodes**, or **Save** to reveal one group of controls at a time. Settings scroll independently of the preview. **Hide controls** gives the design the full workspace; click a node to open its editor. Language/topic filters are under **Projects**, and workflow setup is under **Save**.
 
 Click **View full screen** to explore the original SVG at full resolution. Drag to pan, scroll or pinch to zoom, or use the zoom buttons. **Fit** centers the entire image; **100%** uses its exported dimensions. Double-click zooms in (Shift-double-click zooms out). Arrow keys pan, `+` / `−` zoom, `0` fits, and `1` restores 100%. **Close** or Escape returns to the studio without changing the design. If browser fullscreen is unavailable, the viewer fills the browser window.

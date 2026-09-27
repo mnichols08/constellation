@@ -70,6 +70,17 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').checked`), false);
+  assert.equal(await evaluate(`document.querySelector('#design-refinement-intensity').disabled`), true);
+  assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').closest('.inspector-panel').id`), 'panel-nodes');
+  const originalPositions = await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),el=>[el.dataset.repo,el.getAttribute('cx'),el.getAttribute('cy')])`);
+  await evaluate(`document.querySelector('#design-refinement-enabled').checked=true;document.querySelector('#design-refinement-enabled').dispatchEvent(new Event('input'));input('design-refinement-intensity','8');click('copy-config');`);
+  assert.deepEqual(await evaluate(`JSON.parse(document.querySelector('#config-json').value).layoutRefinement`), { enabled: true, intensity: 8 });
+  assert.equal(await evaluate(`document.querySelector('#lock-stars').checked`), true, 'refinement does not unlock dragging');
+  await evaluate(`click('copy-share');`);
+  assert.deepEqual(await evaluate(`(async()=>{const {decodeShare}=await import('/src/share-link.mjs');return decodeShare(document.querySelector('#share-url').value).options.layoutRefinement;})()`), { enabled: true, intensity: 8 });
+  await evaluate(`click('close-share');document.querySelector('#design-refinement-enabled').checked=false;document.querySelector('#design-refinement-enabled').dispatchEvent(new Event('input'));`);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),el=>[el.dataset.repo,el.getAttribute('cx'),el.getAttribute('cy')])`), originalPositions);
   await evaluate(`click('copy-share');`);
   assert.equal(await evaluate(`document.querySelector('#share-dialog').open`), true, await evaluate(`document.querySelector('#status').textContent`));
   assert.ok(await evaluate(`document.querySelector('#share-url').value.startsWith('https://mnichols08.github.io/constellation/')`), 'sharing from localhost creates a public link');

@@ -1,3 +1,4 @@
+import { layoutRefinementOptions } from './layout-refinement.mjs';
 import { rhythmDefaults } from './coding-rhythm.mjs';
 import { studioPresets, presetOptions } from './studio-presets.mjs';
 import { mountOrganizationControls } from './organization/studio.mjs';
@@ -46,6 +47,15 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
     });
     parent.append(label, input); controls.set(key, input); return input;
   };
+  const refinementPanel = section('Refine layout');
+  const refinementEnabled = control(refinementPanel, 'refinement-enabled', 'Refine layout', null, 'checkbox');
+  const refinementIntensity = control(refinementPanel, 'refinement-intensity', 'Intensity', null, 'range');
+  refinementIntensity.min = '0'; refinementIntensity.max = '10'; refinementIntensity.step = '1';
+  const refinementValue = document.createElement('output'); refinementValue.htmlFor = refinementIntensity.id; refinementPanel.append(refinementValue);
+  const refinementNote = document.createElement('p'); refinementNote.className = 'export-note';
+  refinementNote.textContent = 'A static overlap-reduction pass. Manual and hidden node/label pairs stay fixed. Ring snapping constrains moves to available points or swaps; turn snapping off for free nudges. Higher intensity allows more movement. Collisions can remain in crowded layouts.'; refinementPanel.append(refinementNote);
+  const syncRefinement = () => { refinementIntensity.disabled = !refinementEnabled.checked; refinementValue.value = refinementIntensity.value; };
+  refinementEnabled.addEventListener('input', syncRefinement); refinementIntensity.addEventListener('input', syncRefinement);
   const design = section('Themes & visual mappings');
   const themeSelect = control(design, 'visualTheme', 'Start with a theme', [['custom', 'Custom'], ...Object.entries(visualThemes).filter(([id]) => id !== 'sudo').map(([id, value]) => [id, value.label])]);
   themeSelect.addEventListener('change', () => { if (themeSelect.value !== 'custom') theme(themeSelect.value); });
@@ -232,6 +242,8 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
       const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
       if (input.type === 'checkbox') input.checked = value; else input.value = value;
     }
+    const refinement = layoutRefinementOptions(options.layoutRefinement);
+    refinementEnabled.checked = refinement.enabled; refinementIntensity.value = refinement.intensity; syncRefinement();
     controls.get('codingRhythmStyle').value = options.codingRhythm ? options.codingRhythmStyle || 'orbit' : 'hidden';
     zoneMode.value = !options.codingRhythmTimezone || options.codingRhythmTimezone === 'UTC' ? 'UTC' : 'custom';
     syncRhythm();
@@ -242,7 +254,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
     store, restore, flush, historyRange: historyControls.range,
     read: () => {
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
-      return { ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      return { layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
       const audience = options.accountData?.type === 'Organization' || options.accountType === 'organization' ? 'organization' : 'any';
