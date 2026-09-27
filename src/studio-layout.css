@@ -1,4 +1,9 @@
 /* A bounded workspace: controls scroll independently of the live canvas. */
+#studio-loading, #open-studio { display: none; }
+html[data-entry="landing"] #open-studio { display: inline-block; margin-top: 16px; }
+html[data-entry="studio"] body:not(.studio-ready) main > :not(#studio-loading) { display: none; }
+html[data-entry="studio"] body:not(.studio-ready) #studio-loading { display: block; min-height: 60vh; padding: 40px 0; }
+html[data-entry="studio"] .masthead { height: 58px; }
 .studio-ready .masthead { height: 58px; }
 .studio-ready .intro { padding: 8px 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .studio-ready .intro h1 { font-size: 21px; line-height: 1.3; letter-spacing: -.6px; margin: 0; text-align: left; }

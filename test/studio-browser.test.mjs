@@ -70,6 +70,15 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.deepEqual(errors, []);
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
+  assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'landing', 'first visit retains the original landing layout');
+  assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), false);
+  assert.ok(await evaluate(`document.querySelector('.intro h1 em') !== null`));
+  await evaluate(`document.querySelector('#open-studio').click();`);
+  assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), true);
+  await cdp('Page.reload');
+  for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
+  assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'studio', 'subsequent visits open the studio');
+  assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), true);
   const curvedMotion = await evaluate(`(async () => {
     const { renderConstellation } = await import('/src/constellation.mjs');
     const repos = Array.from({length:12}, (_,i)=>({name:'r'+i,full_name:'o/r'+i,language:'Rust'}));
