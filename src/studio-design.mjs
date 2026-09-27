@@ -1,0 +1,110 @@
+import { parseConfig, serializeConfig } from './config-schema.mjs';
+import { createConfigStore } from './config-store.mjs';
+import { encodeShare, decodeShare } from './share-link.mjs';
+import { downloadBlob, svgToPNG } from './export-image.mjs';
+import { newSeed } from './seeded-random.mjs';
+import { visualThemes } from './themes.mjs';
+import { newDesignCode, randomizeDesign } from './design-randomizer.mjs';
+
+export const designDefaults = { seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom' };
+
+export function mountStudioDesign({ host, changed, apply, theme, message }) {
+  let storage; try { storage = window.localStorage; } catch {}
+  const store = createConfigStore(storage);
+  let current, svg = '', saveTimer, pending;
+  const controls = new Map();
+  const section = title => {
+    const details = document.createElement('details'); details.className = 'control-section';
+    const summary = document.createElement('summary'); summary.textContent = title;
+    const body = document.createElement('div'); body.className = 'control-section-body'; details.append(summary, body); host.append(details); return body;
+  };
+  const button = (parent, id, label, callback) => {
+    const element = document.createElement('button'); element.type = 'button'; element.id = id; element.textContent = label; element.className = 'secondary';
+    element.addEventListener('click', async () => { try { await callback(); } catch (error) { message(error.message, true); } }); parent.append(element); return element;
+  };
+  const control = (parent, key, labelText, values, type = 'text') => {
+    const label = document.createElement('label'); label.htmlFor = `design-${key}`; label.textContent = labelText;
+    const input = document.createElement(values ? 'select' : 'input'); input.id = label.htmlFor;
+    if (values) for (const [value, text] of values.map(value => Array.isArray(value) ? value : [value, value])) {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; input.append(option);
+    } else { input.type = type; if (type === 'number') { input.min = '0'; input.max = '1000000000'; } }
+    input.addEventListener('input', () => {
+      if (key === 'seedMode' && input.value === 'random') controls.get('seed').value = newSeed();
+      if (key === 'seedMode' && input.value === 'custom' && !controls.get('seed').value) controls.get('seed').value = current?.account || 'constellation';
+      changed();
+    });
+    parent.append(label, input); controls.set(key, input); return input;
+  };
+  const design = section('Themes & visual mappings');
+  const themeSelect = control(design, 'visualTheme', 'Start with a theme', [['custom', 'Custom'], ...Object.entries(visualThemes).filter(([id]) => id !== 'sudo').map(([id, value]) => [id, value.label])]);
+  themeSelect.addEventListener('change', () => { if (themeSelect.value !== 'custom') theme(themeSelect.value); });
+  control(design, 'nodeSize', 'Size nodes by', [['legacy', 'Classic (existing sizing)'], ['uniform', 'Uniform'], ['stars', 'GitHub stars'], ['activity', 'Recent activity'], ['age', 'Repository age'], ['languages', 'Number of languages'], ['topics', 'Number of topics'], ['membership', 'Category membership']]);
+  control(design, 'nodeColorMode', 'Color nodes by', [['custom', 'Custom colors'], ['language', 'Language'], ['seeded', 'Seeded palette'], ['category', 'Category'], ['contribution', 'Contribution-style activity']]);
+  control(design, 'nodeGlowMode', 'Glow intensity', ['uniform', 'stars', 'activity', 'seeded']);
+  control(design, 'connectionWeight', 'Connection weight', ['uniform', 'languages', 'topics', 'overlap']);
+  control(design, 'majorMetric', 'Solar System major repositories', [['stars', 'Most stars'], ['updated', 'Recently updated']]);
+  const seedPanel = section('Reproducibility & optional effects');
+  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v1:…'; designCode.maxLength = 103;
+  const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code'; seedPanel.append(codeLabel, designCode);
+  const reseed = async code => { const options = { ...current.options, ...randomizeDesign(code) }; await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
+  button(seedPanel, 'randomize-design', 'Randomize design', () => reseed(newDesignCode()));
+  button(seedPanel, 'reseed-design', 'Restore design code', () => reseed(designCode.value.trim()));
+  control(seedPanel, 'seedMode', 'Seed mode', ['account', 'custom', 'random']);
+  control(seedPanel, 'seed', 'Saved seed').maxLength = 120;
+  button(seedPanel, 'reroll-seed', 'New random seed', () => { controls.get('seedMode').value = 'random'; controls.get('seed').value = newSeed(); changed(); });
+  control(seedPanel, 'nodeShape', 'Node shape', ['circle', 'star', 'diamond', 'hexagon', 'square', 'mixed']);
+  control(seedPanel, 'effect', 'Optional effect', ['none', 'grid', 'scanlines', 'coordinates']);
+  control(seedPanel, 'legend', 'Show compact mapping legend', null, 'checkbox');
+  const filters = section('Repository filters');
+  control(filters, 'minStars', 'Minimum GitHub stars', null, 'number');
+  control(filters, 'includeArchived', 'Include archived repositories', null, 'checkbox');
+  control(filters, 'updatedWithin', 'Updated within', [['0', 'Any time'], ['1', 'Past year'], ['2', 'Past 2 years'], ['5', 'Past 5 years']]);
+  control(filters, 'repoQuery', 'Repository name contains').maxLength = 200;
+  control(filters, 'sortBy', 'Select projects by', [['stars', 'Stars'], ['updated', 'Recently updated'], ['name', 'Repository name']]);
+  const exports = section('Config, presets & export');
+  control(exports, 'exportProfile', 'Output profile', [['custom', 'Current layout'], ['profile', 'Profile README'], ['repository', 'Repository README'], ['compact', 'Compact'], ['hero', 'Hero'], ['transparent', 'Transparent']]);
+  const size = document.createElement('p'); size.id = 'svg-size'; size.className = 'export-note'; exports.append(size);
+  const json = document.createElement('textarea'); json.id = 'config-json'; json.rows = 6; json.setAttribute('aria-label', 'Configuration JSON to copy or import'); exports.append(json);
+  const serialized = () => { if (!current) throw new Error('Load a design first.'); return serializeConfig(current.account, current.options); };
+  button(exports, 'download-config', 'Download config JSON', () => downloadBlob(new Blob([serialized()], { type: 'application/json' }), `constellation-${current.account}.json`));
+  button(exports, 'copy-config', 'Copy config JSON', async () => { json.value = serialized(); try { await navigator.clipboard.writeText(json.value); message('Config copied.'); } catch { json.focus(); json.select(); message('Select and copy the configuration below.'); } });
+  button(exports, 'import-config', 'Import config JSON', async () => { const config = parseConfig(json.value, current.account); await apply(config); message('Configuration imported.'); });
+  const fileLabel = document.createElement('label'); fileLabel.textContent = 'Or choose a config file';
+  const file = document.createElement('input'); file.type = 'file'; file.accept = '.json,application/json'; file.id = 'config-file';
+  file.addEventListener('change', async () => { try { const selected = file.files[0]; if (!selected) return; if (selected.size > 250000) throw new Error('Configuration is too large.'); const text = await selected.text(); const config = parseConfig(text, current.account); await apply(config); json.value = text; message('Configuration imported.'); } catch (error) { message(error.message, true); } finally { file.value = ''; } });
+  fileLabel.append(file); exports.append(fileLabel);
+  button(exports, 'copy-share', 'Copy share link', async () => { const link = encodeShare(location.href, current.account, current.options); try { await navigator.clipboard.writeText(link); message('Share link copied. Manual coordinates and CSS remain JSON-only.'); } catch { json.value = link; json.focus(); json.select(); message('Select and copy the share link below.'); } });
+  button(exports, 'download-png', 'Download PNG (2× or higher)', async () => { downloadBlob(await svgToPNG(svg), 'constellation.png'); message('PNG downloaded.'); });
+  const presetName = document.createElement('input'); presetName.id = 'preset-name'; presetName.placeholder = 'README'; presetName.maxLength = 80; presetName.setAttribute('aria-label', 'Preset name'); exports.append(presetName);
+  const presets = document.createElement('select'); presets.id = 'saved-presets'; presets.setAttribute('aria-label', 'Saved presets'); exports.append(presets);
+  const refreshPresets = () => {
+    const selected = presets.value; presets.replaceChildren(...store.presets(current.account).map(preset => { const option = document.createElement('option'); option.value = preset.name; option.textContent = preset.name; return option; }));
+    if ([...presets.options].some(option => option.value === selected)) presets.value = selected;
+  };
+  const stored = result => { if (!result) throw new Error('Local storage is unavailable or full. Download config JSON to keep this design.'); refreshPresets(); };
+  button(exports, 'save-preset', 'Save preset', () => { stored(store.savePreset(current.account, presetName.value, current.options)); presets.value = presetName.value.trim(); message('Preset saved locally.'); });
+  button(exports, 'load-preset', 'Load preset', async () => { const preset = store.presets(current.account).find(p => p.name === presets.value); if (!preset) throw new Error('Select a saved preset.'); await apply(parseConfig(preset.config)); message('Preset loaded.'); });
+  button(exports, 'rename-preset', 'Rename preset', () => { if (!presets.value) throw new Error('Select a saved preset.'); stored(store.rename(current.account, presets.value, presetName.value)); message('Preset renamed.'); });
+  button(exports, 'delete-preset', 'Delete preset', () => { stored(store.delete(current.account, presets.value)); message('Preset deleted.'); });
+  button(exports, 'restore-draft', 'Restore last draft', async () => { const draft = store.draft(current.account); if (!draft) throw new Error('No saved draft for this account.'); await apply(draft); });
+  button(exports, 'reset-draft', 'Reset current draft', async () => { clearTimeout(saveTimer); store.reset(current.account); await apply({ version: 1, account: current.account, options: {} }); message('Draft reset to defaults.'); });
+  const flush = () => {
+    clearTimeout(saveTimer);
+    if (pending) { const value = pending; pending = null; try { if (!store.saveDraft(value.account, value.options)) message('Local draft could not be saved. Download config JSON to keep it.', true); } catch (error) { message(error.message, true); } }
+  };
+  window.addEventListener('pagehide', flush);
+  function restore(options) {
+    designCode.value = options.designCode || '';
+    for (const [key, input] of controls) {
+      const value = options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
+      if (input.type === 'checkbox') input.checked = value; else input.value = value;
+    }
+  }
+  restore({});
+  return {
+    store, restore, flush,
+    read: () => Object.fromEntries([...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value])),
+    update(account, options, source) { if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`; },
+    shared() { try { return decodeShare(location.href); } catch (error) { message(error.message, true); return null; } },
+  };
+}

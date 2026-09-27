@@ -86,6 +86,16 @@ The image updates daily. Clicking it takes viewers to this project's GitHub repo
 
 ## Change your configuration
 
+Start with a coordinated theme in **Themes & visual mappings**, or choose **Randomize design** under **Reproducibility & optional effects**. Save the resulting `v1:…` design code and enter it again to regenerate the same randomized visual choices. Seeded palettes, glow, layout variation and animation phases are reproducible; export JSON to retain your later manual edits too.
+
+Map node size to stars, activity, age, language/topic counts, or category membership. Map glow to stars or activity, choose language/seeded/category colors, and weight connections by shared metadata. Manual node colors still override mappings. Try **Galaxy** for language clusters or **Solar System** for major repositories and their related nodes. Rings distribute points across all four rings before adding another point to a ring.
+
+**Repository filters** adds minimum stars, archived status, recent updates, name matching and project sorting. **Config, presets & export** saves account-specific local drafts and named presets, imports/exports versioned JSON, and creates share links. Tokens and API caches are excluded. Share links omit manual coordinates and authored CSS; JSON preserves both.
+
+Choose Profile README, Repository README, Compact, Hero or Transparent output profiles, then download SVG or a high-resolution static PNG. Optional shapes, compact legends and lightweight effects stay inside the SVG. Keyboard selection, arrow-key placement and reduced-motion support remain available.
+
+See the [example designs](examples/README.md) and [design/config guide](docs/designs.md) for reproducible codes, mapping details, config compatibility, share-link limits, output sizes, and generating multiple images.
+
 Adjust your settings in the studio, download a new workflow, replace `.github/workflows/constellation.yml`, and run it again. When upgrading an older workflow, replace the whole file to remove its old image-commit step.
 
 Customization reuses saved project data. Click **Load data** when adding projects that have not been loaded, or **Refresh data from GitHub** when you want fresh data.

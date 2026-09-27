@@ -1,3 +1,8 @@
+import { mountStudioDesign } from './studio-design.mjs';
+import { createFormRestorer } from './studio-config-form.mjs';
+import { visualThemes } from './themes.mjs';
+import { exportSettings } from './export-image.mjs';
+import { seededRandom, resolveSeed } from './seeded-random.mjs';
 import { mountLiveTilt } from './live-tilt.mjs';
 import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation, graphNodes } from './constellation.mjs';
 import { readmeSnippet, renderWorkflow, installationLinks } from './export.mjs';
@@ -14,6 +19,8 @@ const proxyBase = document.querySelector('meta[name="constellation-api"]')?.cont
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
+let studio, restoreForm;
+let importedOptions = {};
 const $ = selector => document.querySelector(selector);
 if (proxyBase) $('.form-note').textContent = localAuth
   ? 'Using your local GitHub token. Loaded data is retained; customization makes no additional GitHub requests.'
@@ -28,7 +35,6 @@ const labelPlacements = new Map();
 const starPlacements = new Map();
 const placementAccounts = new Map();
 const nodeColorSettings = new Map();
-const coloredNodeIds = new Map();
 const hiddenNodeSettings = new Map();
 const hiddenLabelSettings = new Map();
 let displayedNodes = [];
@@ -160,10 +166,13 @@ function message(text, error = false) {
 }
 
 function render() {
-  placementAccounts.set(account.toLowerCase(), account);
+  placementAccounts.set(account.toLowerCase(), studio ? resolveSeed(account, studio.read()) : account);
   const generatedCSS = visualCSS(visualStyle);
   $('#generated-css').value = generatedCSS;
-  const options = { theme: 'auto', layout: $('#layout').value, maxRepos: Number($('#max-repos').value), animate: $('#animate').checked, includeForks: $('#forks').checked, bridges: $('#bridges').checked, connectionDensity: $('#connection-density').value, connectionBasis: $('#connection-basis').value, languages: filterSelection.languages, topics: filterSelection.topics, showOther: $('#show-other').checked, css: `${generatedCSS}\n${$('#custom-css').value}` };
+  const options = { ...importedOptions, ...studio?.read(), theme: importedOptions.theme || 'auto', layout: $('#layout').value, maxRepos: Number($('#max-repos').value), animate: $('#animate').checked, includeForks: $('#forks').checked, bridges: $('#bridges').checked, connectionDensity: $('#connection-density').value, connectionBasis: $('#connection-basis').value, languages: filterSelection.languages, topics: filterSelection.topics, showOther: $('#show-other').checked, css: `${generatedCSS}\n${$('#custom-css').value}` };
+  options.layout = exportSettings(options).layout;
+  options.visualStyle = structuredClone(visualStyle);
+  options.customCSS = $('#custom-css').value;
   options.repoSource = isSample ? $('#repo-source').value : loadedSource;
   $('#pinned-help').hidden = options.repoSource !== 'pinned';
   $('#max-repos').disabled = options.repoSource === 'pinned';
@@ -221,20 +230,6 @@ function render() {
     return;
   }
   const projected = graphNodes(repositories, options);
-  const accountKey = account.toLowerCase();
-  const seenColors = coloredNodeIds.get(accountKey) || new Set();
-  const newIds = projected.nodes.map(node => node.full_name).filter(id => !seenColors.has(id));
-  if (newIds.length) {
-    const settings = { ...nodeColorSettings.get(accountKey) };
-    const used = new Set(Object.values(settings));
-    for (const [id, candidate] of Object.entries(randomNodeColors(newIds))) {
-      let color = candidate;
-      while (used.has(color)) color = randomNodeColors([id])[id];
-      settings[id] = color; used.add(color); seenColors.add(id);
-    }
-    nodeColorSettings.set(accountKey, settings); coloredNodeIds.set(accountKey, seenColors);
-    options.nodeColors = settings;
-  }
   const generatedAt = new Date().toISOString();
   options.selection = graphSelection;
   const svg = renderConstellation(account, repositories, { ...options, generatedAt });
@@ -262,6 +257,7 @@ function render() {
     url = nextUrl; download.href = url; download.download = 'constellation.svg';
     $('#workflow').value = renderWorkflow(isSample ? null : account, options);
     updateSnippet();
+    studio?.update(account, options, captured);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
     $('#download-workflow').href = workflowUrl;
@@ -279,7 +275,7 @@ function render() {
   mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start) $('#color-node').closest('details').open = true; });
   const eligible = repositories.filter(repo => repo.private !== true && (options.includeForks || !repo.fork));
   const shown = selectRepositories(repositories, options);
-  $('#filter-summary').textContent = `${shown.length} matching projects from ${options.repoSource === 'pinned' ? `${selected.length} public pinned repositories` : `a pool of ${selected.length}`}.${categoryMode ? ` Showing ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} of ${projected.total} ${combinedMode ? 'nodes' : options.nodeMode}${projected.total > projected.nodes.length ? combinedMode ? ' (up to 256 nodes, retaining repositories and the most represented categories)' : ' (the 100 most represented categories)' : ''}.` : ''} ${options.repoSource === 'pinned' ? 'Your profile pins define the project pool; language, topic, and fork filters still apply.' : 'Increase the project limit to explore more.'} ${options.languages?.length === 0 || options.topics?.length === 0 ? 'Choose a category or All to show projects.' : ''}`;
+  $('#filter-summary').textContent = `${repositories.length} loaded · ${shown.length} included · ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} rendered · ${Math.max(0, projected.total - projected.nodes.length)} omitted by graph limit. ` + `${shown.length} matching projects from ${options.repoSource === 'pinned' ? `${selected.length} public pinned repositories` : `a pool of ${selected.length}`}.${categoryMode ? ` Showing ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} of ${projected.total} ${combinedMode ? 'nodes' : options.nodeMode}${projected.total > projected.nodes.length ? combinedMode ? ' (up to 256 nodes, retaining repositories and the most represented categories)' : ' (the 100 most represented categories)' : ''}.` : ''} ${options.repoSource === 'pinned' ? 'Your profile pins define the project pool; language, topic, and fork filters still apply.' : 'Increase the project limit to explore more.'} ${options.languages?.length === 0 || options.topics?.length === 0 ? 'Choose a category or All to show projects.' : ''}`;
   $('#repo-count').textContent = shown.length;
   $('#language-count').textContent = new Set(shown.flatMap(repositoryLanguages)).size;
   $('#star-count').textContent = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(shown.reduce((total, repo) => total + (repo.stargazers_count || 0), 0));
@@ -333,7 +329,7 @@ for (let ring = 0; ring < 4; ring++) $(`#ring-rotation-${ring}`).addEventListene
 });
 $('#color-connections').addEventListener('input', render);
 $('#random-node-colors').addEventListener('click', () => {
-  nodeColorSettings.set(account.toLowerCase(), { ...nodeColorSettings.get(account.toLowerCase()), ...randomNodeColors(displayedNodes.map(node => node.full_name)) });
+  nodeColorSettings.set(account.toLowerCase(), { ...nodeColorSettings.get(account.toLowerCase()), ...randomNodeColors(displayedNodes.map(node => node.full_name), seededRandom(`${studio?.read().seed || account}:${Date.now()}`)) });
   render();
 });
 $('#node-color').addEventListener('input', () => {
@@ -351,7 +347,9 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => upda
 for (const button of document.querySelectorAll('[data-filter]')) button.addEventListener('click', () => {
   filterSelection[button.dataset.filter] = button.dataset.selection === 'all' ? null : []; render();
 });
-async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value) {
+async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value, explicitConfig) {
+  const restoring = explicitConfig || (nextAccount.toLowerCase() !== account.toLowerCase() ? studio?.store.draft(nextAccount) : null);
+  if (restoring) source = restoring.options.repoSource || 'all';
   if (loading) return;
   loading = true;
   $('#repo-source').disabled = true;
@@ -363,16 +361,21 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
       $('#token-help').open = true;
       throw new Error('Pinned previews require a personal access token. Create one using the token setup below, save GH_TOKEN in the local project .env, and restart npm run preview. The daily workflow uses GitHub’s automatic token.');
     }
-    const nextRepositories = await data.load(nextAccount, { maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked, repoSource: source }, {
+    const nextRepositories = await data.load(nextAccount, { ...(restoring?.options || studio?.read()), maxRepos: restoring?.options.maxRepos ?? Number($('#max-repos').value), includeForks: restoring?.options.includeForks ?? $('#forks').checked, repoSource: source }, {
       refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
     if (!$('#output-repository').value || $('#output-repository').value === `${account}/${account}`) $('#output-repository').value = `${nextAccount}/${nextAccount}`;
+    studio?.flush();
+    const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
     account = nextAccount;
     repositories = nextRepositories;
     loadedSource = source;
     isSample = false;
+    if (restoring || changedAccount) applyOptions(restoring?.options || {});
+    $('#repo-source').value = source;
     $('#refresh-data').hidden = false;
     render();
+    return true;
   } catch (error) {
     if (!isSample) $('#repo-source').value = loadedSource;
     let detail = error instanceof TypeError ? 'Couldn’t reach GitHub. Check your connection and try again.' : error.message;
@@ -452,6 +455,56 @@ $('#copy-workflow').addEventListener('click', async () => {
     message('Select and copy the workflow. Save it as .github/workflows/constellation.yml.');
   }
 });
+function applyOptions(options) {
+  importedOptions = { ...options };
+  restoreForm(options); studio.restore(options);
+  filterSelection.languages = options.languages ?? null; filterSelection.topics = options.topics ?? null;
+  visualStyle = options.visualStyle || defaultVisualStyle();
+  const preset = visualThemes[options.visualTheme || options.theme];
+  if (!options.visualStyle && preset) {
+    const colors = Object.fromEntries(Object.keys(colorLabels).map((key, index) => [key, preset.palette[index]]));
+    visualStyle.light = { ...colors }; visualStyle.dark = { ...colors }; visualStyle.glow = preset.glow; visualStyle.secondaryOpacity = preset.opacity;
+  }
+  if (!options.visualStyle && options.colors) { Object.assign(visualStyle.light, options.colors); Object.assign(visualStyle.dark, options.colors); }
+  $('#custom-css').value = options.customCSS ?? options.css ?? '';
+  buildVisualControls();
+  const key = account.toLowerCase();
+  nodeColorSettings.set(key, options.nodeColors || {}); hiddenNodeSettings.set(key, new Set(options.hiddenNodes || [])); hiddenLabelSettings.set(key, new Set(options.hiddenLabels || []));
+  for (const map of [starPlacements, labelPlacements]) for (const placementKey of map.keys()) if (placementKey.startsWith(`${key}:`)) map.delete(placementKey);
+  const placementKey = `${key}:${exportSettings(options).layout || $('#layout').value}:${$('#arrangement').value}`;
+  starPlacements.set(placementKey, options.starPositions || {}); labelPlacements.set(placementKey, options.labelOffsets || {});
+  previousRingRotation = options.ringRotations || Array(4).fill(options.ringRotation || 0);
+  graphSelection = options.selection || {};
+}
+for (const [value, text] of [['galaxy', 'Galaxy · language clusters'], ['solar-system', 'Solar System · major repositories']]) {
+  const option = document.createElement('option'); option.value = value; option.textContent = text; option.disabled = !rustAvailable; $('#arrangement').append(option);
+}
 buildVisualControls();
+restoreForm = createFormRestorer(document);
+const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
+studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
+  apply: async config => {
+    if (config.account.toLowerCase() !== account.toLowerCase() || (!isSample && (config.options.repoSource || 'all') !== loadedSource)) {
+      if (!await loadAccount(config.account, false, config.options.repoSource || 'all', config)) throw new Error('Could not load this configuration account.');
+      form.elements.username.value = config.account;
+    } else { applyOptions(config.options); render(); }
+  },
+  theme: id => {
+    const preset = visualThemes[id];
+    const colors = Object.fromEntries(Object.keys(colorLabels).map((key, index) => [key, preset.palette[index]]));
+    visualStyle = { ...visualStyle, light: { ...colors }, dark: { ...colors }, glow: preset.glow, secondaryOpacity: preset.opacity };
+    for (const [key, value] of Object.entries({ nodeShape: preset.nodeShape || 'circle', effect: preset.effect || 'none', nodeColorMode: preset.nodeColorMode || 'custom' })) $(`#design-${key}`).value = value;
+    if (preset.animate !== undefined) $('#animate').checked = preset.animate;
+    buildVisualControls(); render();
+  }, message,
+});
+const initialDraft = studio.store.draft(account);
+if (initialDraft) applyOptions(initialDraft.options);
 liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });
 render();
+
+const initialShare = studio.shared();
+if (initialShare) {
+  if (initialShare.account === account) { applyOptions(initialShare.options); render(); }
+  else { form.elements.username.value = initialShare.account; loadAccount(initialShare.account, false, initialShare.options.repoSource || 'all', initialShare); }
+}

@@ -34,7 +34,8 @@ fn rounded(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0
 }
 
-// Return exactly one point per node, filling the widest gaps as capacity grows.
+// Return one point per node, visiting every ring before adding another point
+// to a ring. Existing coordinates remain stable as the node count grows.
 pub(crate) fn points(input: &str, count: usize) -> Result<Vec<f64>, &'static str> {
     if count > 256 {
         return Err("At most 256 ring points are supported");
@@ -51,13 +52,19 @@ pub(crate) fn points(input: &str, count: usize) -> Result<Vec<f64>, &'static str
             angles
         })
         .collect();
-    let mut result: Vec<f64> = geometry[2..]
-        .chunks_exact(22)
-        .flat_map(|ring| ring[4..].iter().copied())
-        .collect();
+    let mut result = Vec::with_capacity(count.max(RINGS * POINTS_PER_RING) * 3);
+    for point in 0..POINTS_PER_RING {
+        for ring in geometry[2..].chunks_exact(22) {
+            result.extend_from_slice(&ring[4 + point * 3..7 + point * 3]);
+        }
+    }
     while result.len() / 3 < count {
         let mut best = (0, 0, -1.0);
+        let least_points = rings.iter().map(Vec::len).min().unwrap();
         for (r, angles) in rings.iter().enumerate() {
+            if angles.len() != least_points {
+                continue;
+            }
             for i in 0..angles.len() {
                 let next = if i + 1 == angles.len() {
                     angles[0] + TAU
@@ -155,6 +162,29 @@ pub(crate) fn generate(input: &str, variation: u32) -> Result<Vec<f64>, &'static
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_ring_gets_a_point_before_any_ring_gets_another() {
+        let geometry = generate("few nodes", 0).unwrap();
+        let expanded = points("few nodes", 256).unwrap();
+        let mut counts = [0usize; RINGS];
+        for (index, point) in expanded.chunks_exact(3).enumerate() {
+            let radius = (point[0] - 240.0).hypot(point[1] - 240.0);
+            let ring = (0..RINGS)
+                .min_by(|a, b| {
+                    (radius - geometry[2 + a * 22])
+                        .abs()
+                        .total_cmp(&(radius - geometry[2 + b * 22]).abs())
+                })
+                .unwrap();
+            assert_eq!(counts[ring], *counts.iter().min().unwrap());
+            counts[ring] += 1;
+            assert_eq!(
+                points("few nodes", index + 1).unwrap(),
+                expanded[..(index + 1) * 3]
+            );
+        }
+    }
 
     #[test]
     fn metadata_and_variation_determine_the_entire_geometry() {

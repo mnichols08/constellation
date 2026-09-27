@@ -4,6 +4,17 @@ import { identityPoints, identityGeometry } from '../src/engine.mjs';
 import { snapPair } from '../src/label-editor.mjs';
 import { renderConstellation } from '../src/constellation.mjs';
 
+test('sparse ring layouts visit each ring before repeating a ring', () => {
+  const radii = [0, 1, 2, 3].map(i => identityGeometry('sparse')[2 + i * 22]);
+  const points = identityPoints('sparse', 256), counts = [0, 0, 0, 0];
+  for (let i = 0; i < points.length; i += 3) {
+    const radius = Math.hypot(points[i] - 240, points[i + 1] - 240);
+    const ring = radii.findIndex(value => Math.abs(value - radius) < .002);
+    assert.equal(counts[ring], Math.min(...counts)); counts[ring]++;
+  }
+  assert.deepEqual(counts, [64, 64, 64, 64]);
+});
+
 test('Rust adds ring capacity without changing existing identity points', () => {
   const original = identityPoints('octocat', 24);
   const expanded = identityPoints('octocat', 256);
