@@ -1,6 +1,6 @@
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
 import { renderNodeIcon } from './theme-packs.mjs';
-import { scalingOptions } from './scaling.mjs';
+import { scalingOptions, ringOccupancy } from './scaling.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
@@ -490,13 +490,14 @@ export function renderConstellation(account, repositories, options = {}, { onDia
     return `<g><circle class="identity-arc" data-ring="${index}" cx="240" cy="240" r="${ring[0]}" stroke-dasharray="${ring[2]} ${ring[3]}" transform="rotate(${(ring[1] + ringRotations[index]) % 360} 240 240)"/></g>`;
   }).join('') : '';
   const ringPoints = geometry ? identityPoints(options.seedMode ? seed : name, repos.length, ringRotations) : [];
+  const occupiedAt = stableOverview ? ringOccupancy(stars) : null;
   const pointMarkup = Array.from({ length: ringPoints.length / 3 }, (_, i) => {
     const [x, y, radius] = ringPoints.slice(i * 3, i * 3 + 3);
     const sx = Number((450 + (x - 240) * 368 / 172).toFixed(1));
     const sy = Number((centerY + (y - 240) * spreadY / 172).toFixed(1));
     const owner = ordered[i];
     const hidden = hiddenNodes.has(owner.full_name);
-    const occupied = stars.filter(star => Math.hypot(star.x - sx, star.y - sy) < 1).map(star => star.repo.full_name);
+    const occupied = occupiedAt ? occupiedAt(sx, sy) : stars.filter(star => Math.hypot(star.x - sx, star.y - sy) < 1).map(star => star.repo.full_name);
     if (hidden && !occupied.includes(owner.full_name)) occupied.push(owner.full_name);
     return `<circle class="identity-point" data-node="${escape(owner.full_name)}"${hidden ? ' style="display:none"' : ''} cx="${x}" cy="${y}" r="${radius}" data-snap-x="${sx}" data-snap-y="${sy}" data-occupied="${escape(JSON.stringify(occupied))}"/>`;
   }).join('');

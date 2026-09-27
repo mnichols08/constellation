@@ -1,10 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderConstellation, graphNodes, layoutStatistics, createPluginHost } from '../src/core-api.mjs';
+import { ringOccupancy } from '../src/scaling.mjs';
 
 const repos = Array.from({ length: 1024 }, (_, i) => ({ name: `node-${i}`, full_name: `scale/node-${i}`, language: i % 2 ? 'Rust' : 'JavaScript', topics: ['tools'] }));
 const options = { nodeCap: 2048, maxRepos: 2048, animate: false, identityRing: false, snapToRings: false };
 const positions = svg => new Map([...svg.matchAll(/<circle class="star" cx="([^"]+)" cy="([^"]+)"[^>]*data-repo="([^"]+)"/g)].map(m => [m[3], [m[1], m[2]]]));
+
+test('spatial ring occupancy matches exact scan order at cell boundaries', () => {
+  const stars = Array.from({ length: 400 }, (_, i) => ({ x: 99 + i % 20 / 10, y: 99 + Math.floor(i / 20) / 10, repo: { full_name: String(i) } }));
+  const query = ringOccupancy(stars);
+  for (const [x, y] of [[100, 100], [99.999, 100.001], [101, 101]]) assert.deepEqual(query(x, y), stars.filter(star => Math.hypot(star.x - x, star.y - y) < 1).map(star => star.repo.full_name));
+});
 
 test('1024-node overview reuses unaffected Rust coordinates across styles and filters', () => {
   const before = positions(renderConstellation('scale', repos, options));

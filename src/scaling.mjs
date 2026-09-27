@@ -5,6 +5,20 @@ export function scalingOptions(options = {}) {
   return { nodeCap, simplifyAbove };
 }
 
+export function ringOccupancy(stars) {
+  const cells = new Map();
+  stars.forEach((star, index) => {
+    const key = `${Math.floor(star.x)}:${Math.floor(star.y)}`;
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(index);
+  });
+  return (x, y) => {
+    const candidates = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) candidates.push(...(cells.get(`${Math.floor(x) + dx}:${Math.floor(y) + dy}`) || []));
+    return candidates.sort((a, b) => a - b).filter(i => Math.hypot(stars[i].x - x, stars[i].y - y) < 1).map(i => stars[i].repo.full_name);
+  };
+}
+
 // A sparse overview retains actual relationships with bounded SVG edge counts.
 export function overviewEdges(repos, basis) {
   const groups = new Map(), edges = new Map();

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.1 — 2026-09-27
+
+- Replace repeated all-node ring-occupancy scans in large overviews with a spatial index, preserving exact distance tests and node order.
+- Add a 2048-node style-change benchmark with ring snapping on/off and computed-node counters. Add boundary-equivalence regression tests.
+
 ## 1.9.0 — 2026-09-27
 
 - Add an opt-in stable overview with configurable node caps up to 2048, sparse relationships and bounded automatic labels. Existing configs retain their original layouts and limits.
