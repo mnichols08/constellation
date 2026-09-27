@@ -102,7 +102,9 @@ Start with a theme in **Look**, or use **Randomize design** to vary visual setti
 
 Map node size to stars, activity, age, language/topic counts, or category membership. Map glow to stars or activity, choose language/seeded/category colors, and weight connections by shared metadata. Manual node colors still override mappings. Try **Galaxy** for language clusters or **Solar System** for major repositories and their related nodes. Rings distribute points across all four rings before adding another point to a ring.
 
-**Repository filters** adds minimum stars, archived status, recent updates, name matching and project sorting. **Config, presets & export** saves account-specific local drafts and named presets, imports/exports versioned JSON, and creates share links. Tokens and API caches are excluded. Share links omit manual coordinates and authored CSS; JSON preserves both.
+**Repository filters** adds minimum stars, archived status, recent updates, name matching and project sorting. **Config, presets & export** saves account-specific local drafts and named presets and imports/exports versioned JSON. Use **Share link** in the toolbar to copy a public URL with the current settings, manual positions, and custom CSS. Tokens and API caches are excluded. Links over 8,000 characters require a JSON download instead.
+
+You can also pass settings directly in a link, for example `https://mnichols08.github.io/constellation/?user=octocat&preset=project-map&arrangement=galaxy&maxRepos=25`. For an organization, use `?organization=github&preset=organization-community`; add `user=USERNAME` to focus on that person. Links load current public data; download the SVG to share a fixed image. See [URL parameters and sharing](docs/designs.md#url-parameters-and-sharing).
 
 Choose Profile README, Repository README, Compact, Hero or Transparent output profiles, then download SVG or a high-resolution static PNG. Optional shapes, compact legends and lightweight effects stay inside the SVG. Keyboard selection, arrow-key placement and reduced-motion support remain available.
 
