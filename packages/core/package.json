@@ -1,6 +1,6 @@
 {
   "name": "@constellation/core",
-  "version": "2.4.3",
+  "version": "2.5.0",
   "type": "module",
   "description": "Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.",
   "engines": {
@@ -13,7 +13,8 @@
     "scene-api.md",
     "layers.md",
     "data-pipeline.md",
-    "layout-api.md"
+    "layout-api.md",
+    "interactive-html.md"
   ],
   "license": "UNLICENSED"
 }

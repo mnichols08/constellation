@@ -41,3 +41,5 @@ node src/cli.mjs --username octocat --fixture repos.json --config settings.json 
 `--explain` reserves stdout for one JSON report; the generated-file message goes to stderr. The `excluded` list associates each excluded project with metadata, selection or limit reasons. Dry runs can fetch data unless `--fixture` is supplied. They do not publish or modify output files.
 
 Rebuild `packages/core` after source or WASM changes. A core tarball can be installed by path (`npm install ./constellation-core-1.7.3.tgz`). Package tests copy the built package outside the checkout and verify WASM initialization, rendering, validation and filtering there.
+
+Interactive exports: `renderSceneHTML(scene, { title })` produces an offline HTML document. See [interactive HTML](interactive-html.md).

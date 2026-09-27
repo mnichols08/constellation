@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0
+
+- Add self-contained interactive HTML export from compiled scenes and CLI `build --format html`.
+- Support pan, cursor-centred zoom, hover, selection, click-to-focus, fit/reset and keyboard controls.
+- Add offline browser and CLI tests, escaped embedded data, and a runnable HTML example. Static SVG remains the default.
+
+
 ## Unreleased
 
 ## 2.4.3 — 2026-09-27

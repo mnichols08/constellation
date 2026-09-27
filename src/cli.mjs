@@ -5,7 +5,7 @@ import { needsHistoryEvents } from './history/settings.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { parseArgs } from 'node:util';
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost, renderSceneSVG, migrateConfig, migrateWorkflow } from '../packages/core/src/core-api.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost, renderSceneSVG, renderSceneHTML, migrateConfig, migrateWorkflow } from '../packages/core/src/core-api.mjs';
 import { loadConfig } from './config.mjs';
 import { aggregateActivity, activityOptions, normalizePublicEvents } from './activity.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
@@ -14,14 +14,15 @@ import { organizationOptions } from './organization/settings.mjs';
 
 async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, from: { type: 'string' }, workflow: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, scene: { type: 'boolean' }, 'scene-json': { type: 'boolean' }, 'reference-date': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { format: { type: 'string', default: 'svg' }, username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, from: { type: 'string' }, workflow: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, scene: { type: 'boolean' }, 'scene-json': { type: 'boolean' }, 'reference-date': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
   if (values.help) {
-    console.log('Usage: constellation [validate|migrate] [options]\n\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v2.md.');
+    console.log('Usage: constellation [build|validate|migrate] [options]\n\n  --format svg|html   Build static SVG or interactive HTML\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v2.md.');
     return;
   }
   if (values.version) { console.log(JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version); return; }
   if (!rustAvailable) throw new Error(`Could not load the Rust engine: ${engineError?.message}. Restore the core package WASM or run npm run build:rust and npm run build:core.`);
-  if (positionals.length > 1 || (positionals.length && !['validate', 'migrate'].includes(positionals[0]))) throw new Error('Expected validate, migrate, or generation flags.');
+  if (positionals.length > 1 || (positionals.length && !['build', 'validate', 'migrate'].includes(positionals[0]))) throw new Error('Expected build, validate, migrate, or generation flags.');
+  if (!['svg', 'html'].includes(values.format)) throw new Error('--format must be svg or html.');
   if (positionals[0] === 'migrate') {
     if ([values.config, values.from, values.workflow].filter(Boolean).length !== 1) throw new Error('migrate requires exactly one of --config FILE, --from CODE_OR_URL, or --workflow FILE.');
     const input = values.from || await readFile(values.config || values.workflow, 'utf8');
@@ -32,7 +33,7 @@ async function main() {
     return;
   }
   if (values.scene && values['scene-json']) throw new Error('Use either --scene or --scene-json.');
-  if ((values.scene || values['scene-json']) && positionals.length) throw new Error('Scene inspection is a generation option.');
+  if ((values.scene || values['scene-json']) && positionals.length && positionals[0] !== 'build') throw new Error('Scene inspection is a generation option.');
   if (values['scene-json'] && values.explain) throw new Error('--scene-json cannot share stdout with --explain; use --scene --explain.');
   if (values['reference-date'] && !Number.isFinite(Date.parse(values['reference-date']))) throw new Error('--reference-date must be a valid ISO date.');
   const inspectScene = values.scene || values['scene-json'];
@@ -93,14 +94,14 @@ async function main() {
     return;
   }
   const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
-  const svg = renderSceneSVG(scene);
+  const svg = values.format === 'html' ? renderSceneHTML(scene, { title: account + ' constellation' }) : renderSceneSVG(scene);
   if (values.explain) console.log(JSON.stringify({ ...explainFilters(repos, config), ...(config.transforms?.length || config.mappings ? { pipeline: sceneStatistics(scene).pipeline } : {}) }));
   if (values['dry-run']) return;
-  const output = values.output || process.env.CONSTELLATION_OUTPUT || 'dist/constellation.svg';
+  const output = values.output || process.env.CONSTELLATION_OUTPUT || (values.format === 'html' ? 'dist/constellation.html' : 'dist/constellation.svg');
   if (/[\r\n]/.test(output)) throw new Error('Invalid output path.');
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, svg);
-  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `svg=${output}\n`);
+  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${values.format === 'html' ? 'html' : 'svg'}=${output}\n`);
   (values.explain ? console.error : console.log)(`Generated ${output} for @${account}.`);
 }
 try { await main(); } catch (error) {
