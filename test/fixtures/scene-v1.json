@@ -533,6 +533,7 @@
       "referenceDate": "2026-09-01T00:00:00.000Z"
     },
     "pipeline": {
+      "filtered": 0,
       "graphNodes": 4,
       "loaded": 4,
       "normalized": 4,

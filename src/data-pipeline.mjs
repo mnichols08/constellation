@@ -9,7 +9,7 @@ export function normalizeRecords(input, { onDiagnostic, deferIdentityCheck = fal
     let record;
     try {
       if (!object(item)) throw new Error('record must be an object');
-      if (item.type === 'record') {
+      if (item.type === 'record' && !Object.hasOwn(item, 'full_name')) {
         if (item.version !== DATA_RECORD_VERSION || !name(item.id) || !name(item.label) || !name(item.kind) || !object(item.metrics) || !object(item.attributes)) throw new Error('invalid normalized record');
         if (Object.values(item.metrics).some(value => !Number.isFinite(value))) throw new Error('metrics must be finite numbers');
         record = structuredClone(item);
@@ -39,6 +39,6 @@ export function toGraphRecords(records) {
   return records.map(record => ({ ...structuredClone(record.attributes),
     full_name: record.id, name: record.label,
     ...(record.kind !== 'repository' ? { nodeKind: record.kind } : {}),
-    ...(record.metrics.stars !== undefined ? { stargazers_count: record.metrics.stars } : {}),
+    ...(record.metrics.stars !== undefined ? { stargazers_count: Math.max(0, record.metrics.stars) } : {}),
   }));
 }

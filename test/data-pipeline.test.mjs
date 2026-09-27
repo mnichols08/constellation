@@ -20,7 +20,7 @@ test('normalization reports rejected records and prevents ID collisions', () => 
   assert.deepEqual(diagnostics, result.diagnostics);
   assert.throws(() => normalizeRecords([...repositories, ...repositories]), /Duplicate graph node ID/);
   const scene = createScene('data', [null, ...repositories], options);
-  assert.deepEqual(scene.presentation.pipeline, { loaded: 2, rejected: 1, normalized: 1, transformed: 1, transforms: [], graphNodes: 1, sceneNodes: 1 });
+  assert.deepEqual(scene.presentation.pipeline, { loaded: 2, rejected: 1, normalized: 1, transformed: 1, filtered: 0, transforms: [], graphNodes: 1, sceneNodes: 1 });
 });
 
 test('source API 1 remains compatible with normalized record loading and cancellation', async () => {

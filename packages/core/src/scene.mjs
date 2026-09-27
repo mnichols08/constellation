@@ -113,5 +113,6 @@ export function sceneStatistics(scene) {
     layers: current.layers.map(layer => layer.id),
     frames: scene.kind === 'time-lapse' ? scene.frames.length + 1 : 1,
     referenceDate: scene.metadata.referenceDate,
+    pipeline: structuredClone(current.presentation.pipeline),
   };
 }

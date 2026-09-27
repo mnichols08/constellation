@@ -1,6 +1,8 @@
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
 import { createScene } from './constellation.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
+import { createDataPipeline } from './pipeline-cache.mjs';
+const dataPipeline = createDataPipeline();
 import { presetOptions } from './studio-presets.mjs';
 import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
@@ -265,7 +267,7 @@ function render({ requireVisibleNodes = false } = {}) {
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
   const labelDiagnostics = [];
-  const scene = createScene(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
+  const scene = createScene(account, repositories, { ...options, generatedAt }, { pipeline: dataPipeline, onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
   const svg = renderSceneSVG(scene);
   const currentScene = scene.kind === 'time-lapse' ? scene.latest : scene;
   const projected = { ...currentScene.presentation.graph, nodes: currentScene.nodes.map(node => node.metadata) };

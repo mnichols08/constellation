@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.3.3 — 2026-09-27
+
+- Add explicitly owned normalization/transform caches bounded by entries and estimated bytes, with isolated results, observable hit/miss accounting and clear operations.
+- Expose stage counts and cache diagnostics through CLI scene inspection; add pipeline details to advanced `--explain` output while preserving the ordinary filter report.
+- Benchmark normalization, transforms, graph and scene/layout separately. Test eviction, oversized/non-JSON inputs, cancellation and independent hosts.
+- Preserve source records whose metadata uses a `type` field, retain derived metrics, and document pipeline authoring and measured costs.
+
 ## 2.3.2 — 2026-09-27
 
 - Add declarative size, color, glow and opacity mappings with simple stars/language/activity/age forms and safe field/expression forms.

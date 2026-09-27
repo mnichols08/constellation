@@ -220,13 +220,14 @@ export function renderConstellation(account, repositories, options = {}, runtime
   return renderSceneSVG(createScene(account, repositories, options, runtime));
 }
 
-export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
+export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer, pipeline, signal } = {}) {
+  signal?.throwIfAborted();
   const layers = createLayers(options.layers);
   validateTransforms(options.transforms);
   const mappings = normalizeMappings(options.mappings);
   // Legacy inputs can repeat IDs in records later excluded by privacy, fork or
   // explicit repository filters. Check the resulting graph's identity instead.
-  const normalized = normalizeRecords(repositories, { onDiagnostic, deferIdentityCheck: true });
+  const normalized = (pipeline?.normalize || normalizeRecords)(repositories, { onDiagnostic, deferIdentityCheck: true, signal });
   repositories = toGraphRecords(normalized.records);
   const scaling = scalingOptions(options);
   const refinement = layoutRefinementOptions(options.layoutRefinement);
@@ -245,9 +246,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     const resolved = { ...options, ...temporal };
     const years = historyYears(repositories, clock, temporal.history.maxHistoricalFrames);
     const base = { ...resolved, history: { ...temporal.history, mode: 'current', timeLapse: { ...settings, enabled: false } }, timeLapse: false, historicalYear: undefined, generatedAt: new Date(clock).toISOString(), referenceDate: new Date(clock).toISOString() };
-    const latest = createScene(account, repositories, base, { onDiagnostic, nodeRenderer });
+    const latest = createScene(account, repositories, base, { onDiagnostic, nodeRenderer, pipeline, signal });
     const frames = settings.mode === 'crossfade' && years.length > 1 && options.animate !== false
-      ? years.slice(0, -1).map(year => ({ year, scene: createScene(account, repositories, { ...base, history: { ...base.history, mode: 'historical', year } }, { onDiagnostic, nodeRenderer }) })) : [];
+      ? years.slice(0, -1).map(year => ({ year, scene: createScene(account, repositories, { ...base, history: { ...base.history, mode: 'historical', year } }, { onDiagnostic, nodeRenderer, pipeline, signal }) })) : [];
     return JSON.parse(JSON.stringify({ version: 1, kind: 'time-lapse', metadata: latest.metadata, latest, frames, presentation: { account, repositories: repositories.filter(repo => repo.private !== true), options: resolved, reference: clock } }));
   }
   if (temporal.history.mode === 'historical') {
@@ -255,11 +256,13 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     options = { ...options, metricDate: options.referenceDate, activityMetricDate: options.referenceDate, activityData: options.historyData ? aggregateActivity(options.historyData.events, repositories, { ...options, activityMetricDate: options.referenceDate }, options.referenceDate) : undefined, codingRhythmData: options.historyData ? deriveCodingRhythm(options.historyData.events, options, options.referenceDate) : undefined };
   }
   // Privacy and fork exclusion cannot be bypassed by grouping or field mapping.
-  const transformed = applyTransforms(options.transforms?.length
+  const transformed = (pipeline?.transform || applyTransforms)(options.transforms?.length
     ? normalized.records.filter(record => record.attributes.private !== true && (options.includeForks !== false || !record.attributes.fork))
       .map(record => temporal.history.mode !== 'historical' ? record : { ...record, attributes: historicalSnapshot([record.attributes], clock)[0] })
       .filter(record => record.attributes)
-    : normalized.records, options.transforms);
+    : normalized.records, options.transforms, { signal });
+  signal?.throwIfAborted();
+  for (const stage of transformed.diagnostics) onDiagnostic?.({ code: 'transform-applied', ...stage });
   if (options.transforms?.length) repositories = toGraphRecords(transformed.records);
   mappingOptions(options);
   const name = username(account);
@@ -481,6 +484,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     metadata: { key: edge.key, shared: edge.shared, sharedLanguages: edge.sharedLanguages, sharedTopics: edge.sharedTopics, sharedRepositories: edge.sharedRepositories || [], strength: edge.strength },
     geometry: { distance: edge.distance }, style: { primary: backbone.has(edge) },
   }));
+  signal?.throwIfAborted();
   return JSON.parse(JSON.stringify({ version: 1, kind: 'scene',
     metadata: { account: name, seed, referenceDate: options.referenceDate },
     viewport: { width: profile.width, height: profile.height, viewBox: [0, 0, 900, height] },
@@ -490,6 +494,6 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,
       totalConnections: scene?.total ?? candidates.length, nodeMode, hasHistory,
-      pipeline: { ...normalized.statistics, transformed: transformed.records.length, transforms: transformed.diagnostics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
+      pipeline: { ...normalized.statistics, transformed: transformed.records.length, filtered: transformed.diagnostics.filter(stage => ['filter', 'limit', 'deduplicate'].includes(stage.type)).reduce((sum, stage) => sum + stage.removed, 0), transforms: transformed.diagnostics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
   }));
 }

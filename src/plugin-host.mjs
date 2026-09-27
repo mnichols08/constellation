@@ -1,6 +1,7 @@
 import { createScene } from './constellation.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
 import { normalizeRecords } from './data-pipeline.mjs';
+import { createDataPipeline } from './pipeline-cache.mjs';
 import { validateThemePack } from './theme-packs.mjs';
 import { jsonFeedSource } from './json-feed-source.mjs';
 
@@ -18,13 +19,15 @@ export function pluginOptions(value = {}) {
 }
 
 export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
+  const pipeline = createDataPipeline();
   const sources = new Map(), themes = new Map();
   const cache = new Map();
   const cacheBudget = 8 * 1024 * 1024;
   let cacheBytes = 0;
   let generation = 0;
   const host = {
-    clearCache() { generation++; cache.clear(); cacheBytes = 0; },
+    clearCache() { generation++; cache.clear(); cacheBytes = 0; pipeline.clear(); },
+    get pipelineCacheStatistics() { return pipeline.cacheStatistics; },
     get cacheStatistics() { return { entries: cache.size, estimatedBytes: cacheBytes, budgetBytes: cacheBudget }; },
     registerSource(plugin) {
       if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== PLUGIN_API_VERSION || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
@@ -84,7 +87,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
     createScene(account, nodes, options = {}, runtime = {}) {
       const ids = new Set();
       for (const node of nodes) {
-        const id = node?.type === 'record' ? node.id : node?.full_name;
+        const id = node?.type === 'record' && !Object.hasOwn(node, 'full_name') ? node.id : node?.full_name;
         if (id === undefined) continue; // Normalization reports malformed records.
         if (ids.has(id)) throw new Error(`Duplicate graph node ID: ${id}`);
         ids.add(id);
@@ -92,6 +95,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
       let themePack = options.themePack;
       if (themePack && !themePack.preset) themePack = themes.get(`${themePack.id}@${themePack.version}`) || themePack;
       return createScene(account, nodes, { ...options, ...(themePack ? { themePack } : {}) }, {
+        pipeline,
         ...runtime,
         nodeRenderer: context => runtime.nodeRenderer?.(context) ?? sources.get(context.node.pluginSource)?.renderNode?.(context),
       });

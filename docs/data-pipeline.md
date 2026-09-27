@@ -130,3 +130,39 @@ updated-date recency proxy. It is not an invented historical activity count.
 Mappings resolve into scene geometry/style; Rust refinement receives the resolved
 radius. Zero-opacity markers are excluded from keyboard interaction. Existing
 node size/color/glow options remain supported and unchanged without mappings.
+
+## Diagnostics and caching
+
+`constellation --scene --explain` reports loaded, rejected, normalized,
+transformed, filtered, graph-node and scene-node counts, individual transform
+stages, filter explanations and cache accounting. `--explain` alone retains its
+legacy filter-only shape for ordinary configs and adds a `pipeline` report when
+transforms or mappings are configured. Scene JSON itself contains deterministic
+stage counts, not cache hits or wall-clock timings.
+
+```js
+import { createDataPipeline, createScene } from '@constellation/core';
+const pipeline = createDataPipeline({ maxEntries: 16, maxBytes: 8 * 1024 * 1024 });
+const result = pipeline.run(repositories, { transforms: [
+  { type: 'limit', count: 20 },
+] });
+const scene = createScene('example', repositories, {
+  referenceDate: '2026-09-01T00:00:00Z',
+}, { pipeline });
+console.log(result.statistics, pipeline.cacheStatistics);
+pipeline.clear();
+```
+
+Caches belong to an explicit pipeline/host, have both entry and estimated-byte
+bounds, and return isolated copies. Oversized and non-JSON inputs remain usable
+without retention. Hosts expose `pipelineCacheStatistics`; `clearCache` clears
+source and pipeline caches. Studio owns its own pipeline. There is no shared
+mutable data registry. Already-aborted signals are rejected before cache access;
+scene compilation also checks cancellation after callbacks.
+
+Run `node scripts/benchmark-pipeline.mjs` for separate normalization, transform,
+graph and scene/layout timings plus cold/warm pipeline measurements. On the
+Windows/Node 22.12 development host, the 2,048-record fixture measured about 7 ms
+normalization, 12 ms transforms, 3 ms graph construction and 55 ms scene/layout.
+The cached pipeline measured 44 ms cold and 17 ms warm and retained an estimated
+2.87 MB across two entries. These measurements are informational, not thresholds.

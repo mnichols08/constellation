@@ -5,7 +5,7 @@ import { needsHistoryEvents } from './history/settings.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { parseArgs } from 'node:util';
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost, migrateConfig, migrateWorkflow } from '../packages/core/src/core-api.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, selectRepositories, explainFilters, rustAvailable, engineError, createPluginHost, renderSceneSVG, migrateConfig, migrateWorkflow } from '../packages/core/src/core-api.mjs';
 import { loadConfig } from './config.mjs';
 import { aggregateActivity, activityOptions, normalizePublicEvents } from './activity.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
@@ -84,7 +84,7 @@ async function main() {
   if (inspectScene) {
     const diagnostics = [];
     const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt }, { onDiagnostic: diagnostic => diagnostics.push(diagnostic) });
-    const result = values['scene-json'] ? serializeScene(scene) : JSON.stringify({ ...sceneStatistics(scene), diagnostics, ...(values.explain ? { filters: explainFilters(repos, config) } : {}) }, null, 2) + '\n';
+    const result = values['scene-json'] ? serializeScene(scene) : JSON.stringify({ ...sceneStatistics(scene), diagnostics, cache: pluginHost.pipelineCacheStatistics, ...(values.explain ? { filters: explainFilters(repos, config) } : {}) }, null, 2) + '\n';
     if (values.output && !values['dry-run']) {
       if (/[\r\n]/.test(values.output)) throw new Error('Invalid output path.');
       await mkdir(dirname(values.output), { recursive: true });
@@ -92,8 +92,9 @@ async function main() {
     } else process.stdout.write(result);
     return;
   }
-  const svg = pluginHost.render(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
-  if (values.explain) console.log(JSON.stringify(explainFilters(repos, config)));
+  const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
+  const svg = renderSceneSVG(scene);
+  if (values.explain) console.log(JSON.stringify({ ...explainFilters(repos, config), ...(config.transforms?.length || config.mappings ? { pipeline: sceneStatistics(scene).pipeline } : {}) }));
   if (values['dry-run']) return;
   const output = values.output || process.env.CONSTELLATION_OUTPUT || 'dist/constellation.svg';
   if (/[\r\n]/.test(output)) throw new Error('Invalid output path.');
