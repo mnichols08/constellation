@@ -1,4 +1,5 @@
 import { mountRepositoryPicker } from './repository-picker.mjs';
+import { mountStudioLayers } from './studio-layers.mjs';
 import { layoutRefinementOptions } from './layout-refinement.mjs';
 import { rhythmDefaults } from './coding-rhythm.mjs';
 import { studioPresets, presetOptions } from './studio-presets.mjs';
@@ -17,7 +18,8 @@ import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
 export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
-export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories }) {
+export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, reveal }) {
+  const layerControls = mountStudioLayers(host, changed, reveal);
   const historyControls = mountStudioHistory(host, changed);
   const organizationControls = mountOrganizationControls(host, changed);
   let storage; try { storage = window.localStorage; } catch {}
@@ -245,6 +247,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   };
   window.addEventListener('pagehide', flush);
   function restore(options) {
+    layerControls.restore(options);
     organizationControls.restore(options);
     historyControls.restore(options);
     designCode.value = options.designCode || '';
@@ -264,10 +267,10 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   }
   restore({ starfield: defaultStarfield });
   return {
-    store, restore, flush, historyRange: historyControls.range,
+    store, restore, flush, historyRange: historyControls.range, scene: layerControls.update,
     read: () => {
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
-      return { layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
       repositoryPicker.update(account, repositoryPool(), options, selectedRepositories(options));

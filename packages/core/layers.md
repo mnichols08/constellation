@@ -49,3 +49,16 @@ styling. Effects controls background decoration; activity and glow stay attached
 to nodes. Hiding nodes does not implicitly hide labels, allowing label-only views.
 Controls persist through v6 config, scene and workflow export. They never change
 layout coordinates or source data. Missing controls preserve existing SVG bytes.
+
+## Studio
+
+Open **Layers**, then choose the layer to inspect. Only that layer's generic
+controls appear. **Open layer settings** reveals its existing appearance or
+behavior controls and moves keyboard focus there. **Reset this layer** restores
+its defaults. Invalid ordering leaves the previous scene intact and reports the
+constraint beside the controls. The scene summary reports visible nodes and
+relationships from the compiled scene.
+
+The layer selector uses native keyboard navigation. The Layers tab participates
+in the existing arrow/Home/End tab navigation. Entering a username and generating
+a graphic still uses the ordinary Look panel; no layer editing is required.

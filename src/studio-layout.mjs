@@ -14,7 +14,7 @@ export function mountStudioLayout() {
     const content = document.createElement('div'); content.className = 'control-section-body';
     content.append(...nodes); details.append(summary, content); return details;
   };
-  for (const [id, title] of [['look', 'Look'], ['motion', 'Motion'], ['projects', 'Projects'], ['nodes', 'Nodes'], ['save', 'Save']]) {
+  for (const [id, title] of [['look', 'Look'], ['motion', 'Motion'], ['projects', 'Projects'], ['nodes', 'Nodes'], ['layers', 'Layers'], ['save', 'Save']]) {
     const tab = document.createElement('button'); tab.type = 'button'; tab.id = `tab-${id}`; tab.textContent = title;
     tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', `panel-${id}`);
     const panel = document.createElement('section'); panel.id = `panel-${id}`; panel.className = 'inspector-panel design-controls';
@@ -70,6 +70,7 @@ export function mountStudioLayout() {
   field('node-mode', panel('nodes')); panel('nodes').append($('#node-mode-help'));
   for (const id of ['color-node', 'lock-stars', 'design-refinement-enabled', 'connection-density']) section(id, panel('nodes'));
   section('download-config', panel('save'));
+  const layerControls = $('#layer-controls'); layerControls.open = true; panel('layers').append(layerControls);
   const workflow = $('#workflow').closest('.editor-panel');
   panel('save').append($('#copy-markdown'), fold('Daily GitHub workflow', workflow), $('#snippet-panel'));
 

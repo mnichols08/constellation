@@ -1,4 +1,6 @@
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
+import { createScene } from './constellation.mjs';
+import { renderSceneSVG } from './renderer-svg.mjs';
 import { presetOptions } from './studio-presets.mjs';
 import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
@@ -264,7 +266,9 @@ function render({ requireVisibleNodes = false } = {}) {
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
   const labelDiagnostics = [];
-  const svg = renderConstellation(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
+  const scene = createScene(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
+  const svg = renderSceneSVG(scene);
+  studio.scene(scene);
   // Validate the final render after form normalization, before publishing it or
   // replacing the saved draft and exports. A metadata-only check is not enough.
   if (requireVisibleNodes && (!projected.nodes.some(node => !options.hiddenNodes.includes(node.full_name)) ||
@@ -569,6 +573,7 @@ buildVisualControls();
 restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
+  reveal: id => { const element = document.getElementById(id); if (element) { workspace?.reveal(element); element.focus(); } },
   hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
   repositoryPool: () => repositories,
   selectedRepositories: options => selectRepositories(repositories, options),

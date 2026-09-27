@@ -113,6 +113,23 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     assert.ok(result.curved > 0, 'animated connections retain curvature');
   }
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  await evaluate(`click('tab-layers'); window.chooseLayer = id => { const select=document.querySelector('#layer-select');select.value=id;select.dispatchEvent(new Event('change',{bubbles:true})); }; chooseLayer('labels');`);
+  assert.equal(await evaluate(`document.querySelector('#layer-controls').closest('[role=tabpanel]').id`), 'panel-layers');
+  assert.match(await evaluate(`document.querySelector('#scene-summary').textContent`), /visible nodes.*9 layers/);
+  await evaluate(`click('layer-visible');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.repo-label').length`), 0);
+  assert.match(await evaluate(`document.querySelector('#workflow').value`), /"labels": \{\s+"visible": false/);
+  await evaluate(`click('layer-reset');chooseLayer('starfield');input('layer-opacity','0.35');`);
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-scene-layer="starfield"][opacity="0.35"]') !== null`));
+  await evaluate(`click('layer-reset');chooseLayer('connections');document.querySelector('#layer-order').value='99';document.querySelector('#layer-order').dispatchEvent(new Event('change',{bubbles:true}));`);
+  assert.match(await evaluate(`document.querySelector('#layer-error').textContent`), /behind nodes/);
+  assert.equal(await evaluate(`document.querySelector('#layer-order').value`), '5');
+  await evaluate(`chooseLayer('starfield');click('layer-edit-settings');`);
+  assert.equal(await evaluate(`document.activeElement.id`), 'design-sky-mode');
+  assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-look');
+  await evaluate(`click('tab-layers');document.querySelector('#tab-layers').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`);
+  assert.equal(await evaluate(`document.activeElement.id`), 'tab-save');
+  await evaluate(`click('tab-look');`);
   assert.ok(await evaluate(`(() => {
     const root = document.querySelector('#preview').firstChild.shadowRoot;
     const nodes = [...root.querySelectorAll('.repository')];

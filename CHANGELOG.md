@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.2 — 2026-09-27
+
+- Add a focused Studio Layers inspector with native keyboard selection, scene counts, per-layer visibility/opacity/order, reset and links to relevant existing settings.
+- Compile the Studio preview through the scene interface and preserve layer settings when restoring configs, sharing and exporting workflows.
+- Keep the first-visit landing and simple Look workflow unchanged. Browser tests cover layer editing, invalid-order recovery, focus navigation and exports.
+
 ## 2.2.1 — 2026-09-27
 
 - Add declarative v6 layer visibility, opacity and ordering controls, preserving all defaults and coordinates.
