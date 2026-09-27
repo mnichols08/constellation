@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, renderConstellation } from '../src/constellation.mjs';
 import { defaultVisualStyle, visualCSS } from '../src/visual-style.mjs';
+import { rustAvailable, engineError } from '../src/engine.mjs';
 
 // Both variants use the same repository snapshot and layout configuration.
 const options = JSON.parse(await readFile(new URL('../profiles/mnichols08.json', import.meta.url), 'utf8'));
@@ -9,8 +10,9 @@ const palettes = {
   light: { background: '#F5F4E6', foreground: '#111111', accent: '#747122', line: '#aaa66d', star: '#747122' },
 };
 try {
+  if (!rustAvailable) throw new Error(`Could not load the Rust engine: ${engineError?.message}`);
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
-  const listed = await fetchRepositories('mnichols08', { token });
+  const listed = await fetchRepositories('mnichols08', { token, repoSource: options.repoSource });
   const repos = await fetchRepositoryLanguages(selectRepositoryPool(listed, options), { token });
   const missing = options.includeRepos.filter(name => !repos.some(repo => repo.name === name && !repo.private && (options.includeForks || !repo.fork)));
   if (missing.length) console.warn(`Selected repositories unavailable: ${missing.join(', ')}`);

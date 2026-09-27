@@ -4,7 +4,7 @@ Create a constellation of your public GitHub projects and keep it updated in you
 
 ![Example GitHub constellation](./dist/constellation.svg)
 
-No personal access token, fork, or config file is needed. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
+The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
 
 ## Quick start
 
@@ -56,7 +56,7 @@ GitHub supplies `GITHUB_TOKEN` automatically; you do not need to create a person
 | Input | Default | Purpose |
 | --- | --- | --- |
 | `username` | Repository owner | GitHub username or profile URL to visualize. |
-| `token` | `${{ github.token }}` | Token for public GitHub API requests. |
+| `token` | `${{ github.token }}` | Token for public API requests and profile pins; Actions supplies it automatically. |
 | `publish` | `'false'` | Set to `'true'` to commit the image to the output branch. Requires checkout and `contents: write`. |
 | `output` | `constellation.svg` | Generated SVG path in the workspace. Publishing uses its filename at the branch root. |
 | `output-branch` | `output` | Destination branch; unrelated files are preserved. |
@@ -90,12 +90,108 @@ Adjust your settings in the studio, download a new workflow, replace `.github/wo
 
 Customization reuses saved project data. Click **Load data** when adding projects that have not been loaded, or **Refresh data from GitHub** when you want fresh data.
 
+Use **Show node labels** beside the chart to turn labels on or off at any node count. Labels that cannot fit without overlapping are omitted. Your choice is included in the downloaded SVG and exported workflow.
+
+**Nodes represent** switches between a combined chart and separate repository, language, and topic views. In repository view, connections use shared languages or topics. In language/topic view, each category is a node and connections mean that two categories appear in the same repository. Node size reflects the number of matching repositories. Click a category to see its repository links, or Shift-click another to trace a path. Topic nodes use GitHub repository topics, so `agile` or `good-first-issue` appears when a matching repository has that topic; issue labels are not fetched.
+
+Existing filters and the project limit determine the underlying repository pool in every view. Category views show up to the 100 most represented categories, with the total shown in the filter summary. Categories with no shared repository remain isolated nodes. Their grouping and shared-repository connections are computed in Rust.
+
+Under **Visual styles → Individual nodes**, choose a node and its color. Clicking a node in the chart also selects it in this control. Custom colors apply to that node and its glow in both light and dark mode; **Use palette color** removes the individual override. Colors stay with their node across filters, layouts, and views for the current account during the studio session. Exported workflows and SVGs include these colors and the selected node type. Configuration uses `nodeMode` (`combined`, `repositories`, `languages`, or `topics`) and `nodeColors`, keyed by `owner/repository`, `language:CSS`, or `topic:agile`, with six-digit hex values.
+
+Each node and its label stay attached. **Lock positions** starts enabled and prevents either from moving. Unlock it to drag the node or its label: both move together, preserving the label's offset. Arrow keys move the focused pair, and Shift moves faster. Hidden labels follow their nodes too, and connections update while dragging. Manual placements may overlap.
+
+Manual positions are shared across node views, and kept separately for each account, format, and arrangement during the current studio session. **Reset node & label positions** restores the automatic layout across node views for the current format and arrangement. SVG and workflow exports preserve node positions and relative `labelOffsets`, so labels follow their nodes when the graph changes. Existing configurations with absolute `labelPositions` remain supported. The position lock controls editing in the studio and is not exported.
+
+The studio starts in **Repositories + languages + topics** view (`nodeMode: "combined"`). Repositories connect directly to their language and topic nodes in the same chart. All membership connections are retained. Language nodes have a solid outline; topic nodes have a dashed outline. Unlock positions to place JavaScript, TypeScript and HTML together, with Rust and C++ elsewhere. Moving a node or its label keeps the pair attached, and manual placements follow the node when switching views. The combined graph retains up to 100 repositories and the most represented categories within a 256-node limit; the filter summary reports omitted nodes.
+
+Under **Visual styles → Individual nodes**, select any node to recolor it, turn off **Show label**, or turn off **Show node**. Hiding a node also hides its incident connections without rearranging the remaining nodes. Hidden nodes stay in the selector so they can be restored; **Show all nodes and labels for this account** resets visibility. The global **Show labels** setting must also be enabled. Automatic label placement may omit labels where space is tight. Category details still list their member repositories, including hidden ones. Visibility settings follow node IDs across views during the session and are included in SVG/workflow exports as `hiddenNodes` and `hiddenLabels` arrays (for example, `["language:JavaScript", "topic:agile"]`).
+
+
 For a one-time image without Actions, click **Download SVG**, commit the file to your repository, and embed it with `[![GitHub constellation](./constellation.svg)](https://github.com/mnichols08/constellation)`.
 
 ## Preview locally
+
+### Pinned repositories and required token setup
+
+Choose **Project source → Pinned repositories** to build the graph from the public repositories pinned to a profile. Pins can belong to other owners; pinned gists and private repositories are excluded. All public pins are considered regardless of the project-limit slider, while fork, language, topic, and explicit repository filters still apply. Repository, language, and topic node views all work with pins. Click **Refresh data from GitHub** after changing your profile pins; daily workflows fetch the current pins on every run.
+
+**You must create a personal access token to load live pins in the local studio or run pinned generation locally.** GitHub's [pinnedItems field](https://docs.github.com/en/graphql/reference/users) is accessed through its authenticated GraphQL API. The hosted studio can demonstrate sample pins and export a pinned workflow, but cannot load live pins without a local authenticated server.
+
+1. Open [GitHub's fine-grained token creation form](https://github.com/settings/personal-access-tokens/new).
+2. Give the token a name and expiration, choose your account as resource owner, and select **Public repositories**. Fine-grained tokens already include public repository read access; additional write permissions are unnecessary for loading pins. See [GitHub's GraphQL authentication guide](https://docs.github.com/en/graphql/guides/forming-calls-with-graphql).
+3. Create and copy the token. In the root of this local project, create or edit `.env`:
+
+   ```dotenv
+   GH_TOKEN=YOUR_TOKEN_HERE
+   ```
+
+4. Run `npm run preview`, open http://127.0.0.1:4173, choose **Pinned repositories**, and load your GitHub username. Restart the server after changing the token. Keep `.env` out of Git; the server keeps the token out of the browser and exports.
+5. If the token expires or is revoked, replace it in `.env` and restart. Authentication failures keep the previous chart and exports rather than substituting all repositories.
+
+For local CLI generation, add `"repoSource": "pinned"` to your JSON config and run:
+
+```sh
+node --env-file=.env src/cli.mjs --username YOUR_USERNAME --config constellation.config.json
+```
+
+**You do not need to create a personal token for the daily Actions workflow.** The exported workflow uses the action's default `${{ github.token }}` input. GitHub [creates this token automatically for each job](https://docs.github.com/en/actions/concepts/security/github_token). To configure pins without the studio, add this under the action step's `with` block:
+
+```yaml
+config-json: '{"repoSource":"pinned"}'
+```
+
+### Studio features
+
+The studio uses the Workshop's charcoal, olive, and yellow palette. Click a star to reveal its connected projects and repository links. Shift-click another star (or Shift+Enter on a focused star) to trace the shortest path through the displayed connections. Escape or **Clear selection** clears the highlight. Visual bridges and decorative ring points are excluded from traversal. These interactions are available in the studio; README images remain ordinary SVGs.
+
+**Arrangement** offers the original star field, **Identity orbits**, and **Connected clusters**. The cluster layout settles once, so there is no continuous physics loop. **Identity rings** adds a reproducible account signature behind the graph. The four rings use the account name as metadata, so changing filters does not change the signature. Arrangement, ring visibility, colors, and manual placements all survive SVG and workflow export.
 
 With Node.js 22 or later, run `npm run preview` and open http://127.0.0.1:4173.
 
 For authenticated local requests, add `GH_TOKEN=YOUR_TOKEN` to `.env` in this project, then restart the preview server. `GITHUB_TOKEN` and `gh_token` also work. The server loads `.env` automatically and keeps the token out of the browser. Without a token it uses public requests. The hosted static studio continues to use public requests.
 
 Run `npm test` to verify changes. See [Releasing](.github/RELEASING.md) for version tags and Marketplace publishing.
+
+## Rust engine
+
+The graph physics, layout coordinates, shared-connection selection, spanning forest, shortest paths, and identity geometry run in Rust compiled to WebAssembly. The same checked-in module powers the browser and the Node.js daily action. JavaScript handles GitHub requests, filtering, SVG markup, label placement, editing, and DOM events; CSS handles animation and highlighting. Layout results are cached across style edits. Rust is not required to use the studio or action.
+
+Source lives in `rust/constellation-core`. It incorporates Mikey Nichols's [graph engine](https://gist.github.com/mnichols08/4f0dc93973ae00cabf76baa56bd78a4c) and [identity generator](https://gist.github.com/mnichols08/e4a1080f19480abafa7f0249d16b0c3f); the palette follows [the Workshop](https://mnix.dev/lab).
+
+To change the Rust engine, install Rust and the matching bindings tool, then rebuild the browser assets:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.128 --locked
+npm run test:rust
+npm run build:rust
+npm test
+```
+
+Commit `Cargo.lock` and both files in `src/wasm` together with Rust changes. If WebAssembly cannot load in a browser, the original repository star field, individual colors, and direct-neighbor exploration remain available; the studio disables category nodes, Rust-only arrangements, and rings. This fallback does not provide pathfinding.
+
+**Randomize node hues** assigns evenly spaced, randomly shuffled hues to every node in the current view, including hidden nodes. Click again for a new palette. **Color lines with nodes** blends each connection from one endpoint’s color to the other’s; turning the switch off restores the normal line palette without changing node colors. Individual recoloring updates connected lines too. The chosen colors and `colorConnections` switch are preserved in SVG and workflow exports.
+
+**Snap nodes to ring points** is enabled by default. Unlock positions to move a node or its attached label to the nearest available ring point, regardless of distance. Occupied visible nodes swap places; hidden nodes reserve their points. Snapping applies during dragging and to arrow-key moves, even when ring decoration is hidden. Rust generates exactly one ring point per node, up to the graph’s 256-node limit: three nodes produce three points. Each point is associated with a node; hiding that node also hides its point while reserving its placement. Existing point coordinates stay stable as the graph grows, with new points added in the widest gaps. Snapping skips points where the attached label would cross the chart bounds. Arrow keys select the nearest available point in that direction. Turn snapping off for free placement. Turning snapping off keeps existing placements; node positions and the `snapToRings` preference are included in exports.
+
+The default **On identity ring points** arrangement (`arrangement: "rings"`) places every node directly on its own ring point automatically. The assignment is deterministic for the same account and node set, and extra points accommodate larger graphs. Manual placements override automatic placement; resetting positions returns nodes to their assigned ring points. Star field, Identity orbits, and Connected clusters remain available as alternatives.
+
+Use the four **Ring 1–4** sliders to rotate each ring’s points independently from 0° to 360°. In the default ring arrangement, nodes follow their points automatically. Manually snapped placements, attached labels, and connections move with their points too; freely positioned nodes retain their placements. The slider works independently of the drag lock. SVG and workflow exports preserve the `ringRotations` angles and updated manual placements.
+
+The arrangement controls have four independent rotation sliders: **Ring 1 (inner)** through **Ring 4 (outer)**. Each slider shifts only its own ring’s points and attached nodes. Exports store `ringRotations` as four angles in inner-to-outer order. Older `ringRotation` configurations still rotate all four rings together.
+
+Each ring slider moves its arc line together with its points. Connection paths and their color gradients remain attached to the moving node endpoints.
+
+**Ring animation** has an **Animate rings** toggle, a 0–6 RPM speed slider, and a clockwise/counterclockwise direction selector for each ring. Zero RPM keeps that ring still. **Lock rings together** copies Ring 1’s speed and direction to all four rings while retaining their starting angular offsets. Ring arcs, points, attached nodes, labels, and connections animate together; freely positioned nodes stay put. Connections use straight animated lines so both endpoints can follow independently rotating rings. Animation uses native SVG animation, including in image exports, without a JavaScript frame loop. Viewers requesting reduced motion see the starting arrangement. Turn animation off to return to the starting arrangement and edit placements. Workflow exports preserve the `ringAnimation` settings.
+
+The sidebar groups controls into collapsible sections. **Rings & motion** shows one selected ring at a time, with its starting angle, speed, direction, steady/eased timing, and **Spin** or **Sway** motion. Sway has an adjustable angular range. All prior controls remain available in the position, project, connection, and style sections.
+
+**Floating nodes** animates nodes that are not attached to a ring point. Choose **Drift**, **Bob up and down**, or **Small orbit**, adjust movement and cycle duration, and animate them independently of the rings. Labels, connections, and gradients follow their endpoints; motion stays within the chart bounds. Pause both kinds of motion before editing placements. These settings export as `floatingAnimation`; ring motion also stores `modes`, `amplitudes`, and `easing`. Reduced-motion preferences retain a still view.
+
+The studio now starts in **Full atlas** with a randomized hue for every node. Colors are assigned once as nodes enter the session and stay stable across other edits; **Randomize node hues** reshuffles them, and palette-reset controls still work.
+
+**Perspective** adds a tilted view with side-to-side angle, viewing tilt, and scale controls. Enable **Animate perspective shifts** to adjust the shift amount and cycle duration. The shared view transform keeps rings, floating nodes, labels, and connections together; static tilted views still support accurate dragging and snapping. Pause motion to edit placements. Perspective settings and native SVG animation are preserved in exports, with a still view for reduced-motion preferences.
+
+**Perspective → Follow your view** supports live pointer tilt on desktop and device tilt on supported phones/tablets. Click **Enable device tilt** to request sensor access, then hold the device comfortably to establish a neutral position; **Recenter device tilt** resets it. The device mode requires a secure context (HTTPS or localhost) and may request browser permission ([browser API requirements](https://developer.mozilla.org/en-US/docs/Web/API/DeviceOrientationEvent/requestPermission_static)). CSS renders the 3D tilt; a small event-driven handler supplies its angles. Reduced-motion preferences pause tracking. Turn live tilt off to edit positions. Live tracking only affects the studio preview; exported SVGs retain their configured perspective and animation.
+
+Selecting a node now updates **Download SVG**, the style preview, and the workflow to the same highlighted constellation. Shift-selecting a second node exports the highlighted path. Unrelated nodes remain dimmed, matching the interactive view; colors, perspective, and animation are preserved. **Clear selection** restores full-constellation exports. Workflows save `selection: { "start": "node-id", "end": "optional-node-id" }`; if the selected node disappears from later data, the full graph is shown instead.

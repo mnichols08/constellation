@@ -1,14 +1,18 @@
-import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation } from './constellation.mjs';
+import { mountLiveTilt } from './live-tilt.mjs';
+import { username, selectRepositoryPool, selectRepositories, repositoryLanguages, renderConstellation, graphNodes } from './constellation.mjs';
 import { readmeSnippet, renderWorkflow, installationLinks } from './export.mjs';
-import { defaultVisualStyle, visualCSS } from './visual-style.mjs';
+import { defaultVisualStyle, visualCSS, randomNodeColors } from './visual-style.mjs';
+import { mountLabelEditor } from './label-editor.mjs';
+import { mountGraphExplorer } from './graph-explorer.mjs';
+import { rustAvailable, identityPoints } from './engine.mjs';
 
-import { createPreviewData, createPreviewFetch } from './preview-data.mjs';
+import { createPreviewData, createPreviewFetch, createPinnedFetch } from './preview-data.mjs';
 
 let storage;
 try { storage = window.sessionStorage; } catch {}
 const proxyBase = document.querySelector('meta[name="constellation-api"]')?.content;
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
-const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }) });
+const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
 const $ = selector => document.querySelector(selector);
 if (proxyBase) $('.form-note').textContent = localAuth
@@ -20,6 +24,30 @@ const preview = $('#preview');
 const download = $('.download');
 const controls = ['#layout', '#max-repos', '#animate', '#forks', '#bridges', '#connection-density', '#connection-basis', '#show-other', '#custom-css'].map($);
 const filterSelection = { languages: null, topics: null };
+const labelPlacements = new Map();
+const starPlacements = new Map();
+const placementAccounts = new Map();
+const nodeColorSettings = new Map();
+const coloredNodeIds = new Map();
+const hiddenNodeSettings = new Map();
+const hiddenLabelSettings = new Map();
+let displayedNodes = [];
+const labelEditor = document.createElement('div');
+labelEditor.className = 'live-tilt-surface';
+let liveTilt;
+let graphSelection = {};
+if (!rustAvailable) {
+  $('#node-mode').value = 'repositories';
+  $('#arrangement').value = 'field';
+  for (const option of $('#node-mode').options) option.disabled = option.value !== 'repositories';
+  for (const option of $('#arrangement').options) option.disabled = option.value !== 'field';
+  $('#identity-ring').checked = false;
+  $('#identity-ring').disabled = true;
+  $('#snap-rings').disabled = true;
+  $('#animate-rings').disabled = true;
+  for (let i = 0; i < 4; i++) $(`#ring-rotation-${i}`).disabled = true;
+  $('#engine-status').textContent = 'Basic preview: the layout engine could not load. Reload to restore orbital layouts and rings.';
+}
 function buildGraphFilters(pool) {
   const previousFocus = document.activeElement?.id;
   const available = {
@@ -96,8 +124,34 @@ let repositories = Object.entries(sampleGroups).flatMap(([language, names]) => n
   name, full_name: `${account}/${name}`, language, languages: { [language]: 1000, ...(['JavaScript', 'TypeScript', 'CSS'].includes(language) ? { HTML: 80, CSS: 60 } : {}) }, topics: index % 2 ? ['creative-coding'] : ['web', 'tools'], stargazers_count: [42, 18, 7, 3, 1][index], fork: false,
 })));
 let isSample = true;
+let loadedSource = 'all';
+repositories = repositories.map((repo, index) => ({ ...repo, pinned: index < 6, pin_order: index }));
 let url;
 let workflowUrl;
+
+function updateNodeColorControls(selectedId) {
+  const select = $('#color-node');
+  const previous = selectedId || select.value;
+  const choices = displayedNodes.map(node => [node.full_name, `${node.name} (${node.nodeKind || 'repository'})${hiddenNodeSettings.get(account.toLowerCase())?.has(node.full_name) ? ' — hidden' : ''}`]);
+  if (JSON.stringify([...select.options].map(option => [option.value, option.textContent])) !== JSON.stringify(choices)) {
+    select.replaceChildren(...choices.map(([id, label]) => {
+      const option = document.createElement('option'); option.value = id; option.textContent = label; return option;
+    }));
+  }
+  if (choices.some(([id]) => id === previous)) select.value = previous;
+  for (const [id, settings] of [['#node-visible', hiddenNodeSettings], ['#node-label-visible', hiddenLabelSettings]]) {
+    $(id).checked = !settings.get(account.toLowerCase())?.has(select.value);
+    $(id).disabled = !choices.length;
+  }
+  const settings = nodeColorSettings.get(account.toLowerCase()) || {};
+  const custom = Object.hasOwn(settings, select.value);
+  $('#node-color').value = custom ? settings[select.value] : visualStyle[matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'].star;
+  select.disabled = !choices.length;
+  $('#node-color').disabled = !choices.length;
+  $('#random-node-colors').disabled = !choices.length;
+  $('#reset-node-color').disabled = !custom;
+  $('#reset-node-colors').disabled = !Object.keys(settings).length;
+}
 
 
 function message(text, error = false) {
@@ -106,10 +160,57 @@ function message(text, error = false) {
 }
 
 function render() {
+  placementAccounts.set(account.toLowerCase(), account);
   const generatedCSS = visualCSS(visualStyle);
   $('#generated-css').value = generatedCSS;
   const options = { theme: 'auto', layout: $('#layout').value, maxRepos: Number($('#max-repos').value), animate: $('#animate').checked, includeForks: $('#forks').checked, bridges: $('#bridges').checked, connectionDensity: $('#connection-density').value, connectionBasis: $('#connection-basis').value, languages: filterSelection.languages, topics: filterSelection.topics, showOther: $('#show-other').checked, css: `${generatedCSS}\n${$('#custom-css').value}` };
+  options.repoSource = isSample ? $('#repo-source').value : loadedSource;
+  $('#pinned-help').hidden = options.repoSource !== 'pinned';
+  $('#max-repos').disabled = options.repoSource === 'pinned';
   const selected = selectRepositoryPool(repositories, options);
+  options.arrangement = $('#arrangement').value;
+  if ($('#link-ring-motion').checked) for (let i = 1; i < 4; i++) {
+    $(`#ring-speed-${i}`).value = $('#ring-speed-0').value;
+    $(`#ring-direction-${i}`).value = $('#ring-direction-0').value;
+    for (const kind of ['motion', 'easing', 'sway']) $(`#ring-${kind}-${i}`).value = $(`#ring-${kind}-0`).value;
+  }
+  options.ringAnimation = { enabled: $('#animate-rings').checked, linked: $('#link-ring-motion').checked, speeds: Array.from({ length: 4 }, (_, i) => Number($(`#ring-speed-${i}`).value)), directions: Array.from({ length: 4 }, (_, i) => $(`#ring-direction-${i}`).value) };
+  options.ringAnimation.modes = Array.from({ length: 4 }, (_, i) => $(`#ring-motion-${i}`).value);
+  options.ringAnimation.easing = Array.from({ length: 4 }, (_, i) => $(`#ring-easing-${i}`).value);
+  options.ringAnimation.amplitudes = Array.from({ length: 4 }, (_, i) => Number($(`#ring-sway-${i}`).value));
+  options.perspective = { enabled: $('#perspective-enabled').checked, animate: $('#perspective-animate').checked, ...Object.fromEntries(['horizontal', 'vertical', 'zoom', 'range', 'duration'].map(key => [key, Number($(`#perspective-${key}`).value)])) };
+  $('#perspective-controls').hidden = !options.perspective.enabled;
+  $('#perspective-motion-controls').hidden = !options.perspective.animate;
+  for (const key of ['horizontal', 'vertical', 'zoom', 'range', 'duration']) $(`#perspective-${key}-value`).value = `${options.perspective[key]}${key === 'zoom' ? '%' : key === 'duration' ? 's' : '°'}`;
+  const cameraMoving = options.perspective.enabled && options.perspective.animate;
+  options.floatingAnimation = { enabled: $('#animate-floating').checked, mode: $('#floating-motion').value, amplitude: Number($('#floating-amount').value), duration: Number($('#floating-duration').value) };
+  $('#floating-motion-controls').hidden = !options.floatingAnimation.enabled;
+  $('#floating-amount-value').value = options.floatingAnimation.amplitude;
+  $('#floating-duration-value').value = `${options.floatingAnimation.duration}s`;
+  for (let i = 0; i < 4; i++) {
+    const linked = options.ringAnimation.linked && i > 0;
+    $(`[data-ring-editor="${i}"]`).hidden = $('#edit-ring').value !== String(i);
+    $(`#ring-sway-controls-${i}`).hidden = options.ringAnimation.modes[i] !== 'sway';
+    $(`#ring-sway-value-${i}`).value = `${options.ringAnimation.amplitudes[i]}°`;
+    for (const kind of ['motion', 'easing', 'sway']) $(`#ring-${kind}-${i}`).disabled = linked;
+    $(`#ring-speed-${i}`).disabled = linked;
+    $(`#ring-direction-${i}`).disabled = linked;
+    $(`#ring-speed-value-${i}`).value = `${options.ringAnimation.speeds[linked ? 0 : i]} RPM`;
+  }
+  $('#lock-stars').disabled = options.ringAnimation.enabled || options.floatingAnimation.enabled || cameraMoving || liveTilt?.active;
+  options.ringRotations = Array.from({ length: 4 }, (_, i) => Number($(`#ring-rotation-${i}`).value));
+  options.ringRotations.forEach((angle, i) => { $(`#ring-rotation-value-${i}`).value = `${angle}°`; });
+  options.identityRing = $('#identity-ring').checked;
+  options.snapToRings = $('#snap-rings').checked;
+  $('#snap-rings').disabled = !rustAvailable;
+  options.nodeMode = $('#node-mode').value;
+  options.hiddenNodes = [...(hiddenNodeSettings.get(account.toLowerCase()) || [])];
+  options.hiddenLabels = [...(hiddenLabelSettings.get(account.toLowerCase()) || [])];
+  options.colorConnections = $('#color-connections').checked;
+  options.nodeColors = nodeColorSettings.get(account.toLowerCase()) || {};
+  const placementKey = `${account.toLowerCase()}:${options.layout}:${options.arrangement}`;
+  options.labelOffsets = labelPlacements.get(placementKey) || {};
+  options.starPositions = starPlacements.get(placementKey) || {};
   const missing = selected.filter(repo => !repo.languages).length;
   $('#limit-value').value = options.maxRepos;
   $('#load-projects').hidden = isSample || !missing;
@@ -119,66 +220,170 @@ function render() {
     message(`${missing} projects need language data. Click Load data to apply this project pool. The previous image and exports are retained; no requests are made while customizing.`);
     return;
   }
-  const svg = renderConstellation(account, repositories, { ...options, generatedAt: new Date().toISOString() });
+  const projected = graphNodes(repositories, options);
+  const accountKey = account.toLowerCase();
+  const seenColors = coloredNodeIds.get(accountKey) || new Set();
+  const newIds = projected.nodes.map(node => node.full_name).filter(id => !seenColors.has(id));
+  if (newIds.length) {
+    const settings = { ...nodeColorSettings.get(accountKey) };
+    const used = new Set(Object.values(settings));
+    for (const [id, candidate] of Object.entries(randomNodeColors(newIds))) {
+      let color = candidate;
+      while (used.has(color)) color = randomNodeColors([id])[id];
+      settings[id] = color; used.add(color); seenColors.add(id);
+    }
+    nodeColorSettings.set(accountKey, settings); coloredNodeIds.set(accountKey, seenColors);
+    options.nodeColors = settings;
+  }
+  const generatedAt = new Date().toISOString();
+  options.selection = graphSelection;
+  const svg = renderConstellation(account, repositories, { ...options, generatedAt });
+  displayedNodes = [...projected.nodes].sort((a, b) => a.name.localeCompare(b.name));
+  updateNodeColorControls();
+  const combinedMode = options.nodeMode === 'combined';
+  const categoryMode = options.nodeMode !== 'repositories';
+  $('#connection-density').disabled = combinedMode;
+  $('#connection-basis').disabled = categoryMode;
+  $('#bridges').disabled = categoryMode;
+  $('#node-mode-help').textContent = combinedMode ? 'Repositories, languages and topics share one chart. Lines connect each repository to its categories. Unlock positions to arrange nodes; labels move with them. Manual positions carry across views. Topics are repository topics, not issue labels.' : categoryMode
+    ? `Each node is a ${options.nodeMode === 'languages' ? 'language' : 'GitHub repository topic'}. Connections mean they occur in the same repository; size shows repository count. Click a node to see its repositories.${options.nodeMode === 'topics' ? ' Issue labels are not included.' : ''}`
+    : 'Each node is a repository. Connections show shared languages or topics.';
+  $('#node-legend').textContent = combinedMode ? 'Repository · Language (ring) · Topic (dashed ring)' : categoryMode ? options.nodeMode === 'languages' ? 'Language' : 'Topic' : 'Project';
   buildGraphFilters(selectRepositoryPool(repositories, options));
-  $('#relationship-legend').textContent = options.connectionBasis === 'both' ? 'Languages & topics' : options.connectionBasis === 'topics' ? 'Shared topic' : 'Shared language';
-  const nextUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-  const img = new Image();
-  img.alt = `${isSample ? 'Sample constellation' : `@${account}’s constellation`}: public repositories connected by ${options.connectionBasis === 'both' ? 'shared languages and topics' : `shared ${options.connectionBasis}`}. Larger stars represent more GitHub stars.`;
-  img.src = nextUrl;
-  preview.replaceChildren(img);
-  $('#style-preview').replaceChildren(img.cloneNode());
-  if (url) URL.revokeObjectURL(url);
-  url = nextUrl;
-  download.href = url;
-  download.download = 'constellation.svg';
+  $('#relationship-legend').textContent = combinedMode ? 'Repository → language / topic' : categoryMode ? 'Shared repository' : options.connectionBasis === 'both' ? 'Languages & topics' : options.connectionBasis === 'topics' ? 'Shared topic' : 'Shared language';
+  const exportSelection = () => {
+    const captured = renderConstellation(account, repositories, { ...options, generatedAt });
+    const nextUrl = URL.createObjectURL(new Blob([captured], { type: 'image/svg+xml' }));
+    const img = new Image();
+    img.alt = `${account}'s constellation${options.selection?.start ? ': selected connections' : ''}`;
+    img.src = nextUrl;
+    $('#style-preview').replaceChildren(img);
+    if (url) URL.revokeObjectURL(url);
+    url = nextUrl; download.href = url; download.download = 'constellation.svg';
+    $('#workflow').value = renderWorkflow(isSample ? null : account, options);
+    updateSnippet();
+    if (workflowUrl) URL.revokeObjectURL(workflowUrl);
+    workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
+    $('#download-workflow').href = workflowUrl;
+  };
+  const movedOptions = (repo, pair) => ({ ...options, starPositions: { ...options.starPositions, ...pair.placements, [repo]: pair.star }, labelOffsets: { ...options.labelOffsets, ...pair.offsets } });
+  mountLabelEditor(labelEditor, svg, (repo, pair, kind) => {
+    const moved = movedOptions(repo, pair);
+    starPlacements.set(placementKey, moved.starPositions);
+    labelPlacements.set(placementKey, moved.labelOffsets);
+    render();
+    const target = [...labelEditor.shadowRoot.querySelectorAll(kind === 'star' ? '.star' : '.repo-label')].find(node => node.dataset.repo === repo);
+    (kind === 'star' ? target?.parentElement : target)?.focus();
+  }, (repo, pair) => renderConstellation(account, repositories, movedOptions(repo, pair)), $('#lock-stars').checked || options.ringAnimation.enabled || options.floatingAnimation.enabled || cameraMoving || liveTilt?.active, options.snapToRings);
+  preview.replaceChildren(labelEditor);
+  mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start) $('#color-node').closest('details').open = true; });
   const eligible = repositories.filter(repo => repo.private !== true && (options.includeForks || !repo.fork));
   const shown = selectRepositories(repositories, options);
-  $('#filter-summary').textContent = `${shown.length} matching projects from a pool of ${selected.length}. Increase the project limit to explore more. ${options.languages?.length === 0 || options.topics?.length === 0 ? 'Choose a category or All to show projects.' : ''}`;
+  $('#filter-summary').textContent = `${shown.length} matching projects from ${options.repoSource === 'pinned' ? `${selected.length} public pinned repositories` : `a pool of ${selected.length}`}.${categoryMode ? ` Showing ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} of ${projected.total} ${combinedMode ? 'nodes' : options.nodeMode}${projected.total > projected.nodes.length ? combinedMode ? ' (up to 256 nodes, retaining repositories and the most represented categories)' : ' (the 100 most represented categories)' : ''}.` : ''} ${options.repoSource === 'pinned' ? 'Your profile pins define the project pool; language, topic, and fork filters still apply.' : 'Increase the project limit to explore more.'} ${options.languages?.length === 0 || options.topics?.length === 0 ? 'Choose a category or All to show projects.' : ''}`;
   $('#repo-count').textContent = shown.length;
   $('#language-count').textContent = new Set(shown.flatMap(repositoryLanguages)).size;
   $('#star-count').textContent = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(shown.reduce((total, repo) => total + (repo.stargazers_count || 0), 0));
-  $('#limit-value').value = options.maxRepos;
+  $('#limit-value').value = options.repoSource === 'pinned' ? 'All pins' : options.maxRepos;
   $('#map-title').textContent = isSample ? 'The sample sky' : `@${account}’s sky`;
   $('#sample-badge').hidden = !isSample;
-  $('#workflow').value = renderWorkflow(isSample ? null : account, options);
-  updateSnippet();
-  if (workflowUrl) URL.revokeObjectURL(workflowUrl);
-  workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
-  $('#download-workflow').href = workflowUrl;
-  $('#workflow-note').textContent = 'This workflow generates a constellation for the repository owner, using the settings and CSS shown here.';
-  if (!isSample) message(`Showing ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests. Connections use selected ${options.connectionBasis === 'both' ? 'languages and topics' : options.connectionBasis}.`);
+  $('#workflow-note').textContent = options.repoSource === 'pinned' ? 'This workflow reads the repository owner’s current public pins on every run using GitHub’s automatic token. No personal token is needed in the workflow.' : 'This workflow generates a constellation for the repository owner, using the settings and CSS shown here.';
+  if (!isSample) message(`Showing ${projected.nodes.length} ${options.nodeMode} from ${shown.length} of ${eligible.length} public repositories for @${account}. Using saved data; customization makes no GitHub requests.`);
 }
 
 for (const control of controls) control.addEventListener('input', render);
+$('#repo-source').addEventListener('change', () => {
+  if (isSample) render(); else loadAccount(account, false, $('#repo-source').value);
+});
+for (const link of document.querySelectorAll('a[href="#token-help"]')) link.addEventListener('click', () => { $('#token-help').open = true; });
+for (const id of ['#arrangement', '#identity-ring', '#node-mode', '#snap-rings']) $(id).addEventListener('input', render);
+$('#color-node').addEventListener('change', () => { graphSelection = { start: $('#color-node').value }; render(); });
+for (const [id, settings] of [['#node-visible', hiddenNodeSettings], ['#node-label-visible', hiddenLabelSettings]]) {
+  $(id).addEventListener('input', () => {
+    const hidden = new Set(settings.get(account.toLowerCase()) || []);
+    $(id).checked ? hidden.delete($('#color-node').value) : hidden.add($('#color-node').value);
+    settings.set(account.toLowerCase(), hidden); render();
+  });
+}
+$('#reset-node-visibility').addEventListener('click', () => {
+  hiddenNodeSettings.delete(account.toLowerCase()); hiddenLabelSettings.delete(account.toLowerCase()); render();
+});
+for (const id of [...['enabled', 'animate', 'horizontal', 'vertical', 'zoom', 'range', 'duration'].map(key => `perspective-${key}`), 'edit-ring', 'animate-floating', 'floating-motion', 'floating-amount', 'floating-duration', ...['motion', 'easing', 'sway'].flatMap(kind => Array.from({ length: 4 }, (_, i) => `ring-${kind}-${i}`)), 'animate-rings', 'link-ring-motion', ...Array.from({ length: 4 }, (_, i) => `ring-speed-${i}`), ...Array.from({ length: 4 }, (_, i) => `ring-direction-${i}`)]) $(`#${id}`).addEventListener('input', render);
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', render);
+let previousRingRotation = [0, 0, 0, 0];
+for (let ring = 0; ring < 4; ring++) $(`#ring-rotation-${ring}`).addEventListener('input', () => {
+  const rotation = Array.from({ length: 4 }, (_, i) => Number($(`#ring-rotation-${i}`).value));
+  for (const [key, placements] of starPlacements) {
+    const [owner, layout] = key.split(':');
+    const before = identityPoints(placementAccounts.get(owner) || owner, 256, previousRingRotation);
+    const after = identityPoints(placementAccounts.get(owner) || owner, 256, rotation);
+    const center = layout === 'compact' ? 126 : 270;
+    const spread = layout === 'compact' ? 88 : 192;
+    const coordinate = (points, i) => ({ x: Number((450 + (points[i] - 240) * 368 / 172).toFixed(1)), y: Number((center + (points[i + 1] - 240) * spread / 172).toFixed(1)) });
+    const moved = { ...placements };
+    for (const [id, position] of Object.entries(placements)) {
+      for (let i = 0; i < before.length; i += 3) {
+        const point = coordinate(before, i);
+        if (Math.hypot(point.x - position.x, point.y - position.y) < .2) { moved[id] = coordinate(after, i); break; }
+      }
+    }
+    starPlacements.set(key, moved);
+  }
+  previousRingRotation = rotation;
+  render();
+});
+$('#color-connections').addEventListener('input', render);
+$('#random-node-colors').addEventListener('click', () => {
+  nodeColorSettings.set(account.toLowerCase(), { ...nodeColorSettings.get(account.toLowerCase()), ...randomNodeColors(displayedNodes.map(node => node.full_name)) });
+  render();
+});
+$('#node-color').addEventListener('input', () => {
+  const id = $('#color-node').value;
+  if (!id) return;
+  nodeColorSettings.set(account.toLowerCase(), { ...nodeColorSettings.get(account.toLowerCase()), [id]: $('#node-color').value });
+  render();
+});
+$('#reset-node-color').addEventListener('click', () => {
+  const settings = { ...nodeColorSettings.get(account.toLowerCase()) };
+  delete settings[$('#color-node').value]; nodeColorSettings.set(account.toLowerCase(), settings); render();
+});
+$('#reset-node-colors').addEventListener('click', () => { nodeColorSettings.delete(account.toLowerCase()); render(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => updateNodeColorControls());
 for (const button of document.querySelectorAll('[data-filter]')) button.addEventListener('click', () => {
   filterSelection[button.dataset.filter] = button.dataset.selection === 'all' ? null : []; render();
 });
-async function loadAccount(nextAccount, refresh = false) {
+async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value) {
   if (loading) return;
   loading = true;
+  $('#repo-source').disabled = true;
   for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = true;
   preview.setAttribute('aria-busy', 'true');
   message('Loading project data… You can keep adjusting styles.');
   try {
-    const nextRepositories = await data.load(nextAccount, { maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked }, {
+    if (source === 'pinned' && (!proxyBase || !localAuth)) {
+      $('#token-help').open = true;
+      throw new Error('Pinned previews require a personal access token. Create one using the token setup below, save GH_TOKEN in the local project .env, and restart npm run preview. The daily workflow uses GitHub’s automatic token.');
+    }
+    const nextRepositories = await data.load(nextAccount, { maxRepos: Number($('#max-repos').value), includeForks: $('#forks').checked, repoSource: source }, {
       refresh, onProgress: (done, total) => message(`Loading language data… ${done}/${total}`),
     });
     if (!$('#output-repository').value || $('#output-repository').value === `${account}/${account}`) $('#output-repository').value = `${nextAccount}/${nextAccount}`;
     account = nextAccount;
     repositories = nextRepositories;
+    loadedSource = source;
     isSample = false;
     $('#refresh-data').hidden = false;
     render();
   } catch (error) {
+    if (!isSample) $('#repo-source').value = loadedSource;
     let detail = error instanceof TypeError ? 'Couldn’t reach GitHub. Check your connection and try again.' : error.message;
-    if (/request limit reached/i.test(detail)) detail = localAuth
+    if (/request limit reached/i.test(detail) && !/token access denied/i.test(detail)) detail = localAuth
       ? 'GitHub’s limit for your local token has been reached. Try again after the limit resets.'
       : 'GitHub’s public request limit has been reached. Try later, or run the local preview with a token in .env.';
     if (localAuth && /\(401\)/.test(detail)) detail = 'GitHub rejected your local token. Update .env and restart npm run preview.';
     message(`${detail} The previous image and exports are retained. Successful lookups are saved for your next attempt.`, true);
   } finally {
     loading = false;
+    $('#repo-source').disabled = false;
     for (const button of [form.querySelector('button'), $('#load-projects'), $('#refresh-data')]) button.disabled = false;
     preview.setAttribute('aria-busy', 'false');
   }
@@ -229,6 +434,13 @@ $('#copy-markdown').addEventListener('click', async () => {
 });
 $('#reset-css').addEventListener('click', () => { $('#custom-css').value = ''; render(); });
 $('#show-labels').addEventListener('input', () => { visualStyle.labels = $('#show-labels').checked; render(); });
+$('#lock-stars').addEventListener('input', render);
+$('#reset-stars').addEventListener('click', () => {
+  const key = `${account.toLowerCase()}:${$('#layout').value}:${$('#arrangement').value}`;
+  starPlacements.delete(key);
+  labelPlacements.delete(key);
+  render();
+});
 $('#reset-visual').addEventListener('click', () => { visualStyle = defaultVisualStyle(); buildVisualControls(); render(); });
 $('#copy-workflow').addEventListener('click', async () => {
   try {
@@ -241,4 +453,5 @@ $('#copy-workflow').addEventListener('click', async () => {
   }
 });
 buildVisualControls();
+liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });
 render();

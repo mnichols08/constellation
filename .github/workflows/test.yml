@@ -11,6 +11,14 @@ jobs:
         with:
           node-version: '22'
       - run: npm test
+      - name: Test Rust core
+        run: cargo test --locked --manifest-path rust/constellation-core/Cargo.toml
+      - name: Rebuild Rust engine and verify integration
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.128 --locked
+          npm run build:rust
+          npm test
       - uses: ./
         with:
           output: dist/smoke.svg

@@ -1,12 +1,15 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { fetchPinnedRepositories } from '../src/constellation.mjs';
 
 const allowed = new Map([
   ['/', ['../index.html', 'text/html']],
   ['/profiles/preview.html', ['../profiles/preview.html', 'text/html']],
   ['/src/preview.css', ['../src/preview.css', 'text/css']],
-  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
-  ...['mnichols08', 'mnichols08-dark', 'mnichols08-light'].map(name => [`/dist/${name}.svg`, [`../dist/${name}.svg`, 'image/svg+xml']]),
+  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ['/src/wasm/constellation_core.js', ['../src/wasm/constellation_core.js', 'text/javascript']],
+  ['/src/wasm/constellation_core_bg.wasm', ['../src/wasm/constellation_core_bg.wasm', 'application/wasm']],
+  ...['constellation', 'mnichols08', 'mnichols08-dark', 'mnichols08-light'].map(name => [`/dist/${name}.svg`, [`../dist/${name}.svg`, 'image/svg+xml']]),
 ]);
 
 export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
@@ -24,6 +27,18 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (url.pathname.startsWith('/api/github/')) {
       const path = url.pathname.slice('/api/github'.length);
+      const pinned = /^\/users\/([a-z\d][a-z\d-]{0,38})\/pinned$/i.exec(path);
+      if (pinned && !url.search) {
+        res.setHeader('Content-Type', 'application/json');
+        if (!token) { res.writeHead(401); res.end(JSON.stringify({ message: 'Pinned repositories need GH_TOKEN in the local server .env file.' })); return; }
+        try {
+          res.end(JSON.stringify(await fetchPinnedRepositories(pinned[1], { token, fetchImpl })));
+        } catch (error) {
+          res.writeHead(502);
+          res.end(JSON.stringify({ message: error.message.startsWith('GitHub') || error.message.startsWith('Could not load pinned') ? error.message : 'Could not load pinned repositories from GitHub.' }));
+        }
+        return;
+      }
       const repoList = /^\/users\/[a-z\d][a-z\d-]{0,38}\/repos$/i.test(path);
       const languages = /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/languages$/i.test(path);
       if ((!repoList && !languages) || [...url.searchParams.keys()].some(key => !['type', 'sort', 'per_page', 'page'].includes(key))) {

@@ -13,6 +13,19 @@ async function serve(t, options) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
+test('studio serves the Rust binary and its modules with usable MIME types', async t => {
+  const base = await serve(t);
+  const wasm = await fetch(`${base}/src/wasm/constellation_core_bg.wasm`);
+  assert.equal(wasm.status, 200);
+  assert.match(wasm.headers.get('content-type'), /^application\/wasm/);
+  assert.ok(WebAssembly.validate(await wasm.arrayBuffer()));
+  for (const path of ['engine.mjs', 'graph-explorer.mjs', 'wasm/constellation_core.js']) {
+    const response = await fetch(`${base}/src/${path}`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /^text\/javascript/);
+  }
+});
+
 test('local studio authenticates upstream only, retains data, and never serves .env', async t => {
   const calls = [];
   const token = 'test-local-secret';
@@ -73,4 +86,30 @@ test('upstream failures preserve status and rate limits without leaking server e
   const error = await fetch(`${failed}/api/github/users/octocat/repos`);
   assert.equal(error.status, 502);
   assert.ok(!(await error.text()).includes(token));
+});
+
+test('pinned endpoint runs a fixed server-side query without exposing the token or private pins', async t => {
+  const token = 'private-test-token';
+  let request;
+  const base = await serve(t, { token, fetchImpl: async (url, options) => {
+    request = { url, options };
+    return Response.json({ data: { repositoryOwner: { pinnedItems: { nodes: [
+      { name: 'public', nameWithOwner: 'other/public', isPrivate: false, isFork: false, stargazerCount: 1, primaryLanguage: { name: 'Rust' }, repositoryTopics: { nodes: [] } },
+      { name: 'secret', nameWithOwner: 'other/secret', isPrivate: true },
+    ], pageInfo: { hasNextPage: false, endCursor: null } } } } });
+  } });
+  const response = await fetch(`${base}/api/github/users/octocat/pinned`);
+  assert.equal(response.status, 200);
+  const body = await response.text();
+  assert.ok(!body.includes(token) && !body.includes('other/secret'));
+  assert.equal(JSON.parse(body)[0].full_name, 'other/public');
+  assert.equal(request.url, 'https://api.github.com/graphql');
+  assert.equal(request.options.headers.Authorization, `Bearer ${token}`);
+  assert.equal(JSON.parse(request.options.body).variables.login, 'octocat');
+  assert.equal((await fetch(`${base}/api/github/users/octocat/pinned?query=anything`)).status, 404);
+  assert.equal((await fetch(`${base}/api/github/graphql`, { method: 'POST' })).status, 405);
+  const unauthenticated = await serve(t);
+  const missing = await fetch(`${unauthenticated}/api/github/users/octocat/pinned`);
+  assert.equal(missing.status, 401);
+  assert.match(await missing.text(), /GH_TOKEN/);
 });

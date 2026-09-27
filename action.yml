@@ -8,7 +8,7 @@ inputs:
     description: GitHub username or profile URL
     default: ${{ github.repository_owner }}
   token:
-    description: GitHub token for API rate limits
+    description: GitHub token for API requests and pinned repositories; defaults to the automatic workflow token
     default: ${{ github.token }}
   output:
     description: SVG output path relative to the caller workspace

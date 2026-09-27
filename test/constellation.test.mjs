@@ -2,6 +2,41 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { username, fetchRepositories, renderConstellation } from '../src/constellation.mjs';
 const repo = { name: 'hello', full_name: 'octocat/hello', language: 'JavaScript', stargazers_count: 8 };
+test('moving stars updates connections and bridges while retaining manually placed labels', () => {
+  const repos = [repo, { ...repo, name: 'world', full_name: 'octocat/world', language: 'CSS', languages: { JavaScript: 10, CSS: 20 } }];
+  for (const layout of ['atlas', 'compact']) {
+    const options = { layout, bridges: true, starPositions: { 'octocat/hello': { x: 200, y: 100 }, 'octocat/world': { x: 700, y: 180 } }, labelPositions: { 'octocat/hello': { x: 300, y: 50 } } };
+    const svg = renderConstellation('octocat', repos, options);
+    assert.equal(svg, renderConstellation('octocat', [...repos].reverse(), options));
+    assert.match(svg, /class="star" cx="200.0" cy="100.0"/);
+    assert.match(svg, /class="star" cx="700.0" cy="180.0"/);
+    const edge = [...svg.matchAll(/class="shared-language"[^>]* d="M([\d.]+) ([\d.]+)Q[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/g)];
+    assert.equal(edge.length, 1);
+    assert.deepEqual(new Set([edge[0].slice(1, 3).join(','), edge[0].slice(3, 5).join(',')]), new Set(['200.0,100.0', '700.0,180.0']));
+    assert.match(svg, /d="M(?:200.0 100.0L700.0 180.0|700.0 180.0L200.0 100.0)"><title>Visual bridge/);
+    assert.match(svg, /data-repo="octocat\/hello" x="300.0" y="50.0"/);
+    const bounded = renderConstellation('octocat', [repo], { layout, starPositions: { 'octocat/hello': { x: -500, y: 10000 } } });
+    assert.match(bounded, new RegExp(`class="star" cx="32.0" cy="${layout === 'compact' ? 220 : 500}.0"`));
+  }
+  for (const starPositions of [[], 'bad', { 'octocat/hello': null }, { 'octocat/hello': { x: NaN, y: 2 } }]) {
+    assert.throws(() => renderConstellation('octocat', [repo], { starPositions }), /starPositions/);
+  }
+});
+
+test('manual label positions survive repository ordering and are validated and bounded', () => {
+  const other = { ...repo, name: 'world', full_name: 'octocat/world' };
+  for (const layout of ['atlas', 'compact']) {
+    const options = { layout, labelPositions: { 'octocat/hello': { x: 120.5, y: 100 } } };
+    const svg = renderConstellation('octocat', [repo, other], options);
+    assert.match(svg, /data-repo="octocat\/hello" x="120.5" y="100.0"/);
+    assert.equal(svg, renderConstellation('octocat', [other, repo], options));
+    const bounded = renderConstellation('octocat', [repo], { layout, labelPositions: { 'octocat/hello': { x: -100, y: 10000 } } });
+    assert.match(bounded, new RegExp(`data-repo="octocat/hello" x="48.0" y="${layout === 'compact' ? 237 : 517}.0"`));
+  }
+  for (const labelPositions of [[], 'bad', { 'octocat/hello': null }, { 'octocat/hello': { x: Infinity, y: 2 } }]) {
+    assert.throws(() => renderConstellation('octocat', [repo], { labelPositions }), /labelPositions/);
+  }
+});
 test('accepts usernames and profile URLs, rejects paths and markup', () => {
   assert.equal(username(' https://github.com/octocat/ '), 'octocat');
   assert.equal(username('@octocat'), 'octocat');
