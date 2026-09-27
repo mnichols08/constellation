@@ -1,33 +1,27 @@
+import { renderSceneSVG } from './renderer-svg.mjs';
+import { historyYears } from './history/historical-snapshot.mjs';
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
-import { renderNodeIcon } from './theme-packs.mjs';
-import { scalingOptions, ringOccupancy } from './scaling.mjs';
+import { scalingOptions } from './scaling.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
 import { organizationGraph, organizationPositions } from './organization/graph.mjs';
-import { visualCSS } from './visual-style.mjs';
 import { historyOptions } from './history/settings.mjs';
 import { referenceDate, historicalSnapshot } from './history/historical-snapshot.mjs';
-import { projectLifecycle } from './history/project-lifecycle.mjs';
-import { historyLayers, historyCSS, timelinePositions } from './history/history-svg.mjs';
-import { renderTimeLapse } from './history/time-lapse-svg.mjs';
+import { timelinePositions } from './history/history-svg.mjs';
 import { aggregateActivity } from './activity.mjs';
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
-import { renderCodingRhythm, codingRhythmCSS, rhythmDescription } from './coding-rhythm-svg.mjs';
-import { githubMark } from './github-mark.mjs';
 import { resolveSeed } from './seeded-random.mjs';
-import { starfieldOptions, renderStarfield, starfieldCSS } from './starfield.mjs';
+import { starfieldOptions } from './starfield.mjs';
 import { activityOptions, activityForNode } from './activity.mjs';
-import { activityMarkup, activityCSS } from './activity-effects.mjs';
 import { resolveTheme } from './themes.mjs';
 import { artifactLayouts, artifactPositions } from './artifact-layouts.mjs';
-import { mappedColor, mappedGlow, connectionWeight, mappingOptions, shapeFor, shapeDefinitions, decoration } from './visual-mapping.mjs';
+import { mappedColor, mappedGlow, mappingOptions, shapeFor } from './visual-mapping.mjs';
 import { filterRepositoryMetadata, compareRepositories } from './repository-filters.mjs';
 import { nodeRadius } from './node-sizing.mjs';
 import { exportSettings, profileDimensions } from './export-image.mjs';
-import { focusSVG } from './selection.mjs';
-import { perspectiveOptions, perspectiveMarkup } from './perspective.mjs';
-import { animateRingSVG, ringAnimationOptions, floatingAnimationOptions } from './ring-animation.mjs';
+import { perspectiveOptions } from './perspective.mjs';
+import { ringAnimationOptions, floatingAnimationOptions } from './ring-animation.mjs';
 import { computeScene, identityGeometry, identityPoints, projectNodes, rustAvailable } from './engine.mjs';
 
 export function username(value = '') {
@@ -218,7 +212,11 @@ export const themes = {
   light: { background: '#fafaf3', foreground: '#202516', accent: '#595600', line: '#838d66', star: '#8b8500' },
 };
 
-export function renderConstellation(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
+export function renderConstellation(account, repositories, options = {}, runtime = {}) {
+  return renderSceneSVG(createScene(account, repositories, options, runtime));
+}
+
+export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
   const scaling = scalingOptions(options);
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
@@ -231,7 +229,16 @@ export function renderConstellation(account, repositories, options = {}, { onDia
   const hasHistory = temporal.history.mode !== 'current' || temporal.history.timeLapse.enabled || ['contributionOrbit', 'languageEvolution', 'stellarAges', 'foreignGalaxies'].some(key => temporal[key].enabled);
   const clock = referenceDate(options, new Date().toISOString());
   options = { ...options, referenceDate: new Date(clock).toISOString() };
-  if (temporal.history.timeLapse.enabled) return renderTimeLapse(account, repositories, { ...options, ...temporal }, renderConstellation, clock);
+  if (temporal.history.timeLapse.enabled) {
+    const settings = temporal.history.timeLapse;
+    const resolved = { ...options, ...temporal };
+    const years = historyYears(repositories, clock, temporal.history.maxHistoricalFrames);
+    const base = { ...resolved, history: { ...temporal.history, mode: 'current', timeLapse: { ...settings, enabled: false } }, timeLapse: false, historicalYear: undefined, generatedAt: new Date(clock).toISOString(), referenceDate: new Date(clock).toISOString() };
+    const latest = createScene(account, repositories, base, { onDiagnostic, nodeRenderer });
+    const frames = settings.mode === 'crossfade' && years.length > 1 && options.animate !== false
+      ? years.slice(0, -1).map(year => ({ year, scene: createScene(account, repositories, { ...base, history: { ...base.history, mode: 'historical', year } }, { onDiagnostic, nodeRenderer }) })) : [];
+    return JSON.parse(JSON.stringify({ version: 1, kind: 'time-lapse', metadata: latest.metadata, latest, frames, presentation: { account, repositories, options: resolved, reference: clock } }));
+  }
   if (temporal.history.mode === 'historical') {
     repositories = historicalSnapshot(repositories, clock);
     options = { ...options, metricDate: options.referenceDate, activityMetricDate: options.referenceDate, activityData: options.historyData ? aggregateActivity(options.historyData.events, repositories, { ...options, activityMetricDate: options.referenceDate }, options.referenceDate) : undefined, codingRhythmData: options.historyData ? deriveCodingRhythm(options.historyData.events, options, options.referenceDate) : undefined };
@@ -282,8 +289,6 @@ export function renderConstellation(account, repositories, options = {}, { onDia
   const repositoryCap = options.nodeCap === undefined ? 100 : scaling.nodeCap;
   if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > repositoryCap) throw new Error(`maxRepos must be an integer between 1 and ${repositoryCap}.`);
   const palette = { ...themes[theme === 'auto' ? 'light' : theme], ...colors };
-  const variables = values => Object.entries(values).map(([key, value]) => `--sky-${key}:${value}`).join(';');
-  const paletteCSS = `svg{${variables(palette)}}` + (theme === 'auto' ? `@media(prefers-color-scheme:dark){svg{${variables({ ...themes.midnight, ...colors })}}}` : '');
   for (const [key, color] of Object.entries(palette)) {
     if (!Object.hasOwn(themes.midnight, key) || !/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(color)) throw new Error('Colors must use known palette keys and 3 or 6 digit hex values.');
   }
@@ -318,9 +323,6 @@ export function renderConstellation(account, repositories, options = {}, { onDia
       position: Object.hasOwn(starPositions, repo.full_name) ? [starPositions[repo.full_name].x, starPositions[repo.full_name].y] : null })) });
   const centerY = compact ? 126 : 270;
   const spreadY = compact ? 88 : 192;
-  const organizationEras = arrangement === 'era-rings' ? [...new Set(repos.map(repo => repo.organizationGroup || repo.name))].sort() : [];
-  const eraRings = organizationEras.map((era, i) => `<ellipse class="organization-era-ring" cx="450" cy="${centerY}" rx="${(365 * (i + 1) / (organizationEras.length + 1)).toFixed(1)}" ry="${((compact ? 85 : 190) * (i + 1) / (organizationEras.length + 1)).toFixed(1)}" fill="none" stroke="var(--sky-accent)" stroke-opacity=".18" stroke-dasharray="2 5"><title>${escape(era)}</title></ellipse>`).join('');
-  const historyLayer = hasHistory ? historyLayers(name, selectRepositories(repositories, options), options, { centerY, spreadY, height }) : { markup: '', note: '', description: '' };
   const phase = (hash(options.seedMode ? seed : name) % 628) / 100;
   const stars = ordered.map((repo, index) => {
     const angle = index * 2.399963 + phase;
@@ -341,20 +343,20 @@ export function renderConstellation(account, repositories, options = {}, { onDia
     return labelOrder.map((star, index) => {
       if (simplified && index >= 100 && !Object.hasOwn(labelPositions, star.repo.full_name) && !Object.hasOwn(labelOffsets, star.repo.full_name)) {
         if (!record) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'large-graph-overview' });
-        return '';
+        return null;
       }
       if (star.repo.organizationFocal && !hiddenNodes.has(star.repo.full_name)) {
         if (record) refinedLabels.set(star.repo.full_name, { x: star.x, y: star.y + 26, width: (star.repo.name.length + 1) * 8.4, size: 15 });
         const pos = refinedLabels.get(star.repo.full_name);
-        return `<text class="repo-label organization-person-label" data-repo="${escape(star.repo.full_name)}" x="${(pos?.x ?? star.x).toFixed(1)}" y="${(pos?.y ?? star.y + 26).toFixed(1)}" style="font-size:15px;font-weight:700">@${escape(star.repo.name)}</text>`;
+        return { id: star.repo.full_name, text: '@' + star.repo.name, x: pos?.x ?? star.x, y: pos?.y ?? star.y + 26, focal: true, hidden: false };
       }
       if (index >= Math.ceil(stars.length * profile.labelFraction)) {
         if (!record) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'export-profile-limit' });
-        return '';
+        return null;
       }
       const text = star.repo.name.length > 22 ? star.repo.name.slice(0, 20) + '…' : star.repo.name;
       const width = text.length * 5.6;
-      const label = (x, y) => { if (record) refinedLabels.set(star.repo.full_name, { x, y, width: width * (options.visualStyle?.labelSize || 10) / 10, size: options.visualStyle?.labelSize || 10 }); return hiddenNodes.has(star.repo.full_name) ? '' : `<text class="repo-label" data-repo="${escape(star.repo.full_name)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}"${hiddenLabels.has(star.repo.full_name) ? ' style="display:none"' : ''}>${escape(text)}</text>`; };
+      const label = (x, y) => { if (record) refinedLabels.set(star.repo.full_name, { x, y, width: width * (options.visualStyle?.labelSize || 10) / 10, size: options.visualStyle?.labelSize || 10 }); return hiddenNodes.has(star.repo.full_name) ? null : { id: star.repo.full_name, text, x, y, focal: false, hidden: hiddenLabels.has(star.repo.full_name) }; };
       if (!record && refinedLabels.has(star.repo.full_name)) { const pos = refinedLabels.get(star.repo.full_name); return label(pos.x, pos.y); }
       if (Object.hasOwn(labelOffsets, star.repo.full_name)) {
         const offset = labelOffsets[star.repo.full_name];
@@ -376,8 +378,8 @@ export function renderConstellation(account, repositories, options = {}, { onDia
       }
       if (record && !hiddenNodes.has(star.repo.full_name) && !hiddenLabels.has(star.repo.full_name) && !['starPositions', 'labelOffsets', 'labelPositions'].some(key => Object.hasOwn(options[key] || {}, star.repo.full_name))) return label(Math.max(34 + width / 2, Math.min(866 - width / 2, star.x)), Math.min(height - 43, star.y + 17));
       if (!record && !hiddenNodes.has(star.repo.full_name) && !hiddenLabels.has(star.repo.full_name)) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'no-collision-free-position' });
-      return '';
-    }).join('');
+      return null;
+    }).filter(Boolean);
   }
   if (refinement.enabled && refinement.intensity > 0) {
     renderLabels(true);
@@ -385,7 +387,6 @@ export function renderConstellation(account, repositories, options = {}, { onDia
     refineStars(stars, refinedLabels, options, { seed: options.seedMode ? seed : name, height, centerY, spreadY, reference });
   }
   const visibleStars = stars.filter(star => !hiddenNodes.has(star.repo.full_name));
-  const dust = Array.from({ length: profile.dustCount }, (_, i) => `<circle cx="${20 + hash(`${options.seedMode ? seed : name}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${options.seedMode ? seed : name}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
   // Compare complete language sets, including secondary HTML/CSS/JavaScript.
   const candidates = [];
   if (graph.organization && nodeMode !== 'repositories') {
@@ -434,103 +435,31 @@ export function renderConstellation(account, repositories, options = {}, { onDia
       parent.set(root(edge.from), root(edge.to));
     }
   }
-  const edges = [...selectedEdges].sort((a, b) => Number(backbone.has(a)) - Number(backbone.has(b))).map((edge, index) => {
-    const { from, to, shared, sharedLanguages, sharedTopics, sharedRepositories = [] } = edge;
-    const dx = to.x - from.x, dy = to.y - from.y;
-    const length = Math.sqrt(edge.distance) || 1;
-    const bend = Math.min(18, length * .08) * (hash(edge.key) % 2 ? 1 : -1);
-    const cx = (from.x + to.x) / 2 - dy / length * bend;
-    const cy = (from.y + to.y) / 2 + dx / length * bend;
-    const gradientId = `connection-color-${index}`;
-    const gradient = colorConnections ? `<defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${to.x.toFixed(1)}" y2="${to.y.toFixed(1)}"><stop stop-color="${nodeColors[from.repo.full_name] || 'var(--sky-star)'}"/><stop offset="1" stop-color="${nodeColors[to.repo.full_name] || 'var(--sky-star)'}"/></linearGradient></defs>` : '';
-    const weight = connectionWeight(edge, options.connectionWeight) || (graph.focus ? {} : null);
-    if (graph.focus) { const direct = from.repo.full_name === graph.focus || to.repo.full_name === graph.focus; weight.width = direct ? 2.5 : 1; weight.opacity = direct ? .95 : from.repo.organizationFocus && to.repo.organizationFocus ? .3 : .05; }
-    const activeWeight = activitySettings.activityConnections ? Math.max(recent(from.repo.full_name)?.score || 0, recent(to.repo.full_name)?.score || 0) : 0;
-    const edgeStyle = [colorConnections ? `stroke:url(#${gradientId})` : '', weight ? `stroke-width:${weight.width.toFixed(2)};opacity:${weight.opacity.toFixed(2)}` : '', activeWeight ? `opacity:${Math.min(.85, (weight?.opacity ?? (backbone.has(edge) ? .62 : .13)) + activeWeight * .2).toFixed(3)}` : ''].filter(Boolean).join(';');
-    return `${gradient}<path class="shared-language"${edgeStyle ? ` style="${edgeStyle}"` : ''} data-from="${escape(from.repo.full_name)}" data-to="${escape(to.repo.full_name)}" data-languages="${escape(sharedLanguages.join(', '))}" data-topics="${escape(sharedTopics.join(', '))}" data-repositories="${escape(sharedRepositories.join(', '))}" data-emphasis="${backbone.has(edge) ? 'primary' : 'secondary'}" d="M${from.x.toFixed(1)} ${from.y.toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}"><title>${escape(from.repo.name)} ↔ ${escape(to.repo.name)} · ${escape(shared.join(', '))}</title></path>`;
-  }).join('');
-  // Join language regions with the shortest available visual bridges. These are
-  // composition guides, not inferred technical relationships or dependencies.
-  const bridgeLines = [];
-  if (bridges && !combinedMode && !categoryMode && visibleStars.length > 1) {
-    const joined = new Set([visibleStars[0].hub]);
-    while (joined.size < new Set(visibleStars.map(star => star.hub)).size) {
-      let best = { distance: Infinity };
-      for (const from of visibleStars.filter(star => joined.has(star.hub))) {
-        for (const to of visibleStars.filter(star => !joined.has(star.hub))) {
-          const distance = (from.x - to.x) ** 2 + (from.y - to.y) ** 2;
-          if (distance < best.distance) best = { from, to, distance };
-        }
-      }
-      bridgeLines.push(`<path d="M${best.from.x.toFixed(1)} ${best.from.y.toFixed(1)}L${best.to.x.toFixed(1)} ${best.to.y.toFixed(1)}"><title>Visual bridge: ${escape(best.from.repo.name)} to ${escape(best.to.repo.name)}. No technical relationship implied.</title></path>`);
-      joined.add(best.to.hub);
-    }
-  }
-  const points = visibleStars.map(({ repo, x, y }) => {
-    const customIcon = renderNodeIcon(nodeRenderer?.({ node: structuredClone(repo), x, y, radius: nodeRadius(repo, options.nodeSize || options.sizingMode, reference) }), { x, y, radius: nodeRadius(repo, options.nodeSize || options.sizingMode, reference) });
-    const lifecycle = temporal.stellarAges.enabled && (!repo.nodeKind || repo.nodeKind === 'repository') ? projectLifecycle(repo, clock, temporal.stellarAges.thresholds, options.historyData?.events || []) : null;
-    const lifecycleAttributes = lifecycle ? ` data-lifecycle="${lifecycle === 'archived' && !temporal.stellarAges.showArchivedRemnants ? 'quiet' : lifecycle}" data-age-mode="${temporal.stellarAges.mode}"` : '';
-    const radius = repo.organizationFocal ? 11 : nodeRadius(repo, options.nodeSize || options.sizingMode, reference);
-    const glow = mappedGlow(repo, options.nodeGlowMode, seed, reference);
-    const shape = repo.nodeKind === 'contributor' ? 'diamond' : repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(repo, options.nodeShape);
-    const activity = !repo.nodeKind || repo.nodeKind === 'repository' ? recent(repo.full_name) : null;
-    const activityAttributes = activity ? ` data-activity-score="${activity.score.toFixed(3)}" data-activity-count="${activity.eventCount}" data-latest-activity="${activity.latestEventAt}"` : '';
-    const activityLayer = activityMarkup({ x, y, radius, id: repo.full_name, activity, effect: activitySettings.activityEffect, detail: activitySettings.activityDetail, seed, animate: animate && options.activityAnimate !== false });
-    const phaseHour = rhythmSettings.codingRhythm && rhythmSettings.codingRhythmStyle !== 'hidden' && rhythmSettings.codingRhythmProjectHints ? options.codingRhythmData?.projectHours?.[repo.full_name] : undefined;
-    const phaseHint = Number.isInteger(phaseHour) && phaseHour >= 0 && phaseHour < 24 ? ` style="opacity:${(.065 + phaseHour / 24 * .025).toFixed(3)}"` : '';
-    const starStyle = `${customIcon ? "fill:transparent;stroke:none;" : ""}${repo.organizationFocus ? "stroke:var(--sky-accent);stroke-width:1.5;" : ""}${shape !== 'circle' ? `clip-path:url(#shape-${shape});` : ''}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ''}`;
-    const tooltip = repo.nodeKind && repo.nodeKind !== 'repository' ? `${repo.name} · ${repo.representedCount || repo.members.length} repositories · ${repo.members.join(', ')}` : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? ' · fork' : ''} · ${repositoryLanguages(repo).join(', ') || 'No detected languages'}`;
-    return `<g class="repository"${graph.focus && !repo.organizationFocus ? ' opacity=".22"' : ""}${repo.organizationFocal ? ' data-organization-user="true"' : ""}${repo.organizationFocus ? ' data-organization-focus="true"' : ""}${lifecycleAttributes}${activityAttributes}${Object.hasOwn(nodeColors, repo.full_name) ? ` style="--node-color:${nodeColors[repo.full_name]}"` : ''}><title>${escape(tooltip)}${lifecycle ? ` · ${lifecycle}` : ''}</title>${activityLayer}<circle class="star-halo"${phaseHint} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(radius + 4).toFixed(1)}"/><circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(1)}" data-repo="${escape(repo.full_name)}" data-label="${escape(repo.name)}" data-kind="${repo.nodeKind || 'repository'}" data-members="${escape(JSON.stringify(repo.members || [repo.full_name]))}" style="${starStyle}animation-delay:-${hash(options.seedMode ? `${seed}:${repo.full_name}` : repo.full_name) % 60 / 10}s"/><circle class="star-core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".9"${customIcon ? ' style="display:none"' : ''}/>${customIcon}</g>`;
-  }).join('');
   const labels = renderLabels();
   if (options.snapToRings !== undefined && typeof options.snapToRings !== 'boolean') throw new Error('snapToRings must be a boolean.');
   const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate)) && repos.length ? identityGeometry(options.seedMode ? seed : name) : null;
-  const ringMarkup = geometry ? Array.from({ length: 4 }, (_, index) => {
-    const ring = geometry.slice(2 + index * 22, 24 + index * 22);
-    return `<g><circle class="identity-arc" data-ring="${index}" cx="240" cy="240" r="${ring[0]}" stroke-dasharray="${ring[2]} ${ring[3]}" transform="rotate(${(ring[1] + ringRotations[index]) % 360} 240 240)"/></g>`;
-  }).join('') : '';
   const ringPoints = geometry ? identityPoints(options.seedMode ? seed : name, repos.length, ringRotations) : [];
-  const occupiedAt = stableOverview ? ringOccupancy(stars) : null;
-  const pointMarkup = Array.from({ length: ringPoints.length / 3 }, (_, i) => {
-    const [x, y, radius] = ringPoints.slice(i * 3, i * 3 + 3);
-    const sx = Number((450 + (x - 240) * 368 / 172).toFixed(1));
-    const sy = Number((centerY + (y - 240) * spreadY / 172).toFixed(1));
-    const owner = ordered[i];
-    const hidden = hiddenNodes.has(owner.full_name);
-    const occupied = occupiedAt ? occupiedAt(sx, sy) : stars.filter(star => Math.hypot(star.x - sx, star.y - sy) < 1).map(star => star.repo.full_name);
-    if (hidden && !occupied.includes(owner.full_name)) occupied.push(owner.full_name);
-    return `<circle class="identity-point" data-node="${escape(owner.full_name)}"${hidden ? ' style="display:none"' : ''} cx="${x}" cy="${y}" r="${radius}" data-snap-x="${sx}" data-snap-y="${sy}" data-occupied="${escape(JSON.stringify(occupied))}"/>`;
-  }).join('');
-  const camera = perspectiveMarkup(perspective, centerY, height);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height}" viewBox="0 0 900 ${height}" role="img" aria-labelledby="title description">
-<title id="title">${escape(title ?? `${name}’s GitHub constellation`)}</title>
-<desc id="description">${graph.organization ? escape(`Organization universe. ${visibleStars.length} nodes, ${selectedEdges.size} bounded connections. Contributor diamonds connect through shared projects; project and technology views show repository relationships. Contributor size reflects represented repository count. ${graph.note}`) : `${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : 'public repositories'} arranged in a deterministic ${arrangement === 'rings' ? 'identity ring point layout' : arrangement === 'field' ? 'star field' : arrangement === 'orbital' ? 'orbital layout' : 'force layout'}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === 'both' ? 'languages and topics' : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${selectedEdges.size} of ${scene?.total ?? candidates.length} shared connections shown. Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps. Star size reflects ${combinedMode ? 'GitHub stars for repositories and repository count for categories' : categoryMode ? 'repository count' : 'GitHub stars'}. ${geometry ? 'Identity rings are seeded by the account name; ring points provide placement anchors for nodes. ' : ''}${visibleStars.map(star => escape(star.repo.name)).join(', ')}.${escape(rhythmDescription(options.codingRhythmData, rhythmSettings))}${escape(historyLayer.description)} ${escape(graph.note || "")}`}</desc>
-<defs>${graph.organization || options.nodeShape && options.nodeShape !== 'circle' ? shapeDefinitions : ''}<radialGradient id="nebula"><stop stop-color="var(--sky-background)" stop-opacity=".13"/><stop offset="1" stop-color="var(--sky-background)" stop-opacity="0"/></radialGradient><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<style>
-${hasHistory ? historyCSS : ''}${paletteCSS}${rhythmSettings.codingRhythm ? codingRhythmCSS : ''}
-svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);font:13px system-ui,sans-serif}text{fill:currentColor}.background{fill:none;stroke:none}.dust{fill:var(--sky-foreground)}.connections{fill:none;stroke:var(--sky-line);stroke-width:.9;opacity:.8}.shared-language{stroke-linecap:round}.shared-language[data-emphasis="primary"]{stroke:var(--sky-accent);opacity:.62}.shared-language[data-emphasis="secondary"]{opacity:.13}.star{fill:var(--sky-star);${animate && options.starlightAnimate !== false ? 'animation:twinkle 6s ease-in-out infinite;' : ''}}.language circle{fill:var(--sky-accent)}.language text{text-anchor:middle;fill:var(--sky-accent);font-weight:600}.repo-label{text-anchor:middle;font-size:10px;stroke:none}.caption{font-size:12px;opacity:.65}.heading{font-size:23px;font-weight:600}@keyframes twinkle{0%,100%{opacity:.45}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.star{animation:none}}
-.star{filter:url(#glow)}.star-halo{fill:var(--sky-star);opacity:.07}.star-core{fill:var(--sky-foreground);opacity:.9;pointer-events:none}.language text{font-size:10px;letter-spacing:2px;font-weight:500}.repo-label{fill:var(--sky-foreground);opacity:.68}.heading{font-size:20px;letter-spacing:-.5px}.chart-guide{fill:none;stroke:var(--sky-line);stroke-width:.5;opacity:.28}
-.bridges{fill:none;stroke:var(--sky-accent);stroke-width:1;stroke-dasharray:2 5;opacity:.35}
-.identity-ring{fill:none;stroke:var(--sky-accent);stroke-width:.65;opacity:.14;pointer-events:none}.identity-point{fill:var(--sky-accent);stroke:none}
-.star[data-kind="language"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-kind="topic"]{stroke:var(--sky-foreground);stroke-width:1;stroke-dasharray:2 2}
-.star,.star-halo{fill:var(--node-color,var(--sky-star))}
-.credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}a{text-decoration:none}
-.generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
-${compact ? '.heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}' : ''}
-${options.visualStyle ? escape(visualCSS(options.visualStyle)) : ''}${escape(css)}${activitySettings.activityEffect !== 'off' ? activityCSS : ''}
-${['space', 'milky-way'].includes(sky.mode) ? starfieldCSS : ''}
-${transparent ? 'svg{background:transparent!important}.background{fill:none!important}' : ''}
-</style>
-<rect class="background" width="900" height="${height}" rx="${compact ? 12 : 18}"/>
-${transparent ? '' : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * .43}" fill="url(#nebula)"/>`}
-
-${decoration(options, height, visibleStars)}
-${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent })}
-<!--history-scene-start-->${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}${sky.mode === 'classic' ? `<g class="dust">${dust}</g>` : ''}<g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}<!--history-scene-end-->${historyLayer.note}${options.organizationUser && graph.organization ? `<g class="organization-focus-caption"><text x="450" y="26" text-anchor="middle" font-size="16" font-weight="600">@${escape(options.organizationUser)} → ${escape(name)}</text><text x="450" y="43" text-anchor="middle" font-size="10">${graph.focus ? `${graph.focusProjects.length} connected projects · bright lines show direct participation` : "No verified connection in the loaded results; expand or refresh the scan"}</text></g>` : ""}${graph.organization ? `<text class="organization-coverage" x="450" y="${height - 34}" text-anchor="middle" font-size="9">${escape(`${graph.nodes.length} nodes · ${graph.repositoryCount} selected projects · ${options.organizationData?.scanned || 0} repositories scanned for contributors`)}<title>${escape(graph.note)}</title></text>` : ""}
-${visibleStars.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? 'All nodes are hidden. Restore visibility in Individual nodes.' : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : sourceHasRepositories ? 'No projects match these filters or historical year.' : options.repoSource === 'pinned' ? 'No public pinned repositories match this selection.' : 'No public repositories to show yet.'}</text>`}
-${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}${activitySettings.activityEffect !== 'off' ? ` · ${activitySettings.activityEffect}: public activity / ${['1d', '7d', '30d'].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ''}`)}</text>` : ''}
-${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}
-<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer">${githubMark.replace('<svg ', `<svg x="744" y="${height - 23}" `)}<text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>
-</svg>\n`;
-  return animateRingSVG(focusSVG(svg, options.selection), ringAnimation, geometry, visibleStars, centerY, spreadY, escape, floatingAnimation, Array.from({ length: ringPoints.length / 3 }, (_, i) => ({ x: 450 + (ringPoints[i * 3] - 240) * 368 / 172, y: centerY + (ringPoints[i * 3 + 1] - 240) * spreadY / 172 })));
+  const nodes = stars.map(star => ({
+    id: star.repo.full_name, metadata: star.repo,
+    geometry: { x: star.x, y: star.y, radius: star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference) },
+    style: { color: nodeColors[star.repo.full_name] ?? null, glow: mappedGlow(star.repo, options.nodeGlowMode, seed, reference), shape: star.repo.nodeKind === 'contributor' ? 'diamond' : star.repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(star.repo, options.nodeShape) },
+    interaction: { hidden: hiddenNodes.has(star.repo.full_name), labelHidden: hiddenLabels.has(star.repo.full_name) },
+    icon: hiddenNodes.has(star.repo.full_name) ? null : nodeRenderer?.({ node: structuredClone(star.repo), x: star.x, y: star.y, radius: nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference) }) ?? null,
+  }));
+  const edges = [...selectedEdges].sort((a, b) => Number(backbone.has(a)) - Number(backbone.has(b))).map(edge => ({
+    id: JSON.stringify([edge.from.repo.full_name, edge.to.repo.full_name]),
+    from: edge.from.repo.full_name, to: edge.to.repo.full_name,
+    metadata: { key: edge.key, shared: edge.shared, sharedLanguages: edge.sharedLanguages, sharedTopics: edge.sharedTopics, sharedRepositories: edge.sharedRepositories || [], strength: edge.strength },
+    geometry: { distance: edge.distance }, style: { primary: backbone.has(edge) },
+  }));
+  return JSON.parse(JSON.stringify({ version: 1, kind: 'scene',
+    metadata: { account: name, seed, referenceDate: options.referenceDate },
+    viewport: { width: profile.width, height: profile.height, viewBox: [0, 0, 900, height] },
+    nodes, edges, labels,
+    layers: ['background', 'starfield', 'rings', 'connections', 'nodes', 'labels', 'annotations', 'effects', 'selection'].map((id, order) => ({ id, order })),
+    geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
+    presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
+      historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,
+      totalConnections: scene?.total ?? candidates.length, nodeMode, hasHistory },
+  }));
 }

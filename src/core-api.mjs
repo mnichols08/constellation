@@ -9,3 +9,6 @@ export { jsonFeedSource } from './json-feed-source.mjs';
 export { validateThemePack } from './theme-packs.mjs';
 export { migrateConfig, migrateWorkflow } from './migrate.mjs';
 export { CONFIG_VERSION } from './config-schema.mjs';
+export { createScene } from './constellation.mjs';
+export { renderSceneSVG } from './renderer-svg.mjs';
+export { serializeScene } from './scene.mjs';

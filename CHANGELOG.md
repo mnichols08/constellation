@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.1.0 — 2026-09-27
+
+- Introduce isolated, serializable scenes with node/edge IDs, geometry, styling, interaction metadata, labels and layer identities. Keep Rust/WASM as the layout engine.
+- Split scene compilation from SVG rendering, preserving the existing rendering entry point and source icon callbacks. Historical crossfade renders precomputed scene frames.
+- Add original-renderer byte fixtures and scene round-trip tests; preserve the generated gallery byte for byte. Document baseline architecture and the transitional scene contract.
+
 - Restore the original landing layout on the first browser visit, open the studio directly on later visits and shared links, and hide the landing-to-studio loading flash.
 
 - Add a searchable repository picker in the Projects panel, with explicit selection, bulk controls and automatic selection. Preserve chosen repositories in configs, presets, share links and workflow exports.

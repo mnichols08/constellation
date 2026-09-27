@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fetchPinnedRepositories } from '../src/constellation.mjs';
 
 const allowed = new Map([
+  ...['scene', 'renderer-svg'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/scaling.mjs', ['../src/scaling.mjs', 'text/javascript']],
   ...['plugin-host', 'json-feed-source', 'theme-packs'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/filter-explanation.mjs', ['../src/filter-explanation.mjs', 'text/javascript']],
