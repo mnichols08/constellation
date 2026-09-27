@@ -395,6 +395,15 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await evaluate(`document.querySelector('#randomize-repositories').checked=false;document.querySelector('#randomize-styling').checked=true;document.querySelector('#randomize-design').click();document.querySelector('#copy-config').click();`);
   const styleOnly = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
   for (const key of ['includeRepos', 'arrangement', 'nodeMode', 'ringAnimation', 'floatingAnimation', 'animate']) assert.deepEqual(styleOnly[key], projectsOnly[key], 'styling shuffle preserves ' + key);
+  // Simulate a control normalization mismatch after the metadata preflight.
+  // The final render must reject it before replacing the image or export.
+  await evaluate(`(()=>{const input=document.querySelector('#design-minStars');const descriptor=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');Object.defineProperty(input,'value',{configurable:true,get(){return descriptor.get.call(this)},set(value){delete this.value;this.value='999999999'}});document.querySelector('#randomize-design').click();})()`);
+  assert.match(await evaluate(`document.querySelector('#status').textContent`), /previous design is restored/);
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length>0`));
+  assert.doesNotMatch(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.textContent`), /No projects match/);
+  await evaluate(`document.querySelector('#copy-config').click();`);
+  const restoredDraw = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  for (const key of ['visualStyle', 'minStars', 'includeRepos', 'history', 'designCode']) assert.deepEqual(restoredDraw[key], styleOnly[key], 'failed draw restores ' + key);
   assert.equal(await evaluate(`document.querySelector('#preset-keep-colors')`), null);
   await evaluate(`document.querySelector('#design-visualTheme').value='mnix';document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
   assert.equal(await evaluate(`document.querySelector('#dark-background').value`), '#111111');
