@@ -9,8 +9,19 @@ export function createPreviewFetch({ proxyBase, fetchImpl = fetch } = {}) {
   };
 }
 
+export function createPinnedFetch({ proxyBase, fetchImpl = fetch } = {}) {
+  return async account => {
+    if (!proxyBase) throw new Error('Pinned previews need the local studio with GH_TOKEN in .env. The daily workflow uses its automatic GitHub token.');
+    const response = await fetchImpl(`${proxyBase}/users/${username(account)}/pinned`, { signal: AbortSignal.timeout(20000) });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.message || 'Could not load pinned repositories.');
+    if (!Array.isArray(body)) throw new Error('Unexpected pinned repository response.');
+    return body;
+  };
+}
+
 // Only load() performs network requests. Rendering and customization read snapshots.
-export function createPreviewData({ storage, fetchImpl = fetch } = {}) {
+export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = createPinnedFetch() } = {}) {
   const key = 'constellation-public-data-v1';
   let accounts = {};
   try {
@@ -20,21 +31,27 @@ export function createPreviewData({ storage, fetchImpl = fetch } = {}) {
   const caches = new Map();
   const pending = new Map();
   const save = () => { try { storage?.setItem(key, JSON.stringify(accounts)); } catch {} };
-  const snapshot = account => {
-    const value = accounts[username(account).toLowerCase()];
+  const sourceKey = (account, options = {}) => {
+    const source = options.repoSource ?? 'all';
+    if (!['all', 'pinned'].includes(source)) throw new Error('repoSource must be all or pinned.');
+    return username(account).toLowerCase() + (source === 'pinned' ? ':pinned' : '');
+  };
+  const snapshot = (account, options) => {
+    const value = accounts[sourceKey(account, options)];
     return Array.isArray(value) ? value : undefined;
   };
   async function load(account, options, { refresh = false, onProgress } = {}) {
     const name = username(account).toLowerCase();
-    if (pending.has(name)) return pending.get(name);
+    const key = sourceKey(name, options);
+    if (pending.has(key)) return pending.get(key);
     const request = (async () => {
       // Keep the previous snapshot available if refreshing fails.
-      let listed = !refresh && snapshot(name);
-      if (!listed) listed = await fetchRepositories(name, { fetchImpl });
+      let listed = !refresh && snapshot(name, options);
+      if (!listed) listed = options.repoSource === 'pinned' ? await fetchPinned(name) : await fetchRepositories(name, { fetchImpl });
       if (refresh) caches.delete(name);
       const cache = caches.get(name) || new Map();
       caches.set(name, cache);
-      accounts[name] = listed;
+      accounts[key] = listed;
       save();
       try {
         await fetchRepositoryLanguages(selectRepositoryPool(listed, options), { fetchImpl, cache, onProgress });
@@ -44,13 +61,13 @@ export function createPreviewData({ storage, fetchImpl = fetch } = {}) {
           try { return [repo, await value]; } catch { return [repo, undefined]; }
         }));
         const languages = new Map(entries);
-        accounts[name] = listed.map(repo => languages.get(repo.full_name) !== undefined ? { ...repo, languages: languages.get(repo.full_name) } : repo);
+        accounts[key] = listed.map(repo => languages.get(repo.full_name) !== undefined ? { ...repo, languages: languages.get(repo.full_name) } : repo);
         save();
       }
-      return snapshot(name);
+      return snapshot(name, options);
     })();
-    pending.set(name, request);
-    try { return await request; } finally { pending.delete(name); }
+    pending.set(key, request);
+    try { return await request; } finally { pending.delete(key); }
   }
   return { snapshot, load };
 }

@@ -12,6 +12,8 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
     theme: 'light', layout: 'compact', animate: false, maxRepos: 15,
     includeForks: false, bridges: false, title: 'My “sky”', includeRepos: ['hello'],
     colors: { star: '#abcdef' },
+    labelPositions: { 'octocat/hello': { x: 125.5, y: 90 } },
+    starPositions: { 'octocat/hello': { x: 200, y: 150.5 } },
     css: '.star { fill: #f00; }\n/* ${{ secrets.TEST }}\n$(echo nope)\n`literal`\n</style><script>no</script> */\n.heading::after { content: "☄ \\ "; }',
   };
   const yaml = renderWorkflow('octocat', options);

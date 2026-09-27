@@ -1,6 +1,6 @@
 # Releasing GitHub Constellation
 
-The root `action.yml` is the Marketplace entry point. No build or npm publication is required; the action runs the checked-in JavaScript.
+The root `action.yml` is the Marketplace entry point. No npm publication is required; the action runs the checked-in JavaScript and Rust WebAssembly assets. After changing Rust, run `npm run test:rust` and `npm run build:rust`, and include both generated `src/wasm` files in the release. Consumers do not need a Rust installation.
 
 1. Run `npm test`, push the reviewed changes, and wait for the Test workflow to pass, including its live GitHub API smoke test.
 2. Update `package.json` and release notes for the version being released. Create a version tag such as `v1.0.1` at the tested commit and push that tag.
