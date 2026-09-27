@@ -185,12 +185,12 @@ pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
                         continue;
                     }
                 }
-                // Hidden nodes also reserve their associated anchor, even when
+                // Fixed nodes also reserve their associated anchor, even when
                 // their current layout position is not on that anchor.
                 if input.anchors.as_ref().is_some_and(|anchors| {
                     anchors.iter().enumerate().any(|(j, a)| {
                         j != i
-                            && input.nodes.get(j).is_some_and(|n| n.hidden)
+                            && input.nodes.get(j).is_some_and(|n| n.hidden || n.locked)
                             && distance(*a, p) < 0.1
                     })
                 }) {
@@ -325,5 +325,16 @@ mod tests {
             assert!(anchors.contains(&result[i]));
             assert_ne!(result[i], anchors[1]);
         }
+    }
+
+    #[test]
+    fn off_ring_locked_pairs_reserve_their_anchor() {
+        let mut data = input();
+        data.nodes[1].locked = true;
+        data.anchors = Some(vec![[400.0, 100.0], [420.0, 100.0], [404.0, 100.0]]);
+        let result = refine(data).unwrap();
+        assert_eq!(result[1], [402.0, 100.0]);
+        assert_ne!(result[0], [420.0, 100.0]);
+        assert_ne!(result[2], [420.0, 100.0]);
     }
 }

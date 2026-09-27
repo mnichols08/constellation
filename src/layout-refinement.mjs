@@ -22,6 +22,7 @@ export function refineStars(stars, labels, options, { seed, height, centerY, spr
   });
   const positions = refineLayout({ nodes, anchors, intensity: settings.intensity, height });
   stars.forEach((star, i) => {
+    if (nodes[i].locked || nodes[i].hidden) return;
     const label = labels.get(star.repo.full_name);
     if (label) { label.x += positions[i][0] - star.x; label.y += positions[i][1] - star.y; }
     [star.x, star.y] = positions[i];
