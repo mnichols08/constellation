@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.3 — 2026-09-27
+
+- Verify the web component and core from an isolated external-consumer directory, including WASM/module loading and strict imported styling.
+- Assert accessible controls in Chromium, keyboard operation, package manifests and package-size budgets.
+- Complete bundler/import-map deployment, package responsibility and accessibility documentation; rebuild extensions and check HTML size budgets in CI.
+
 ## 2.6.2 — 2026-09-27
 
 - Support lazy component initialization with IntersectionObserver and responsive runtime ResizeObserver cleanup.

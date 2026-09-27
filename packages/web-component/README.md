@@ -16,6 +16,12 @@ Each element uses Shadow DOM for SVG styles and controls. It shares the HTML exp
 
 Run the existing preview server and open `/examples/web-component.html` for a browser example.
 
+For a plain browser deployment, serve the packages alongside your page and map the three module names as shown in the demo: `@constellation/core`, `@constellation/core/browser-runtime`, and `@constellation/web-component`. Keep the core's `src/wasm` assets in their packaged relative locations and serve `.wasm` as `application/wasm`. The component module automatically registers the default name; `defineConstellationView(name)` registers an alternate tag without replacing an existing definition. This is a browser entry point and requires DOM globals; import the core for server-side scene rendering.
+
+The component package contains only its entry module and documentation; its matching core dependency owns compilation, WASM, scene validation and the shared render/runtime implementation. The component entry is budgeted below 24 KiB and the complete uncompressed core package below 2 MiB. The external-consumer test copies both packages into an isolated directory and exercises real module loading, WASM, keyboard behavior and Chromium's accessibility tree.
+
+The enclosing page should provide a descriptive heading and size the host with ordinary CSS. Shadow DOM isolates internal selectors. Native controls and live status updates expose selection without relying on color; reduced motion follows system preferences. Supply human-readable record names/descriptions and project links for useful details. No autoplay is added by the component; SVG animation follows the scene's configuration and reduced-motion settings.
+
 ## Methods and events
 
 After `scene-ready`, call `selectNode(id, { focus, extend })`, `clearSelection()`, `fit()`, `reset()`, `setFilter({ query, language })`, or `setTheme(name)`. The `selection` getter returns an isolated `{ start, end, path }` value. Unknown/hidden node IDs throw; camera methods called before readiness throw a descriptive error.

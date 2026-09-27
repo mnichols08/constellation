@@ -21,6 +21,8 @@ jobs:
           cargo install wasm-bindgen-cli --version 0.2.128 --locked
           npm run build:rust
           npm run build:core
+          node scripts/build-extensions.mjs
+          node scripts/benchmark-html.mjs
           npm test
       - uses: ./
         with:
