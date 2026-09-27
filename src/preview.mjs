@@ -1,3 +1,4 @@
+import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
 import { visualThemes } from './themes.mjs';
@@ -21,7 +22,7 @@ const proxyBase = document.querySelector('meta[name="constellation-api"]')?.cont
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
-let studio, restoreForm;
+let studio, restoreForm, workspace;
 let importedOptions = {};
 const $ = selector => document.querySelector(selector);
 if (proxyBase) $('.form-note').textContent = localAuth
@@ -278,7 +279,7 @@ function render() {
     (kind === 'star' ? target?.parentElement : target)?.focus();
   }, (repo, pair) => renderConstellation(account, repositories, movedOptions(repo, pair)), $('#lock-stars').checked || options.ringAnimation.enabled || options.floatingAnimation.enabled || cameraMoving || liveTilt?.active, options.snapToRings);
   preview.replaceChildren(labelEditor);
-  mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start) $('#color-node').closest('details').open = true; });
+  mountGraphExplorer(labelEditor, $('#graph-explorer'), graphSelection, selection => { const previous = graphSelection.start, previousEnd = graphSelection.end; graphSelection = selection; options.selection = selection; exportSelection(); updateNodeColorControls(selection.end || selection.start); if (selection.start && (selection.start !== previous || selection.end !== previousEnd)) workspace?.reveal($('#color-node')); });
   const eligible = repositories.filter(repo => repo.private !== true && (options.includeForks || !repo.fork));
   const shown = selectRepositories(repositories, options);
   $('#filter-summary').textContent = `${repositories.length} loaded · ${shown.length} included · ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} rendered · ${Math.max(0, projected.total - projected.nodes.length)} omitted by graph limit. ` + `${shown.length} matching projects from ${options.repoSource === 'pinned' ? `${selected.length} public pinned repositories` : `a pool of ${selected.length}`}.${categoryMode ? ` Showing ${projected.nodes.filter(node => !options.hiddenNodes.includes(node.full_name)).length} of ${projected.total} ${combinedMode ? 'nodes' : options.nodeMode}${projected.total > projected.nodes.length ? combinedMode ? ' (up to 256 nodes, retaining repositories and the most represented categories)' : ' (the 100 most represented categories)' : ''}.` : ''} ${options.repoSource === 'pinned' ? 'Your profile pins define the project pool; language, topic, and fork filters still apply.' : 'Increase the project limit to explore more.'} ${options.languages?.length === 0 || options.topics?.length === 0 ? 'Choose a category or All to show projects.' : ''}`;
@@ -504,6 +505,7 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
     buildVisualControls(); render();
   }, message,
 });
+workspace = mountStudioLayout();
 const initialDraft = studio.store.draft(account);
 if (initialDraft) applyOptions(initialDraft.options);
 liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });

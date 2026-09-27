@@ -53,12 +53,32 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   });
   cdp = (method, params = {}) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, { resolve, reject, timer: setTimeout(() => { pending.delete(id); reject(Error(`CDP timeout: ${method}`)); }, 10000) }); socket.send(JSON.stringify({ id, method, params })); });
   const evaluate = async expression => { const value = await cdp('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (value.exceptionDetails) throw Error(value.exceptionDetails.exception?.description || value.exceptionDetails.text); return value.result.value; };
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Page.navigate', { url: base });
   for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
   assert.deepEqual(errors, []);
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  assert.equal(await evaluate(`document.querySelectorAll('.inspector-panel:not([hidden])').length`), 1);
+  assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-look');
+  assert.ok(await evaluate(`(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>0&&r.bottom<innerHeight&&r.height>300;})()`));
+  assert.deepEqual(await evaluate(`(async()=>{const original=new DOMParser().parseFromString(await(await fetch('/')).text(),'text/html');return [...original.querySelectorAll('input[id],select[id],textarea[id],button[id]')].filter(el=>!document.getElementById(el.id)).map(el=>el.id);})()`), [], 'all customization controls remain available');
+  await evaluate(`click('tab-motion');document.querySelector('#animate-rings').closest('details').open=true;`);
+  const previewBeforeScroll = await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`);
+  await evaluate(`document.querySelector('.inspector-scroll').scrollTop=500;`);
+  assert.equal(await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`), previewBeforeScroll);
+  await evaluate(`document.querySelector('#perspective-enabled').closest('details').open=true;`);
+  await delay(50);
+  assert.equal(await evaluate(`document.querySelector('#animate-rings').closest('details').open`), false);
+  await evaluate(`document.querySelector('#tab-motion').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`);
+  assert.equal(await evaluate(`document.activeElement.id`), 'tab-projects');
+  await evaluate(`click('toggle-customization');`);
+  assert.equal(await evaluate(`document.querySelector('#studio-inspector').hidden`), true);
+  await evaluate(`click('toggle-customization');click('tab-look');document.querySelector('.design-code-menu > summary').click();`);
+  assert.equal(await evaluate(`document.querySelector('.design-code-menu').open`), true);
+  await evaluate(`document.querySelector('#design-code').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`);
+  assert.equal(await evaluate(`document.querySelector('.design-code-menu').open`), false);
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length`), 0, 'v1 codes keep their original background');
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
@@ -106,6 +126,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /5 included/);
   await evaluate(`input('design-minStars','0'); const node=document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository');node.focus();node.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository').getAttribute('aria-pressed')`), 'true');
+  assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-nodes');
   assert.equal(await evaluate(`(async()=>{const {svgToPNG}=await import('/src/export-image.mjs');const source=await(await fetch(document.querySelector('.download').href)).text();const blob=await svgToPNG(source);return blob.type==='image/png'&&blob.size>1000;})()`), true);
   const share = await evaluate(`(async()=>{const {encodeShare}=await import('/src/share-link.mjs');return encodeShare(location.href,'your-universe',{seedMode:'custom',seed:'shared',nodeSize:'age',arrangement:'solar-system'});})()`);
   await cdp('Page.navigate', { url: share });
@@ -133,5 +154,18 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#design-repoQuery').value`), 'repo-0');
   assert.equal(apiCalls, 4, 'returning to loaded accounts uses cached data');
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await evaluate(`document.querySelector('#tab-look').click();document.querySelector('#design-sky-mode').closest('details').open=true;`);
+  await delay(50);
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'mobile has no horizontal overflow');
+  assert.ok(await evaluate(`(()=>{const p=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('.controls').getBoundingClientRect();return p.height>100&&p.bottom<=c.top&&c.bottom<innerHeight;})()`), 'mobile keeps preview above the bounded controls');
+  const mobilePreviewTop=await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`);
+  await evaluate(`document.querySelector('.inspector-scroll').scrollTop=200;`);
+  assert.equal(await evaluate(`document.querySelector('#preview').getBoundingClientRect().top`), mobilePreviewTop);
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    await evaluate(`document.querySelector('.inspector-scroll').scrollTop=0;`);
+    const mobileShot=await cdp('Page.captureScreenshot');
+    await writeFile('.dist/studio-mobile.png',Buffer.from(mobileShot.data,'base64'));
+  }
   assert.deepEqual(errors, []);
 });

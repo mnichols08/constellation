@@ -2,6 +2,18 @@
 
 The studio configures a self-contained SVG. It needs no account system, external fonts, JavaScript inside the exported image, or hosted database. The CLI and Action use the same rendering options as the studio.
 
+## Preview and customization
+
+The live canvas stays visible while the inspector scrolls. Desktop places controls beside the design; mobile stacks a bounded settings panel below it. Use the tabs (or Left/Right arrow keys when a tab is focused):
+
+- **Look:** theme, arrangement, format, background, node appearance, palettes, seed and CSS.
+- **Motion:** independent rings, perspective, floating nodes, activity and starlight.
+- **Projects:** source, limits, language/topic filters, repository filters and account help.
+- **Nodes:** graph mode, individual colors/visibility, placement, labels and connections. Selecting a node opens its controls.
+- **Save:** presets, configuration, PNG, sharing, README snippet and daily workflow.
+
+Sections expand on demand, one at a time within each tab. Randomize and Download SVG remain in the toolbar. **Hide controls** expands the preview; **Customize** brings settings back. Open **Design code** in the toolbar to copy or restore a recipe. Switching panels never changes the design or fetches data.
+
 ## Randomize, then return to a design
 
 Use the main **Randomize design** toolbar, and save the resulting **design code**, such as `v4:motion-my-sky`. Paste that code and choose **Restore code** to regenerate its coordinated theme, layout, node mappings, shapes, effects and background starfield. The original `v1` recipe keeps classic dust; `v2` adds seeded starfields; `v3` also preserves randomized motion. **Include motion** now generates a `v4` recipe with independent settings for all four rings: starting rotation, speed (0.25–1.5 RPM), direction, spin/sway style, sway angle and easing. Rings are unlocked so these choices remain independent. Free-node layouts also get randomized floating style, amplitude and duration. Perspective varies its enabled state, horizontal and vertical tilt, zoom, animation, shift range and cycle duration; these layers can run together. A still recipe can retain a static perspective but disables every animation. Uncheck it to generate a reproducible still recipe. Motion respects reduced-motion preferences. Existing codes continue to work. Codes use a deterministic PRNG, not a cryptographic hash or an authentication secret.

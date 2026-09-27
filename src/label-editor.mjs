@@ -30,7 +30,7 @@ export function mountLabelEditor(host, source, onMove, previewMove, locked = tru
     svg.querySelector('.ring-motion-active').removeAttribute('class');
   }
   const style = document.createElement('style');
-  style.textContent = ':host{display:block;width:100%}svg{display:block;width:100%;height:auto}.draggable{cursor:grab;touch-action:none;user-select:none}.draggable[data-dragging]{cursor:grabbing}.repo-label:focus{outline:none;stroke:var(--sky-accent);stroke-width:.3}.repository:focus{outline:none}.repository:focus .star-halo{opacity:.35}.star-hit{fill:transparent;pointer-events:all}.repo-label:not(.draggable){pointer-events:none}';
+  style.textContent = ':host{display:block;width:100%;height:100%;min-height:0}svg{display:block;width:100%;height:100%}.draggable{cursor:grab;touch-action:none;user-select:none}.draggable[data-dragging]{cursor:grabbing}.repo-label:focus{outline:none;stroke:var(--sky-accent);stroke-width:.3}.repository:focus{outline:none}.repository:focus .star-halo{opacity:.35}.star-hit{fill:transparent;pointer-events:all}.repo-label:not(.draggable){pointer-events:none}';
   shadow.replaceChildren(style, svg);
   svg.setAttribute('role', 'group');
   if (locked) return;
