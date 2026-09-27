@@ -67,6 +67,9 @@ export function projectNodes(input) {
   return structuredClone(projections.get(key));
 }
 const scenes = new Map();
+export function layoutCacheStatistics() {
+  return { scenes: scenes.size, sceneLimit: 8, projections: projections.size, projectionLimit: 8, refinements: refinements.size, refinementLimit: 8, stableCoordinates: stableCoordinates.size, stableCoordinateLimit: 8192 };
+}
 export function computeScene(input) {
   if (!core) return null;
   if (input.stableOverview) return stableScene(input);

@@ -40,6 +40,7 @@ export function layoutScene(scene, options = {}, context = {}) {
   for (const diagnostic of report.diagnostics) context.onDiagnostic?.(diagnostic);
   const error = report.diagnostics.find(diagnostic => diagnostic.severity === 'error');
   if (error) throw new Error(error.message);
+  signal?.throwIfAborted();
   const records = scene.nodes.map(node => {
     if (!node || typeof node.id !== 'string' || !node.metadata || node.id !== node.metadata.full_name) throw new Error('Layout nodes require matching IDs and metadata.');
     return node.metadata;
@@ -76,6 +77,7 @@ export function layoutScene(scene, options = {}, context = {}) {
       position: Object.hasOwn(positions, repo.full_name) ? [positions[repo.full_name].x, positions[repo.full_name].y] : null,
     })),
   };
+  signal?.throwIfAborted();
   const result = computeScene(input);
   signal?.throwIfAborted();
   if (!result) return null; // Existing deprecated browser-only field fallback.

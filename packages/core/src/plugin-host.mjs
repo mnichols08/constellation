@@ -28,8 +28,9 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
   let cacheBytes = 0;
   let generation = 0;
   const host = {
-    clearCache() { generation++; cache.clear(); cacheBytes = 0; pipeline.clear(); },
+    clearCache() { generation++; cache.clear(); cacheBytes = 0; pipeline.clear(); layoutHost.clearCache(); },
     get pipelineCacheStatistics() { return pipeline.cacheStatistics; },
+    get layoutCacheStatistics() { return layoutHost.cacheStatistics; },
     registerLayout(definition) { layoutHost.register(definition); return host; },
     get cacheStatistics() { return { entries: cache.size, estimatedBytes: cacheBytes, budgetBytes: cacheBudget }; },
     registerSource(plugin) {

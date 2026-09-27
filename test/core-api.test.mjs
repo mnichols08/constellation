@@ -27,6 +27,8 @@ test('core imports and renders outside the repository with bundled WASM', async 
   const scene = core.createScene('tester', repos, { animate: false, referenceDate: '2026-09-01T00:00:00Z' });
   assert.equal(core.renderSceneSVG(core.parseScene(core.serializeScene(scene))), core.renderSceneSVG(scene));
   await access(join(dir, 'scene-api.md'));
+  await access(join(dir, 'layout-api.md'));
+  assert.deepEqual(core.layoutScene(scene, { arrangement: 'galaxy' }).positions, core.layoutScene(scene, { arrangement: 'galaxy' }).positions);
   assert.equal(core.renderConstellation('tester', repos, { animate: false }), renderConstellation('tester', repos, { animate: false }));
   assert.equal(core.validateConfig({ maxRepos: 0 }).valid, false);
   assert.deepEqual(core.explainFilters(repos, { languages: ['Rust'] }), explainFilters(repos, { languages: ['Rust'] }));

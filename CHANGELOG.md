@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.4.3 — 2026-09-27
+
+- Add bounded, observable per-host caches for deterministic registered layouts; bypass retention for nondeterministic/non-JSON inputs and isolate all returned positions.
+- Check cancellation across diagnostics, callbacks and WASM boundaries. Document synchronous preemption limits and expose existing engine cache counts.
+- Add layout stage benchmarks, 2,048-node/manual-position regressions, cancellation/cache tests and external-consumer checks. Package the layout author guide.
+
 ## 2.4.2 — 2026-09-27
 
 - Add per-host trusted layout registration with snapshotted callbacks/capabilities and isolated scene/options inputs.

@@ -3,12 +3,12 @@ import { applyTransforms } from './data-transforms.mjs';
 
 // Explicit host ownership avoids process-wide data registries and cross-instance
 // state. Values outside plain JSON remain usable but are never cache keys.
-function jsonData(value, seen = new WeakSet(), depth = 0) {
+export function cacheableJSON(value, seen = new WeakSet(), depth = 0) {
   if (depth > 32) return false;
   if (value === null || ['string', 'boolean'].includes(typeof value) || Number.isFinite(value)) return true;
   if (typeof value !== 'object' || seen.has(value) || !Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
   seen.add(value);
-  const valid = Object.values(value).every(child => jsonData(child, seen, depth + 1));
+  const valid = Object.values(value).every(child => cacheableJSON(child, seen, depth + 1));
   seen.delete(value); return valid;
 }
 
@@ -19,7 +19,7 @@ export function createDataPipeline({ maxEntries = 16, maxBytes = 8 * 1024 * 1024
   function cached(stage, input, options, signal, compute) {
     signal?.throwIfAborted();
     const payload = [stage, input, options];
-    const key = maxEntries && maxBytes && jsonData(payload) ? JSON.stringify(payload) : null;
+    const key = maxEntries && maxBytes && cacheableJSON(payload) ? JSON.stringify(payload) : null;
     if (key && cache.has(key)) {
       hits++;
       const entry = cache.get(key); cache.delete(key); cache.set(key, entry);
