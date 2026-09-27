@@ -65,6 +65,8 @@ Optional `nodeShape` values are `circle`, `star`, `diamond`, `hexagon`, `square`
 
 **Nodes → Refine layout** enables a one-shot Rust/WASM overlap-reduction pass after the selected arrangement. It is off by default. Intensity ranges from 0–10 (default 5); zero is a no-op, and higher values allow more iterations and up to `6 × intensity` SVG units of movement from each starting position. The pass uses node and estimated label bounds, preserves node-to-label attachment, and does not hide additional labels. Crowded layouts can still overlap.
 
+Tab reaches interactive nodes. Enter or Space selects a node; Shift with either key selects a path endpoint, and Escape clears selection. Focus has an outline even with glow disabled. The filter summary counts omitted labels; hover it for node IDs and reasons (`no-collision-free-position` or `export-profile-limit`). Programmatic rendering accepts `{ onDiagnostic }` as its fourth argument; diagnostic callbacks do not alter the SVG.
+
 ```json
 "layoutRefinement": { "enabled": true, "intensity": 5 }
 ```

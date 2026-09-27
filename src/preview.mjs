@@ -258,7 +258,8 @@ function render({ requireVisibleNodes = false } = {}) {
   const activityStatus = $('#activity-status');
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
-  const svg = renderConstellation(account, repositories, { ...options, generatedAt });
+  const labelDiagnostics = [];
+  const svg = renderConstellation(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => labelDiagnostics.push(diagnostic) });
   // Validate the final render after form normalization, before publishing it or
   // replacing the saved draft and exports. A metadata-only check is not enough.
   if (requireVisibleNodes && (!projected.nodes.some(node => !options.hiddenNodes.includes(node.full_name)) ||
@@ -320,6 +321,10 @@ function render({ requireVisibleNodes = false } = {}) {
   $('#limit-value').value = options.repoSource === 'pinned' ? 'All pins' : options.maxRepos;
   $('#map-title').textContent = isSample ? 'The sample sky' : options.accountData?.type === 'Organization' ? `${account} · Organization universe${options.organizationUser ? ` · @${options.organizationUser}` : ''}` : `@${account}’s sky`;
   $('#organization-status').textContent = options.accountData?.type === 'Organization' ? `${projected.note || 'Organization universe'} ${options.organizationData?.diagnostic || ''}` : `@${account} · Developer universe`;
+  if (labelDiagnostics.length) {
+    $('#filter-summary').textContent += ` ${labelDiagnostics.length} labels omitted (hover for reasons).`;
+    $('#filter-summary').title = labelDiagnostics.map(item => `${item.node}: ${item.reason}`).join('\n');
+  } else $('#filter-summary').title = '';
   if (projected.organization) {
     const kinds = new Set(projected.nodes.map(node => node.nodeKind || 'repository'));
     $('#node-legend').textContent = Object.entries({ repository: 'Project', language: 'Language', topic: 'Topic', contributor: 'Contributor (diamond)', dependency: 'Dependency (hexagon)', era: 'Project group' }).filter(([kind]) => kinds.has(kind)).map(([, label]) => label).join(' · ');

@@ -4,6 +4,8 @@ Create a constellation of your public GitHub projects and keep it updated in you
 
 Explore [History & Evolution](docs/designs.md#history--evolution): contribution orbits, language eras, stellar ages, open-source galaxies, and animated growth. See the [showcase gallery](examples/README.md#history--evolution).
 
+Use **Nodes → Refine layout** for optional overlap reduction (intensity 0–10). Manual and hidden pairs stay fixed. Tab to studio nodes and press Enter or Space to select them; Shift-select traces a path. The filter summary reports omitted labels and their reasons.
+
 ![Example GitHub constellation](./dist/constellation.svg)
 
 The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).

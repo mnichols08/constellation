@@ -215,7 +215,7 @@ export const themes = {
   light: { background: '#fafaf3', foreground: '#202516', accent: '#595600', line: '#838d66', star: '#8b8500' },
 };
 
-export function renderConstellation(account, repositories, options = {}) {
+export function renderConstellation(account, repositories, options = {}, { onDiagnostic } = {}) {
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
   const sourceHasRepositories = repositories.some(repo => repo.private !== true && (options.repoSource !== 'pinned' || repo.pinned === true));
@@ -336,7 +336,10 @@ export function renderConstellation(account, repositories, options = {}) {
         const pos = refinedLabels.get(star.repo.full_name);
         return `<text class="repo-label organization-person-label" data-repo="${escape(star.repo.full_name)}" x="${(pos?.x ?? star.x).toFixed(1)}" y="${(pos?.y ?? star.y + 26).toFixed(1)}" style="font-size:15px;font-weight:700">@${escape(star.repo.name)}</text>`;
       }
-      if (index >= Math.ceil(stars.length * profile.labelFraction)) return '';
+      if (index >= Math.ceil(stars.length * profile.labelFraction)) {
+        if (!record) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'export-profile-limit' });
+        return '';
+      }
       const text = star.repo.name.length > 22 ? star.repo.name.slice(0, 20) + '…' : star.repo.name;
       const width = text.length * 5.6;
       const label = (x, y) => { if (record) refinedLabels.set(star.repo.full_name, { x, y, width: width * (options.visualStyle?.labelSize || 10) / 10, size: options.visualStyle?.labelSize || 10 }); return hiddenNodes.has(star.repo.full_name) ? '' : `<text class="repo-label" data-repo="${escape(star.repo.full_name)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}"${hiddenLabels.has(star.repo.full_name) ? ' style="display:none"' : ''}>${escape(text)}</text>`; };
@@ -360,6 +363,7 @@ export function renderConstellation(account, repositories, options = {}) {
         return label(x, y);
       }
       if (record && !hiddenNodes.has(star.repo.full_name) && !hiddenLabels.has(star.repo.full_name) && !['starPositions', 'labelOffsets', 'labelPositions'].some(key => Object.hasOwn(options[key] || {}, star.repo.full_name))) return label(Math.max(34 + width / 2, Math.min(866 - width / 2, star.x)), Math.min(height - 43, star.y + 17));
+      if (!record && !hiddenNodes.has(star.repo.full_name) && !hiddenLabels.has(star.repo.full_name)) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'no-collision-free-position' });
       return '';
     }).join('');
   }
