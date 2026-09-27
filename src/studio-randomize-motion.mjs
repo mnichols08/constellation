@@ -3,7 +3,7 @@ export function mountRandomizeMotion(hero, master, storage) {
   const details = document.createElement('details'); details.className = 'randomize-motion-menu';
   const summary = document.createElement('summary'); summary.textContent = 'Animation parts'; details.append(summary);
   const body = document.createElement('div'); body.className = 'randomize-motion-parts'; details.append(body);
-  const note = document.createElement('p'); note.textContent = 'Allow animation in the next randomized design. Layers can still be switched off by the recipe.'; body.append(note);
+  const note = document.createElement('p'); note.textContent = 'Choose which animation layers can move. Partial randomization keeps your existing layout and enabled data layers; Full random can change those too.'; body.append(note);
   let saved = {};
   try { saved = JSON.parse(storage?.getItem('constellation-randomize-motion-v1') || '{}'); } catch {}
   const inputs = new Map();

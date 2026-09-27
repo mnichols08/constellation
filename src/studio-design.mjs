@@ -3,6 +3,7 @@ import { studioPresets, presetOptions } from './studio-presets.mjs';
 import { mountOrganizationControls } from './organization/studio.mjs';
 import { mountStudioHistory } from './history/studio-history.mjs';
 import { mountRandomizeMotion } from './studio-randomize-motion.mjs';
+import { randomizeParts } from './randomize-parts.mjs';
 import { parseConfig, serializeConfig } from './config-schema.mjs';
 import { createConfigStore } from './config-store.mjs';
 import { encodeShare, decodeShare, publicShareBase } from './share-link.mjs';
@@ -14,7 +15,7 @@ import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
 export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
-export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes }) {
+export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates }) {
   const historyControls = mountStudioHistory(host, changed);
   const organizationControls = mountOrganizationControls(host, changed);
   let storage; try { storage = window.localStorage; } catch {}
@@ -86,9 +87,34 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const recipeOptions = recipe => ({ ...recipe, organizationUser: current.options.organizationUser, accountType: current.options.accountType, organizationScope: current.options.organizationScope, organizationView: current.options.organizationView, organization: current.options.organization, repoSource: current.options.repoSource || 'all', codingRhythmTimezone: current.options.codingRhythmTimezone || 'UTC', starfield: recipe.starfield || { mode: 'classic' } });
   const reseed = async code => { const options = recipeOptions(randomizeDesign(code)); await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
   const motionLabel = document.createElement('label'); motionLabel.className = 'randomize-motion';
-  const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = !matchMedia('(prefers-reduced-motion: reduce)').matches; motionLabel.append(motion, ' Include motion');
-  const randomize = button(hero, 'randomize-design', '✦ Randomize design', async () => {
+  const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = false; motionLabel.append(motion, ' Animations');
+  const partSwitch = (id, text, checked) => {
+    const label = document.createElement('label'); label.className = 'randomize-motion';
+    const input = document.createElement('input'); input.type = 'checkbox'; input.id = id; input.checked = checked;
+    label.append(input, text); hero.append(label); return input;
+  };
+  const styling = partSwitch('randomize-styling', 'Styling', true);
+  const projects = partSwitch('randomize-repositories', 'Repositories', false);
+  const full = partSwitch('randomize-full', 'Full random', false);
+  full.title = 'Also change layouts, filters, node types and history. Animations follow the Animations switch.';
+  full.addEventListener('input', () => { styling.disabled = projects.disabled = full.checked; });
+  const randomize = button(hero, 'randomize-design', '✦ Randomize selected', async () => {
+    if (!current) return;
+    if (!full.checked && !styling.checked && !motion.checked && !projects.checked) { message('Select Styling, Animations or Repositories to randomize.'); return; }
     const settings = { motion: motion.checked, animations: animationParts.read(), ...historyControls.bounds() };
+    if (!full.checked) {
+      const parts = { styling: styling.checked, animations: motion.checked, repositories: projects.checked };
+      const pool = projects.checked ? repositoryCandidates(current.options) : [];
+      let options;
+      const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => {
+        options = randomizeParts(current.options, candidate, parts, pool);
+        return hasMatchingNodes(options);
+      }, 32);
+      if (!recipe) { message('No matching design found with your current filters. Your design is unchanged.'); return; }
+      await apply({ version: 1, account: current.account, options });
+      message('Selected parts randomized. Other settings kept. Use Share link or save the config to keep this combination.');
+      return;
+    }
     const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(recipeOptions(candidate)));
     if (!recipe) { message('No matching randomized design found in the loaded repositories. Your current design is unchanged.'); return; }
     await reseed(recipe.designCode);
@@ -194,8 +220,8 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
     organizationControls.restore(options);
     historyControls.restore(options);
     designCode.value = options.designCode || '';
-    if (/^v[34]:/i.test(options.designCode || '')) motion.checked = !options.designCode.slice(3).startsWith('still-');
-    animationParts.restore(options.designCode);
+    if (full.checked && /^v[34]:/i.test(options.designCode || '')) motion.checked = !options.designCode.slice(3).startsWith('still-');
+    if (full.checked) animationParts.restore(options.designCode);
     const sky = starfieldOptions(options.starfield);
     for (const [key, input] of controls) {
       const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
