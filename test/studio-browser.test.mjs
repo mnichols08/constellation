@@ -9,7 +9,7 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 
-const browser = [process.env.CONSTELLATION_BROWSER, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(path => path && existsSync(path));
+const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => existsSync(path));
 
 test('headless studio: randomized codes, configs, presets, filters, keyboard, sharing and PNG', { skip: !browser && 'Set CONSTELLATION_BROWSER to a Chromium executable.', timeout: 60000 }, async t => {
   let apiCalls = 0;
@@ -21,7 +21,13 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}`;
   const profile = await mkdtemp(join(tmpdir(), 'constellation-browser-'));
-  const child = spawn(browser, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' });
+  // Hosted Linux runners restrict Chrome's namespace sandbox. This isolated
+  // test browser only loads our localhost fixtures and uses a disposable profile.
+  const runnerArgs = process.env.GITHUB_ACTIONS === 'true' && process.platform === 'linux' ? ['--no-sandbox'] : [];
+  const child = spawn(browser, ['--headless=new', ...runnerArgs, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+  let launchError = '', diagnostics = '';
+  child.on('error', error => { launchError = error.message; });
+  child.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-8000); });
   let socket, cdp;
   t.after(async () => {
     if (cdp) try { await cdp('Browser.close'); } catch {}
@@ -30,9 +36,10 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   });
   let port;
   for (let i = 0; i < 150; i++) {
+    if (launchError || child.exitCode !== null) break;
     try { port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await delay(100); }
   }
-  assert.ok(port, 'Chromium started');
+  assert.ok(port, `Chromium did not start: ${launchError || diagnostics || 'DevTools port unavailable'}`);
   const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
