@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.0 — 2026-09-27
+
+- Add an opt-in stable overview with configurable node caps up to 2048, sparse relationships and bounded automatic labels. Existing configs retain their original layouts and limits.
+- Compute overview coordinates in Rust by account/seed and node ID, caching each node independently so style/filter changes reuse unaffected coordinates without history-dependent output.
+- Cache plugin source snapshots separately from view settings, with explicit refresh and stale pending-load rejection.
+- Extend projection, ring geometry, graph exploration and refinement bounds for larger graphs; regenerate WASM.
+
 ## 1.8.3 — 2026-09-27
 
 - Ship an executable offline plugin example using separately packaged source and theme modules, two source instances and a custom diamond renderer.

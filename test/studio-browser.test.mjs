@@ -88,6 +88,24 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
   assert.equal(await evaluate(`(() => { const root = document.querySelector('#preview').firstChild.shadowRoot; const node = root.querySelector('.repository'); node.focus(); return getComputedStyle(node).outlineStyle; })()`), 'solid');
   await evaluate(`click('tab-look');`);
+  const overview = await evaluate(`(async () => {
+    const { renderConstellation } = await import('/src/constellation.mjs');
+    const { mountLabelEditor } = await import('/src/label-editor.mjs');
+    const { mountGraphExplorer } = await import('/src/graph-explorer.mjs');
+    const repos = Array.from({length:1024}, (_,i)=>({name:'node-'+i,full_name:'large/node-'+i,language:'Rust'}));
+    const start = performance.now();
+    const svg = renderConstellation('large',repos,{nodeCap:2048,maxRepos:2048,animate:false,identityRing:false});
+    const host = document.createElement('div'), panel = document.createElement('div'); document.body.append(host,panel);
+    mountLabelEditor(host,svg,()=>{},()=>{},true);
+    mountGraphExplorer(host,panel,{},()=>{});
+    const count = host.shadowRoot.querySelectorAll('.repository[tabindex="0"]').length;
+    await new Promise(requestAnimationFrame);
+    const elapsed = performance.now()-start;
+    host.remove();panel.remove();
+    return {count,elapsed};
+  })()`);
+  assert.equal(overview.count, 1024);
+  assert.ok(overview.elapsed < 3000, '1024-node studio overview should settle within three seconds');
   assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').checked`), false);
   assert.equal(await evaluate(`document.querySelector('#design-refinement-intensity').disabled`), true);
   assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').closest('.inspector-panel').id`), 'panel-nodes');

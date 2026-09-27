@@ -1,4 +1,5 @@
 // One prebuilt Rust module runs in the browser and in the Node action.
+import { overviewEdges } from './scaling.mjs';
 // Loading failure keeps the existing star field usable on restricted browsers.
 let core;
 export let engineError;
@@ -13,6 +14,34 @@ try {
 } catch (error) { engineError = error; }
 
 export const rustAvailable = Boolean(core);
+const stableCoordinates = new Map();
+export const layoutStatistics = { computedNodes: 0, reusedNodes: 0 };
+function stableScene(input) {
+  const prefix = JSON.stringify([input.account, input.compact]);
+  const keys = input.repos.map(repo => `${prefix}:${repo.name}`);
+  const missing = input.repos.filter((_repo, i) => !stableCoordinates.has(keys[i]));
+  if (missing.length) {
+    const positions = JSON.parse(core.stable_positions(JSON.stringify({ account: input.account, compact: input.compact, names: missing.map(repo => repo.name) })));
+    missing.forEach((repo, i) => stableCoordinates.set(`${prefix}:${repo.name}`, positions[i]));
+  }
+  layoutStatistics.computedNodes += missing.length;
+  layoutStatistics.reusedNodes += input.repos.length - missing.length;
+  const anchors = input.snapToRings ? identityPoints(input.account, input.nodeCap, input.ring_rotations) : [];
+  const positions = input.repos.map((repo, i) => {
+    if (repo.position) return repo.position;
+    const position = stableCoordinates.get(keys[i]);
+    if (!anchors.length) return position;
+    let best = position, distance = Infinity;
+    for (let j = 0; j < anchors.length; j += 3) {
+      const point = [450 + (anchors[j] - 240) * 368 / 172, (input.compact ? 126 : 270) + (anchors[j + 1] - 240) * (input.compact ? 88 : 192) / 172];
+      const next = (point[0] - position[0]) ** 2 + (point[1] - position[1]) ** 2;
+      if (next < distance) { best = point; distance = next; }
+    }
+    return best;
+  });
+  while (stableCoordinates.size > 8192) stableCoordinates.delete(stableCoordinates.keys().next().value);
+  return { positions, edges: overviewEdges(input.repos, input.basis), total: input.repos.length };
+}
 const refinements = new Map();
 export function refineLayout(input) {
   if (!core?.refine_layout) throw new Error('Layout refinement needs the rebuilt Rust engine. Reload the studio or run npm run build:rust.');
@@ -37,6 +66,7 @@ export function projectNodes(input) {
 const scenes = new Map();
 export function computeScene(input) {
   if (!core) return null;
+  if (input.stableOverview) return stableScene(input);
   const key = JSON.stringify(input);
   if (!scenes.has(key)) {
     const scene = JSON.parse(core.compute_scene(key));

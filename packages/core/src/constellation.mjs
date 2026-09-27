@@ -1,5 +1,6 @@
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
 import { renderNodeIcon } from './theme-packs.mjs';
+import { scalingOptions } from './scaling.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
 import { scopeRepositories } from './organization/model.mjs';
@@ -108,12 +109,13 @@ export async function fetchPinnedRepositories(account, { token, signal, fetchImp
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 
 export function selectRepositoryPool(repositories, options = {}) {
+  const repositoryCap = options.nodeCap === undefined ? 100 : scalingOptions(options).nodeCap;
   const historical = options.history?.mode === 'historical' || options.historicalYear !== undefined;
   const date = referenceDate(options, new Date().toISOString());
   if (historical) repositories = historicalSnapshot(repositories, date);
   const { maxRepos = 45, includeForks = true, includeRepos, repoSource = 'all', sortBy = 'stars' } = options;
   if (!['all', 'pinned'].includes(repoSource)) throw new Error('repoSource must be all or pinned.');
-  if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > 100) throw new Error('maxRepos must be an integer between 1 and 100.');
+  if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > repositoryCap) throw new Error(`maxRepos must be an integer between 1 and ${repositoryCap}.`);
   const eligible = filterRepositoryMetadata(repositories, options, date).filter(repo => repo.private !== true && (repoSource !== 'pinned' || repo.pinned === true) && (includeForks || !repo.fork) && (!includeRepos || includeRepos.includes(repo.name) || includeRepos.includes(repo.full_name)));
   if (organizationEnabled(options)) {
     const focus = options.organizationUser?.toLowerCase(), records = options.organizationData?.records;
@@ -163,7 +165,7 @@ export function graphNodes(repositories, options = {}) {
   if (!['repositories', 'languages', 'topics', 'combined'].includes(mode)) throw new Error('nodeMode must be repositories, languages, topics or combined.');
   const repos = selectRepositories(repositories, options);
   if (mode === 'repositories') return { nodes: repos, total: repos.length, repositoryCount: repos.length };
-  const projected = projectNodes({ mode, repos: repos.map(repo => ({ id: repo.full_name,
+  const projected = projectNodes({ mode, cap: options.nodeCap, repos: repos.map(repo => ({ id: repo.full_name,
     languages: (repositoryLanguages(repo).length ? repositoryLanguages(repo) : options.showOther ? ['Other'] : []).filter(value => options.languages == null || options.languages.includes(value)),
     topics: (repo.topics || []).filter(value => options.topics == null || options.topics.includes(value)),
   })) });
@@ -217,6 +219,7 @@ export const themes = {
 };
 
 export function renderConstellation(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
+  const scaling = scalingOptions(options);
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
   const sourceHasRepositories = repositories.some(repo => repo.private !== true && (options.repoSource !== 'pinned' || repo.pinned === true));
@@ -276,7 +279,8 @@ export function renderConstellation(account, repositories, options = {}, { onDia
   let starPositions = options.starPositions ?? {};
   if (typeof starPositions !== 'object' || Array.isArray(starPositions) || Object.values(starPositions).some(position => !position || !Number.isFinite(position.x) || !Number.isFinite(position.y))) throw new Error('starPositions must map repository names to finite x and y coordinates.');
   if (theme !== 'auto' && !themes[theme]) throw new Error('Theme must be auto, midnight or light.');
-  if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > 100) throw new Error('maxRepos must be an integer between 1 and 100.');
+  const repositoryCap = options.nodeCap === undefined ? 100 : scaling.nodeCap;
+  if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > repositoryCap) throw new Error(`maxRepos must be an integer between 1 and ${repositoryCap}.`);
   const palette = { ...themes[theme === 'auto' ? 'light' : theme], ...colors };
   const variables = values => Object.entries(values).map(([key, value]) => `--sky-${key}:${value}`).join(';');
   const paletteCSS = `svg{${variables(palette)}}` + (theme === 'auto' ? `@media(prefers-color-scheme:dark){svg{${variables({ ...themes.midnight, ...colors })}}}` : '');
@@ -286,9 +290,12 @@ export function renderConstellation(account, repositories, options = {}, { onDia
   // CSS is local, trusted configuration, but must never escape its XML text node.
   const graph = graphNodes(repositories, options);
   const repos = graph.nodes;
-  starPositions = { ...artifactPositions(repos, arrangement, seed, compact, options.majorMetric), ...starPositions };
-  if (organizationLayouts.includes(arrangement)) starPositions = { ...organizationPositions(graph, arrangement, compact, seed, options.majorMetric), ...options.starPositions };
-  if (temporal.languageEvolution.enabled && temporal.languageEvolution.style === 'timeline') starPositions = { ...timelinePositions([...repos].sort((a, b) => a.full_name.localeCompare(b.full_name)), clock, compact), ...options.starPositions };
+  const stableOverview = options.nodeCap > 100;
+  const simplified = stableOverview && repos.length > scaling.simplifyAbove;
+  if (simplified) onDiagnostic?.({ code: 'large-graph-overview', reason: 'stable coordinates, sparse connections, bounded labels' });
+  if (!stableOverview) starPositions = { ...artifactPositions(repos, arrangement, seed, compact, options.majorMetric), ...starPositions };
+  if (!stableOverview && organizationLayouts.includes(arrangement)) starPositions = { ...organizationPositions(graph, arrangement, compact, seed, options.majorMetric), ...options.starPositions };
+  if (!stableOverview && temporal.languageEvolution.enabled && temporal.languageEvolution.style === 'timeline') starPositions = { ...timelinePositions([...repos].sort((a, b) => a.full_name.localeCompare(b.full_name)), clock, compact), ...options.starPositions };
   nodeColors = { ...Object.fromEntries(repos.map(repo => [repo.full_name, mappedColor(repo, options.nodeColorMode, seed, reference)]).filter(([, color]) => color)), ...nodeColors };
   const nodeMode = graph.organization ? organizationNodeMode(options) : options.nodeMode ?? 'repositories';
   const combinedMode = nodeMode === 'combined';
@@ -303,7 +310,7 @@ export function renderConstellation(account, repositories, options = {}, { onDia
   // A deterministic, account-seeded star field uses the full card instead of
   // narrow language columns that turn cross-language links into long fans.
   const ordered = [...repos].sort((a, b) => hash(a.full_name) - hash(b.full_name) || a.full_name.localeCompare(b.full_name));
-  const scene = computeScene({ account: options.seedMode ? seed : name, compact, arrangement: artifactLayouts.includes(arrangement) || organizationLayouts.includes(arrangement) ? 'field' : arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: graph.organization && nodeMode !== 'repositories' ? 'membership' : combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
+  const scene = computeScene({ stableOverview, nodeCap: scaling.nodeCap, snapToRings: options.snapToRings, account: options.seedMode ? seed : name, compact, arrangement: artifactLayouts.includes(arrangement) || organizationLayouts.includes(arrangement) ? 'field' : arrangement, ring_rotations: ringRotations, all: connectionDensity === 'all', basis: graph.organization && nodeMode !== 'repositories' ? 'membership' : combinedMode ? 'membership' : categoryMode ? 'repositories' : connectionBasis,
     repos: ordered.map(repo => ({ name: repo.full_name, group: repo.language || 'Other',
       languages: repositoryLanguages(repo).filter(language => options.languages == null || options.languages.includes(language)),
       topics: (repo.topics || []).filter(topic => options.topics == null || options.topics.includes(topic)),
@@ -332,6 +339,10 @@ export function renderConstellation(account, repositories, options = {}, { onDia
     const labelPriority = { repository: 0, language: 1, topic: 2, contributor: 3, dependency: 4, era: 5 };
     const labelOrder = [...stars].sort((a, b) => (labelPriority[a.repo.nodeKind || 'repository'] ?? 6) - (labelPriority[b.repo.nodeKind || 'repository'] ?? 6));
     return labelOrder.map((star, index) => {
+      if (simplified && index >= 100 && !Object.hasOwn(labelPositions, star.repo.full_name) && !Object.hasOwn(labelOffsets, star.repo.full_name)) {
+        if (!record) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'large-graph-overview' });
+        return '';
+      }
       if (star.repo.organizationFocal && !hiddenNodes.has(star.repo.full_name)) {
         if (record) refinedLabels.set(star.repo.full_name, { x: star.x, y: star.y + 26, width: (star.repo.name.length + 1) * 8.4, size: 15 });
         const pos = refinedLabels.get(star.repo.full_name);

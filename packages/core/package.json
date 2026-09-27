@@ -1,6 +1,6 @@
 {
   "name": "@constellation/core",
-  "version": "1.8.3",
+  "version": "1.9.0",
   "type": "module",
   "description": "Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.",
   "engines": {

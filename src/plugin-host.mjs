@@ -16,7 +16,10 @@ export function pluginOptions(value = {}) {
 
 export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
   const sources = new Map(), themes = new Map();
+  const cache = new Map();
+  let generation = 0;
   const host = {
+    clearCache() { generation++; cache.clear(); },
     registerSource(plugin) {
       if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== 1 || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
       if (sources.has(plugin.id)) throw new Error(`Source plugin already registered: ${plugin.id}`);
@@ -28,13 +31,23 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
       if (themes.has(key)) throw new Error(`Theme pack already registered: ${key}`);
       themes.set(key, structuredClone(pack)); return host;
     },
-    async load(config = {}, { account, signal } = {}) {
+    async load(config = {}, { account, signal, refresh = false } = {}) {
+      if (refresh) host.clearCache();
+      const epoch = generation;
       const result = [], seen = new Set();
       for (const source of structuredClone(pluginOptions(config.plugins)).sort((a, b) => a.id.localeCompare(b.id))) {
         signal?.throwIfAborted();
         const plugin = sources.get(source.source);
         if (!plugin) throw new Error(`Unknown source plugin: ${source.source}. Register it before loading.`);
-        const items = await plugin.load({ account, options: structuredClone(source.options || {}), signal, fetchImpl });
+        const key = JSON.stringify([account, source.source, source.id, source.options || {}]);
+        let items = cache.get(key);
+        if (!items) {
+          items = await plugin.load({ account, options: structuredClone(source.options || {}), signal, fetchImpl });
+          if (epoch !== generation) throw new Error('Source data was refreshed during this load; retry with the current snapshot.');
+          if (!Array.isArray(items)) throw new Error(`Source ${source.id} must return an array of nodes.`);
+          if (cache.size >= 32) cache.delete(cache.keys().next().value);
+          cache.set(key, structuredClone(items));
+        }
         if (!Array.isArray(items)) throw new Error(`Source ${source.id} must return an array of nodes.`);
         for (const item of items) {
           if (!item || typeof item.id !== 'string' || !item.id.trim() || /[\x00-\x1f]/.test(item.id) || typeof item.name !== 'string' || !item.name.trim()) throw new Error(`Source ${source.id} returned a node without a valid id and name.`);

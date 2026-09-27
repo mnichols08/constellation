@@ -260,7 +260,7 @@ function render({ requireVisibleNodes = false } = {}) {
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a fixed sample week.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
   options.selection = graphSelection;
   const labelDiagnostics = [];
-  const svg = renderConstellation(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => labelDiagnostics.push(diagnostic) });
+  const svg = renderConstellation(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
   // Validate the final render after form normalization, before publishing it or
   // replacing the saved draft and exports. A metadata-only check is not enough.
   if (requireVisibleNodes && (!projected.nodes.some(node => !options.hiddenNodes.includes(node.full_name)) ||

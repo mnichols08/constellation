@@ -88,7 +88,7 @@ fn local_cost(
 // Bounded deterministic coordinate descent. Each accepted move reduces overlap
 // plus a tether penalty; no seed, clock or continuous simulation is involved.
 pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
-    if input.nodes.len() > 256
+    if input.nodes.len() > 2048
         || input.intensity > 10
         || !input.height.is_finite()
         || input.height < 160.0
@@ -112,7 +112,7 @@ pub fn refine(input: Input) -> Result<Vec<[f64; 2]>, String> {
     if input
         .anchors
         .as_ref()
-        .is_some_and(|a| a.len() > 256 || a.iter().flatten().any(|v| !v.is_finite()))
+        .is_some_and(|a| a.len() > 2048 || a.iter().flatten().any(|v| !v.is_finite()))
     {
         return Err("Invalid refinement anchors".into());
     }
@@ -313,7 +313,7 @@ mod tests {
         data.nodes[0].x = f64::NAN;
         assert!(refine(data).is_err());
         let mut data = input();
-        data.nodes = vec![node(400.0); 257];
+        data.nodes = vec![node(400.0); 2049];
         assert!(refine(data).is_err());
     }
     #[test]

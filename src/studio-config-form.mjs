@@ -10,6 +10,7 @@ export function createFormRestorer(document) {
   const defaults = new Map([...document.querySelectorAll('input[id],select[id],textarea[id]')].map(input => [input.id, input.type === 'checkbox' ? input.checked : input.value]));
   const set = (id, value) => { const input = document.getElementById(id); if (!input) return; const next = value ?? defaults.get(id); if (input.type === 'checkbox') input.checked = next; else input.value = next; };
   return options => {
+    document.getElementById('max-repos').max = String(options.nodeCap || 100);
     for (const [key, id] of Object.entries(fields)) set(id, options[key]);
     const rotation = options.ringRotations || Array(4).fill(options.ringRotation || 0);
     for (let i = 0; i < 4; i++) {

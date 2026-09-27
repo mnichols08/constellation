@@ -17,6 +17,8 @@ for (const key of ['starlightAnimate', 'activityAnimate']) fields.add(key);
 fields.add('layoutRefinement');
 fields.add('plugins');
 fields.add('themePack');
+fields.add('nodeCap');
+fields.add('simplifyAbove');
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: 'enabled intensity',

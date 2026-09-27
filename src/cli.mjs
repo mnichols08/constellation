@@ -54,7 +54,7 @@ async function main() {
   // for every repository. Older frames can use their known primary language.
   const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
   const pluginHost = createPluginHost();
-  const repos = [...listed.map(repo => byName.get(repo.full_name) || repo), ...await pluginHost.load(config, { account })];
+  const repos = [...listed.map(repo => byName.get(repo.full_name) || repo), ...await pluginHost.load(config, { account, refresh: values['refresh-data'] })];
   const generatedAt = new Date().toISOString();
   let activityData, codingRhythmData, historyData;
   if (needsHistoryEvents(config) || activityOptions(config).activityEffect !== 'off' || (codingRhythmOptions(config).codingRhythm && config.codingRhythmStyle !== 'hidden')) {
