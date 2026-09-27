@@ -255,7 +255,6 @@ function render({ requireVisibleNodes = false } = {}) {
     message(`${missing} projects need language data. Click Load data to apply this project pool. The previous image and exports are retained; no requests are made while customizing.`);
     return;
   }
-  const projected = graphNodes(repositories, options);
   const generatedAt = new Date().toISOString();
   const activitySnapshot = isSample ? sampleActivity(repositories) : data.activity(account);
   options.historyData = activitySnapshot;
@@ -268,6 +267,8 @@ function render({ requireVisibleNodes = false } = {}) {
   const labelDiagnostics = [];
   const scene = createScene(account, repositories, { ...options, generatedAt }, { onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
   const svg = renderSceneSVG(scene);
+  const currentScene = scene.kind === 'time-lapse' ? scene.latest : scene;
+  const projected = { ...currentScene.presentation.graph, nodes: currentScene.nodes.map(node => node.metadata) };
   studio.scene(scene);
   // Validate the final render after form normalization, before publishing it or
   // replacing the saved draft and exports. A metadata-only check is not enough.

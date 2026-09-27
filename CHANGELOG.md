@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.3.1 — 2026-09-27
+
+- Add deterministic declarative filter, sort, limit, derive, group, map and deduplicate transforms with isolated outputs and stage reports.
+- Add a bounded data-expression tree for safe field access and arithmetic/text operations, rejecting executable values and prototype paths.
+- Preserve privacy/fork exclusions before transforms and historical evidence before frame transformations. Studio now inspects the compiled scene's actual graph.
+- Test config round trips, grouping, ordering, mutation isolation and unsafe input rejection; document working transform examples.
+
 ## 2.3.0 — 2026-09-27
 
 - Route scene compilation through isolated normalized data records with stable IDs, labels, kinds, metrics, source provenance and preserved metadata.

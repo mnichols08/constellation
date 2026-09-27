@@ -1,5 +1,6 @@
 import { createLayers } from './scene-layers.mjs';
 import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
+import { applyTransforms, validateTransforms } from './data-transforms.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
 import { historyYears } from './history/historical-snapshot.mjs';
 import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
@@ -220,6 +221,7 @@ export function renderConstellation(account, repositories, options = {}, runtime
 
 export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer } = {}) {
   const layers = createLayers(options.layers);
+  validateTransforms(options.transforms);
   // Legacy inputs can repeat IDs in records later excluded by privacy, fork or
   // explicit repository filters. Check the resulting graph's identity instead.
   const normalized = normalizeRecords(repositories, { onDiagnostic, deferIdentityCheck: true });
@@ -244,12 +246,17 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     const latest = createScene(account, repositories, base, { onDiagnostic, nodeRenderer });
     const frames = settings.mode === 'crossfade' && years.length > 1 && options.animate !== false
       ? years.slice(0, -1).map(year => ({ year, scene: createScene(account, repositories, { ...base, history: { ...base.history, mode: 'historical', year } }, { onDiagnostic, nodeRenderer }) })) : [];
-    return JSON.parse(JSON.stringify({ version: 1, kind: 'time-lapse', metadata: latest.metadata, latest, frames, presentation: { account, repositories, options: resolved, reference: clock } }));
+    return JSON.parse(JSON.stringify({ version: 1, kind: 'time-lapse', metadata: latest.metadata, latest, frames, presentation: { account, repositories: repositories.filter(repo => repo.private !== true), options: resolved, reference: clock } }));
   }
   if (temporal.history.mode === 'historical') {
     repositories = historicalSnapshot(repositories, clock);
     options = { ...options, metricDate: options.referenceDate, activityMetricDate: options.referenceDate, activityData: options.historyData ? aggregateActivity(options.historyData.events, repositories, { ...options, activityMetricDate: options.referenceDate }, options.referenceDate) : undefined, codingRhythmData: options.historyData ? deriveCodingRhythm(options.historyData.events, options, options.referenceDate) : undefined };
   }
+  // Privacy and fork exclusion cannot be bypassed by grouping or field mapping.
+  const transformed = applyTransforms(options.transforms?.length
+    ? normalizeRecords(repositories, { deferIdentityCheck: true }).records.filter(record => record.attributes.private !== true && (options.includeForks !== false || !record.attributes.fork))
+    : normalized.records, options.transforms);
+  if (options.transforms?.length) repositories = toGraphRecords(transformed.records);
   mappingOptions(options);
   const name = username(account);
   const seed = resolveSeed(name, options);
@@ -473,6 +480,6 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,
       totalConnections: scene?.total ?? candidates.length, nodeMode, hasHistory,
-      pipeline: { ...normalized.statistics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
+      pipeline: { ...normalized.statistics, transformed: transformed.records.length, transforms: transformed.diagnostics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
   }));
 }

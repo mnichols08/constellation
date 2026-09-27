@@ -21,6 +21,7 @@ fields.add('themePack');
 fields.add('nodeCap');
 fields.add('simplifyAbove');
 fields.add('layers');
+fields.add('transforms');
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: 'enabled intensity',

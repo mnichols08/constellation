@@ -1,7 +1,7 @@
 # Data pipeline
 
-The pipeline is source → normalized records → graph → scene → renderer.
-Transforms are added in the following 2.3 patches. Existing GitHub acquisition,
+The pipeline is source → normalized records → transforms → graph → scene → renderer.
+Existing GitHub acquisition,
 organization scans and source API 1 still return repository-shaped objects;
 compilation adapts them before graph construction. Rust/WASM remains responsible
 for the existing graph projection and layout computations.
@@ -41,3 +41,51 @@ Source API 1 remains unchanged: `pluginHost.load` returns its existing objects,
 while `pluginHost.loadRecords` is an additive normalized adapter using the same
 registration, namespace, cache and cancellation boundaries. Hosts must still
 explicitly register executable source callbacks; config never loads modules.
+
+## Declarative transforms
+
+Config v6 accepts `transforms`, an ordered array of at most 32 stages. For example:
+
+```json
+{
+  "version": 6,
+  "transforms": [
+    { "type": "filter", "field": "metrics.stars", "op": "gte", "value": 10 },
+    { "type": "sort", "field": "metrics.stars", "direction": "desc" },
+    { "type": "limit", "count": 20 },
+    { "type": "derive", "field": "metrics.score", "expression": {
+      "op": "add", "args": [{ "field": "metrics.stars" }, { "value": 1 }]
+    } }
+  ]
+}
+```
+
+`applyTransforms(records, transforms)` returns isolated records and a per-stage
+report with input/output/removal counts. Stages run before graph filters and
+projection. Privacy and fork exclusions run before configured transforms during
+scene compilation; grouping or mapping cannot undo those exclusions. Historical
+snapshots are established before their transforms. Normal graph filters and caps
+still apply after transformation. Studio inspects the actual resulting scene.
+
+| Stage | Fields and behavior |
+| --- | --- |
+| filter | `field`, `op`, `value`; eq/ne, numeric gt/gte/lt/lte, in, contains, exists (no value) |
+| sort | `field`, optional asc/desc `direction`; ties use stable record IDs |
+| limit | nonnegative integer `count` |
+| deduplicate | scalar `field`; keeps the first record, so sort first when needed |
+| group | scalar `field`; stable group ID, summed stars, count and sorted member IDs |
+| derive | writable `field` and `expression` |
+| map | `fields` maps writable paths to expressions, evaluated against the original record |
+
+Paths are `id`, `label`, `kind`, `metrics.NAME` or bounded `attributes.NAME` paths.
+IDs cannot be overwritten. Expressions contain exactly a `field`, a scalar
+`value`, or an `op` with `args`. Operations are add, subtract, multiply, divide,
+min, max, coalesce, concat and lowercase. Division by zero and missing numeric
+inputs yield null; use coalesce for derived metrics, which must be finite.
+There is no eval, module loading, executable callback or JavaScript string syntax.
+Expression nesting and argument counts are bounded, and prototype paths are rejected.
+
+Grouping reports only supplied members and metrics; it invents no repository
+architecture or historical data. The existing lower-level `graphNodes` function
+continues accepting graph-ready repository records; use `toGraphRecords` after
+explicit transforms when calling it directly.

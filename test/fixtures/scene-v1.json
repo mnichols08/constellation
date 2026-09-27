@@ -533,7 +533,9 @@
       "loaded": 4,
       "normalized": 4,
       "rejected": 0,
-      "sceneNodes": 4
+      "sceneNodes": 4,
+      "transformed": 4,
+      "transforms": []
     },
     "sourceHasRepositories": true,
     "totalConnections": 6

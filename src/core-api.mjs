@@ -11,5 +11,6 @@ export { migrateConfig, migrateWorkflow } from './migrate.mjs';
 export { CONFIG_VERSION } from './config-schema.mjs';
 export { createScene } from './constellation.mjs';
 export { normalizeRecords, toGraphRecords, DATA_RECORD_VERSION } from './data-pipeline.mjs';
+export { applyTransforms, validateTransforms } from './data-transforms.mjs';
 export { renderSceneSVG } from './renderer-svg.mjs';
 export { serializeScene, parseScene, validateScene, sceneStatistics, SCENE_VERSION } from './scene.mjs';
