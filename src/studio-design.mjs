@@ -51,7 +51,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   document.querySelector('.studio-header').after(hero);
   const heroTitle = document.createElement('div'); heroTitle.className = 'design-launcher-title'; heroTitle.textContent = 'Find your next universe';
   const heroNote = document.createElement('p'); heroNote.textContent = 'One click. A new sky. Keep the code to come back.'; heroTitle.append(heroNote); hero.append(heroTitle);
-  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v3:… (older codes also work)'; designCode.maxLength = 103;
+  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v4:… (older codes also work)'; designCode.maxLength = 103;
   const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code';
   const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
   const reseed = async code => { const recipe = randomizeDesign(code); const options = { ...current.options, ...recipe, starfield: recipe.starfield || { mode: 'classic' } }; await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
@@ -124,7 +124,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   window.addEventListener('pagehide', flush);
   function restore(options) {
     designCode.value = options.designCode || '';
-    if (options.designCode?.startsWith('v3:')) motion.checked = !options.designCode.startsWith('v3:still-');
+    if (/^v[34]:/i.test(options.designCode || '')) motion.checked = !options.designCode.slice(3).startsWith('still-');
     const sky = starfieldOptions(options.starfield);
     for (const [key, input] of controls) {
       const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';

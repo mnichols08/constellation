@@ -1,10 +1,34 @@
 import { seededRandom, newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
 
-export const newDesignCode = ({ motion = true } = {}) => `v3:${motion ? 'motion' : 'still'}-${newSeed()}`;
+export const newDesignCode = ({ motion = true } = {}) => `v4:${motion ? 'motion' : 'still'}-${newSeed()}`;
 
-// Freeze the v1 recipe: future recipes get a new prefix so shared codes never drift.
+// Freeze released recipes: future recipes get a new prefix so shared codes never drift.
 export function randomizeDesign(code) {
+  if (typeof code === 'string' && /^v4:[a-z\d-]{1,100}$/i.test(code)) {
+    const base = randomizeDesign(code.replace(/^v4:/i, 'v2:'));
+    const random = seededRandom(`${code}:independent-motion`);
+    const integer = (min, max) => min + Math.floor(random() * (max - min + 1));
+    const pick = values => values[integer(0, values.length - 1)];
+    const enabled = !code.slice(3).startsWith('still-');
+    const rings = Array.from({ length: 4 }, () => ({
+      rotation: integer(0, 359), speed: integer(1, 6) * .25,
+      direction: pick(['clockwise', 'counterclockwise']),
+      mode: pick(['spin', 'sway']), amplitude: integer(2, 12) * 5,
+      easing: pick(['linear', 'smooth']),
+    }));
+    // These layers can combine, rather than selecting one exclusive motion preset.
+    const tilted = random() < .85;
+    return { ...base, designCode: code, seed: code, animate: enabled,
+      ringRotations: rings.map(ring => ring.rotation),
+      ringAnimation: { enabled, linked: false,
+        speeds: rings.map(ring => ring.speed), directions: rings.map(ring => ring.direction),
+        modes: rings.map(ring => ring.mode), amplitudes: rings.map(ring => ring.amplitude), easing: rings.map(ring => ring.easing) },
+      floatingAnimation: { enabled: enabled && base.arrangement !== 'rings', mode: pick(['drift', 'bob', 'orbit']), amplitude: integer(3, 10), duration: integer(10, 30) },
+      perspective: { enabled: tilted, animate: enabled && tilted && random() < .8,
+        horizontal: integer(-35, 35), vertical: integer(10, 50), zoom: integer(75, 100), range: integer(4, 18), duration: integer(16, 50) },
+    };
+  }
   if (typeof code === 'string' && /^v3:[a-z\d-]{1,100}$/i.test(code)) {
     const base = randomizeDesign(code.replace(/^v3:/i, 'v2:'));
     const random = seededRandom(`${code}:motion`);
@@ -23,7 +47,7 @@ export function randomizeDesign(code) {
     return { ...randomizeDesign(code.replace(/^v2:/i, 'v1:')), designCode: code, seed: code,
       starfield: { mode: random() < .65 ? 'space' : 'milky-way', density: 35 + Math.floor(random() * 36), brightness: .8, depth: .8, twinkle: true, seed: '' } };
   }
-  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1:, v2: or v3: followed by letters, numbers or hyphens.');
+  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1:, v2:, v3: or v4: followed by letters, numbers or hyphens.');
   const random = seededRandom(code);
   const pick = values => values[Math.floor(random() * values.length)];
   const visualTheme = pick(['github-dark', 'deep-space', 'terminal', 'solarized', 'dracula', 'synthwave', 'monochrome', 'contribution', 'rustacean', 'javascript']);

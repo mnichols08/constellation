@@ -12,6 +12,6 @@ Import a JSON file into the studio, or use it with the CLI/Action. These preview
 
 | Active Developer · language colors and public-activity comet trails | [active-developer.json](active-developer.json) | ![Active Developer comet trails](gallery/active-developer.svg) |
 
-Use **Randomize design** for another coordinated starting point. Enable **Include motion** for a randomized animation. Save its `v3:…` code to replay the recipe, or download JSON to keep all subsequent changes. Existing `v1:…` codes retain their classic dust background. Existing `v2:` codes retain their starfield recipe. See the [design guide](../docs/designs.md).
+Use **Randomize design** for another coordinated starting point. Enable **Include motion** for a randomized animation. Save its `v4:…` code to replay the recipe, or download JSON to keep all subsequent changes. Existing `v1:…` codes retain their classic dust background. Existing `v2:` codes retain their starfield recipe. See the [design guide](../docs/designs.md).
 
 Active Developer uses [synthetic public events](fixtures/public-events.json) and a fixed `activityMetricDate`. Remove that date for live daily generation.

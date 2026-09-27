@@ -64,10 +64,19 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
   await evaluate(`click('randomize-design');`);
   assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v3:motion-/);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v4:motion-/);
+  assert.equal(await evaluate(`document.querySelector('#link-ring-motion').checked`), false);
+  assert.ok(await evaluate(`(async()=>{
+    const {randomizeDesign}=await import('/src/design-randomizer.mjs');
+    const recipe=randomizeDesign(document.querySelector('#design-code').value);
+    const rings=['speeds','directions','modes','amplitudes','easing'].every((key,j)=>recipe.ringAnimation[key].every((value,i)=>String(value)===document.getElementById('ring-'+['speed','direction','motion','sway','easing'][j]+'-'+i).value));
+    const perspective=Object.entries(recipe.perspective).every(([key,value])=>{const el=document.getElementById('perspective-'+key);return typeof value==='boolean'?el.checked===value:el.value===String(value);});
+    return rings&&perspective;
+  })()`));
+
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('animate,animateTransform'))`));
   await evaluate(`click('randomize-motion');click('randomize-design');`);
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v3:still-/);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v4:still-/);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('animate,animateTransform').length`), 0);
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`), first);
