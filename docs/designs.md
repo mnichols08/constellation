@@ -4,7 +4,7 @@ The studio configures a self-contained SVG. It needs no account system, external
 
 ## Randomize, then return to a design
 
-Open **Reproducibility & optional effects**, choose **Randomize design**, and save the resulting **design code**, such as `v1:my-sky`. Paste that code and choose **Restore design code** to regenerate its coordinated theme, layout, node mappings, shapes, and effects. The `v1` recipe is versioned; new recipes will use new prefixes. Codes use a deterministic PRNG, not a cryptographic hash or an authentication secret.
+Open **Reproducibility & optional effects**, choose **Randomize design**, and save the resulting **design code**, such as `v2:my-sky`. Paste that code and choose **Restore design code** to regenerate its coordinated theme, layout, node mappings, shapes, effects and background starfield. The original `v1` recipe keeps classic dust; `v2` adds seeded starfields. Existing codes continue to work. Codes use a deterministic PRNG, not a cryptographic hash or an authentication secret.
 
 The code recreates the randomized visual recipe for the same account and repository data. It preserves your project filters. It resets manual colors, positions, selection, visibility, authored CSS, and motion overrides so these do not interfere with reproducing the recipe. Export JSON to preserve later edits, filters, and coordinates exactly. The JSON contains both the recipe code and the resulting explicit settings; CLI rendering does not need to regenerate the recipe.
 
@@ -17,6 +17,16 @@ The code recreates the randomized visual recipe for the same account and reposit
 Randomize node hues still saves its explicit colors. Those colors override automatic color mappings. Clear manual colors to return to a mapped palette.
 
 ## Visual mappings
+
+### Background starfield
+
+The **Background starfield** section offers Off, Classic dust, Deep Space and Milky Way band. The generator creates up to 500 decorative stars with three apparent depth layers, small size/brightness differences, faint warm/cool tones and occasional brighter points. Milky Way concentrates stars around a curved band with faint haze. These remain behind the graph, do not receive focus or pointer events, and never count toward repository/node limits. Pair with a dark theme to get a space backdrop.
+
+`starfield` accepts `mode` (`off`, `classic`, `space`, `milky-way`), `density` (0–100), `brightness` (0–1), `depth` (0–1), `twinkle` (boolean), and `seed` (up to 120 characters). An empty background seed follows the design seed. **Generate another starfield** changes only the background seed; copy/export JSON or a share link to preserve it. Increasing density extends a stable point sequence without moving existing stars. Compact output profiles reduce the decorative point budget.
+
+Only a sparse subset twinkles, using CSS animation. Disabling Starlight animation, turning off twinkle, or requesting reduced motion produces a still sky. No JavaScript animation loop is added. Transparent exports retain stars but omit the band haze. Existing configs without `starfield` retain classic dust; a fresh studio starts with Deep Space stars, and `v2:` randomized designs save their own sky settings. The existing Background stars opacity control also affects the generated sky.
+
+### Nodes and connections
 
 `nodeSize` accepts `uniform`, `stars`, `activity`, `age`, `languages`, `topics`, or `membership`. Missing settings retain `legacy` sizing. Categories use bounded membership sizing for data-driven modes. Repository star and count metrics use logarithmic bounds; radii remain between 2.7 and 6 SVG units.
 

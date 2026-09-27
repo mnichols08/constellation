@@ -1,4 +1,5 @@
 import { resolveSeed } from './seeded-random.mjs';
+import { starfieldOptions, renderStarfield, starfieldCSS } from './starfield.mjs';
 import { resolveTheme } from './themes.mjs';
 import { artifactLayouts, artifactPositions } from './artifact-layouts.mjs';
 import { mappedColor, mappedGlow, connectionWeight, mappingOptions, metricReference, shapeFor, shapeDefinitions, decoration } from './visual-mapping.mjs';
@@ -184,6 +185,7 @@ export function renderConstellation(account, repositories, options = {}) {
   mappingOptions(options);
   const name = username(account);
   const seed = resolveSeed(name, options);
+  const sky = starfieldOptions(options.starfield);
   nodeRadius({}, options.nodeSize || options.sizingMode, 0);
   const reference = metricReference(selectRepositories(repositories, options), options.metricDate);
   const generatedDate = options.generatedAt === undefined ? null : new Date(options.generatedAt);
@@ -404,13 +406,15 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 .generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
 ${compact ? '.heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}' : ''}
 ${escape(css)}
+${['space', 'milky-way'].includes(sky.mode) ? starfieldCSS : ''}
 ${options.exportProfile === 'transparent' ? 'svg{background:transparent!important}.background{fill:none!important}' : ''}
 </style>
 <rect class="background" width="900" height="${height}" rx="${compact ? 12 : 18}"/>
 ${options.exportProfile === 'transparent' ? '' : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * .43}" fill="url(#nebula)"/>`}
 
 ${decoration(options, height, visibleStars)}
-${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}<g class="dust">${dust}</g><g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}
+${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent: options.exportProfile === 'transparent' })}
+${camera.start}${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? '' : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ''}${sky.mode === 'classic' ? `<g class="dust">${dust}</g>` : ''}<g class="bridges">${bridgeLines.join('')}</g><g class="connections">${edges}</g>${points}${labels}${camera.end}
 ${visibleStars.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? 'All nodes are hidden. Restore visibility in Individual nodes.' : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : selectRepositoryPool(repositories, options).length ? 'No projects match these filters.' : options.repoSource === 'pinned' ? 'No public pinned repositories match this selection.' : 'No public repositories to show yet.'}</text>`}
 ${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}`)}</text>` : ''}
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -49,8 +49,10 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
   assert.deepEqual(errors, []);
   assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length`), 0, 'v1 codes keep their original background');
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
   await evaluate(`click('randomize-design');`);
   assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
@@ -63,6 +65,19 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await delay(50);
   assert.equal(await evaluate(`document.querySelector('#design-nodeSize').value`), 'topics');
   assert.equal(await evaluate(`document.querySelector('#arrangement').value`), 'galaxy');
+  const graphPositions = await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),node=>[node.dataset.repo,node.getAttribute('cx'),node.getAttribute('cy')])`);
+  await evaluate(`input('design-sky-mode','milky-way');input('design-sky-density','80');input('design-sky-seed','browser-sky');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length`), 400);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),node=>[node.dataset.repo,node.getAttribute('cx'),node.getAttribute('cy')])`), graphPositions);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.starfield-twinkle')).animationName`), 'none');
+  if (process.env.CONSTELLATION_SCREENSHOT) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await evaluate(`input('design-visualTheme','deep-space');document.querySelector('#design-visualTheme').dispatchEvent(new Event('change'));`);
+    const clip = await evaluate(`(()=>{const r=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').getBoundingClientRect();return {x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height,scale:1};})()`);
+    const screenshot = await cdp('Page.captureScreenshot', { clip, captureBeyondViewport: true });
+    await mkdir('.dist', { recursive: true }); await writeFile('.dist/starfield-preview.png', Buffer.from(screenshot.data, 'base64'));
+  }
   await evaluate(`input('design-minStars','40');`);
   assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /5 included/);
   await evaluate(`input('design-minStars','0'); const node=document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository');node.focus();node.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`);

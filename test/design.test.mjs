@@ -26,11 +26,11 @@ test('seeded randomness and versioned design codes reproduce a complete visual r
   assert.notEqual(seededRandom('other')(), values[0]);
   assert.equal(resolveSeed('Tester'), 'tester');
   assert.throws(() => resolveSeed('tester', { seedMode: 'random' }));
-  assert.match(newDesignCode(), /^v1:/);
+  assert.match(newDesignCode(), /^v2:/);
   const design = randomizeDesign('v1:fixture');
   assert.deepEqual(design, randomizeDesign('v1:fixture'));
   assert.notDeepEqual(design, randomizeDesign('v1:other'));
-  assert.throws(() => randomizeDesign('v2:fixture'));
+  assert.throws(() => randomizeDesign('v3:fixture'));
   assert.equal(design.visualTheme, 'monochrome'); // Versioned recipe regression vector.
   assert.equal(createHash('sha256').update(JSON.stringify(design)).digest('hex'), 'c6f566741baa8c71e96ded511e5ec95e021a62c09b8e6c38fc0cba5100e0af4b');
   assert.equal(renderConstellation('tester', repos, design), renderConstellation('tester', [...repos].reverse(), design));

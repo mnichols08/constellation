@@ -5,6 +5,7 @@ import { downloadBlob, svgToPNG } from './export-image.mjs';
 import { newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
 import { newDesignCode, randomizeDesign } from './design-randomizer.mjs';
+import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
 export const designDefaults = { seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom' };
 
@@ -13,6 +14,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   const store = createConfigStore(storage);
   let current, svg = '', saveTimer, pending;
   const controls = new Map();
+  let syncSky = () => {};
   const section = title => {
     const details = document.createElement('details'); details.className = 'control-section';
     const summary = document.createElement('summary'); summary.textContent = title;
@@ -31,6 +33,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
     input.addEventListener('input', () => {
       if (key === 'seedMode' && input.value === 'random') controls.get('seed').value = newSeed();
       if (key === 'seedMode' && input.value === 'custom' && !controls.get('seed').value) controls.get('seed').value = current?.account || 'constellation';
+      syncSky();
       changed();
     });
     parent.append(label, input); controls.set(key, input); return input;
@@ -44,9 +47,9 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   control(design, 'connectionWeight', 'Connection weight', ['uniform', 'languages', 'topics', 'overlap']);
   control(design, 'majorMetric', 'Solar System major repositories', [['stars', 'Most stars'], ['updated', 'Recently updated']]);
   const seedPanel = section('Reproducibility & optional effects');
-  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v1:…'; designCode.maxLength = 103;
+  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v2:… (v1 codes also work)'; designCode.maxLength = 103;
   const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code'; seedPanel.append(codeLabel, designCode);
-  const reseed = async code => { const options = { ...current.options, ...randomizeDesign(code) }; await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
+  const reseed = async code => { const recipe = randomizeDesign(code); const options = { ...current.options, ...recipe, starfield: recipe.starfield || { mode: 'classic' } }; await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
   button(seedPanel, 'randomize-design', 'Randomize design', () => reseed(newDesignCode()));
   button(seedPanel, 'reseed-design', 'Restore design code', () => reseed(designCode.value.trim()));
   control(seedPanel, 'seedMode', 'Seed mode', ['account', 'custom', 'random']);
@@ -55,6 +58,17 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   control(seedPanel, 'nodeShape', 'Node shape', ['circle', 'star', 'diamond', 'hexagon', 'square', 'mixed']);
   control(seedPanel, 'effect', 'Optional effect', ['none', 'grid', 'scanlines', 'coordinates']);
   control(seedPanel, 'legend', 'Show compact mapping legend', null, 'checkbox');
+  const skyPanel = section('Background starfield');
+  control(skyPanel, 'sky-mode', 'Sky', [['off', 'Off'], ['classic', 'Classic dust'], ['space', 'Deep space'], ['milky-way', 'Milky Way band']]);
+  const skyDetails = document.createElement('div'); skyPanel.append(skyDetails);
+  for (const [key, label, max, step] of [['density', 'Star density', 100, 1], ['brightness', 'Brightness', 1, .05], ['depth', 'Depth / size variation', 1, .05]]) {
+    const input = control(skyDetails, `sky-${key}`, label, null, 'range'); input.min = '0'; input.max = max; input.step = step;
+  }
+  control(skyDetails, 'sky-twinkle', 'Subtle twinkle', null, 'checkbox');
+  const skySeed = control(skyDetails, 'sky-seed', 'Background seed (blank follows design)'); skySeed.maxLength = 120;
+  button(skyDetails, 'regenerate-starfield', 'Generate another starfield', () => { skySeed.value = newSeed(); changed(); });
+  const skyNote = document.createElement('p'); skyNote.className = 'export-note'; skyNote.textContent = 'Decorative stars stay behind your projects. Try a dark theme for a space backdrop. Twinkle follows Starlight animation and reduced-motion preferences. The seed is saved in config and share links.'; skyDetails.append(skyNote);
+  syncSky = () => { skyDetails.hidden = !['space', 'milky-way'].includes(controls.get('sky-mode').value); };
   const filters = section('Repository filters');
   control(filters, 'minStars', 'Minimum GitHub stars', null, 'number');
   control(filters, 'includeArchived', 'Include archived repositories', null, 'checkbox');
@@ -95,15 +109,20 @@ export function mountStudioDesign({ host, changed, apply, theme, message }) {
   window.addEventListener('pagehide', flush);
   function restore(options) {
     designCode.value = options.designCode || '';
+    const sky = starfieldOptions(options.starfield);
     for (const [key, input] of controls) {
-      const value = options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
+      const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
       if (input.type === 'checkbox') input.checked = value; else input.value = value;
     }
+    syncSky();
   }
-  restore({});
+  restore({ starfield: defaultStarfield });
   return {
     store, restore, flush,
-    read: () => Object.fromEntries([...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value])),
+    read: () => {
+      const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
+      return { ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-'))), starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+    },
     update(account, options, source) { if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`; },
     shared() { try { return decodeShare(location.href); } catch (error) { message(error.message, true); return null; } },
   };

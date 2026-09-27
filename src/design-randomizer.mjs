@@ -1,11 +1,16 @@
 import { seededRandom, newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
 
-export const newDesignCode = () => `v1:${newSeed()}`;
+export const newDesignCode = () => `v2:${newSeed()}`;
 
 // Freeze the v1 recipe: future recipes get a new prefix so shared codes never drift.
 export function randomizeDesign(code) {
-  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1: followed by letters, numbers or hyphens.');
+  if (typeof code === 'string' && /^v2:[a-z\d-]{1,100}$/i.test(code)) {
+    const random = seededRandom(`${code}:sky`);
+    return { ...randomizeDesign(code.replace(/^v2:/i, 'v1:')), designCode: code, seed: code,
+      starfield: { mode: random() < .65 ? 'space' : 'milky-way', density: 35 + Math.floor(random() * 36), brightness: .8, depth: .8, twinkle: true, seed: '' } };
+  }
+  if (typeof code !== 'string' || !/^v1:[a-z\d-]{1,100}$/i.test(code)) throw new Error('Design code must start with v1: or v2: followed by letters, numbers or hyphens.');
   const random = seededRandom(code);
   const pick = values => values[Math.floor(random() * values.length)];
   const visualTheme = pick(['github-dark', 'deep-space', 'terminal', 'solarized', 'dracula', 'synthwave', 'monochrome', 'contribution', 'rustacean', 'javascript']);

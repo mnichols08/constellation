@@ -15,9 +15,11 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 
 svg{background:var(--sky-background)}.star{filter:drop-shadow(0 0 0px var(--node-color,var(--sky-star)))}.shared-language[data-emphasis=&quot;secondary&quot;]{opacity:0.25}
 
+
 svg{background:transparent!important}.background{fill:none!important}
 </style>
 <rect class="background" width="900" height="560" rx="18"/>
+
 
 
 

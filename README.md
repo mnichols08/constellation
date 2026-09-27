@@ -86,7 +86,9 @@ The image updates daily. Clicking it takes viewers to this project's GitHub repo
 
 ## Change your configuration
 
-Start with a coordinated theme in **Themes & visual mappings**, or choose **Randomize design** under **Reproducibility & optional effects**. Save the resulting `v1:…` design code and enter it again to regenerate the same randomized visual choices. Seeded palettes, glow, layout variation and animation phases are reproducible; export JSON to retain your later manual edits too.
+Start with a coordinated theme in **Themes & visual mappings**, or choose **Randomize design** under **Reproducibility & optional effects**. Save the resulting `v2:…` design code and enter it again to regenerate the same randomized visual choices. Existing `v1:…` codes still work. Seeded palettes, glow, layout variation and animation phases are reproducible; export JSON to retain your later manual edits too.
+
+**Background starfield** generates a layered Deep Space sky or a Milky Way band, with adjustable density, brightness, depth and subtle twinkle. Generate another background without moving projects, or reuse its saved seed. Background stars are decorative and never become graph nodes. Old configs and `v1:` designs keep classic dust; new `v2:` designs include the generated starfield.
 
 Map node size to stars, activity, age, language/topic counts, or category membership. Map glow to stars or activity, choose language/seeded/category colors, and weight connections by shared metadata. Manual node colors still override mappings. Try **Galaxy** for language clusters or **Solar System** for major repositories and their related nodes. Rings distribute points across all four rings before adding another point to a ring.
 

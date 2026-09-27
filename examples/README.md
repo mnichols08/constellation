@@ -8,5 +8,6 @@ Import a JSON file into the studio, or use it with the CLI/Action. These preview
 | Terminal · balanced rings, squares, scanlines | [terminal.json](terminal.json) | ![Terminal constellation](gallery/terminal.svg) |
 | Minimal · monochrome, transparent, no motion | [minimal.json](minimal.json) | ![Minimal constellation](gallery/minimal.svg) |
 | Solar System · major projects, language colors, mixed shapes | [solar-system.json](solar-system.json) | ![Solar System constellation](gallery/solar-system.svg) |
+| Milky Way · seeded stars, depth and subtle twinkling | [starfield.json](starfield.json) | ![Milky Way background starfield](gallery/starfield.svg) |
 
-Use **Randomize design** for another coordinated starting point. Save its `v1:…` code to replay the recipe, or download JSON to keep all subsequent changes. See the [design guide](../docs/designs.md).
+Use **Randomize design** for another coordinated starting point. Save its `v2:…` code to replay the recipe, or download JSON to keep all subsequent changes. Existing `v1:…` codes retain their classic dust background. See the [design guide](../docs/designs.md).
