@@ -2,7 +2,7 @@ import { layerDefinitions, validateLayerOptions, validateLayerOrder } from './sc
 import { historyOptions } from './history/settings.mjs';
 import { validateHierarchy } from './hierarchy-model.mjs';
 import { validateStory } from './story-model.mjs';
-// Internal scene version, independent of the eventual stable public API version.
+// Stable Scene API v1; independently versioned from package/config releases.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -48,6 +48,7 @@ function record(scene, path = '$') {
   if (!object(graph) || !['repositories', 'languages', 'topics', 'combined', 'contributors', 'ecosystem', 'organization-community', 'dependencies', 'technology', 'eras'].includes(scene.presentation.nodeMode)) fail(path, 'invalid graph presentation');
   for (const key of ['repositoryCount', 'total', 'nodeCount']) if (graph[key] !== undefined && (!Number.isInteger(graph[key]) || graph[key] < 0)) fail(path, 'invalid graph count');
   if (!Number.isInteger(scene.presentation.totalConnections) || scene.presentation.totalConnections < 0) fail(path, 'invalid connection count');
+  if (graph.focusProjects !== undefined && (!Array.isArray(graph.focusProjects) || graph.focusProjects.some(value => typeof value !== 'string'))) fail(path, 'invalid focused project list');
   const viewport = scene.viewport;
   if (!object(viewport) || !finite(viewport.width) || !finite(viewport.height) || viewport.width <= 0 || viewport.height <= 0 || viewport.width > 100000 || viewport.height > 100000 || !Array.isArray(viewport.viewBox) || viewport.viewBox.length !== 4 || !viewport.viewBox.every(value => finite(value) && Math.abs(value) <= 100000) || viewport.viewBox[2] <= 0 || viewport.viewBox[3] <= 0) fail(path, 'invalid viewport');
   for (const key of ['nodes', 'edges', 'labels', 'layers']) if (!Array.isArray(scene[key])) fail(`${path}.${key}`, 'expected array');
@@ -90,7 +91,7 @@ function record(scene, path = '$') {
     if (!object(timeline) || timeline.version !== 1 || !Array.isArray(timeline.frames) || timeline.frames.length < 1 || timeline.frames.length > 64 || timeline.referenceDate !== scene.metadata.referenceDate) fail(path, 'invalid timeline');
     let previous = '', totalNodes = 0;
     for (const frame of timeline.frames) {
-      if (typeof frame.date !== 'string' || !Number.isFinite(Date.parse(frame.date)) || new Date(frame.date).toISOString() !== frame.date || frame.date <= previous || frame.date > timeline.referenceDate || frame.id !== frame.date || !['snapshot', 'current', 'current-metadata'].includes(frame.evidence) || frame.scene?.kind !== 'scene' || frame.scene.timeline !== undefined || frame.scene.metadata.referenceDate !== frame.date) fail(path, 'invalid timeline frame');
+      if (typeof frame.date !== 'string' || !Number.isFinite(Date.parse(frame.date)) || new Date(frame.date).toISOString() !== frame.date || frame.date <= previous || frame.date > timeline.referenceDate || frame.id !== frame.date || !['snapshot', 'current', 'current-metadata'].includes(frame.evidence) || frame.scene?.kind !== 'scene' || frame.scene.timeline !== undefined || frame.scene.hierarchy !== undefined || frame.scene.story !== undefined || frame.scene.metadata.referenceDate !== frame.date) fail(path, 'invalid timeline frame');
       record(frame.scene, `${path}.timeline.${frame.id}`); previous = frame.date;
       totalNodes += frame.scene.nodes.length;
       if (totalNodes > 16384) fail(path, 'timeline exceeds aggregate node bounds');
@@ -118,11 +119,13 @@ function canonical(value) {
 }
 
 export function serializeScene(scene) {
-  return JSON.stringify(canonical(assertScene(scene)), null, 2) + '\n';
+  const json = JSON.stringify(canonical(assertScene(scene)), null, 2) + '\n';
+  if (new TextEncoder().encode(json).length > 32 * 1024 * 1024) throw new Error('Scene JSON exceeds 32 MiB.');
+  return json;
 }
 
 export function parseScene(json) {
-  if (typeof json !== 'string' || json.length > 32 * 1024 * 1024) throw new Error('Scene JSON must be text no larger than 32 MiB.');
+  if (typeof json !== 'string' || json.length > 32 * 1024 * 1024 || new TextEncoder().encode(json).length > 32 * 1024 * 1024) throw new Error('Scene JSON must be text no larger than 32 MiB.');
   return assertScene(JSON.parse(json));
 }
 

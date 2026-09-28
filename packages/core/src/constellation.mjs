@@ -298,10 +298,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   if (!Number.isFinite(ringRotation) || ringRotation < 0 || ringRotation > 360) throw new Error('ringRotation must be between 0 and 360 degrees.');
   const ringRotations = options.ringRotations ?? [ringRotation, ringRotation, ringRotation, ringRotation];
   if (!Array.isArray(ringRotations) || ringRotations.length !== 4 || ringRotations.some(angle => !Number.isFinite(angle) || angle < 0 || angle > 360)) throw new Error('ringRotations must contain four angles between 0 and 360 degrees.');
-  const { arrangement = rustAvailable ? 'rings' : 'field', identityRing = true } = options;
+  const { arrangement = 'rings', identityRing = true } = options;
   if (!['field', 'orbital', 'force', 'rings', ...artifactLayouts, ...organizationLayouts].includes(arrangement)) throw new Error('Invalid arrangement.');
   if (typeof identityRing !== 'boolean') throw new Error('identityRing must be a boolean.');
-  if (!rustAvailable && arrangement !== 'field') throw new Error('This arrangement needs the Rust engine. Reload the studio or run npm run build:rust.');
   const height = compact ? 280 : 560;
   const profile = profileDimensions(options.exportProfile, height);
   const labelPositions = options.labelPositions ?? {};
@@ -346,15 +345,10 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const scene = runLayout({ nodes: ordered.map(repo => ({ id: repo.full_name, metadata: repo })) }, options, { account: name, seed, reference: clock, graph, signal, onDiagnostic });
   const centerY = compact ? 126 : 270;
   const spreadY = compact ? 88 : 192;
-  const phase = (hash(options.seedMode ? seed : name) % 628) / 100;
-  const stars = ordered.map((repo, index) => {
-    const angle = index * 2.399963 + phase;
-    const radius = ordered.length === 1 ? 0 : Math.sqrt((index + .6) / Math.max(1, ordered.length));
-    const position = scene ? scene.positions[repo.full_name]
-      : Object.hasOwn(starPositions, repo.full_name) ? starPositions[repo.full_name] : null;
+  const stars = ordered.map(repo => {
+    const position = scene.positions[repo.full_name];
     return { repo, hub: hubs.find(hub => hub.language === (repo.language || 'Other')),
-      x: position ? Math.max(32, Math.min(868, position.x)) : 450 + Math.cos(angle) * radius * 368,
-      y: position ? Math.max(28, Math.min(height - 60, position.y)) : centerY + Math.sin(angle) * radius * spreadY };
+      x: Math.max(32, Math.min(868, position.x)), y: Math.max(28, Math.min(height - 60, position.y)) };
   });
   const recordsById = new Map(transformed.records.map(record => [record.id, record]));
   for (const star of stars) {
@@ -425,45 +419,15 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
       if (!from || !to || hiddenNodes.has(edge.from) || hiddenNodes.has(edge.to)) continue;
       candidates.push({ from, to, key: `${edge.from}:${edge.to}`, sharedLanguages: [], sharedTopics: [], sharedRepositories: edge.members, shared: edge.members, strength: edge.strength, primary: true, distance: (from.x - to.x) ** 2 + (from.y - to.y) ** 2 });
     }
-  } else if (scene) for (const edge of scene.edges) {
+  } else for (const edge of scene.edges) {
     const from = stars[edge.from], to = stars[edge.to];
     if (graph.organization && [from, to].some(star => star.repo.nodeKind !== 'repository')) continue;
     candidates.push({ from, to, key: `${edge.from}:${edge.to}`, sharedLanguages: edge.languages, sharedTopics: edge.topics, sharedRepositories: edge.members,
       shared: [...edge.languages, ...edge.topics.map(topic => `#${topic}`), ...(edge.members || [])], primary: edge.primary,
       distance: (from.x - to.x) ** 2 + (from.y - to.y) ** 2 });
   }
-  else for (let i = 0; i < stars.length; i++) {
-    for (let j = i + 1; j < stars.length; j++) {
-      const from = stars[i], to = stars[j];
-      if (hiddenNodes.has(from.repo.full_name) || hiddenNodes.has(to.repo.full_name)) continue;
-      if (graph.organization && [from, to].some(star => star.repo.nodeKind !== 'repository')) continue;
-      const relation = sharedConnections(from.repo, to.repo, options);
-      if (relation.shared.length) candidates.push({ from, to, ...relation, key: `${i}:${j}`, distance: (from.x - to.x) ** 2 + (from.y - to.y) ** 2 });
-    }
-  }
-  const selectedEdges = new Set();
-  if (scene || connectionDensity === 'all') candidates.forEach(edge => selectedEdges.add(edge));
-  else {
-    // Show up to four strongest neighbours per star. Prefer cross-region links
-    // at equal overlap so secondary-language relationships stay visible.
-    for (const star of stars) {
-      const neighbours = candidates.filter(edge => edge.from === star || edge.to === star)
-        .sort((a, b) => b.shared.length - a.shared.length || Number(b.from.hub !== b.to.hub) - Number(a.from.hub !== a.to.hub) || a.distance - b.distance || a.key.localeCompare(b.key));
-      neighbours.slice(0, 4).forEach(edge => selectedEdges.add(edge));
-    }
-  }
-  // Emphasize a short spanning forest of genuine relationships. All selected
-  // secondary links remain present, but recede behind the local constellation.
-  const parent = new Map(stars.map(star => [star, star]));
-  const root = star => parent.get(star) === star ? star : root(parent.get(star));
-  const backbone = new Set();
-  if (scene) candidates.filter(edge => edge.primary).forEach(edge => backbone.add(edge));
-  else for (const edge of [...selectedEdges].sort((a, b) => a.distance - b.distance || b.shared.length - a.shared.length || a.key.localeCompare(b.key))) {
-    if (root(edge.from) !== root(edge.to)) {
-      backbone.add(edge);
-      parent.set(root(edge.from), root(edge.to));
-    }
-  }
+  const selectedEdges = new Set(candidates);
+  const backbone = new Set(candidates.filter(edge => edge.primary));
   const labels = renderLabels();
   if (options.snapToRings !== undefined && typeof options.snapToRings !== 'boolean') throw new Error('snapToRings must be a boolean.');
   const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate)) && repos.length ? identityGeometry(options.seedMode ? seed : name) : null;
@@ -490,7 +454,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
     presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,
-      totalConnections: scene?.total ?? candidates.length, nodeMode, hasHistory,
+      totalConnections: scene.total, nodeMode, hasHistory,
       pipeline: { ...normalized.statistics, transformed: transformed.records.length, filtered: transformed.diagnostics.filter(stage => ['filter', 'limit', 'deduplicate'].includes(stage.type)).reduce((sum, stage) => sum + stage.removed, 0), transforms: transformed.diagnostics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
   }));
 }

@@ -1,6 +1,7 @@
 import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost } from '@constellation/core';
 import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
+export const WEB_COMPONENT_API_VERSION = 1;
 export class ConstellationView extends HTMLElement {
   static observedAttributes = ['src', 'config', 'account', 'loading'];
   #config = null;
@@ -116,7 +117,7 @@ export class ConstellationView extends HTMLElement {
         }
       }
       if (this.#config || !this.#scene) {
-        const config = this.#config || parseConfig({ account: this.getAttribute('account') || 'your-universe', options: {}, version: 6 });
+        const config = this.#config || parseConfig({ account: this.getAttribute('account') || 'your-universe', options: {}, version: 7 });
         // Browser embedding uses the strict imported-CSS boundary, including v6 inputs.
         const options = normalizeConfig(config.options);
         this.#scene = createScene(config.account, this.#records, options, { pipeline: this.#pipeline, layoutHost: this.#layouts, signal: request.signal });

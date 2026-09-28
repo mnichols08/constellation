@@ -4,10 +4,11 @@ import { normalizeRecords } from './data-pipeline.mjs';
 import { createDataPipeline } from './pipeline-cache.mjs';
 import { createLayoutHost } from './layout-host.mjs';
 import { validateThemePack } from './theme-packs.mjs';
-import { jsonFeedSource } from './json-feed-source.mjs';
+import { jsonFeedSource, normalizedJSONSource } from './json-feed-source.mjs';
 
 const identifier = value => typeof value === 'string' && /^[a-z][a-z\d-]{0,63}$/.test(value);
-export const PLUGIN_API_VERSION = 1;
+export const PLUGIN_API_VERSION = 2;
+export const SOURCE_API_VERSION = 2;
 export function pluginOptions(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => key !== 'sources') || !Array.isArray(value.sources ?? [])) throw new Error('plugins must contain a sources array.');
   const ids = new Set();
@@ -28,13 +29,14 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
   let cacheBytes = 0;
   let generation = 0;
   const host = {
+    apiVersion: PLUGIN_API_VERSION,
     clearCache() { generation++; cache.clear(); cacheBytes = 0; pipeline.clear(); layoutHost.clearCache(); },
     get pipelineCacheStatistics() { return pipeline.cacheStatistics; },
     get layoutCacheStatistics() { return layoutHost.cacheStatistics; },
     registerLayout(definition) { layoutHost.register(definition); return host; },
     get cacheStatistics() { return { entries: cache.size, estimatedBytes: cacheBytes, budgetBytes: cacheBudget }; },
     registerSource(plugin) {
-      if (!plugin || !identifier(plugin.id) || plugin.apiVersion !== PLUGIN_API_VERSION || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 and load(context).');
+      if (!plugin || !identifier(plugin.id) || ![1, SOURCE_API_VERSION].includes(plugin.apiVersion) || typeof plugin.load !== 'function') throw new Error('Source plugins require id, apiVersion: 1 or 2 and load(context).');
       if (sources.has(plugin.id)) throw new Error(`Source plugin already registered: ${plugin.id}`);
       sources.set(plugin.id, Object.freeze({ id: plugin.id, apiVersion: plugin.apiVersion, load: plugin.load, renderNode: plugin.renderNode })); return host;
     },
@@ -63,6 +65,15 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
         }
         if (!Array.isArray(items)) throw new Error(`Source ${source.id} must return an array of nodes.`);
         for (const item of items) {
+          if (plugin.apiVersion === 2) {
+            const normalized = normalizeRecords([item]);
+            if (item?.type !== 'record' || item.full_name !== undefined || normalized.records.length !== 1) throw new Error(`Source ${source.id} API v2 must return valid normalized records.`);
+            const record = normalized.records[0], id = `source:${source.id}:${encodeURIComponent(record.id)}`;
+            if (seen.has(id)) throw new Error(`Duplicate source node ID: ${id}`);
+            seen.add(id);
+            result.push({ ...record, id, source: { id: source.source, instance: source.id }, attributes: { ...record.attributes, language: record.attributes.language || 'External', private: false, pluginSource: source.source, pluginInstance: source.id, pluginId: record.id } });
+            continue;
+          }
           if (!item || typeof item.id !== 'string' || !item.id.trim() || /[\x00-\x1f]/.test(item.id) || typeof item.name !== 'string' || !item.name.trim()) throw new Error(`Source ${source.id} returned a node without a valid id and name.`);
           const id = `source:${source.id}:${encodeURIComponent(item.id)}`;
           if (seen.has(id)) throw new Error(`Duplicate source node ID: ${id}`);
@@ -80,7 +91,7 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
           }
         }
       }
-      return result.sort((a, b) => a.full_name.localeCompare(b.full_name));
+      return result.sort((a, b) => (a.full_name || a.id).localeCompare(b.full_name || b.id));
     },
     render(account, nodes, options = {}, runtime = {}) {
       return renderSceneSVG(host.createScene(account, nodes, options, runtime));
@@ -107,5 +118,6 @@ export function createPluginHost({ fetchImpl = globalThis.fetch } = {}) {
     },
   };
   host.registerSource(jsonFeedSource);
+  host.registerSource(normalizedJSONSource);
   return host;
 }

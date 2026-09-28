@@ -4,7 +4,9 @@ export function validateStory(story, validateScene) {
   const ids = new Set(); let count = 0;
   for (const chapter of story.chapters) {
     if (typeof chapter.id !== 'string' || !chapter.id || chapter.id.length > 256 || ids.has(chapter.id) || typeof chapter.title !== 'string' || chapter.title.length > 200 || typeof chapter.narration !== 'string' || chapter.narration.length > 10000 || chapter.scene?.kind !== 'scene' || chapter.scene.story !== undefined) throw new Error('Invalid story chapter.');
-    ids.add(chapter.id); validateScene?.(chapter.scene); count += chapter.scene.nodes.length;
+    ids.add(chapter.id); validateScene?.(chapter.scene);
+    const members = [chapter.scene, ...chapter.scene.hierarchy?.scenes.map(entry => entry.scene) || []];
+    count += members.reduce((sum, scene) => sum + scene.nodes.length + (scene.timeline?.frames.reduce((sum, frame) => sum + frame.scene.nodes.length, 0) || 0), 0);
     if (count > 16384) throw new Error('Story exceeds 16,384 chapter nodes.');
     if (chapter.camera !== undefined && (!Array.isArray(chapter.camera) || chapter.camera.length !== 4 || !chapter.camera.every(Number.isFinite) || chapter.camera[2] <= 0 || chapter.camera[3] <= 0)) throw new Error('Invalid chapter camera.');
     if (chapter.focus !== undefined && typeof chapter.focus !== 'string') throw new Error('Chapter focus must be a node ID.');

@@ -11,7 +11,7 @@ test('layer controls survive share links and workflow migration without executab
   const layers = { nodes: { opacity: 0.4 }, annotations: { visible: false } };
   const url = encodeShare('https://example.com/', 'layers', { layers });
   assert.deepEqual(decodeShare(url).options.layers, layers);
-  assert.match(migrateWorkflow(renderWorkflow('layers', { layers }).replace('constellation@v2', 'constellation@v1')), /"opacity": 0.4/);
+  assert.match(migrateWorkflow(renderWorkflow('layers', { layers }).replace('constellation@v3', 'constellation@v1')), /"opacity": 0.4/);
   for (const opacity of ['0.5" onload="alert(1)', Infinity, -1]) assert.throws(() => parseConfig({ layers: { nodes: { opacity } } }), /opacity|non-finite/);
   assert.throws(() => parseConfig(JSON.parse('{"layers":{"__proto__":{}}}')), /Unsafe/);
 });

@@ -1,10 +1,10 @@
 {
   "name": "constellation",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "private": true,
   "bin": { "constellation": "src/cli.mjs" },
   "type": "module",
-  "description": "Your public GitHub projects, connected in an animated README constellation.",
+  "description": "Turn developer and project data into interactive constellations, visual stories, embeds and README graphics.",
   "engines": {
     "node": ">=22"
   },

@@ -16,7 +16,7 @@ export function layoutCapabilities(id = 'rings', { nodeCap, nodeMode = 'reposito
     id: effective, requested: id,
     maxNodes: effective === 'stable-overview' ? 2048 : nodeMode === 'combined' || organization && nodeMode !== 'repositories' ? 256 : 100,
     manualPositioning: true, ringSnapping: true, deterministicSeed: true,
-    animation: true, refinement: true, requiresWasm: effective !== 'field',
+    animation: true, refinement: true, requiresWasm: true,
     ringSnappingPhase: effective === 'rings' || effective === 'stable-overview' ? 'layout-and-editing' : 'editing-and-refinement',
   };
 }
@@ -80,7 +80,6 @@ export function layoutScene(scene, options = {}, context = {}) {
   signal?.throwIfAborted();
   const result = computeScene(input);
   signal?.throwIfAborted();
-  if (!result) return null; // Existing deprecated browser-only field fallback.
   return { positions: Object.fromEntries(scene.nodes.map((node, i) => [node.id, { x: result.positions[i][0], y: result.positions[i][1] }])),
     edges: structuredClone(result.edges), total: result.total };
 }

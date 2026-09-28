@@ -7,3 +7,4 @@ rust/**/target/
 dist/interactive-demo.html
 dist/timeline-demo.html
 dist/hierarchy-demo.html
+dist/story-demo.html

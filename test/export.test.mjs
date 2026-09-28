@@ -21,7 +21,7 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   const restored = await loadConfig(undefined, block.split('\n').map(line => line.slice(12)).join('\n'));
   assert.deepEqual(restored, options);
   assert.ok(!block.includes('${{'));
-  assert.match(yaml, /uses: mnichols08\/constellation@v2/);
+  assert.match(yaml, /uses: mnichols08\/constellation@v3/);
   assert.match(yaml, /cron: '17 6 \* \* \*'/);
   assert.match(yaml, /publish: 'true'/);
   assert.ok(!yaml.includes('git push'));

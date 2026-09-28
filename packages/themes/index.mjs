@@ -264,3 +264,4 @@ export const themePacks = [
     }
   }
 ];
+export const themePacksV2 = themePacks.map(pack => ({ ...pack, apiVersion: 2 }));

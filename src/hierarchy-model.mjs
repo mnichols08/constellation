@@ -4,7 +4,7 @@ export function validateHierarchy(hierarchy, validateScene) {
   if (!hierarchy || hierarchy.version !== HIERARCHY_VERSION || !id(hierarchy.root) || !Array.isArray(hierarchy.scenes) || hierarchy.scenes.length < 1 || hierarchy.scenes.length > 64) throw new Error('Hierarchy requires a root and 1–64 scenes.');
   const scenes = new Map(); let nodes = 0;
   for (const entry of hierarchy.scenes) {
-    if (!id(entry.id) || scenes.has(entry.id) || typeof entry.title !== 'string' || entry.title.length > 200 || entry.scene?.kind !== 'scene' || entry.scene.hierarchy !== undefined) throw new Error('Invalid or duplicate hierarchy scene.');
+    if (!id(entry.id) || scenes.has(entry.id) || typeof entry.title !== 'string' || entry.title.length > 200 || entry.scene?.kind !== 'scene' || entry.scene.hierarchy !== undefined || entry.scene.story !== undefined) throw new Error('Invalid or duplicate hierarchy scene.');
     validateScene?.(entry.scene); scenes.set(entry.id, entry);
     nodes += entry.scene.nodes.length + (entry.scene.timeline?.frames.reduce((sum, frame) => sum + frame.scene.nodes.length, 0) || 0);
     if (nodes > 16384) throw new Error('Hierarchy exceeds 16,384 aggregate nodes.');

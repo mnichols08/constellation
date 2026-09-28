@@ -23,18 +23,8 @@ async function copyModule(path) {
 await copyModule(resolve(source, 'core-api.mjs'));
 await copyModule(resolve(source, 'browser-runtime.mjs'));
 const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
-await writeFile(resolve(target, 'package.json'), JSON.stringify({ name: '@constellation/core', version, type: 'module', description: 'Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.', engines: { node: '>=22' }, exports: { '.': './src/core-api.mjs', './browser-runtime': './src/browser-runtime.mjs' }, files: ['src', 'README.md', 'scene-api.md', 'layers.md', 'data-pipeline.md', 'layout-api.md', 'interactive-html.md', 'timeline.md', 'hierarchical-scenes.md', 'story-mode.md'], license: 'UNLICENSED' }, null, 2) + '\n');
+const guides = ['scene-api', 'layers', 'data-pipeline', 'layout-api', 'interactive-html', 'timeline', 'hierarchical-scenes', 'story-mode', 'architecture', 'architecture-baseline', 'renderer-api', 'migration-v3', 'extension-authoring', 'security-model', 'accessibility', 'scaling', 'plugins'].map(name => name + '.md');
+await writeFile(resolve(target, 'package.json'), JSON.stringify({ name: '@constellation/core', version, type: 'module', description: 'Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.', engines: { node: '>=22' }, exports: { '.': './src/core-api.mjs', './browser-runtime': './src/browser-runtime.mjs' }, files: ['src', 'README.md', ...guides], license: 'UNLICENSED' }, null, 2) + '\n');
 await copyFile(resolve(root, 'docs/core-api.md'), resolve(target, 'README.md'));
-await copyFile(resolve(root, 'docs/scene-api.md'), resolve(target, 'scene-api.md'));
-await copyFile(resolve(root, 'docs/layers.md'), resolve(target, 'layers.md'));
-await copyFile(resolve(root, 'docs/data-pipeline.md'), resolve(target, 'data-pipeline.md'));
-await copyFile(resolve(root, 'docs/layout-api.md'), resolve(target, 'layout-api.md'));
+for (const guide of guides) await copyFile(resolve(root, 'docs', guide), resolve(target, guide));
 console.log(`Built @constellation/core ${version} (${visited.size} files).`);
-
-await copyFile(resolve(root, 'docs/interactive-html.md'), resolve(target, 'interactive-html.md'));
-
-await copyFile(resolve(root, 'docs/timeline.md'), resolve(target, 'timeline.md'));
-
-await copyFile(resolve(root, 'docs/hierarchical-scenes.md'), resolve(target, 'hierarchical-scenes.md'));
-
-await copyFile(resolve(root, 'docs/story-mode.md'), resolve(target, 'story-mode.md'));

@@ -1,8 +1,8 @@
 {
   "name": "@constellation/core",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "type": "module",
-  "description": "Deterministic GitHub constellation layout and SVG rendering with bundled Rust/WASM.",
+  "description": "Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.",
   "engines": {
     "node": ">=22"
   },
@@ -20,7 +20,16 @@
     "interactive-html.md",
     "timeline.md",
     "hierarchical-scenes.md",
-    "story-mode.md"
+    "story-mode.md",
+    "architecture.md",
+    "architecture-baseline.md",
+    "renderer-api.md",
+    "migration-v3.md",
+    "extension-authoring.md",
+    "security-model.md",
+    "accessibility.md",
+    "scaling.md",
+    "plugins.md"
   ],
   "license": "UNLICENSED"
 }

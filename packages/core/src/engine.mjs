@@ -1,6 +1,6 @@
 // One prebuilt Rust module runs in the browser and in the Node action.
 import { overviewEdges } from './scaling.mjs';
-// Loading failure keeps the existing star field usable on restricted browsers.
+// Supported rendering always uses the bundled Rust/WASM engine.
 let core;
 export let engineError;
 try {
@@ -13,7 +13,7 @@ try {
   core = bindings;
 } catch (error) {
   engineError = error;
-  console.warn('Constellation: the non-WASM fallback is deprecated in v2 and will be removed in the next major release. Restore the bundled WASM engine for supported rendering.');
+  throw new Error('Constellation requires its bundled Rust/WASM engine. Restore the .wasm asset and allow WebAssembly in your browser policy.', { cause: error });
 }
 
 export const rustAvailable = Boolean(core);
@@ -71,7 +71,6 @@ export function layoutCacheStatistics() {
   return { scenes: scenes.size, sceneLimit: 8, projections: projections.size, projectionLimit: 8, refinements: refinements.size, refinementLimit: 8, stableCoordinates: stableCoordinates.size, stableCoordinateLimit: 8192 };
 }
 export function computeScene(input) {
-  if (!core) return null;
   if (input.stableOverview) return stableScene(input);
   const key = JSON.stringify(input);
   if (!scenes.has(key)) {
@@ -83,11 +82,11 @@ export function computeScene(input) {
 }
 
 export function identityGeometry(metadata, variation = 0) {
-  return core ? Array.from(core.identity_geometry(metadata, variation)) : null;
+  return Array.from(core.identity_geometry(metadata, variation));
 }
 
 export function identityPoints(metadata, count, rotation = 0) {
-  return core ? Array.from(core.identity_points(metadata, count, Float64Array.from(Array.isArray(rotation) ? rotation : [rotation, rotation, rotation, rotation]))) : [];
+  return Array.from(core.identity_points(metadata, count, Float64Array.from(Array.isArray(rotation) ? rotation : [rotation, rotation, rotation, rotation])));
 }
 
 export function graphSelection(names, pairs, start, end) {
@@ -98,11 +97,6 @@ export function graphSelection(names, pairs, start, end) {
     if (target < 0 || !core) return [];
     return Array.from(core.shortest_path(names.length, Uint32Array.from(pairs), index, target), i => names[i]);
   }
-  // A direct-neighbor fallback keeps click exploration available without Wasm.
-  const adjacent = core ? Array.from(core.neighbors(names.length, Uint32Array.from(pairs), index))
-    : pairs.reduce((result, value, i) => {
-      if (i % 2 === 0 && (value === index || pairs[i + 1] === index)) result.push(value === index ? pairs[i + 1] : value);
-      return result;
-    }, []);
+  const adjacent = Array.from(core.neighbors(names.length, Uint32Array.from(pairs), index));
   return [start, ...adjacent.map(i => names[i])];
 }

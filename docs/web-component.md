@@ -5,7 +5,7 @@ Import `@constellation/web-component` in a browser application to register `<con
 ```js
 import '@constellation/web-component';
 const view = document.createElement('constellation-view');
-view.config = { version: 6, account: 'example', options: { animate: false } };
+view.config = { version: 7, account: 'example', options: { animate: false } };
 view.records = [{ name: 'compiler', full_name: 'example/compiler', language: 'Rust' }];
 document.body.append(view);
 ```
@@ -37,3 +37,5 @@ Listen on the element for `scene-ready` (first render per connection), `scene-ch
 Changing `src`, supplying a new scene/config, or disconnecting cancels in-flight loading. Aborted results cannot replace newer data or emit errors. Explicit config/scene updates take precedence over a previously set URL until `src` changes or `reload()` is called. Reconnection restores the staged scene/config and listeners. Disconnecting disposes pointer, keyboard, media and resize listeners and clears computation caches.
 
 Source caching retains at most four JSON documents, each at most 1 MiB; larger valid documents are used without retention, and documents above 32 MiB are rejected. `cacheStatistics` reports source and computation counts. `await reload()` clears source caching and reloads the current URL. ResizeObserver reports `view-resize` without disturbing the camera.
+
+Web Component API v1 is exported as `WEB_COMPONENT_API_VERSION = 1`. Legacy v6 configuration remains accepted. Story, timeline and hierarchy methods/events are documented in their dedicated guides. Use a unique element ID when opting into URL history.

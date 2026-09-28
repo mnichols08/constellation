@@ -12,3 +12,12 @@ export const jsonFeedSource = {
     return items;
   },
 };
+
+export const normalizedJSONSource = {
+  id: 'json-records', apiVersion: 2,
+  async load(context) {
+    const records = await jsonFeedSource.load(context);
+    if (records.some(record => record?.version !== 1 || record.type !== 'record')) throw new Error('json-records requires normalized data-record version 1.');
+    return records;
+  },
+};

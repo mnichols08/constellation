@@ -1,18 +1,15 @@
-# GitHub Constellation
+# Constellation
 
-Create a constellation of your public GitHub projects and keep it updated in your README.
+Turn developer and project data into interactive maps, visual stories, embedded experiences, and README graphics.
 
-Explore [History & Evolution](docs/designs.md#history--evolution): contribution orbits, language eras, stellar ages, open-source galaxies, and animated growth. See the [showcase gallery](examples/README.md#history--evolution).
+Start with a GitHub username in Studio, or keep your README updated with the Action below. Static SVG remains the default. Advanced workflows use the same scene engine:
 
-Use **Nodes → Refine layout** for optional overlap reduction (intensity 0–10). Manual and hidden pairs stay fixed. Tab to studio nodes and press Enter or Space to select them; Shift-select traces a path. The filter summary reports omitted labels and their reasons.
+- [Offline interactive HTML](docs/interactive-html.md) with pan, zoom, selection and filters.
+- [Web component](docs/web-component.md) for framework-free embedding.
+- [Timelines](docs/timeline.md), [hierarchical exploration](docs/hierarchical-scenes.md), and [Story editing](docs/story-mode.md).
+- [Core API](docs/core-api.md), [data transforms/mappings](docs/data-pipeline.md), and [extension authoring](docs/extension-authoring.md).
 
-Refinement defaults to off; enabling it does not guarantee collision-free labels. **Lock positions** controls dragging. Saved manual placements stay protected regardless of that switch.
-
-The [standalone core API](docs/core-api.md) includes rendering, validation and filter reports. Run `node src/cli.mjs validate --config settings.json` to check a config; use `--dry-run --explain` with generation flags to inspect filtering without writing an SVG.
-
-[Source plugins and theme packs](docs/plugins.md) extend the core with external data and versioned Look presets. A JSON-feed source and a custom node-path hook are included; see [the feed config](examples/json-feed.json).
-
-For larger graphs, [opt into the stable overview](docs/scaling.md) with `nodeCap` up to 2048. It reuses unchanged node coordinates across filters and simplifies connections and labels. Existing configs retain their layouts and limits.
+See the [showcase gallery](examples/README.md), [accessibility guide](docs/accessibility.md), and [v2 → v3 migration guide](docs/migration-v3.md).
 
 ![Example GitHub constellation](./dist/constellation.svg)
 
@@ -39,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mnichols08/constellation@v2
+      - uses: mnichols08/constellation@v3
         with:
           publish: 'true'
 ```
@@ -98,7 +95,7 @@ The image updates daily. Clicking it takes viewers to this project's GitHub repo
 
 ## Change your configuration
 
-Version 2 exports the v6 config format. Existing JSON configs, v1:–v5: design recipes and share links migrate automatically on import. For saved files and workflows, use `constellation migrate`; see the [v2 migration guide](docs/migration-v2.md). Source API version 1 and theme-pack contracts are now stable. The non-WASM browser fallback is deprecated.
+Version 3 exports config v7 and requires the bundled Rust/WASM engine. Existing v6 configs, legacy JSON, v1:–v5: recipes and share links remain readable. Use `constellation migrate` for saved files/workflows; see the [v3 migration guide](docs/migration-v3.md). Source API v1 and existing theme packs remain supported.
 
 **Nodes → Refine layout** adds a static overlap-reduction pass, off by default. Set intensity from 0–10; manual and hidden node/label pairs stay fixed. Ring snapping constrains moves to ring points or movable-pair swaps; turn it off for free nudges. The setting `"layoutRefinement": { "enabled": true, "intensity": 5 }` works in the studio, config files, workflows and share links. See [layout refinement](docs/designs.md#refine-layout) for bounds and limitations.
 
@@ -206,7 +203,7 @@ npm run build:rust
 npm test
 ```
 
-Commit `Cargo.lock` and both files in `src/wasm` together with Rust changes. If WebAssembly cannot load in a browser, the original repository star field, individual colors, and direct-neighbor exploration remain available; the studio disables category nodes, Rust-only arrangements, and rings. This fallback does not provide pathfinding.
+Commit `Cargo.lock` and generated files in `src/wasm` together with Rust changes. Rust/WASM is required in v3. Studio reports an accessible startup error if the engine cannot load; restore the bundled asset and check its MIME/CSP configuration. See the [migration guide](docs/migration-v3.md).
 
 **Randomize node hues** assigns evenly spaced, randomly shuffled hues to every node in the current view, including hidden nodes. Click again for a new palette. **Color lines with nodes** blends each connection from one endpoint’s color to the other’s; turning the switch off restores the normal line palette without changing node colors. Individual recoloring updates connected lines too. The chosen colors and `colorConnections` switch are preserved in SVG and workflow exports.
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
 import { serializeScene, sceneStatistics } from './scene.mjs';
 import { codingRhythmOptions, deriveCodingRhythm } from './coding-rhythm.mjs';
 import { needsHistoryEvents } from './history/settings.mjs';
@@ -16,7 +17,7 @@ async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
   const { values, positionals } = parseArgs({ allowPositionals: true, options: { format: { type: 'string', default: 'svg' }, username: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' }, from: { type: 'string' }, workflow: { type: 'string' }, fixture: { type: 'string' }, 'activity-fixture': { type: 'string' }, scene: { type: 'boolean' }, 'scene-json': { type: 'boolean' }, 'reference-date': { type: 'string' }, 'refresh-data': { type: 'boolean', default: false }, 'dry-run': { type: 'boolean' }, explain: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
   if (values.help) {
-    console.log('Usage: constellation [build|validate|migrate] [options]\n\n  --format svg|html   Build static SVG or interactive HTML\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v2.md.');
+    console.log('Usage: constellation [build|validate|migrate] [options]\n\n  --format svg|html   Build static SVG or interactive HTML\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.');
     return;
   }
   if (values.version) { console.log(JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version); return; }
@@ -71,6 +72,7 @@ async function main() {
   const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
   const pluginHost = createPluginHost();
   const repos = [...listed.map(repo => byName.get(repo.full_name) || repo), ...await pluginHost.load(config, { account, refresh: values['refresh-data'] })];
+  const reportingRepos = toGraphRecords(normalizeRecords(repos, { deferIdentityCheck: true }).records);
   const generatedAt = new Date(values['reference-date'] || Date.now()).toISOString();
   let activityData, codingRhythmData, historyData;
   if (needsHistoryEvents(config) || activityOptions(config).activityEffect !== 'off' || (codingRhythmOptions(config).codingRhythm && config.codingRhythmStyle !== 'hidden')) {
@@ -80,12 +82,12 @@ async function main() {
     if (snapshot.diagnostic) console.warn(snapshot.diagnostic);
     historyData = snapshot;
     codingRhythmData = deriveCodingRhythm(snapshot.events, config, config.activityMetricDate || snapshot.asOf);
-    activityData = aggregateActivity(snapshot.events, selectRepositories(repos, config), config, snapshot.asOf);
+    activityData = aggregateActivity(snapshot.events, selectRepositories(reportingRepos, config), config, snapshot.asOf);
   }
   if (inspectScene) {
     const diagnostics = [];
     const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt }, { onDiagnostic: diagnostic => diagnostics.push(diagnostic) });
-    const result = values['scene-json'] ? serializeScene(scene) : JSON.stringify({ ...sceneStatistics(scene), diagnostics, cache: pluginHost.pipelineCacheStatistics, ...(values.explain ? { filters: explainFilters(repos, config) } : {}) }, null, 2) + '\n';
+    const result = values['scene-json'] ? serializeScene(scene) : JSON.stringify({ ...sceneStatistics(scene), diagnostics, cache: pluginHost.pipelineCacheStatistics, ...(values.explain ? { filters: explainFilters(reportingRepos, config) } : {}) }, null, 2) + '\n';
     if (values.output && !values['dry-run']) {
       if (/[\r\n]/.test(values.output)) throw new Error('Invalid output path.');
       await mkdir(dirname(values.output), { recursive: true });
@@ -95,7 +97,7 @@ async function main() {
   }
   const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
   const svg = values.format === 'html' ? renderSceneHTML(scene, { title: account + ' constellation' }) : renderSceneSVG(scene);
-  if (values.explain) console.log(JSON.stringify({ ...explainFilters(repos, config), ...(config.transforms?.length || config.mappings ? { pipeline: sceneStatistics(scene).pipeline } : {}) }));
+  if (values.explain) console.log(JSON.stringify({ ...explainFilters(reportingRepos, config), ...(config.transforms?.length || config.mappings ? { pipeline: sceneStatistics(scene).pipeline } : {}) }));
   if (values['dry-run']) return;
   const output = values.output || process.env.CONSTELLATION_OUTPUT || (values.format === 'html' ? 'dist/constellation.html' : 'dist/constellation.svg');
   if (/[\r\n]/.test(output)) throw new Error('Invalid output path.');

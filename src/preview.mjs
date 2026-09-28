@@ -69,18 +69,6 @@ const labelEditor = document.createElement('div');
 labelEditor.className = 'live-tilt-surface';
 let liveTilt;
 let graphSelection = {};
-if (!rustAvailable) {
-  $('#node-mode').value = 'repositories';
-  $('#arrangement').value = 'field';
-  for (const option of $('#node-mode').options) option.disabled = option.value !== 'repositories';
-  for (const option of $('#arrangement').options) option.disabled = option.value !== 'field';
-  $('#identity-ring').checked = false;
-  $('#identity-ring').disabled = true;
-  $('#snap-rings').disabled = true;
-  $('#animate-rings').disabled = true;
-  for (let i = 0; i < 4; i++) $(`#ring-rotation-${i}`).disabled = true;
-  $('#engine-status').textContent = 'Basic preview: the layout engine could not load. Reload to restore orbital layouts and rings.';
-}
 function buildGraphFilters(pool) {
   const previousFocus = document.activeElement?.id;
   const available = {

@@ -23,7 +23,7 @@ test('existing example configs preserve v6 options through scene compilation and
   const directory = new URL('../examples/', import.meta.url);
   for (const name of (await readdir(directory)).filter(name => name.endsWith('.json'))) {
     const parsed = parseConfig(await readFile(new URL(name, directory), 'utf8'));
-    assert.equal(parsed.version, 6, name);
+    assert.equal(parsed.version, 7, name);
     // Network plugin acquisition is separate from compiling an offline record set.
     const scene = createScene('fixture', fixture.repositories, { ...parsed.options, referenceDate: '2026-09-01T00:00:00Z' });
     assert.equal(renderSceneSVG(parseScene(serializeScene(scene))), renderSceneSVG(scene), name);

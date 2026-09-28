@@ -18,7 +18,7 @@ const scene = createScene('example', repositories, options);
 const html = renderSceneHTML(scene, { title: 'Project constellation' });
 ```
 
-Scene objects currently use the internal scene contract and should come from the compiler or trusted fixtures. Configuration remains declarative. HTML titles and embedded JSON are escaped; runtime metadata uses DOM text APIs. The exported page works offline without a web server.
+Scene objects use the validated Scene API v1 contract and should come from the compiler or validated scene JSON. Configuration remains declarative. HTML titles and embedded JSON are escaped; runtime metadata uses DOM text APIs. The exported page works offline without a web server.
 
 Run `node examples/interactive-demo.mjs` to generate a small offline example in `dist/interactive-demo.html`.
 

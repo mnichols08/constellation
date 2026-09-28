@@ -25,8 +25,8 @@ pre-layout graph during compilation. Existing manual positions override generate
 positions. Ring rotation, snapping, graph mode, selected relationship basis and
 large-graph settings retain their current semantics. The compiler calls this
 interface before refinement and scene serialization; SVG rendering does not
-rerun layout. The deprecated non-WASM field fallback remains in the compatibility
-compiler until its planned removal.
+rerun layout. All supported layouts require the bundled WASM engine; the deprecated
+non-WASM field fallback has been removed.
 
 `layoutCapabilities(id, options)` reports the effective layout, requested layout,
 maximum node count, manual-position, ring-snapping, deterministic-seed, animation,

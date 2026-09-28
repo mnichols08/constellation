@@ -1,6 +1,8 @@
+export const THEME_API_VERSION = 2;
 export function validateThemePack(pack, { reference = false } = {}) {
   if (!pack || typeof pack !== 'object' || !/^[a-z][a-z\d-]{0,63}$/.test(pack.id || '') || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(pack.version || '')) throw new Error('themePack requires an id and an exact release version (major.minor.patch, no leading zeros).');
-  if (Object.keys(pack).some(key => !['id', 'version', 'preset'].includes(key))) throw new Error('Unknown theme pack field. Use id, version and preset.');
+  if (pack.apiVersion !== undefined && ![1, THEME_API_VERSION].includes(pack.apiVersion)) throw new Error('Unsupported theme API version.');
+  if (Object.keys(pack).some(key => !['id', 'version', 'preset', 'apiVersion'].includes(key))) throw new Error('Unknown theme pack field. Use id, version, apiVersion and preset.');
   if (reference && pack.preset === undefined) return pack;
   const preset = pack.preset;
   if (preset && Object.keys(preset).some(key => !['label', 'palette', 'lightPalette', 'transparent', 'glow', 'opacity', 'nodeColorMode', 'nodeShape', 'animate', 'effect'].includes(key))) throw new Error('Theme presets may contain styling only.');

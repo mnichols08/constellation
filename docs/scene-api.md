@@ -16,7 +16,7 @@ fixes the generation clock. `sceneStatistics(scene)` provides the same counts to
 host applications; `pluginHost.createScene(...)` preserves registered source icons
 and theme resolution without rendering.
 
-Constellation 2.1 introduces a serializable internal scene between graph/layout
+Scene API v1 defines a serializable scene between graph/layout
 computation and rendering. The existing `renderConstellation` API composes
 `createScene` and `renderSceneSVG`, so CLI, Action, Studio and source plugins retain
 their existing behavior. Rust/WASM still computes layout and refinement.
@@ -39,10 +39,11 @@ relationship metadata, geometry and emphasis. Labels have plain text and compute
 coordinates. These records contain no markup or executable callbacks.
 
 The `presentation` record carries resolved legacy styling, graph summary and
-temporal decoration data while rendering is extracted incrementally. It is an
-internal compatibility detail, not the final stable Scene API v1 contract.
+temporal decoration data required by the compatible SVG renderer. This is a
+required opaque block in Scene API v1: preserve it when round-tripping scenes.
+Use the compiler to construct it rather than depending on undocumented fields.
 Layer records drive phased composition; see [Scene layers](layers.md).
-Config v6 layer controls provide visibility, opacity and constrained ordering.
+Config v7 (and compatible v6) layer controls provide visibility, opacity and constrained ordering.
 
 Time-lapse scenes contain a latest scene and historical frames for crossfade.
 The SVG time-lapse adapter renders these precomputed frames without rerunning
@@ -64,10 +65,7 @@ Identical inputs, seed and reference date produce stable IDs, ordering and
 geometry regardless of engine cache state. The compatibility wrapper's implicit
 current clock is intentionally not a reproducibility guarantee.
 
-At this stage scenes are internal trusted records. JSON serialization is for
-fixtures and debugging, not a new untrusted configuration import boundary.
-Continue using config parsing/migration for user-provided settings. The SVG
-renderer preserves XML escaping and the constrained source-icon renderer.
+Scene v1 is a public, validated import/export boundary. Use `parseScene` for imported JSON and config parsing/migration for user settings. Rendering preserves XML escaping and the constrained source-icon renderer. Custom CSS is trusted styling and is restricted in the web component; see the security guide.
 
 The regression fixture `test/fixtures/scene-svg-v2.json` stores SHA-256 hashes
 captured from the original 2.0 renderer for nine fixed-date configurations. Tests
@@ -93,3 +91,5 @@ Large-scene regression tests check all 2,048 nodes, edge references, label bound
 mutation isolation and round trips. Every example JSON config is also compiled
 and round-tripped through a fixed-date offline scene. The external-consumer test
 exercises scene APIs with the packaged WASM outside this repository.
+
+Optional versioned `timeline`, `hierarchy` and `story` attachments compose precompiled scenes. `annotations` contains up to 32 plain text/x/y records. See their dedicated guides for bounds. Scene JSON rejects unsafe records and is limited to 32 MiB. Custom CSS remains trusted styling; see [security](security-model.md).

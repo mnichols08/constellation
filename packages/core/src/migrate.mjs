@@ -19,8 +19,8 @@ export function migrateConfig(value, { account = 'your-universe' } = {}) {
 }
 
 export function migrateWorkflow(text, options = {}) {
-  if (!/uses:\s*mnichols08\/constellation@v1(?:\.\d+\.\d+)?\b/.test(text)) throw new Error('Expected a constellation@v1 workflow. Migrate custom action references manually.');
-  let output = text.replace(/(uses:\s*mnichols08\/constellation@)v1(?:\.\d+\.\d+)?\b/g, '$1v2');
+  if (!/uses:\s*['"]?mnichols08\/constellation@v[123](?:\.\d+\.\d+)?(?=[\s'"]|$)/.test(text)) throw new Error('Expected a constellation@v1, @v2 or @v3 workflow. Migrate custom action references manually.');
+  let output = text.replace(/(uses:\s*['"]?mnichols08\/constellation@)v[123](?:\.\d+\.\d+)?(?=[\s'"]|$)/g, '$1v3');
   const marker = /^([ \t]*)config-json:\s*\|[-+]?\s*\r?$/m.exec(output);
   if (marker) {
     const start = marker.index + marker[0].length;

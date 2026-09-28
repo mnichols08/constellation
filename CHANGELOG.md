@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.3 — 2026-09-27
+
+- Finalize config v7 and idempotent v2 → v3 workflow/config migration while preserving v6 and legacy recipes.
+- Stabilize Scene/Renderer/Layout/Component/Story v1, Plugin/Source v2 and Theme v2 contracts, retaining legacy source/theme adapters.
+- Require bundled Rust/WASM and report accessible startup failures; remove deprecated JavaScript computational fallbacks.
+- Harden composed scene limits and source validation; add migration, external source, missing-WASM browser/Node checks and a Story benchmark.
+- Complete architecture, extension, accessibility, security and v3 migration guides.
+
 ## 2.9.2 — 2026-09-27
 
 - Add an optional Studio Story tab to capture current scenes, duplicate/rename/reorder/remove chapters and edit narration.
