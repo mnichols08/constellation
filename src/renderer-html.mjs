@@ -5,6 +5,7 @@ import { bindings, base64 } from './wasm/inline.mjs';
 import { mountTimeline } from './timeline-runtime.mjs';
 import { replaceInteractiveSVG } from './scene-transition.mjs';
 import { mountHierarchy } from './hierarchy-runtime.mjs';
+import { mountStory } from './story-runtime.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const scriptJSON = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
@@ -12,7 +13,8 @@ const runtimeScript = `${bindings}
 await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => char.charCodeAt(0)) });
 const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
 const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, options, ${mountInteractive.toString()});
-(${mountHierarchy.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent) }, mountScene);`;
+const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})(root, scene, options, mountScene);
+(${mountStory.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) }, mountExperience);`;
 const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runtimeScript));
 const scriptHash = btoa(String.fromCharCode(...new Uint8Array(digest)));
 export const htmlPolicy = `default-src 'none'; script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`;
@@ -41,10 +43,14 @@ ${interactiveMarkup(svg)}
 <script type="application/json" id="constellation-scene">${scriptJSON(scene)}</script>
 <script type="application/json" id="constellation-frames">${scriptJSON(scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [])}</script>
 <script type="application/json" id="constellation-hierarchy">${scriptJSON(hierarchyArtifacts(scene))}</script>
+<script type="application/json" id="constellation-story">${scriptJSON(storyArtifacts(scene))}</script>
 <script type="module">${runtimeScript}</script>
 </body></html>\n`;
 }
 
 export function hierarchyArtifacts(scene) {
   return scene.hierarchy?.scenes.map(entry => ({ id: entry.id, svg: renderSceneSVG(entry.scene), frameSVGs: entry.scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] })) || [];
+}
+export function storyArtifacts(scene) {
+  return scene.story?.chapters.map(chapter => ({ svg: renderSceneSVG(chapter.scene), frameSVGs: chapter.scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [], hierarchyArtifacts: hierarchyArtifacts(chapter.scene) })) || [];
 }

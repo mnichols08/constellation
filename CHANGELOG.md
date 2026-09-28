@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.0 — 2026-09-27
+
+- Introduce Story format v1 with ordered declarative chapters, scene references/definitions and validated camera, selection/path, filter, timeline, theme, annotations and layer state.
+- Compile chapter layout changes through the existing Rust-backed pipeline; escape annotations and narration.
+- Add offline HTML/component story controls and static first-scene fallback, with compilation and browser tests.
+
 ## 2.8.3 — 2026-09-27
 
 - Harden cycle and maximum-depth validation across shared branches and temporal child references.

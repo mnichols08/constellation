@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "2.8.3",
+  "version": "2.9.0",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -8,7 +8,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@constellation/core": "2.8.3"
+    "@constellation/core": "2.9.0"
   },
   "license": "UNLICENSED"
 }

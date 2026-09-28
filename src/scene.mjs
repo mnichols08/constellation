@@ -1,6 +1,7 @@
 import { layerDefinitions, validateLayerOptions, validateLayerOrder } from './scene-layers.mjs';
 import { historyOptions } from './history/settings.mjs';
 import { validateHierarchy } from './hierarchy-model.mjs';
+import { validateStory } from './story-model.mjs';
 // Internal scene version, independent of the eventual stable public API version.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -81,6 +82,8 @@ function record(scene, path = '$') {
   }
   if (layers.size !== layerDefinitions.length) fail(`${path}.layers`, 'missing required layer');
   validateLayerOrder(scene.layers);
+  if (scene.annotations !== undefined && (!Array.isArray(scene.annotations) || scene.annotations.length > 32 || scene.annotations.some(annotation => !object(annotation) || typeof annotation.text !== 'string' || annotation.text.length > 2000 || !finite(annotation.x) || !finite(annotation.y) || Math.abs(annotation.x) > 100000 || Math.abs(annotation.y) > 100000))) fail(path, 'invalid annotations');
+  if (scene.story !== undefined) validateStory(scene.story, record);
   if (scene.hierarchy !== undefined) validateHierarchy(scene.hierarchy, record);
   if (scene.timeline !== undefined) {
     const timeline = scene.timeline;

@@ -1,5 +1,5 @@
 import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost } from '@constellation/core';
-import { mountInteractive, mountTimeline, mountHierarchy, hierarchyArtifacts, replaceInteractiveSVG, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
+import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
 export class ConstellationView extends HTMLElement {
   static observedAttributes = ['src', 'config', 'account', 'loading'];
@@ -56,6 +56,8 @@ export class ConstellationView extends HTMLElement {
   home() { return this.#active().home?.(); }
   shareURL() { return this.#active().shareURL?.() || this.ownerDocument.URL; }
   get scenePath() { return this.#runtime?.scenePath || []; }
+  setChapter(value) { const runtime = this.#active(); if (!runtime.setChapter) throw new Error('This scene has no story.'); return runtime.setChapter(value); }
+  get chapterIndex() { return this.#runtime?.chapterIndex; }
   get selection() { return this.#runtime?.selectionState || { start: null, end: null, path: [] }; }
   connectedCallback() { this.#observe(); }
   disconnectedCallback() {
@@ -126,7 +128,8 @@ export class ConstellationView extends HTMLElement {
     if (!this.isConnected || !this.#visible || !this.#scene) return false;
     try {
       // Validate custom styling before inserting renderer-owned SVG markup.
-      const roots = [this.#scene, ...this.#scene.hierarchy?.scenes.map(entry => entry.scene) || []];
+      const chapterScenes = [this.#scene, ...this.#scene.story?.chapters.map(chapter => chapter.scene) || []];
+      const roots = chapterScenes.flatMap(scene => [scene, ...scene.hierarchy?.scenes.map(entry => entry.scene) || []]);
       const scenes = roots.flatMap(scene => scene.kind === 'time-lapse' ? [scene, scene.latest, ...scene.frames.map(frame => frame.scene)] : [scene, ...scene.timeline?.frames.map(frame => frame.scene) || []]);
       for (const scene of scenes) for (const key of ['css', 'customCSS']) {
         const css = scene.presentation.options[key];
@@ -135,7 +138,7 @@ export class ConstellationView extends HTMLElement {
       const markup = interactiveMarkup(renderSceneSVG(this.#scene));
       this.#runtime?.destroy();
       this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
-      this.#runtime = mountHierarchy(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(this.#scene), frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive));
+      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(this.#scene), storyArtifacts: storyArtifacts(this.#scene), frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
       const first = !this.#initialized; this.#initialized = true;
       this.dispatchEvent(new CustomEvent(first ? 'scene-ready' : 'scene-change', { detail: { scene: this.scene }, bubbles: true, composed: true }));
       return true;

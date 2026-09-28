@@ -16,6 +16,8 @@ export { createTimelineHost } from './timeline-host.mjs';
 export { createHierarchy } from './hierarchy.mjs';
 export { HIERARCHY_VERSION } from './hierarchy-model.mjs';
 export { createOrganizationHierarchy } from './organization/hierarchy.mjs';
+export { createStory } from './story.mjs';
+export { STORY_VERSION } from './story-model.mjs';
 export { normalizeRecords, toGraphRecords, DATA_RECORD_VERSION } from './data-pipeline.mjs';
 export { applyTransforms, validateTransforms } from './data-transforms.mjs';
 export { createDataPipeline } from './pipeline-cache.mjs';
