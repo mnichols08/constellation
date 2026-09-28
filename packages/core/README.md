@@ -18,7 +18,7 @@ const explanation = explainFilters(repositories, result.config.options);
 
 `explainFilters(repositories, options)` returns counts (`loaded`, `pool`, `included`, `rendered`, `omittedByGraphLimit`) and node ID lists (`excludedBeforeCategories`, `excludedByCategories`, `hidden`). The studio uses the same counts. Selection applies metadata filters and the project limit before language/topic filters.
 
-`graphNodes`, `selectRepositories`, and `selectRepositoryPool` expose the existing projection and filtering steps. `rustAvailable` and `engineError` describe WASM initialization. GitHub acquisition helpers remain available separately from rendering through `fetchRepositories` and `fetchRepositoryLanguages`.
+`graphNodes`, `selectRepositories`, and `selectRepositoryPool` expose the existing projection and filtering steps. `rustAvailable` and `engineError` remain compatibility exports; successful initialization reports true/null, while missing WASM rejects module initialization. GitHub acquisition helpers remain available separately from rendering through `fetchRepositories` and `fetchRepositoryLanguages`.
 
 CLI: `node src/cli.mjs validate --config settings.json` validates without fetching GitHub. Generation accepts `--dry-run` (compute without writing SVG, cache or Action outputs) and `--explain` (print the filter report as JSON). Use `--fixture repositories.json` for offline runs.
 
@@ -31,6 +31,6 @@ node src/cli.mjs --username octocat --fixture repos.json --config settings.json 
 
 `--explain` reserves stdout for one JSON report; the generated-file message goes to stderr. The `excluded` list associates each excluded project with metadata, selection or limit reasons. Dry runs can fetch data unless `--fixture` is supplied. They do not publish or modify output files.
 
-Rebuild `packages/core` after source or WASM changes. A core tarball can be installed by path (`npm install ./constellation-core-1.7.3.tgz`). Package tests copy the built package outside the checkout and verify WASM initialization, rendering, validation and filtering there.
+Rebuild `packages/core` after source or WASM changes. A core tarball can be installed by path (`npm install ./constellation-core-3.0.0.tgz`). Package tests copy the built package outside the checkout and verify WASM initialization, rendering, validation and filtering there.
 
 Interactive exports: `renderSceneHTML(scene, { title })` produces an offline HTML document. See [interactive HTML](interactive-html.md).

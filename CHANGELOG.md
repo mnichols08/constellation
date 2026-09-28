@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0 — 2026-09-27
+
+- Declare the scene-based platform stable: Scene/Renderer/Layout/Web Component/Story v1, Plugin/Source v2, Theme v2 and config v7.
+- Ship rebuilt core/component 3.0.0 packages and additive source-json/themes 1.1.0 releases with explicit package boundaries and no runtime npm dependencies in core.
+- Preserve v6/legacy configuration, recipe and SVG compatibility; document required WASM and the complete v2 → v3 migration.
+- Keep the final v2 release at 2.9.3 and introduce v3/3.0.0 Action tags. No new features beyond the release candidate.
+- Verify 234 JavaScript tests, 34 Rust tests, seven scaling benchmarks, external package consumers and unchanged original SVG gallery artifacts.
+
 ## 2.9.3 — 2026-09-27
 
 - Finalize config v7 and idempotent v2 → v3 workflow/config migration while preserving v6 and legacy recipes.
