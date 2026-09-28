@@ -11,6 +11,7 @@ import { layoutRefinementOptions, refineStars } from './layout-refinement.mjs';
 import { scalingOptions } from './scaling.mjs';
 import { codingRhythmOptions } from './coding-rhythm.mjs';
 import { organizationEnabled, organizationOptions, organizationNodeMode, organizationModes, organizationLayouts } from './organization/settings.mjs';
+import { commitConstellation } from './commit-constellation.mjs';
 import { scopeRepositories } from './organization/model.mjs';
 import { organizationGraph } from './organization/graph.mjs';
 import { historyOptions } from './history/settings.mjs';
@@ -156,6 +157,7 @@ export function repositoryLanguages(repo) {
 
 export function graphNodes(repositories, options = {}) {
   const mode = options.nodeMode ?? 'repositories';
+  if (mode === 'commits') return commitConstellation(options);
   if (organizationEnabled(options) || organizationModes.includes(mode)) {
     // Aggregate the same filtered scope, without the direct-node cap.
     const source = filterRepositoryMetadata(repositories, options, referenceDate(options, new Date().toISOString())).filter(repo => repo.private !== true && (options.includeForks !== false || !repo.fork) && (options.repoSource !== 'pinned' || repo.pinned) && (!options.includeRepos || options.includeRepos.includes(repo.name) || options.includeRepos.includes(repo.full_name)));
@@ -214,8 +216,8 @@ const hash = value => {
   return (n ^ (n >>> 16)) >>> 0;
 };
 export const themes = {
-  midnight: { background: '#111111', foreground: '#f3f3f4', accent: '#e3de13', line: '#555a38', star: '#e3de13' },
-  light: { background: '#fafaf3', foreground: '#202516', accent: '#595600', line: '#838d66', star: '#8b8500' },
+  midnight: { background: '#080e20', foreground: '#e6edff', accent: '#9ab9ff', line: '#3e537e', star: '#f6d99b' },
+  light: { background: '#f7f8fc', foreground: '#18213a', accent: '#395bbe', line: '#aab6d3', star: '#966500' },
 };
 
 export function renderConstellation(account, repositories, options = {}, runtime = {}) {
@@ -242,7 +244,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   for (const key of ['starlightAnimate', 'activityAnimate']) if (options[key] !== undefined && typeof options[key] !== 'boolean') throw new Error(`${key} must be boolean.`);
   if (options.generatedAt !== undefined && !Number.isFinite(Date.parse(options.generatedAt))) throw new Error('generatedAt must be a valid date.');
   const temporal = historyOptions(options);
-  const hasHistory = temporal.history.mode !== 'current' || temporal.history.timeLapse.enabled || ['contributionOrbit', 'languageEvolution', 'stellarAges', 'foreignGalaxies'].some(key => temporal[key].enabled);
+  const hasHistory = temporal.history.mode !== 'current' || temporal.history.timeLapse.enabled || ['contributionComet', 'contributionOrbit', 'languageEvolution', 'stellarAges', 'foreignGalaxies'].some(key => temporal[key].enabled);
   const clock = referenceDate(options, new Date().toISOString());
   options = { ...options, referenceDate: new Date(clock).toISOString() };
   if (temporal.history.timeLapse.enabled) {
@@ -327,7 +329,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const stableOverview = options.nodeCap > 100;
   const simplified = stableOverview && repos.length > scaling.simplifyAbove;
   if (simplified) onDiagnostic?.({ code: 'large-graph-overview', reason: 'stable coordinates, sparse connections, bounded labels' });
-  nodeColors = { ...Object.fromEntries(repos.map(repo => [repo.full_name, mappedColor(repo, options.nodeColorMode, seed, reference)]).filter(([, color]) => color)), ...nodeColors };
+  nodeColors = { ...Object.fromEntries(repos.map(repo => [repo.full_name, repo.commitColor || mappedColor(repo, options.nodeColorMode, seed, reference)]).filter(([, color]) => color)), ...nodeColors };
   const nodeMode = graph.organization ? organizationNodeMode(options) : options.nodeMode ?? 'repositories';
   const combinedMode = nodeMode === 'combined';
   const categoryMode = nodeMode !== 'repositories' && !combinedMode;
@@ -412,7 +414,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const visibleStars = stars.filter(star => !hiddenNodes.has(star.repo.full_name));
   // Compare complete language sets, including secondary HTML/CSS/JavaScript.
   const candidates = [];
-  if (graph.organization && nodeMode !== 'repositories') {
+  if (graph.commits || graph.organization && nodeMode !== 'repositories') {
     const byId = new Map(stars.map(star => [star.repo.full_name, star]));
     for (const edge of graph.edges) {
       const from = byId.get(edge.from), to = byId.get(edge.to);
@@ -435,7 +437,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const nodes = stars.map(star => ({
     id: star.repo.full_name, metadata: star.repo,
     geometry: { x: star.x, y: star.y, radius: star.radius },
-    style: { color: nodeColors[star.repo.full_name] ?? null, glow: star.mapping.glow ?? mappedGlow(star.repo, options.nodeGlowMode, seed, reference), opacity: star.mapping.opacity ?? 1, shape: star.repo.nodeKind === 'contributor' ? 'diamond' : star.repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(star.repo, options.nodeShape) },
+    style: { color: nodeColors[star.repo.full_name] ?? null, glow: star.mapping.glow ?? mappedGlow(star.repo, options.nodeGlowMode, seed, reference), opacity: star.repo.commitOpacity ?? star.mapping.opacity ?? 1, shape: star.repo.nodeKind === 'contributor' ? 'diamond' : star.repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(star.repo, options.nodeShape) },
     interaction: { hidden: hiddenNodes.has(star.repo.full_name), labelHidden: hiddenLabels.has(star.repo.full_name) },
     icon: hiddenNodes.has(star.repo.full_name) ? null : nodeRenderer?.({ node: structuredClone(star.repo), x: star.x, y: star.y, radius: star.radius }) ?? null,
   }));
@@ -452,9 +454,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     nodes, edges, labels,
     layers,
     geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
-    presentation: { options, graph: { organization: graph.organization, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
+    presentation: { options, graph: { commits: graph.commits, organization: graph.organization, emptyMessage: graph.emptyMessage, focus: graph.focus, focusProjects: graph.focusProjects, repositoryCount: graph.repositoryCount, total: graph.total, note: graph.note, nodeCount: graph.nodes.length },
       historyRepositories: hasHistory ? selectRepositories(repositories, options) : [], sourceHasRepositories,
-      totalConnections: scene.total, nodeMode, hasHistory,
+      totalConnections: graph.commits ? edges.length : scene.total, nodeMode, hasHistory,
       pipeline: { ...normalized.statistics, transformed: transformed.records.length, filtered: transformed.diagnostics.filter(stage => ['filter', 'limit', 'deduplicate'].includes(stage.type)).reduce((sum, stage) => sum + stage.removed, 0), transforms: transformed.diagnostics, graphNodes: graph.nodes.length, sceneNodes: nodes.length } },
   }));
 }

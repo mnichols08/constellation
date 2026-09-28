@@ -1,4 +1,5 @@
 export const historyDefaults = {
+  contributionComet: { enabled: false },
   history: { mode: 'current', year: null, maxHistoricalFrames: 8, timeLapse: { enabled: false, duration: 16, mode: 'grow', loop: true } },
   contributionOrbit: { enabled: false, period: '52w', granularity: 'week', style: 'segments', showCurrent: true, animate: false },
   languageEvolution: { enabled: false, style: 'eras', buckets: 'automatic' },
@@ -39,4 +40,4 @@ export function historyOptions(options = {}) {
   if (options.referenceDate !== undefined && (typeof options.referenceDate !== 'string' || !Number.isFinite(Date.parse(options.referenceDate)))) throw new Error('referenceDate must be an ISO date.');
   return result;
 }
-export const needsHistoryEvents = options => !!(options.contributionOrbit?.enabled || options.foreignGalaxies?.enabled);
+export const needsHistoryEvents = options => !!(options.contributionComet?.enabled || options.contributionOrbit?.enabled || options.foreignGalaxies?.enabled);

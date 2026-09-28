@@ -62,5 +62,5 @@ test('theme pack versions and fields are explicit; custom is a valid external pa
   assert.throws(() => host.registerThemePack({ ...themePacks[0], preset: { ...themePacks[0].preset, maxRepos: 1 } }), /styling only/);
   const custom = { ...themePacks[0], id: 'custom' };
   const svg = host.registerThemePack(custom).render('tester', [], { themePack: { id: 'custom', version: '1.0.0' } });
-  assert.match(svg, /#e3de13/);
+  assert.ok(svg.includes(custom.preset.palette[2]));
 });

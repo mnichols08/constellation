@@ -15,7 +15,7 @@ test('Mnix is a portable theme independent of the account preset', () => {
   assert.deepEqual(resolveTheme(shared.options).colors, {
     background: '#111111', foreground: '#f3f3f4', accent: '#e3de13', line: '#555a38', star: '#e3de13',
   });
-  assert.equal(presetOptions('classic-constellation').visualTheme, 'mnix');
+  assert.equal(presetOptions('classic-constellation').visualTheme, 'constellation');
   const svg = renderConstellation('alice', [], { theme: 'mnix' });
   assert.match(svg, /--sky-accent:#595600/);
   assert.match(svg, /@media\(prefers-color-scheme:dark\)\{svg\{[^}]*--sky-accent:#e3de13/);

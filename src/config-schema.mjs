@@ -1,3 +1,4 @@
+import { commitHistoryOptions } from './commit-constellation.mjs';
 import { rhythmDefaults, resolveRhythmTimezone } from './coding-rhythm.mjs';
 import { renderConstellation, username } from './constellation.mjs';
 import { visualCSS } from './visual-style.mjs';
@@ -17,6 +18,7 @@ for (const key of historyFields) fields.add(key);
 for (const key of organizationFields) fields.add(key);
 for (const key of ['starlightAnimate', 'activityAnimate']) fields.add(key);
 fields.add('layoutRefinement');
+fields.add('commitHistory');
 fields.add('plugins');
 fields.add('themePack');
 fields.add('nodeCap');
@@ -51,6 +53,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   if (JSON.stringify(input).length > MAX_CONFIG_BYTES) throw new Error('Configuration is too large.');
   const options = Object.fromEntries(Object.entries(input).filter(([key]) => fields.has(key)));
   validateLayoutReference(options);
+  commitHistoryOptions(options);
   if ('plugins' in options) pluginOptions(options.plugins);
   if ('themePack' in options) validateThemePack(options.themePack, { reference: true });
   for (const key of ['animate', 'includeForks', 'bridges', 'showOther', 'snapToRings', 'identityRing', 'colorConnections']) {

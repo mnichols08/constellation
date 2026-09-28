@@ -7,7 +7,7 @@ const allowed = new Map([
   ['/src/hierarchy-model.mjs', ['../src/hierarchy-model.mjs', 'text/javascript']],
   ['/src/story-model.mjs', ['../src/story-model.mjs', 'text/javascript']],
   ['/src/studio-boot.mjs', ['../src/studio-boot.mjs', 'text/javascript']],
-  ...['studio-story', 'story', 'renderer-html', 'interactive-runtime', 'timeline-runtime', 'hierarchy-runtime', 'story-runtime', 'scene-transition'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['asteroid-field', 'commit-field', 'repository-commits', 'commit-graph', 'studio-commits', 'studio-story', 'story', 'renderer-html', 'interactive-runtime', 'timeline-runtime', 'hierarchy-runtime', 'story-runtime', 'scene-transition'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/wasm/inline.mjs', ['../src/wasm/inline.mjs', 'text/javascript']],
   ['/examples/web-component.html', ['../examples/web-component.html', 'text/html']],
   ['/packages/web-component/index.mjs', ['../packages/web-component/index.mjs', 'text/javascript']],
@@ -20,12 +20,12 @@ const allowed = new Map([
   ...['plugin-host', 'json-feed-source', 'theme-packs'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/filter-explanation.mjs', ['../src/filter-explanation.mjs', 'text/javascript']],
   ...['settings', 'model', 'data', 'graph', 'studio'].map(name => [`/src/organization/${name}.mjs`, [`../src/organization/${name}.mjs`, 'text/javascript']]),
-  ...['settings', 'historical-snapshot', 'project-lifecycle', 'contribution-history', 'language-history', 'external-contributions', 'history-svg', 'time-lapse-svg', 'studio-history'].map(name => [`/src/history/${name}.mjs`, [`../src/history/${name}.mjs`, 'text/javascript']]),
+  ...['settings', 'historical-snapshot', 'project-lifecycle', 'contribution-history', 'contribution-comet', 'comet-lab', 'language-history', 'external-contributions', 'history-svg', 'time-lapse-svg', 'studio-history'].map(name => [`/src/history/${name}.mjs`, [`../src/history/${name}.mjs`, 'text/javascript']]),
   ['/', ['../index.html', 'text/html']],
   ['/profiles/preview.html', ['../profiles/preview.html', 'text/html']],
   ['/src/studio-layout.css', ['../src/studio-layout.css', 'text/css']],
   ['/src/preview.css', ['../src/preview.css', 'text/css']],
-  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection', 'artifact-layouts', 'config-schema', 'config-store', 'design-randomizer', 'design-randomizer-v5', 'randomize-parts', 'layout-refinement', 'studio-randomize-motion', 'export-image', 'image-viewer', 'node-sizing', 'repository-filters', 'repository-picker', 'seeded-random', 'share-link', 'studio-config-form', 'studio-design', 'studio-presets', 'studio-layout', 'themes', 'visual-mapping', 'starfield', 'coding-rhythm', 'coding-rhythm-svg', 'activity', 'activity-effects', 'github-activity', 'github-mark', 'sample-activity'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection', 'artifact-layouts', 'config-schema', 'config-store', 'design-randomizer', 'design-randomizer-v5', 'randomize-parts', 'layout-refinement', 'studio-randomize-motion', 'export-image', 'image-viewer', 'node-sizing', 'repository-filters', 'repository-picker', 'contributed-repositories', 'commit-constellation', 'seeded-random', 'share-link', 'studio-config-form', 'studio-design', 'studio-presets', 'studio-layout', 'themes', 'visual-mapping', 'starfield', 'coding-rhythm', 'coding-rhythm-svg', 'activity', 'activity-effects', 'github-activity', 'github-mark', 'sample-activity'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/wasm/constellation_core.js', ['../src/wasm/constellation_core.js', 'text/javascript']],
   ['/src/wasm/constellation_core_bg.wasm', ['../src/wasm/constellation_core_bg.wasm', 'application/wasm']],
   ...['constellation', 'mnichols08', 'mnichols08-dark', 'mnichols08-light'].map(name => [`/dist/${name}.svg`, [`../dist/${name}.svg`, 'image/svg+xml']]),
@@ -63,9 +63,11 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
       const publicEvents = /^\/(users\/[a-z\d][a-z\d-]{0,38}\/events\/public|orgs\/[a-z\d][a-z\d-]{0,38}\/events)$/i.test(path);
       const languages = /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/languages$/i.test(path);
       const contributors = /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/contributors$/i.test(path);
+      const commits = /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/commits$/i.test(path);
       const repoMetadata = /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+$/i.test(path);
-      const contributionSearch = path === '/search/issues' && /^author:[a-z\d][a-z\d-]{0,38} org:[a-z\d][a-z\d-]{0,38} is:pr is:public$/i.test(url.searchParams.get('q') || '');
-      if ((!repoList && !languages && !publicEvents && !accountInfo && !contributors && !repoMetadata && !contributionSearch) || [...url.searchParams.keys()].some(key => !(contributionSearch ? ['q', 'per_page', 'page', 'sort', 'order'] : (publicEvents || contributors) ? ['per_page', 'page'] : accountInfo || repoMetadata ? [] : ['type', 'sort', 'per_page', 'page']).includes(key))) {
+      const contributionSearch = (path === '/search/issues' && /^author:[a-z\d][a-z\d-]{0,38}(?: org:[a-z\d][a-z\d-]{0,38})? is:pr is:public$/i.test(url.searchParams.get('q') || '')) ||
+        (path === '/search/commits' && /^author:[a-z\d][a-z\d-]{0,38}(?: org:[a-z\d][a-z\d-]{0,38})? is:public$/i.test(url.searchParams.get('q') || ''));
+      if ((!repoList && !languages && !publicEvents && !accountInfo && !contributors && !commits && !repoMetadata && !contributionSearch) || [...url.searchParams.keys()].some(key => !(contributionSearch ? ['q', 'per_page', 'page', 'sort', 'order'] : commits ? ['per_page', 'page', 'sha'] : (publicEvents || contributors) ? ['per_page', 'page'] : accountInfo || repoMetadata ? [] : ['type', 'sort', 'per_page', 'page']).includes(key))) {
         res.writeHead(404); res.end('Not found'); return;
       }
       try {
@@ -74,7 +76,7 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
           signal: AbortSignal.timeout(20000), redirect: 'error',
         });
         res.setHeader('Content-Type', 'application/json');
-        for (const header of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset', 'retry-after']) {
+        for (const header of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset', 'retry-after', 'link']) {
           const value = upstream.headers.get(header);
           if (value) res.setHeader(header, value);
         }

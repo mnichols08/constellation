@@ -3,7 +3,7 @@ export function mountOrganizationControls(host, changed) {
   const panel = document.createElement('details'); panel.id = 'organization-controls';
   const summary = document.createElement('summary'); summary.textContent = 'Account & organization'; panel.append(summary); host.append(panel);
   const inputs = {};
-  const note = document.createElement('p'); note.textContent = 'Deep scans can cost up to 2,000 API requests. Set a limit, then click Load organization data. Cached results are reused; scanning stops at rate limits.'; note.hidden = true;
+  const note = document.createElement('p'); note.textContent = 'Deep scans can cost up to 2,000 API requests. Set a limit, then click Load contributor data. Cached results are reused; scanning stops at rate limits.'; note.hidden = true;
   const control = (name, title, choices) => {
     const label = document.createElement('label'), input = document.createElement(choices ? 'select' : 'input');
     input.id = `org-${name}`; label.htmlFor = input.id; label.textContent = title;
@@ -22,7 +22,7 @@ export function mountOrganizationControls(host, changed) {
   control('pattern', 'Named capture pattern'); inputs.pattern.placeholder = '^v(?<voyage>\\d+)-(?<tier>tier\\d+)-'; inputs.pattern.maxLength = 180;
   panel.append(note);
   const help = document.createElement('p'); help.textContent = 'Scope and contributor changes take effect when you load data. Contributor counts cover selected repositories. All-metadata can make up to 1,000 paginated requests. Dependencies appear when supplied in repository data.'; panel.append(help);
-  const load = document.createElement('button'); load.id = 'load-organization'; load.type = 'button'; load.textContent = 'Load organization data'; panel.append(load);
+  const load = document.createElement('button'); load.id = 'load-organization'; load.type = 'button'; load.textContent = 'Load contributor data'; panel.append(load);
   const status = document.createElement('p'); status.id = 'organization-status'; status.setAttribute('role', 'status'); panel.append(status);
   return {
     read: () => ({ accountType: inputs.type.value, organizationScope: inputs.scope.value, organizationView: inputs.view.value, organization: { contributors: { enabled: inputs.strategy.value !== 'off', strategy: inputs.strategy.value, maxRepositories: Number(inputs.maxRepositories.value), maxContributorsPerRepo: Number(inputs.maxContributorsPerRepo.value) }, grouping: { mode: inputs.grouping.value, pattern: inputs.pattern.value } } }),

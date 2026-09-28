@@ -14,7 +14,7 @@ export function layoutCapabilities(id = 'rings', { nodeCap, nodeMode = 'reposito
   const effective = nodeCap > 100 || id === 'stable-overview' ? 'stable-overview' : id;
   return {
     id: effective, requested: id,
-    maxNodes: effective === 'stable-overview' ? 2048 : nodeMode === 'combined' || organization && nodeMode !== 'repositories' ? 256 : 100,
+    maxNodes: effective === 'stable-overview' ? 2048 : ['combined', 'commits'].includes(nodeMode) || organization && nodeMode !== 'repositories' ? 256 : 100,
     manualPositioning: true, ringSnapping: true, deterministicSeed: true,
     animation: true, refinement: true, requiresWasm: true,
     ringSnappingPhase: effective === 'rings' || effective === 'stable-overview' ? 'layout-and-editing' : 'editing-and-refinement',
@@ -68,12 +68,12 @@ export function layoutScene(scene, options = {}, context = {}) {
     arrangement: artifactLayouts.includes(arrangement) || organizationLayouts.includes(arrangement) ? 'field' : arrangement,
     ring_rotations: options.ringRotations || Array(4).fill(options.ringRotation || 0),
     all: options.connectionDensity === 'all',
-    basis: graph.organization && mode !== 'repositories' || mode === 'combined' ? 'membership' : mode !== 'repositories' ? 'repositories' : options.connectionBasis || 'languages',
+    basis: graph.organization && mode !== 'repositories' || ['combined', 'commits'].includes(mode) ? 'membership' : mode !== 'repositories' ? 'repositories' : options.connectionBasis || 'languages',
     repos: records.map(repo => ({
       name: repo.full_name, group: repo.language || 'Other',
       languages: (repo.languages ? Object.keys(repo.languages).filter(key => repo.languages[key] > 0).sort() : repo.language ? [repo.language] : []).filter(language => options.languages == null || options.languages.includes(language)),
       topics: (repo.topics || []).filter(topic => options.topics == null || options.topics.includes(topic)),
-      members: repo.members || [], kind: repo.nodeKind || 'repository', hidden: hidden.has(repo.full_name),
+      members: mode === 'commits' ? [] : repo.members || [], kind: repo.nodeKind || 'repository', hidden: hidden.has(repo.full_name),
       position: Object.hasOwn(positions, repo.full_name) ? [positions[repo.full_name].x, positions[repo.full_name].y] : null,
     })),
   };

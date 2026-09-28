@@ -65,6 +65,7 @@ export function mountStudioLayout() {
   section('history-mode', panel('projects'));
   panel('projects').append(fold('Languages & topics', $('.graph-filters')));
   section('repository-search', panel('projects'));
+  section('repository-history-open', panel('projects'));
   section('design-minStars', panel('projects'));
   panel('projects').append(fold('Account & connection help', $('.form-note'), $('#token-help')), $('.stats'), $('#engine-status'));
   field('node-mode', panel('nodes')); panel('nodes').append($('#node-mode-help'));
