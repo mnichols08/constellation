@@ -59,6 +59,27 @@ test('missing token uses public requests and static deployments do not use a pro
   assert.deepEqual(calls, ['https://api.github.com/users/octocat/repos']);
 });
 
+test('commit history proxy supports branch pagination and forwards pagination links', async t => {
+  let requested;
+  const link = '<https://api.github.com/repos/example/repo/commits?page=2>; rel="next"';
+  const base = await serve(t, { fetchImpl: async url => { requested = url; return Response.json([], { headers: { link } }); } });
+  const response = await fetch(`${base}/api/github/repos/example/repo/commits?sha=feature%2Fgraph&per_page=100&page=1`);
+  assert.equal(response.status, 200); assert.equal(response.headers.get('link'), link);
+  assert.equal(new URL(requested).searchParams.get('sha'), 'feature/graph');
+  assert.equal((await fetch(`${base}/api/github/repos/example/repo/commits?url=https://example.com`)).status, 404);
+});
+
+test('contribution search proxy permits public authors across organizations and rejects arbitrary queries', async t => {
+  const base = await serve(t, { fetchImpl: async () => Response.json({ items: [] }) });
+  for (const [endpoint, query] of [['issues', 'author:alice is:pr is:public'], ['issues', 'author:alice org:chingu-voyages is:pr is:public'], ['commits', 'author:alice is:public'], ['commits', 'author:alice org:code-the-dream is:public']]) {
+    assert.equal((await fetch(`${base}/api/github/search/${endpoint}?q=${encodeURIComponent(query)}&page=1&per_page=100&sort=created&order=desc`)).status, 200);
+  }
+  for (const query of ['author:alice is:private', 'author:alice is:public OR is:private', 'org:team is:public']) {
+    assert.equal((await fetch(`${base}/api/github/search/commits?q=${encodeURIComponent(query)}`)).status, 404);
+  }
+  assert.equal((await fetch(`${base}/src/contributed-repositories.mjs`)).status, 200);
+});
+
 test('proxy rejects foreign origins, unexpected hosts, writes, and non-allowlisted endpoints', async t => {
   let calls = 0;
   const base = await serve(t, { token: 'test-token', fetchImpl: async () => { calls++; return Response.json([]); } });

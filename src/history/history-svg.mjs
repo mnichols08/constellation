@@ -1,6 +1,7 @@
 import { historyOptions } from './settings.mjs';
 import { referenceDate } from './historical-snapshot.mjs';
 import { contributionHistory } from './contribution-history.mjs';
+import { contributionComet, renderContributionComet, cometCSS } from './contribution-comet.mjs';
 import { languageHistory } from './language-history.mjs';
 import { externalContributions } from './external-contributions.mjs';
 export const xml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
@@ -56,6 +57,7 @@ export function renderForeignGalaxies(galaxies, { centerY, spreadY }) {
 export function historyLayers(account, repositories, options, geometry) {
   const settings = historyOptions(options), reference = referenceDate(options);
   const contribution = settings.contributionOrbit.enabled ? contributionHistory(options.historyData, reference) : null;
+  const comet = settings.contributionComet.enabled ? contributionComet(options.historyData, reference) : null;
   const eras = settings.languageEvolution.enabled ? languageHistory(repositories, reference, settings.languageEvolution.buckets) : [];
   const galaxies = settings.foreignGalaxies.enabled ? externalContributions(account, options.historyData, reference, settings.foreignGalaxies) : [];
   const diagnostics = [];
@@ -64,12 +66,12 @@ export function historyLayers(account, repositories, options, geometry) {
   if (settings.languageEvolution.enabled) diagnostics.push('Language eras inferred from project creation');
   if (settings.history.mode === 'historical') diagnostics.push(`${settings.history.year} · surviving projects, current metadata`);
   return {
-    markup: `<!--history-events-start-->${renderContributionOrbit(contribution, settings.contributionOrbit, geometry, options.animate !== false)}${renderForeignGalaxies(galaxies, geometry)}<!--history-events-end-->` + renderLanguageEvolution(eras, settings.languageEvolution, geometry),
+    markup: `<!--history-events-start-->${renderContributionOrbit(contribution, settings.contributionOrbit, geometry, options.animate !== false)}${renderForeignGalaxies(galaxies, geometry)}${comet ? renderContributionComet(comet, geometry, options.animate !== false) : ''}<!--history-events-end-->` + renderLanguageEvolution(eras, settings.languageEvolution, geometry),
     note: diagnostics.length ? `<text class="history-note" x="450" y="${geometry.height - 44}" text-anchor="middle" font-size="8" opacity=".65">${xml(diagnostics.join(' · '))}</text>` : '',
     description: (contribution ? ' Outer orbit represents observed public activity over 52 weeks; missing history is unknown.' : '') + (eras.length ? ' Language rings show inferred creation cohorts, using current language data.' : '') + (settings.stellarAges.enabled ? ' Node appearance reflects project age and known maintenance.' : '') + (galaxies.length ? ` ${galaxies.length} external repositories represent public open-source contributions.` : '') + (settings.history.mode === 'historical' ? ` Historical view of ${settings.history.year}; deleted repositories cannot be reconstructed.` : ''),
   };
 }
-export const historyCSS = `
+export const historyCSS = cometCSS + `
 .repository[data-lifecycle="quiet"]{opacity:.7}.repository[data-lifecycle="dormant"]{opacity:.4}
 .repository[data-lifecycle="archived"] .star{fill:none;stroke:var(--node-color,var(--sky-star));stroke-width:1;filter:none;animation:none}
 .repository[data-lifecycle="archived"] .star-core{display:none}

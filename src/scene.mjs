@@ -45,7 +45,7 @@ function record(scene, path = '$') {
   }
   if (scene.kind !== 'scene') fail(path, 'unknown scene kind');
   const graph = scene.presentation.graph;
-  if (!object(graph) || !['repositories', 'languages', 'topics', 'combined', 'contributors', 'ecosystem', 'organization-community', 'dependencies', 'technology', 'eras'].includes(scene.presentation.nodeMode)) fail(path, 'invalid graph presentation');
+  if (!object(graph) || !['repositories', 'languages', 'topics', 'combined', 'contributors', 'ecosystem', 'organization-community', 'dependencies', 'technology', 'eras', 'commits'].includes(scene.presentation.nodeMode)) fail(path, 'invalid graph presentation');
   for (const key of ['repositoryCount', 'total', 'nodeCount']) if (graph[key] !== undefined && (!Number.isInteger(graph[key]) || graph[key] < 0)) fail(path, 'invalid graph count');
   if (!Number.isInteger(scene.presentation.totalConnections) || scene.presentation.totalConnections < 0) fail(path, 'invalid connection count');
   if (graph.focusProjects !== undefined && (!Array.isArray(graph.focusProjects) || graph.focusProjects.some(value => typeof value !== 'string'))) fail(path, 'invalid focused project list');

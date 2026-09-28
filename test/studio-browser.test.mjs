@@ -18,7 +18,21 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     apiCalls++;
     requestedUrls.push(url);
     const account = new URL(url).pathname.split('/')[2];
-    if (url.includes('/search/issues')) return Response.json({ total_count: 0, items: [] });
+    if (url.includes('/repos/collective/repo-0/commits?')) {
+      const branch = new URL(url).searchParams.get('sha');
+      if (branch === 'missing') return Response.json({ message: 'Not Found' }, { status: 404 });
+      if (branch === 'empty') return Response.json({ message: 'Empty' }, { status: 409 });
+      return Response.json([[4, [3, 2], 'alice'], [3, [1], 'alice'], [2, [1], 'bob'], [1, [], null]].map(([id, parents, login]) => ({ sha: String(id).padStart(40, '0'), parents: parents.map(id => ({ sha: String(id).padStart(40, '0') })), author: login ? { login } : null, commit: { message: ['Initial constellation', 'Add contributor colors', 'Draw orbital paths', 'Merge contributor graph'][id - 1], author: { name: 'Guest developer' }, committer: { date: '2026-09-27T12:00:00Z' } } })));
+    }
+    if (/\/repos\/collective\/repo-0$/.test(url)) return Response.json({ name: 'repo-0', full_name: 'collective/repo-0', private: false, default_branch: 'main' });
+    if (url.includes('/search/issues')) return Response.json({ total_count: 1, items: [{ user: { login: 'alice' }, pull_request: {}, repository_url: 'https://api.github.com/repos/chingu-voyages/team-project' }] });
+    if (url.includes('/search/commits')) return Response.json({ total_count: 1, items: [{ author: { login: 'alice' }, repository: { full_name: 'code-the-dream/practicum', private: false } }] });
+    if (/\/repos\/(chingu-voyages|code-the-dream)\//.test(url)) {
+      if (url.includes('/contributors?')) return Response.json([{ login: 'alice', contributions: 5 }, { login: 'teammate', contributions: 8 }]);
+      if (url.endsWith('/languages')) return Response.json({ JavaScript: 100 });
+      const full_name = new URL(url).pathname.slice(7);
+      return Response.json({ name: full_name.split('/')[1], full_name, private: false, language: 'JavaScript', stargazers_count: 5, created_at: '2022-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' });
+    }
     if (/\/(users|orgs)\/collective$/.test(url)) return Response.json({ login: 'collective', type: 'Organization', public_repos: 2 });
     if (url.includes('/repos/collective/') && url.includes('/contributors')) return Response.json([{ login: 'alice', contributions: 8 }, { login: 'bob', contributions: 3 }]);
     if (url.includes('/repos/collective/')) return Response.json({ Rust: 100 });
@@ -68,7 +82,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Page.navigate', { url: base });
   for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
   assert.deepEqual(errors, []);
-  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'))`));
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`), `Studio did not render: ${errors.join('\n')}`);
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'landing', 'first visit retains the original landing layout');
   assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), false);
@@ -79,6 +93,15 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
   assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'studio', 'subsequent visits open the studio');
   assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), true);
+  for (const [mode, accent, sky] of [['dark', '#c7d6ff', '#080e20'], ['light', '#304e8a', '#f7f8fc']]) {
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: mode }] });
+    assert.equal(await evaluate(`getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()`), accent);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg')).getPropertyValue('--sky-background').trim()`), sky);
+    await mkdir('.dist', { recursive: true });
+    const restoredThemeShot = await cdp('Page.captureScreenshot');
+    await writeFile(`.dist/constellation-restored-${mode}.png`, Buffer.from(restoredThemeShot.data, 'base64'));
+  }
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
   const curvedMotion = await evaluate(`(async () => {
     const { renderConstellation } = await import('/src/constellation.mjs');
     const repos = Array.from({length:12}, (_,i)=>({name:'r'+i,full_name:'o/r'+i,language:'Rust'}));
@@ -113,7 +136,83 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     assert.ok(result.curved > 0, 'animated connections retain curvature');
   }
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+  await evaluate(`input('design-activityEffect', 'asteroids');`);
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.commit-asteroid').length > 20`));
+  const shipTravel = await evaluate(`(() => { const root=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg');const ship=root.querySelector('.commit-ship-moving');const svg=ship.ownerSVGElement;svg.pauseAnimations();svg.setCurrentTime(1);const first=ship.getCTM();svg.setCurrentTime(7);const last=ship.getCTM();return Math.hypot(first.e-last.e,first.f-last.f); })()`);
+  assert.ok(shipTravel > 5, 'ships visibly navigate around their repository: ' + shipTravel);
+  const asteroidShot = await cdp('Page.captureScreenshot');
+  await writeFile('.dist/commit-asteroid-field.png', Buffer.from(asteroidShot.data, 'base64'));
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.commit-ship-moving')).display`), 'none');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.commit-ship-still')).display`), 'inline');
+  await evaluate(`input('design-activityEffect', 'off');`);
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
+  await evaluate(`click('history-comet');`);
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.contribution-comet'))`));
+  const cometTravel = await evaluate(`(() => {
+    const flight = document.querySelector('#preview').firstChild.shadowRoot.querySelector('.comet-active .comet-flight');
+    const animation = flight.getAnimations().find(value => value.animationName === 'comet-cruise');
+    animation.pause(); animation.currentTime = 1000;
+    const start = flight.getBoundingClientRect().x;
+    animation.currentTime = 7000;
+    const end = flight.getBoundingClientRect().x;
+    animation.currentTime = 13000;
+    const loop = flight.getBoundingClientRect().x;
+    animation.play(); return { distance: end - start, loopOffset: Math.abs(loop - start) };
+  })()`);
+  assert.ok(cometTravel.distance > 250, 'active demo comet visibly crosses the sky');
+  assert.ok(cometTravel.loopOffset < 1, 'flight loops continuously');
+  assert.equal(await evaluate(`(async () => {
+    const { renderContributionComet, cometCSS } = await import('/src/history/contribution-comet.mjs');
+    const host = document.createElement('div');
+    host.id = 'comet-test-stage'; host.style.cssText = 'position:fixed;inset:0 auto auto 0;width:900px;height:300px;background:#0b1025;z-index:99999;--sky-foreground:#e0f2fe';
+    host.innerHTML = '<svg viewBox="0 0 900 300"><style>' + cometCSS + '</style>' + renderContributionComet({state:'burst',days:7,events:21,missedDate:'2026-09-26'}, {centerY:150,spreadY:80,height:300}) + '</svg>';
+    document.body.append(host);
+    const flight = host.querySelector('.comet-flight'), shard = host.querySelector('.comet-shard');
+    const animated = getComputedStyle(shard).animationName === 'comet-scatter' && getComputedStyle(flight).animationName === 'comet-arrival';
+    for (const animation of host.getAnimations({subtree:true})) { animation.pause(); animation.currentTime = 2200; }
+    return animated;
+  })()`), true);
+  const cometShot = await cdp('Page.captureScreenshot', { clip: { x: 0, y: 0, width: 900, height: 300, scale: 1 } });
+  await mkdir('.dist', { recursive: true }); await writeFile('.dist/comet-burst.png', Buffer.from(cometShot.data, 'base64'));
+  await evaluate(`document.querySelector('#comet-test-stage').remove()`);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.comet-flight')).animationName`), 'none');
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+  await evaluate(`click('history-comet');`);
   await evaluate(`click('tab-layers'); window.chooseLayer = id => { const select=document.querySelector('#layer-select');select.value=id;select.dispatchEvent(new Event('change',{bubbles:true})); }; chooseLayer('labels');`);
+  const unlockCometLab = async () => {
+    for (const key of ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a']) {
+      await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key });
+      await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key });
+    }
+  };
+  assert.equal(await evaluate(`document.querySelector('#comet-lab')`), null, 'test controls are absent until unlocked');
+  await evaluate(`document.querySelector('#username').focus()`);
+  await unlockCometLab();
+  assert.equal(await evaluate(`document.querySelector('#comet-lab')`), null, 'typing in inputs cannot unlock the lab');
+  await evaluate(`document.activeElement.blur()`);
+  await unlockCometLab();
+  assert.equal(await evaluate(`document.querySelector('#comet-lab').open`), true);
+  assert.equal(await evaluate(`document.activeElement.id`), 'comet-lab-days');
+  await evaluate(`input('comet-lab-days', '42'); click('comet-lab-apply');`);
+  assert.match(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay] .comet-active').textContent`), /42-day comet/);
+  await evaluate(`input('max-repos', document.querySelector('#max-repos').value);`);
+  assert.match(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay] .comet-active').textContent`), /42-day comet/, 'test state survives preview redraws');
+  const exportWithTest = await evaluate(`(async () => (await fetch(document.querySelector('.download').href)).text())()`);
+  assert.doesNotMatch(exportWithTest, /comet-lab|TEST ·|42-day comet/);
+  await evaluate(`input('comet-lab-days', '0'); click('comet-lab-end');`);
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay] .comet-active'))`), 'invalid streak does not replace the current test');
+  await evaluate(`input('comet-lab-days', '42'); click('comet-lab-end');`);
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay] .comet-burst.comet-motion'))`));
+  await evaluate(`click('comet-lab-reset');`);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay]')`), null);
+  await evaluate(`click('comet-lab-end'); document.querySelector('#comet-lab-close').focus()`);
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape' });
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape' });
+  assert.equal(await evaluate(`document.querySelector('#comet-lab').open`), false);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay]')`), null, 'closing restores real activity');
   assert.equal(await evaluate(`document.querySelector('#layer-controls').closest('[role=tabpanel]').id`), 'panel-layers');
   assert.match(await evaluate(`document.querySelector('#scene-summary').textContent`), /visible nodes.*9 layers/);
   await evaluate(`click('layer-visible');`);
@@ -353,8 +452,12 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await evaluate(`input('design-nodeShape','square');input('design-repoQuery','repo-0');`);
   assert.match(await evaluate(`document.querySelector('#filter-summary').textContent`), /1 included/);
   assert.equal(apiCalls, 3, 'customization never fetches');
-  await evaluate(`account('another');`);
+  await evaluate(`document.activeElement.blur()`);
+  await unlockCometLab();
+  await evaluate(`document.querySelector('#comet-lab-apply').click(); account('another');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@another')`)) break; await delay(50); }
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-comet-lab-overlay]')`), null, 'switching accounts clears test data');
+  await evaluate(`document.querySelector('#comet-lab-close').click();`);
   assert.equal(await evaluate(`document.querySelector('#design-nodeShape').value`), 'circle');
   await evaluate(`account('tester');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
@@ -531,7 +634,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#arrangement').value`), 'solar-system');
   assert.equal(await evaluate(`document.querySelector('#max-repos').value`), '12');
   await evaluate(`document.querySelector('#dark-accent').value='#e3de13';document.querySelector('#dark-accent').dispatchEvent(new Event('input'));`);
-  for (const [id, expected] of [['flagship-projects', '#58a6ff'], ['language-orbits', '#ff79c6'], ['classic-constellation', '#e3de13']]) {
+  for (const [id, expected] of [['flagship-projects', '#58a6ff'], ['language-orbits', '#ff79c6'], ['classic-constellation', '#9ab9ff']]) {
     await evaluate(`document.querySelector('#builtin-preset').value='${id}';document.querySelector('#apply-builtin-preset').click();`);
     for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(50); }
     assert.match(await evaluate(`document.querySelector('#status').textContent`), /applied/);
@@ -594,6 +697,105 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#share-dialog').open`), true);
   assert.equal(await evaluate(`(async()=>{const {decodeShare}=await import('/src/share-link.mjs');return decodeShare(document.querySelector('#share-url').value).options.organizationUser;})()`), 'alice');
   await evaluate(`document.querySelector('#close-share').click();`);
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`document.querySelector('#tab-projects').click(); document.querySelector('#repository-history-open').click();`);
+  assert.equal(await evaluate(`document.querySelector('#repository-history').open`), true);
+  assert.ok(await evaluate(`Array.from(document.querySelector('#commit-repository-select').options).some(option => option.value === 'collective/repo-0')`));
+  await evaluate(`const select=document.querySelector('#commit-repository-select');select.value='collective/repo-0';select.dispatchEvent(new Event('change'));document.querySelector('#commit-load').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelectorAll('#commit-viewport .commit-node').length === 4`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelectorAll('#commit-viewport .commit-node').length`), 4);
+  assert.match(await evaluate(`document.querySelector('#commit-status').textContent`), /4 commits · 3 authors/);
+  const callsBeforeHighlight = apiCalls;
+  await evaluate(`document.querySelector('#commit-contributors [data-author="github:bob"]').click();`);
+  assert.equal(await evaluate(`document.querySelectorAll('#commit-viewport .commit-node[opacity=".22"]').length`), 3);
+  assert.equal(apiCalls, callsBeforeHighlight, 'highlighting contributors uses loaded history');
+  const exportedHistory = await evaluate(`(async()=> (await fetch(document.querySelector('#commit-download').href)).text())()`);
+  assert.match(exportedHistory, /highlighting bob/); assert.doesNotMatch(exportedHistory, /<script|NaN/);
+  await evaluate(`document.querySelector('#commit-contributors [data-author=""]').click();`);
+  const commitShot = await cdp('Page.captureScreenshot');
+  await writeFile('.dist/repository-commit-graph.png', Buffer.from(commitShot.data, 'base64'));
+  await evaluate(`document.querySelector('#commit-load').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#commit-load').disabled`)) break; await delay(25); }
+  assert.equal(apiCalls, callsBeforeHighlight, 'rebuilding cached graph does not fetch');
+  for (const [branch, expected] of [['missing', 'not found'], ['empty', '0 commits']]) {
+    await evaluate(`document.querySelector('#commit-branch').value='${branch}';document.querySelector('#commit-load').click();`);
+    for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#commit-load').disabled`)) break; await delay(25); }
+    assert.match(await evaluate(`document.querySelector('#commit-status').textContent`), new RegExp(expected));
+    assert.equal(await evaluate(`document.querySelectorAll('#commit-viewport .commit-node').length`), 0);
+  }
+  await evaluate(`document.querySelector('#repository-history-close').click();`);
+  await evaluate(`document.querySelector('#builtin-preset').value='commit-asteroids';document.querySelector('#apply-builtin-preset').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-builtin-preset').disabled`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelector('#design-activityEffect').value`), 'asteroids');
+  assert.equal(await evaluate(`document.querySelector('#history-comet').checked`), false);
+  await evaluate(`document.querySelector('#load-commit-field').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.commit-asteroid').length >= 4`)) break; await delay(25); }
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.commit-asteroid').length >= 4`), 'real account loads actual commit asteroids');
+  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('.activity-asteroid-field a').getAttribute('href').startsWith('https://github.com/collective/repo-0/commit/')`));
+  const fieldSVG = await evaluate(`(async()=> (await fetch(document.querySelector('.download').href)).text())()`);
+  assert.match(fieldSVG, /activity-asteroid-field/); assert.match(fieldSVG, /animateMotion/);
+  await cdp('Page.navigate', { url: `${base}/?user=alice&preset=project-map` });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#repository-picker-list')?.textContent.includes('alice/repo-0')`)) break; await delay(25); }
+  await evaluate(`document.querySelector('#tab-projects').click(); document.querySelector('#find-contributed-repositories').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#find-contributed-repositories').disabled`)) break; await delay(25); }
+  assert.match(await evaluate(`document.querySelector('#repository-picker-list').textContent`), /chingu-voyages\/team-project/);
+  assert.match(await evaluate(`document.querySelector('#repository-picker-list').textContent`), /code-the-dream\/practicum/);
+  assert.match(await evaluate(`document.querySelector('#repository-discovery-status').textContent`), /2 repositories found/);
+  await evaluate(`document.querySelector('#clear-repository-selection').click();document.querySelector('#automatic-repositories').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#automatic-repositories').disabled`)) break; await delay(25); }
+  assert.ok(await evaluate(`document.querySelectorAll('#repository-picker-list input:checked').length > 0`), 'automatic selection restores checkboxes after clearing an unapplied selection');
+  await evaluate(`document.querySelector('#clear-repository-selection').click();document.querySelector('#add-repository-name').value='https://github.com/code-the-dream/practicum';document.querySelector('#add-public-repository').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#add-public-repository').disabled`)) break; await delay(25); }
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#repository-picker-list input:checked'),input=>input.value)`), ['code-the-dream/practicum']);
+  await evaluate(`document.querySelector('#apply-repository-selection').click();`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!document.querySelector('#apply-repository-selection').disabled`)) break; await delay(25); }
+  assert.match(await evaluate(`document.querySelector('#status').textContent`), /1 repositories selected/);
+  assert.ok(await evaluate(`!!document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star[data-repo="code-the-dream/practicum"]')`));
+  await evaluate(`document.querySelector('#copy-config').click();document.querySelector('#copy-share').click();`);
+  assert.deepEqual(JSON.parse(await evaluate(`document.querySelector('#config-json').value`)).includeRepos, ['code-the-dream/practicum']);
+  const contributedShare = await evaluate(`document.querySelector('#share-url').value`);
+  await evaluate(`sessionStorage.clear();localStorage.clear();`);
+  await cdp('Page.navigate', { url: `${base}/${new URL(contributedShare).search}` });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`!!document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star[data-repo="code-the-dream/practicum"]')`)) break; await delay(25); }
+  assert.ok(await evaluate(`!!document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star[data-repo="code-the-dream/practicum"]')`), 'team selections reload from a share link without cached repository data: ' + await evaluate(`JSON.stringify({url:location.href,status:document.querySelector('#status')?.textContent})`) + errors.join('\n'));
+  await evaluate(`document.querySelector('#tab-projects').click();document.querySelector('#repository-search').closest('details').open=true;`);
+  const contributedShot = await cdp('Page.captureScreenshot');
+  await writeFile('.dist/contributed-repositories.png', Buffer.from(contributedShot.data, 'base64'));
+  await evaluate(`document.querySelector('#node-mode').value='contributors';document.querySelector('#node-mode').dispatchEvent(new Event('input'));`);
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('[data-kind="contributor"].star').length === 2`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-kind="contributor"].star').length`), 2, 'switching a personal account to contributor mode loads team members');
+  assert.match(await evaluate(`document.querySelector('#organization-status').textContent`), /1.*repositories/);
+  await evaluate(`document.querySelector('#copy-share').click();`);
+  const contributorViewShare = await evaluate(`document.querySelector('#share-url').value`);
+  await evaluate(`sessionStorage.clear();localStorage.clear();`);
+  await cdp('Page.navigate', { url: `${base}/${new URL(contributorViewShare).search}` });
+  for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('[data-kind="contributor"].star').length === 2`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-kind="contributor"].star').length`), 2, 'shared personal contributor views load contributor data on a fresh visit');
+  const themeBeforeCommitStars = await evaluate(`document.querySelector('#dark-accent').value`);
+  await evaluate(`document.querySelector('#repository-history-open').click();document.querySelector('#commit-repository').value='collective/repo-0';document.querySelector('#commit-branch').value='main';document.querySelector('#commit-constellation').click();`);
+  for (let i = 0; i < 120; i++) { if (await evaluate(`!document.querySelector('#repository-history').open`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelector('#repository-history').open`), false, await evaluate(`document.querySelector('#commit-status').textContent`));
+  assert.equal(await evaluate(`document.querySelector('#node-mode').value`), 'commits');
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="commit"]').length`), 4);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.shared-language').length`), 4);
+  assert.equal(await evaluate(`document.querySelector('#dark-accent').value`), themeBeforeCommitStars, 'commit stars preserve the chosen palette');
+  await evaluate(`document.querySelector('#commit-star-authors [data-author="github:bob"]').click();`);
+  assert.equal(await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.repository')).filter(node=>node.style.opacity==='0.2').length`), 3);
+  await evaluate(`document.querySelector('#commit-star-authors [data-author=""]').click();`);
+  await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star[data-kind="commit"]').parentElement.dispatchEvent(new MouseEvent('click',{bubbles:true}));`);
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('#graph-explorer a')).some(link=>link.href.includes('/collective/repo-0/commit/'))`));
+  await evaluate(`Array.from(document.querySelectorAll('#graph-explorer button')).find(button=>button.textContent==='Clear selection').click();document.querySelector('#copy-config').click();document.querySelector('#copy-share').click();`);
+  const commitStarConfig = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
+  assert.equal(commitStarConfig.commitHistory.repository, 'collective/repo-0'); assert.equal(commitStarConfig.commitHistoryData, undefined);
+  const commitStarShare = await evaluate(`document.querySelector('#share-url').value`);
+  await evaluate(`sessionStorage.clear();localStorage.clear();`);
+  await cdp('Page.navigate', { url: `${base}/${new URL(commitStarShare).search}` });
+  for (let i = 0; i < 120; i++) { if (await evaluate(`document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('.star[data-kind="commit"]').length === 4`)) break; await delay(25); }
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="commit"]').length`), 4, 'commit constellation share restores real history');
+  const commitStarsSVG = await evaluate(`(async()=> (await fetch(document.querySelector('.download').href)).text())()`);
+  assert.match(commitStarsSVG, /data-kind="commit"/); assert.match(commitStarsSVG, /Commit ancestry/);
+  const commitStarsShot = await cdp('Page.captureScreenshot');
+  await writeFile('.dist/commit-stars.png', Buffer.from(commitStarsShot.data, 'base64'));
   assert.deepEqual(errors, []);
   if (process.env.CONSTELLATION_SCREENSHOT) {
     const studioShot = await cdp('Page.captureScreenshot');

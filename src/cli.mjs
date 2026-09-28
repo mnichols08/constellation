@@ -10,8 +10,12 @@ import { username, fetchRepositories, fetchRepositoryLanguages, selectRepository
 import { loadConfig } from './config.mjs';
 import { aggregateActivity, activityOptions, normalizePublicEvents } from './activity.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
+import { createCommitFieldData } from './commit-field.mjs';
 import { createOrganizationData, attachFocusEvidence } from './organization/data.mjs';
-import { organizationOptions } from './organization/settings.mjs';
+import { organizationOptions, needsContributorData } from './organization/settings.mjs';
+import { createContributedRepositories, loadSelectedRepositories } from './contributed-repositories.mjs';
+import { createRepositoryCommits } from './repository-commits.mjs';
+import { commitHistoryOptions } from './commit-constellation.mjs';
 
 async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
@@ -57,16 +61,22 @@ async function main() {
   const discovery = !values.fixture && accountData.type === 'Organization' && config.repoSource !== 'pinned' ? await organization.discover(account, config, { refresh: values['refresh-data'] }) : null;
   let listed = values.fixture ? JSON.parse(await readFile(values.fixture, 'utf8')) : discovery?.repositories || await fetchRepositories(account, { token, repoSource: config.repoSource });
   if (focus && config.repoSource !== 'pinned') listed = [...new Map([...listed, ...focus.repositories].map(repo => [repo.full_name, repo])).values()];
+  if (!values.fixture) listed = await loadSelectedRepositories(listed, config, createContributedRepositories({ token }));
   config.accountData = accountData;
-  if (accountData.type === 'Organization') {
-    config.organizationData = values.fixture ? { records: Object.fromEntries(listed.map(repo => [repo.full_name, repo.contributors || []])), metadataComplete: true } : { ...await organization.contributors(listed, config, { refresh: values['refresh-data'] }), discovered: listed.length, metadataComplete: discovery?.complete ?? true };
+  if (config.nodeMode === 'commits' && !values.fixture) {
+    const history = commitHistoryOptions(config);
+    if (history) config.commitHistoryData = await createRepositoryCommits({ token }).load(history.repository, { branch: history.branch });
+  }
+  if (needsContributorData(config)) {
+    const targets = accountData.type === 'Organization' ? listed : selectRepositoryPool(listed, config);
+    config.organizationData = values.fixture ? { records: Object.fromEntries(targets.map(repo => [repo.full_name, repo.contributors || []])), scanned: targets.length, selected: targets.length, metadataComplete: true } : { ...await organization.contributors(targets, config, { refresh: values['refresh-data'] }), discovered: listed.length, metadataComplete: discovery?.complete ?? true };
     config.organizationData = attachFocusEvidence(config.organizationData, focus, config.organizationUser, listed);
     if (!values.fixture && !values['dry-run'] && !inspectScene) { await mkdir(dirname(cacheFile), { recursive: true }); await writeFile(cacheFile, savedCache); }
     if (discovery?.diagnostic) console.warn(discovery.diagnostic);
     if (config.organizationData.diagnostic) console.warn(config.organizationData.diagnostic);
   }
   let enriched = listed;
-  if (!values.fixture) { try { enriched = await fetchRepositoryLanguages(selectRepositoryPool(listed, config), { token }); } catch (error) { if (accountData.type !== 'Organization') throw error; console.warn('Language details incomplete; using primary languages. ' + error.message); } }
+  if (!values.fixture && config.nodeMode !== 'commits') { try { enriched = await fetchRepositoryLanguages(selectRepositoryPool(listed, config), { token }); } catch (error) { if (accountData.type !== 'Organization') throw error; console.warn('Language details incomplete; using primary languages. ' + error.message); } }
   // Retain the full public list for historical selection without fetching languages
   // for every repository. Older frames can use their known primary language.
   const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
@@ -74,7 +84,7 @@ async function main() {
   const repos = [...listed.map(repo => byName.get(repo.full_name) || repo), ...await pluginHost.load(config, { account, refresh: values['refresh-data'] })];
   const reportingRepos = toGraphRecords(normalizeRecords(repos, { deferIdentityCheck: true }).records);
   const generatedAt = new Date(values['reference-date'] || Date.now()).toISOString();
-  let activityData, codingRhythmData, historyData;
+  let activityData, codingRhythmData, historyData, commitFieldData;
   if (needsHistoryEvents(config) || activityOptions(config).activityEffect !== 'off' || (codingRhythmOptions(config).codingRhythm && config.codingRhythmStyle !== 'hidden')) {
     const snapshot = values['activity-fixture'] ? { events: normalizePublicEvents(JSON.parse(await readFile(values['activity-fixture'], 'utf8'))), asOf: config.activityMetricDate || generatedAt }
       : values.fixture ? { events: [], asOf: config.activityMetricDate || generatedAt }
@@ -84,9 +94,15 @@ async function main() {
     codingRhythmData = deriveCodingRhythm(snapshot.events, config, config.activityMetricDate || snapshot.asOf);
     activityData = aggregateActivity(snapshot.events, selectRepositories(reportingRepos, config), config, snapshot.asOf);
   }
+  if (config.activityEffect === 'asteroids' && !values.fixture) {
+    const result = await createCommitFieldData({ token }).load(selectRepositories(reportingRepos, config));
+    commitFieldData = result.snapshots;
+    for (const diagnostic of result.diagnostics) console.warn(diagnostic);
+    if (selectRepositories(reportingRepos, config).length > 12) console.warn('Commit asteroids cover the first 12 selected repositories per generation.');
+  }
   if (inspectScene) {
     const diagnostics = [];
-    const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt }, { onDiagnostic: diagnostic => diagnostics.push(diagnostic) });
+    const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, commitFieldData, generatedAt }, { onDiagnostic: diagnostic => diagnostics.push(diagnostic) });
     const result = values['scene-json'] ? serializeScene(scene) : JSON.stringify({ ...sceneStatistics(scene), diagnostics, cache: pluginHost.pipelineCacheStatistics, ...(values.explain ? { filters: explainFilters(reportingRepos, config) } : {}) }, null, 2) + '\n';
     if (values.output && !values['dry-run']) {
       if (/[\r\n]/.test(values.output)) throw new Error('Invalid output path.');
@@ -95,7 +111,7 @@ async function main() {
     } else process.stdout.write(result);
     return;
   }
-  const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, generatedAt });
+  const scene = pluginHost.createScene(account, repos, { ...config, activityData, codingRhythmData, historyData, commitFieldData, generatedAt });
   const svg = values.format === 'html' ? renderSceneHTML(scene, { title: account + ' constellation' }) : renderSceneSVG(scene);
   if (values.explain) console.log(JSON.stringify({ ...explainFilters(reportingRepos, config), ...(config.transforms?.length || config.mappings ? { pipeline: sceneStatistics(scene).pipeline } : {}) }));
   if (values['dry-run']) return;

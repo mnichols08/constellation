@@ -18,6 +18,9 @@ export function mountStudioHistory(host, changed) {
   const year = field('year', 'Historical year', null, 'range'); year.min = '2008'; year.max = String(end); year.step = '1';
   const yearText = document.createElement('output'); yearText.htmlFor = year.id; body.append(yearText);
   const orbit = field('orbit', 'Contribution orbit');
+  const comet = field('comet', 'Contribution streak comet');
+  const cometNote = document.createElement('p'); cometNote.className = 'export-note'; cometNote.textContent = 'Grow a comet with consecutive days of public activity. A completed UTC day off turns it into a burst. Private contributions are not included.'; body.append(cometNote);
+  const replay = document.createElement('button'); replay.type = 'button'; replay.textContent = 'Replay comet animation'; replay.addEventListener('click', () => changed()); body.append(replay);
   const orbitStyle = field('orbit-style', 'Orbit style', ['segments', 'dots', 'pulse-ring']);
   const language = field('language', 'Language evolution', [['off', 'Off'], ['rings', 'Rings'], ['timeline', 'Timeline'], ['trails', 'Trails'], ['eras', 'Eras']]);
   const ages = field('ages', 'Stellar ages');
@@ -29,6 +32,7 @@ export function mountStudioHistory(host, changed) {
   const note = document.createElement('p'); note.className = 'export-note'; note.textContent = 'Historical views use surviving projects and current language metadata. Public-event history is partial; gaps are unknown. Timeline changes use loaded data.'; body.append(note);
   function visible(input, show) { input.hidden = !show; input.previousElementSibling.hidden = !show; }
   function sync() {
+    cometNote.hidden = replay.hidden = !comet.checked;
     visible(year, mode.value === 'historical'); yearText.hidden = mode.value !== 'historical'; yearText.value = year.value;
     visible(orbitStyle, orbit.checked); visible(minimum, foreign.checked);
     for (const input of [lapse, duration, loop]) visible(input, mode.value === 'time-lapse');
@@ -38,6 +42,7 @@ export function mountStudioHistory(host, changed) {
     mode.value = settings.history.timeLapse.enabled ? 'time-lapse' : settings.history.mode;
     year.value = String(settings.history.year || end);
     orbit.checked = settings.contributionOrbit.enabled; orbitStyle.value = settings.contributionOrbit.style;
+    comet.checked = settings.contributionComet.enabled;
     language.value = settings.languageEvolution.enabled ? settings.languageEvolution.style : 'off';
     ages.checked = settings.stellarAges.enabled; foreign.checked = settings.foreignGalaxies.enabled; minimum.value = settings.foreignGalaxies.minimumContribution;
     lapse.value = settings.history.timeLapse.mode; duration.value = String(settings.history.timeLapse.duration); loop.checked = settings.history.timeLapse.loop; sync();
@@ -46,7 +51,7 @@ export function mountStudioHistory(host, changed) {
   return {
     restore,
     bounds: () => ({ firstYear: Number(year.min), year: Number(year.max) }),
-    read: () => ({ ...settings, historicalYear: undefined, timeLapse: undefined, timeLapseMode: undefined, timeLapseDuration: undefined, languageEvolutionStyle: undefined, history: { ...settings.history, mode: mode.value, year: mode.value === 'historical' ? Number(year.value) : null, timeLapse: { ...settings.history.timeLapse, enabled: mode.value === 'time-lapse', mode: lapse.value, duration: Number(duration.value), loop: loop.checked } }, contributionOrbit: { ...settings.contributionOrbit, enabled: orbit.checked, style: orbitStyle.value }, languageEvolution: { ...settings.languageEvolution, enabled: language.value !== 'off', style: language.value === 'off' ? settings.languageEvolution.style : language.value }, stellarAges: { ...settings.stellarAges, enabled: ages.checked }, foreignGalaxies: { ...settings.foreignGalaxies, enabled: foreign.checked, minimumContribution: minimum.value } }),
+    read: () => ({ ...settings, contributionComet: { enabled: comet.checked }, historicalYear: undefined, timeLapse: undefined, timeLapseMode: undefined, timeLapseDuration: undefined, languageEvolutionStyle: undefined, history: { ...settings.history, mode: mode.value, year: mode.value === 'historical' ? Number(year.value) : null, timeLapse: { ...settings.history.timeLapse, enabled: mode.value === 'time-lapse', mode: lapse.value, duration: Number(duration.value), loop: loop.checked } }, contributionOrbit: { ...settings.contributionOrbit, enabled: orbit.checked, style: orbitStyle.value }, languageEvolution: { ...settings.languageEvolution, enabled: language.value !== 'off', style: language.value === 'off' ? settings.languageEvolution.style : language.value }, stellarAges: { ...settings.stellarAges, enabled: ages.checked }, foreignGalaxies: { ...settings.foreignGalaxies, enabled: foreign.checked, minimumContribution: minimum.value } }),
     range(repos, generatedAt) {
       end = new Date(generatedAt).getUTCFullYear();
       const years = repos.filter(repo => repo.private !== true).map(repo => new Date(repo.created_at).getUTCFullYear()).filter(Number.isFinite);

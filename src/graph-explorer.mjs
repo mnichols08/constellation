@@ -8,7 +8,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
   const names = nodes.map(node => node.querySelector('.star').dataset.repo);
   const metadata = new Map(nodes.map(node => {
     const star = node.querySelector('.star');
-    return [star.dataset.repo, { label: star.dataset.label || star.dataset.repo, kind: star.dataset.kind || 'repository', members: JSON.parse(star.dataset.members || '[]') }];
+    return [star.dataset.repo, { label: star.dataset.label || star.dataset.repo, kind: star.dataset.kind || 'repository', members: JSON.parse(star.dataset.members || '[]'), commit: star.dataset.commit, detail: node.querySelector('title')?.textContent }];
   }));
   const label = name => metadata.get(name)?.label || name;
   function select(name, event) {
@@ -63,6 +63,12 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
       : `${label(start)}: ${related.size - 1} connected node${related.size === 2 ? '' : 's'}.`;
     panel.append(status);
     if (start) {
+      const selected = metadata.get(start);
+      if (selected.kind === 'commit' && /^[a-z\d][a-z\d-]*\/[a-z\d_.-]+\/commit\/[a-f\d]{40,64}$/i.test(selected.commit || '')) {
+        const detail = document.createElement('p'); detail.textContent = selected.detail;
+        const link = document.createElement('a'); link.textContent = 'Open commit on GitHub'; link.href = `https://github.com/${selected.commit}`; link.target = '_blank'; link.rel = 'noopener noreferrer';
+        panel.append(detail, link);
+      }
       const list = document.createElement('div'); list.className = 'related-projects';
       for (const name of related) {
         if (metadata.get(name).kind !== 'repository') {
@@ -76,7 +82,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
         list.append(link);
       }
       panel.append(list);
-      if (category) {
+      if (category && kind !== 'commit') {
         const heading = document.createElement('p'); heading.textContent = `Repositories with ${label(start)} (${metadata.get(start).members.length}):`;
         const members = document.createElement('div'); members.className = 'related-projects member-repositories';
         for (const repo of metadata.get(start).members) {

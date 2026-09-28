@@ -41,7 +41,7 @@ test('malformed scene data fails at the scene boundary with diagnostics', () => 
   assert.throws(() => parseScene('{"__proto__":{}}'), /unsafe/);
 });
 
-test('scene rendering and JSON round trips preserve original 2.0 SVG bytes', () => {
+test('scene rendering and JSON round trips preserve reference SVG bytes', () => {
   for (const { options, sha256 } of fixture.cases) {
     const scene = createScene(fixture.account, fixture.repositories, options);
     const svg = renderSceneSVG(JSON.parse(serializeScene(scene)));

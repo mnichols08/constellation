@@ -1,6 +1,7 @@
 import { validateThemePack } from './theme-packs.mjs';
 // Themes only supply visual defaults. Explicit configuration always wins.
 export const visualThemes = {
+  constellation: { label: 'Constellation (original)', lightPalette: ['#f7f8fc', '#18213a', '#395bbe', '#aab6d3', '#966500'], palette: ['#080e20', '#e6edff', '#9ab9ff', '#3e537e', '#f6d99b'], glow: 2, opacity: .13, nodeColorMode: 'custom' },
   mnix: { label: 'Mnix (adaptive, transparent)', transparent: true, lightPalette: ['#fafaf3', '#202516', '#595600', '#838d66', '#8b8500'], palette: ['#111111', '#f3f3f4', '#e3de13', '#555a38', '#e3de13'], glow: 2, opacity: .13, nodeColorMode: 'custom' },
   'github-dark': { label: 'GitHub Dark', palette: ['#0d1117', '#c9d1d9', '#58a6ff', '#30363d', '#79c0ff'], glow: 1, opacity: .28 },
   'deep-space': { label: 'Deep Space', palette: ['#080c24', '#dce6ff', '#a78bfa', '#53619c', '#93c5fd'], glow: 3, opacity: .24 },

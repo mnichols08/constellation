@@ -6,6 +6,15 @@ export function organizationGraph(all, selected, options) {
   const pool = all.filter(repo => repo.private !== true);
   const ids = new Set(selected.map(repo => repo.full_name));
   const people = options.organizationData?.records ? normalizeContributors(options.organizationData.records, selected) : (options.organizationData?.contributors || []).map(person => ({ ...person, repositories: person.repositories.filter(id => ids.has(id)) })).filter(person => person.repositories.length);
+  let emptyMessage;
+  if (mode === 'contributors' && selected.length && !people.length) {
+    const snapshot = options.organizationData;
+    emptyMessage = !settings.contributors.enabled || settings.contributors.strategy === 'off' ? 'Contributor discovery is off. Enable it and load contributor data.'
+      : !snapshot ? 'Contributor data has not been loaded. Load contributor data to show this view.'
+        : snapshot.diagnostic ? 'Contributor data is unavailable or incomplete. Retry loading contributor data.'
+          : selected.some(repo => !Object.hasOwn(snapshot.records || {}, repo.full_name)) ? 'Contributors have not been loaded for all selected repositories. Load contributor data or expand the scan.'
+            : 'No attributed contributors were found in the loaded results.';
+  }
   const focus = options.organizationUser?.toLowerCase();
   const focalPerson = people.find(person => person.login.toLowerCase() === focus);
   const focalProjects = new Set(focalPerson?.repositories || []);
@@ -74,7 +83,7 @@ export function organizationGraph(all, selected, options) {
   const note = `${coverage?.discovered ?? pool.length} repositories discovered${coverage?.metadataComplete === false ? ' (partial metadata)' : ''}; ${pool.length} matching filters; ${repositoryNodes.length} represented directly; ${aggregateCount} through era systems; ${omitted} omitted. Contributor visualization represents the selected organization scope${coverage ? `: ${coverage.scanned || 0}/${coverage.selected || 0} repositories scanned, up to ${coverage.perRepositoryLimit || 25} contributors per repository` : ''}.${focus ? focalPerson ? ` @${options.organizationUser} contributed to ${focalProjects.size} represented projects; highlighted contributors share these projects.` : ` @${options.organizationUser} was not found in this scan. This does not establish absence of contributions; expand the scan or project scope.` : ''}`;
   // Keep aggregate tooltips/inspector payloads bounded even for 100k repositories.
   for (const node of nodes) if (node.members?.length > 100) { node.representedCount = node.members.length; node.members = node.members.slice(0, 100); }
-  return { nodes, edges, focus: nodes.find(node => node.organizationFocal)?.full_name, focusProjects: [...focalProjects].sort(), total: repositoryNodes.length + (community ? people.length : 0) + ranked.length, repositoryCount: selected.length, note: note + ' Contributor totals are current; historical views filter project creation dates, not contributor tenure.', organization: true };
+  return { nodes, edges, emptyMessage, focus: nodes.find(node => node.organizationFocal)?.full_name, focusProjects: [...focalProjects].sort(), total: repositoryNodes.length + (community ? people.length : 0) + ranked.length, repositoryCount: selected.length, note: note + ' Contributor totals are current; historical views filter project creation dates, not contributor tenure.', organization: true };
 }
 export function organizationPositions(graph, arrangement, compact, seed = '', metric = 'stars') {
   const ordered = [...graph.nodes].sort((a, b) => a.full_name.localeCompare(b.full_name));

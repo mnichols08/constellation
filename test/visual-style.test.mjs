@@ -38,15 +38,15 @@ test('visual edits and both palettes survive workflow export unchanged', () => {
   assert.equal(renderConstellation('octocat', [], restored), renderConstellation('octocat', [], options));
   assert.throws(() => visualCSS({ ...style, glow: 'none;}' }));
   assert.throws(() => visualCSS({ ...style, dark: { star: 'red;}' } }));
-  assert.equal(defaultVisualStyle().dark.star, '#e3de13');
+  assert.equal(defaultVisualStyle().dark.star, '#f6d99b');
 });
 
 test('default SVG is adaptive and has only repository credit as visible chrome', () => {
   for (const layout of ['atlas', 'compact']) {
     const svg = renderConstellation('octocat', [], { layout });
     assert.match(svg, /@media\(prefers-color-scheme:dark\)/);
-    assert.match(svg, /--sky-background:#fafaf3/);
-    assert.match(svg, /--sky-background:#111111/);
+    assert.match(svg, /--sky-background:#f7f8fc/);
+    assert.match(svg, /--sky-background:#080e20/);
     assert.ok(!svg.includes('<text class="heading"'));
     assert.ok(!svg.includes('<text class="caption"'));
     assert.match(svg, /class="credit" x="868".*>mnichols08\/constellation<\/text>/);

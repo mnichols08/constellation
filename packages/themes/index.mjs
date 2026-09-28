@@ -1,6 +1,30 @@
 // Versioned independently of the core.
 export const themePacks = [
   {
+    "id": "constellation",
+    "version": "1.0.0",
+    "preset": {
+      "label": "Constellation (original)",
+      "lightPalette": [
+        "#f7f8fc",
+        "#18213a",
+        "#395bbe",
+        "#aab6d3",
+        "#966500"
+      ],
+      "palette": [
+        "#080e20",
+        "#e6edff",
+        "#9ab9ff",
+        "#3e537e",
+        "#f6d99b"
+      ],
+      "glow": 2,
+      "opacity": 0.13,
+      "nodeColorMode": "custom"
+    }
+  },
+  {
     "id": "mnix",
     "version": "1.0.0",
     "preset": {

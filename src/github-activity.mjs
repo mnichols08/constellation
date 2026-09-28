@@ -16,6 +16,8 @@ export async function fetchPublicActivity(account, { token, fetchImpl = fetch, s
       events.push(...body);
       if (body.length < 100) break;
     }
-    return { asOf, events: normalizePublicEvents(events), diagnostic: '' };
+    const normalized = normalizePublicEvents(events);
+    // Only claim coverage back to an event we actually received, even for capped feeds.
+    return { asOf, events: normalized, coverageStart: normalized.at(-1)?.createdAt, diagnostic: '' };
   } catch { return { asOf, events: [], diagnostic: 'Public activity unavailable. Rendering without activity; refresh later to retry.' }; }
 }

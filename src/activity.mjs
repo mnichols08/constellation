@@ -5,7 +5,7 @@ const windows = { '1d': 24, '7d': 168, '30d': 720 };
 
 export function activityOptions(options = {}) {
   const { activityEffect = 'off', activityWindow = '7d', activityDetail = 'simple', activityConnections = false, activityMetricDate } = options;
-  if (!['off', 'glow', 'pulse', 'comet', 'ripple'].includes(activityEffect) || !['1d', '7d', '30d', 'auto'].includes(activityWindow) || !['simple', 'event-types'].includes(activityDetail) || typeof activityConnections !== 'boolean') throw new Error('Invalid recent activity settings.');
+  if (!['off', 'glow', 'pulse', 'comet', 'ripple', 'asteroids'].includes(activityEffect) || !['1d', '7d', '30d', 'auto'].includes(activityWindow) || !['simple', 'event-types'].includes(activityDetail) || typeof activityConnections !== 'boolean') throw new Error('Invalid recent activity settings.');
   if (activityMetricDate !== undefined && (typeof activityMetricDate !== 'string' || !Number.isFinite(Date.parse(activityMetricDate)))) throw new Error('activityMetricDate must be an ISO date.');
   return { activityEffect, activityWindow, activityDetail, activityConnections, activityMetricDate };
 }

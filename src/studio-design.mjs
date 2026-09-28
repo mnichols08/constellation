@@ -18,7 +18,7 @@ import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
 export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
-export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, reveal }) {
+export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, findRepositories, reveal }) {
   const layerControls = mountStudioLayers(host, changed, reveal);
   const historyControls = mountStudioHistory(host, changed);
   const organizationControls = mountOrganizationControls(host, changed);
@@ -161,12 +161,15 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const skyNote = document.createElement('p'); skyNote.className = 'export-note'; skyNote.textContent = 'Decorative stars stay behind your projects. Try a dark theme for a space backdrop. Twinkle follows Starlight animation and reduced-motion preferences. The seed is saved in config and share links.'; skyDetails.append(skyNote);
   syncSky = () => { skyDetails.hidden = !['space', 'milky-way'].includes(controls.get('sky-mode').value); };
   const activityPanel = section('Recent activity');
-  control(activityPanel, 'activityEffect', 'Recent activity', [['off', 'Off'], ['glow', 'Glow'], ['pulse', 'Pulse'], ['comet', 'Comet trails'], ['ripple', 'Ripple']]);
+  control(activityPanel, 'activityEffect', 'Contribution visual', [['off', 'Off'], ['asteroids', 'Commit asteroids & ships'], ['glow', 'Glow'], ['pulse', 'Pulse'], ['comet', 'Comet trails'], ['ripple', 'Ripple']]);
   control(activityPanel, 'activityWindow', 'Activity window', [['1d', '24 hours'], ['7d', '7 days'], ['30d', '30 days'], ['auto', 'Auto']]);
   control(activityPanel, 'activityDetail', 'Event detail', [['simple', 'Simple'], ['event-types', 'Event types']]);
   control(activityPanel, 'activityConnections', 'Brighten active connections', null, 'checkbox');
   control(activityPanel, 'activityAnimate', 'Animate activity effects', null, 'checkbox');
   const activityStatus = document.createElement('p'); activityStatus.id = 'activity-status'; activityStatus.className = 'export-note'; activityStatus.setAttribute('role', 'status'); activityPanel.append(activityStatus);
+  const asteroidActions = document.createElement('div'); asteroidActions.id = 'asteroid-actions'; asteroidActions.hidden = true;
+  asteroidActions.innerHTML = '<button type="button" id="load-commit-field" class="secondary">Load commit asteroids</button><button type="button" id="refresh-commit-field" class="secondary">Refresh commit asteroids</button><p id="commit-field-status" class="export-note" role="status">Latest 24 commits per repository, 12 repositories per batch. Ships represent up to three authors per repository. Click an asteroid to open its commit.</p>';
+  activityPanel.append(asteroidActions);
   const rhythmPanel = section('Coding rhythm');
   control(rhythmPanel, 'codingRhythmStyle', 'Coding rhythm', [['hidden', 'Off'], ['orbit', 'Orbit'], ['active-arc', 'Active arc'], ['halo', 'Halo']]);
   control(rhythmPanel, 'codingRhythmWindow', 'Window', [['7d', '7 days'], ['14d', '14 days'], ['30d', '30 days']]);
@@ -185,12 +188,13 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   control(filters, 'repoQuery', 'Repository name contains').maxLength = 200;
   control(filters, 'sortBy', 'Select projects by', [['stars', 'Stars'], ['updated', 'Recently updated'], ['name', 'Repository name']]);
   const repositoryPicker = mountRepositoryPicker(section('Choose repositories'), {
-    message,
+    message, findRepositories,
     apply: async includeRepos => {
       if (!current) return;
       const cap = current.options.nodeCap || 100;
       if (includeRepos && includeRepos.length > cap) throw new Error(`Choose at most ${cap} repositories, or increase the node cap first.`);
       const options = { ...current.options, includeRepos };
+      if (includeRepos?.some(name => !repositoryPool().find(repo => repo.full_name === name)?.pinned)) options.repoSource = 'all';
       if (includeRepos) Object.assign(options, { maxRepos: Math.max(1, includeRepos.length), includeForks: true, includeArchived: true, minStars: 0, updatedWithin: 0, repoQuery: '', languages: null, topics: null, showOther: true, hiddenNodes: [], selection: {} });
       if (await apply({ version: 1, account: current.account, options }, { loadPresetData: true, fallback: current })) message(includeRepos ? `${includeRepos.length} repositories selected.` : 'Automatic repository selection restored.');
     },
