@@ -6,6 +6,8 @@ import { fetchPinnedRepositories } from '../src/constellation.mjs';
 const allowed = new Map([
   ['/src/hierarchy-model.mjs', ['../src/hierarchy-model.mjs', 'text/javascript']],
   ['/src/story-model.mjs', ['../src/story-model.mjs', 'text/javascript']],
+  ...['studio-story', 'story', 'renderer-html', 'interactive-runtime', 'timeline-runtime', 'hierarchy-runtime', 'story-runtime', 'scene-transition'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ['/src/wasm/inline.mjs', ['../src/wasm/inline.mjs', 'text/javascript']],
   ['/examples/web-component.html', ['../examples/web-component.html', 'text/html']],
   ['/packages/web-component/index.mjs', ['../packages/web-component/index.mjs', 'text/javascript']],
   ...readdirSync(new URL('../packages/core/src/', import.meta.url), { recursive: true }).filter(name => /\.(mjs|js|wasm)$/.test(name)).map(name => {

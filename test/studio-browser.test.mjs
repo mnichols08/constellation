@@ -128,6 +128,8 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.activeElement.id`), 'design-sky-mode');
   assert.equal(await evaluate(`document.querySelector('[role=tab][aria-selected=true]').id`), 'tab-look');
   await evaluate(`click('tab-layers');document.querySelector('#tab-layers').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`);
+  assert.equal(await evaluate(`document.activeElement.id`), 'tab-story');
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight' });
   assert.equal(await evaluate(`document.activeElement.id`), 'tab-save');
   await evaluate(`click('tab-layers');chooseLayer('selection');click('layer-visible');document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').hasAttribute('data-exploring')`), false);

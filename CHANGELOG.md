@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.2 — 2026-09-27
+
+- Add an optional Studio Story tab to capture current scenes, duplicate/rename/reorder/remove chapters and edit narration.
+- Preview from the active chapter in an isolated iframe; export standalone HTML or scene JSON and import saved stories.
+- Keep ordinary constellation controls separate and load HTML export assets on demand; test editing, sandboxed player execution and JSON round trips in Chromium.
+
 ## 2.9.1 — 2026-09-27
 
 - Interpolate shared node positions, sizes, colors and opacity between story chapters while retaining node groups.

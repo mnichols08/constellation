@@ -25,3 +25,11 @@ Call `setChapter(idOrIndex)` and inspect `chapterIndex` on the runtime or compon
 ## Chapter transitions
 
 Manual chapter changes interpolate shared-node position, size, fill color and opacity over 300 ms; arriving/departing nodes fade. Shared node groups keep their DOM identity. Camera movement follows the chapter’s explicit view or focused node. Changing chapter again cancels the previous transition and disposes temporary graphics. The system reduced-motion preference skips these effects and immediately applies the target camera, including when changed mid-transition. No timer advances chapters automatically.
+
+## Editing in Studio
+
+Open the Story tab and choose Create chapter to capture the current compiled design and selection. Change the constellation in the normal tabs, then capture another chapter. Use Active chapter to select a chapter; edit its title/narration, duplicate it, move it up/down, or remove it. Captured scenes are isolated from later design changes.
+
+Preview story opens the complete player at the selected chapter inside a sandboxed iframe. Download story HTML produces an offline artifact starting at chapter one. Download story JSON saves the editable compiled story; Import story JSON restores it. Story work stays in memory until downloaded and is separate from the ordinary README config/workflow. The Look tab and simple account workflow remain unchanged.
+
+Programmatic HTML previews may use `renderSceneHTML(story, { initialChapter: index })`; the renderer validates the index and keeps its CSP deterministic.

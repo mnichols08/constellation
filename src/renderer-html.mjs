@@ -14,7 +14,9 @@ await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => ch
 const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
 const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, options, ${mountInteractive.toString()});
 const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})(root, scene, options, mountScene);
-(${mountStory.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) }, mountExperience);`;
+const experience = (${mountStory.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) }, mountExperience);
+const initialChapter = JSON.parse(document.getElementById('constellation-initial').textContent);
+if (initialChapter > 0) experience.setChapter(initialChapter);`;
 const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runtimeScript));
 const scriptHash = btoa(String.fromCharCode(...new Uint8Array(digest)));
 export const htmlPolicy = `default-src 'none'; script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`;
@@ -33,8 +35,9 @@ export function interactiveMarkup(svg) {
 </div><div data-viewports><div class="constellation-canvas" data-canvas>${svg}</div></div><p class="constellation-status" data-status role="status" aria-live="polite"></p><section class="constellation-details" data-details aria-label="Node details"></section></main>`;
 }
 
-export function renderSceneHTML(scene, { title = 'Constellation' } = {}) {
+export function renderSceneHTML(scene, { title = 'Constellation', initialChapter = 0 } = {}) {
   serializeScene(scene); // Validate before embedding either data or SVG.
+  if (!Number.isInteger(initialChapter) || initialChapter < 0 || initialChapter >= (scene.story?.chapters.length || 1)) throw new Error('Invalid initial story chapter.');
   const svg = renderSceneSVG(scene);
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escape(htmlPolicy)}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title>
@@ -44,6 +47,7 @@ ${interactiveMarkup(svg)}
 <script type="application/json" id="constellation-frames">${scriptJSON(scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [])}</script>
 <script type="application/json" id="constellation-hierarchy">${scriptJSON(hierarchyArtifacts(scene))}</script>
 <script type="application/json" id="constellation-story">${scriptJSON(storyArtifacts(scene))}</script>
+<script type="application/json" id="constellation-initial">${scriptJSON(initialChapter)}</script>
 <script type="module">${runtimeScript}</script>
 </body></html>\n`;
 }

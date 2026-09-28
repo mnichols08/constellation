@@ -7,6 +7,7 @@ import { presetOptions } from './studio-presets.mjs';
 import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
+import { mountStudioStory } from './studio-story.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
 import { visualThemes, themePalettes } from './themes.mjs';
 import { exportSettings } from './export-image.mjs';
@@ -30,7 +31,7 @@ const proxyBase = document.querySelector('meta[name="constellation-api"]')?.cont
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
 let loading = false;
-let studio, restoreForm, workspace, imageViewer;
+let studio, restoreForm, workspace, imageViewer, capturedScene;
 function enterStudio() {
   if (!workspace) workspace = mountStudioLayout();
   document.documentElement.dataset.entry = 'studio';
@@ -269,6 +270,7 @@ function render({ requireVisibleNodes = false } = {}) {
   const labelDiagnostics = [];
   const scene = createScene(account, repositories, { ...options, generatedAt }, { pipeline: dataPipeline, onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
   const svg = renderSceneSVG(scene);
+  capturedScene = scene;
   const currentScene = scene.kind === 'time-lapse' ? scene.latest : scene;
   const projected = { ...currentScene.presentation.graph, nodes: currentScene.nodes.map(node => node.metadata) };
   studio.scene(scene);
@@ -575,6 +577,7 @@ for (const [value, label] of [['contributors', 'Contributors'], ['ecosystem', 'F
 buildVisualControls();
 restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
+mountStudioStory(designHost, () => capturedScene && { ...capturedScene, presentation: { ...capturedScene.presentation, options: { ...capturedScene.presentation.options, selection: graphSelection } } });
 studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
   reveal: id => { const element = document.getElementById(id); if (element) { workspace?.reveal(element); element.focus(); } },
   hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account) }),
