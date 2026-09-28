@@ -25,3 +25,11 @@ Hierarchy datasets use the programmatic API or scene JSON rather than embedding 
 `createOrganizationHierarchy(account, repositories, options, { maxProjects: 24, ...runtime })` creates a project overview with child ecosystem scenes. Each child uses the selected repository’s supplied languages, topics, dependency metadata and verified contributors from `options.organizationData`. It reuses the existing organization graph and Rust layout, makes no API requests, and retains scan-coverage notes. Missing contributor scans remain missing; current participation does not imply historical tenure.
 
 The root respects existing repository filtering and organization scope. Up to `maxProjects` (1–63) displayed projects receive detail links; others stay visible in the overview. Private repositories and their contributor references are excluded from the generated catalog. Metadata and API caching remain the responsibility of the existing source/organization loader. Internal components/packages require explicit source data and are never inferred from language names.
+
+## Interactive navigation
+
+Select a linked node, then choose **Explore this node** in its details. The view transitions to its child scene. Breadcrumb buttons return to an ancestor; Back moves to the parent and Home returns to the catalog root. Shared nodes interpolate using compiled geometry, with reduced motion disabling animation. Timeline controls remain available inside temporal children.
+
+Standalone HTML stores a validated root-to-child path in a `constellation` URL fragment parameter. `shareURL()` returns the current deep link; reload and browser Back/Forward restore the referenced scene without fetching data. Invalid paths fall back to the root.
+
+The component exposes `openChild(id)`, `back()`, `home()`, `shareURL()` and `scenePath`. By default its navigation is local to the instance. To enable browser history, set an element ID and the `history` attribute before rendering; its fragment key becomes `constellation.ID`. Other fragment parameters are retained. Scene changes dispatch `{ id, path, scene }` through `scene-change`.

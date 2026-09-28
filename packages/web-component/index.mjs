@@ -1,5 +1,5 @@
 import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost } from '@constellation/core';
-import { mountInteractive, mountTimeline, replaceInteractiveSVG, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
+import { mountInteractive, mountTimeline, mountHierarchy, hierarchyArtifacts, replaceInteractiveSVG, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
 export class ConstellationView extends HTMLElement {
   static observedAttributes = ['src', 'config', 'account', 'loading'];
@@ -51,6 +51,11 @@ export class ConstellationView extends HTMLElement {
   setFrame(value) { const runtime = this.#active(); if (!runtime.setFrame) throw new Error('This scene has no timeline.'); return runtime.setFrame(value); }
   setDate(value) { const runtime = this.#active(); if (!runtime.setDate) throw new Error('This scene has no timeline.'); return runtime.setDate(value); }
   compareWithNow(value) { const runtime = this.#active(); if (!runtime.compareWithNow) throw new Error('This scene has no timeline.'); return runtime.compareWithNow(value); }
+  openChild(id) { const runtime = this.#active(); if (!runtime.openChild) throw new Error('This scene has no hierarchy.'); return runtime.openChild(id); }
+  back() { return this.#active().back?.(); }
+  home() { return this.#active().home?.(); }
+  shareURL() { return this.#active().shareURL?.() || this.ownerDocument.URL; }
+  get scenePath() { return this.#runtime?.scenePath || []; }
   get selection() { return this.#runtime?.selectionState || { start: null, end: null, path: [] }; }
   connectedCallback() { this.#observe(); }
   disconnectedCallback() {
@@ -121,7 +126,8 @@ export class ConstellationView extends HTMLElement {
     if (!this.isConnected || !this.#visible || !this.#scene) return false;
     try {
       // Validate custom styling before inserting renderer-owned SVG markup.
-      const scenes = this.#scene.kind === 'time-lapse' ? [this.#scene, this.#scene.latest, ...this.#scene.frames.map(frame => frame.scene)] : [this.#scene, ...this.#scene.timeline?.frames.map(frame => frame.scene) || []];
+      const roots = [this.#scene, ...this.#scene.hierarchy?.scenes.map(entry => entry.scene) || []];
+      const scenes = roots.flatMap(scene => scene.kind === 'time-lapse' ? [scene, scene.latest, ...scene.frames.map(frame => frame.scene)] : [scene, ...scene.timeline?.frames.map(frame => frame.scene) || []]);
       for (const scene of scenes) for (const key of ['css', 'customCSS']) {
         const css = scene.presentation.options[key];
         if (css && /(?:@import|url\s*\(|expression\s*\(|\\)/i.test(css.replace(/\/\*[\s\S]*?\*\//g, ''))) throw new Error('Embedded scene CSS must be self-contained.');
@@ -129,7 +135,7 @@ export class ConstellationView extends HTMLElement {
       const markup = interactiveMarkup(renderSceneSVG(this.#scene));
       this.#runtime?.destroy();
       this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
-      this.#runtime = mountTimeline(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, emitReady: false, frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, mountInteractive);
+      this.#runtime = mountHierarchy(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(this.#scene), frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive));
       const first = !this.#initialized; this.#initialized = true;
       this.dispatchEvent(new CustomEvent(first ? 'scene-ready' : 'scene-change', { detail: { scene: this.scene }, bubbles: true, composed: true }));
       return true;

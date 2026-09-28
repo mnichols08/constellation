@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.2 — 2026-09-27
+
+- Add interactive child-scene exploration, breadcrumbs, Back/Home and shared-node scene transitions.
+- Serialize navigation paths into shareable URL fragments and restore them on reload/browser history navigation.
+- Keep embedded history opt-in and namespaced by element ID; validate custom styling across child scenes and preserve generic category tooltips.
+
 ## 2.8.1 — 2026-09-27
 
 - Build organization → repository detail scenes from already-loaded project, language, topic, dependency and contributor metadata.

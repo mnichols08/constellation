@@ -51,6 +51,10 @@ export function mountInteractive(root, source, options = {}) {
     const description = document.createElement('p'); description.textContent = metadata.description || '';
     const summary = document.createElement('p'); summary.textContent = [metadata.language, Number.isFinite(metadata.stargazers_count) ? `${metadata.stargazers_count} stars` : null].filter(Boolean).join(' · ');
     details.append(heading, description, summary);
+    if (record.interaction.childScene) {
+      const open = document.createElement('button'); open.type = 'button'; open.textContent = 'Explore this node';
+      listen(open, 'click', () => emit('scene-open-request', { id: record.interaction.childScene })); details.append(open);
+    }
     if (typeof metadata.html_url === 'string') {
       try {
         const url = new URL(metadata.html_url);

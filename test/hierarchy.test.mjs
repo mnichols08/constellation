@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHierarchy, createOrganizationHierarchy, createScene, serializeScene, parseScene, renderSceneSVG } from '../src/core-api.mjs';
+import { createHierarchy, createOrganizationHierarchy, createScene, serializeScene, parseScene, renderSceneSVG, renderSceneHTML } from '../src/core-api.mjs';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
 const options = { referenceDate: '2026-09-01T00:00:00Z', animate: false };
 const root = createScene('demo', [{ name: 'compiler', full_name: 'demo/compiler', language: 'Rust' }], options);
@@ -35,4 +40,25 @@ test('explicit node references compile into deterministic serializable child sce
   assert.throws(() => createHierarchy(invalid), /Missing child/);
   const abort = new AbortController(); abort.abort();
   assert.throws(() => createHierarchy(definition, { signal: abort.signal }), /abort/i);
+});
+
+test('hierarchy drill-down, breadcrumbs and browser deep links restore compiled scenes', { skip: !browser, timeout: 30000 }, async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'constellation-hierarchy-')); t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'index.html'); await writeFile(file, renderSceneHTML(createHierarchy(definition)));
+  const { evaluate, waitFor, cdp, errors } = await openBrowser(t, pathToFileURL(file).href);
+  await waitFor(`Boolean(document.querySelector('main')?.constellation)`);
+  await evaluate(`document.querySelector('main').constellation.selectNode('demo/compiler', {focus:false}); document.querySelector('[data-details] button').click()`);
+  assert.deepEqual(await evaluate(`document.querySelector('main').constellation.scenePath`), ['account', 'compiler']);
+  assert.equal(await evaluate(`document.querySelector('.star').dataset.repo`), 'technology:Rust');
+  assert.equal(await evaluate(`document.querySelector('[aria-current=page]').textContent`), 'Compiler technologies');
+  assert.match(await evaluate(`document.querySelector('main').constellation.shareURL()`), /constellation=/);
+  await cdp('Page.reload');
+  await waitFor(`document.querySelector('main')?.constellation?.scenePath?.length === 2`);
+  await evaluate(`document.querySelector('main').constellation.home()`);
+  assert.deepEqual(await evaluate(`document.querySelector('main').constellation.scenePath`), ['account']);
+  await evaluate('history.back()');
+  await waitFor(`document.querySelector('main')?.constellation?.scenePath?.length === 2`);
+  await evaluate(`document.querySelector('main').constellation.back()`);
+  assert.deepEqual(await evaluate(`document.querySelector('main').constellation.scenePath`), ['account']);
+  assert.deepEqual(errors, []);
 });
