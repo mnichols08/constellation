@@ -1,5 +1,5 @@
 import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost } from '@constellation/core';
-import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
+import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
 export class ConstellationView extends HTMLElement {
   static observedAttributes = ['src', 'config', 'account', 'loading'];
@@ -138,7 +138,7 @@ export class ConstellationView extends HTMLElement {
       const markup = interactiveMarkup(renderSceneSVG(this.#scene));
       this.#runtime?.destroy();
       this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
-      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(this.#scene), storyArtifacts: storyArtifacts(this.#scene), frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
+      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(this.#scene), storyArtifacts: storyArtifacts(this.#scene), frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
       const first = !this.#initialized; this.#initialized = true;
       this.dispatchEvent(new CustomEvent(first ? 'scene-ready' : 'scene-change', { detail: { scene: this.scene }, bubbles: true, composed: true }));
       return true;

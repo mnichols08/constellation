@@ -31,15 +31,22 @@ test('stories compile declarative chapter state with static fallback and safe se
 test('offline stories apply chapter camera, selection, narration and controls', { skip: !browser, timeout: 30000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-story-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html'); await writeFile(file, renderSceneHTML(createStory(definition)));
-  const { evaluate, waitFor, errors } = await openBrowser(t, pathToFileURL(file).href);
+  const { evaluate, waitFor, errors, cdp } = await openBrowser(t, pathToFileURL(file).href);
   await waitFor(`Boolean(document.querySelector('main')?.constellation)`);
   assert.equal(await evaluate(`document.querySelector('main').constellation.chapterIndex`), 0);
-  await evaluate(`document.querySelector('main').constellation.setChapter('detail')`);
+  await evaluate(`window.originalNode = document.querySelector('[data-repo="demo/compiler"]').closest('.repository'); document.querySelector('main').constellation.setChapter('detail')`);
+  assert.equal(await evaluate(`originalNode === document.querySelector('[data-repo="demo/compiler"]').closest('.repository')`), true);
+  await waitFor(`document.querySelector('main').constellation.camera[2] === 450`);
   assert.deepEqual(await evaluate(`document.querySelector('main').constellation.camera`), [200, 100, 450, 280]);
   assert.deepEqual(await evaluate(`document.querySelector('main').constellation.selectionState.path`), ['demo/compiler', 'demo/runtime']);
   assert.match(await evaluate(`document.querySelector('[aria-label=Story] p').textContent`), /<script>/);
   assert.equal(await evaluate('Boolean(window.injected)'), false);
   await evaluate(`document.querySelector('[aria-label=Story] button').click()`);
   assert.equal(await evaluate(`document.querySelector('main').constellation.chapterIndex`), 0);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await waitFor(`document.querySelector('main').hasAttribute('data-reduced-motion')`);
+  await evaluate(`document.querySelector('main').constellation.setChapter('detail')`);
+  assert.deepEqual(await evaluate(`document.querySelector('main').constellation.camera`), [200, 100, 450, 280]);
+  assert.equal(await evaluate(`document.querySelector('.repository').getAnimations().length`), 0);
   assert.deepEqual(errors, []);
 });

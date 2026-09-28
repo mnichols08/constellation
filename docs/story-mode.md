@@ -21,3 +21,7 @@ Chapters support `id`, `title`, `narration`, `camera` (four-number viewBox), `fo
 Compilation produces `story.version: 1` with ordered chapters containing isolated scenes and validated runtime state. There are at most 64 chapters and 16,384 chapter nodes. Titles/narration remain text. Static SVG renders the first chapter's scene. Interactive HTML and the web component provide Previous/Next and a labelled chapter selector; no autoplay is introduced.
 
 Call `setChapter(idOrIndex)` and inspect `chapterIndex` on the runtime or component. `chapter-change` reports `{ index, id, title }`. Nested timeline and hierarchy controls remain available inside each chapter. Story navigation itself does not overwrite the embedding page's browser history.
+
+## Chapter transitions
+
+Manual chapter changes interpolate shared-node position, size, fill color and opacity over 300 ms; arriving/departing nodes fade. Shared node groups keep their DOM identity. Camera movement follows the chapter’s explicit view or focused node. Changing chapter again cancels the previous transition and disposes temporary graphics. The system reduced-motion preference skips these effects and immediately applies the target camera, including when changed mid-transition. No timer advances chapters automatically.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.1 — 2026-09-27
+
+- Interpolate shared node positions, sizes, colors and opacity between story chapters while retaining node groups.
+- Animate camera changes, cancel superseded transitions, and finish immediately when reduced motion is requested.
+- Preserve manual chapter controls and accessible narration/focus; test identity, camera completion and reduced-motion behavior.
+
 ## 2.9.0 — 2026-09-27
 
 - Introduce Story format v1 with ordered declarative chapters, scene references/definitions and validated camera, selection/path, filter, timeline, theme, annotations and layer state.

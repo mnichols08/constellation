@@ -3,7 +3,7 @@ import { serializeScene } from './scene.mjs';
 import { mountInteractive, interactiveStyles } from './interactive-runtime.mjs';
 import { bindings, base64 } from './wasm/inline.mjs';
 import { mountTimeline } from './timeline-runtime.mjs';
-import { replaceInteractiveSVG } from './scene-transition.mjs';
+import { replaceInteractiveSVG, transitionCamera } from './scene-transition.mjs';
 import { mountHierarchy } from './hierarchy-runtime.mjs';
 import { mountStory } from './story-runtime.mjs';
 
@@ -14,7 +14,7 @@ await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => ch
 const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
 const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, options, ${mountInteractive.toString()});
 const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})(root, scene, options, mountScene);
-(${mountStory.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) }, mountExperience);`;
+(${mountStory.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) }, mountExperience);`;
 const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runtimeScript));
 const scriptHash = btoa(String.fromCharCode(...new Uint8Array(digest)));
 export const htmlPolicy = `default-src 'none'; script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`;

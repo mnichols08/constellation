@@ -1,6 +1,6 @@
 export { mountInteractive, interactiveStyles } from './interactive-runtime.mjs';
 export { mountTimeline } from './timeline-runtime.mjs';
-export { replaceInteractiveSVG } from './scene-transition.mjs';
+export { replaceInteractiveSVG, transitionCamera } from './scene-transition.mjs';
 export { mountHierarchy } from './hierarchy-runtime.mjs';
 export { hierarchyArtifacts } from './renderer-html.mjs';
 export { mountStory } from './story-runtime.mjs';
