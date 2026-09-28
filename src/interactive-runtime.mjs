@@ -53,7 +53,7 @@ export function mountInteractive(root, source, options = {}) {
     details.append(heading, description, summary);
     if (record.interaction.childScene) {
       const open = document.createElement('button'); open.type = 'button'; open.textContent = 'Explore this node';
-      listen(open, 'click', () => emit('scene-open-request', { id: record.interaction.childScene })); details.append(open);
+      open.dataset.openChild = record.interaction.childScene; details.append(open);
     }
     if (typeof metadata.html_url === 'string') {
       try {
@@ -113,6 +113,7 @@ export function mountInteractive(root, source, options = {}) {
   function reset() { clearSelection(); setCamera(base); }
   function setFilter(value = {}) {
     if (typeof value.query !== 'undefined' && typeof value.query !== 'string' || typeof value.language !== 'undefined' && typeof value.language !== 'string') throw new Error('Filter query and language must be text.');
+    if ((value.query?.length || 0) > 512 || (value.language?.length || 0) > 512) throw new Error('Filter text exceeds 512 characters.');
     filter = { query: value.query || '', language: value.language || '' };
     const query = filter.query.trim().toLowerCase();
     ids = allIds.filter(id => {
@@ -153,6 +154,7 @@ export function mountInteractive(root, source, options = {}) {
     listen(language, 'change', () => setFilter({ ...filter, language: language.value }));
   }
   if (themeControl) listen(themeControl, 'change', () => setTheme(themeControl.value));
+  if (details) listen(details, 'click', event => { const button = event.target.closest('[data-open-child]'); if (button) emit('scene-open-request', { id: button.dataset.openChild }); });
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const updateMotion = () => { root.toggleAttribute('data-reduced-motion', motion.matches); if (motion.matches) { svg.pauseAnimations?.(); svg.setCurrentTime?.(0); } else svg.unpauseAnimations?.(); };
   listen(motion, 'change', updateMotion); updateMotion();

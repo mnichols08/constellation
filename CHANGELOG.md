@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.3 — 2026-09-27
+
+- Harden cycle and maximum-depth validation across shared branches and temporal child references.
+- Bound remembered scene view state to eight entries, restore camera/filter/theme/selection, and delegate navigation handlers to avoid listener accumulation.
+- Validate malformed deep links, retain accessible breadcrumb focus, and add hierarchy export benchmarks and a runnable organization demo.
+
 ## 2.8.2 — 2026-09-27
 
 - Add interactive child-scene exploration, breadcrumbs, Back/Home and shared-node scene transitions.

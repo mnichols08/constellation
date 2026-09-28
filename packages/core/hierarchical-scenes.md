@@ -33,3 +33,11 @@ Select a linked node, then choose **Explore this node** in its details. The view
 Standalone HTML stores a validated root-to-child path in a `constellation` URL fragment parameter. `shareURL()` returns the current deep link; reload and browser Back/Forward restore the referenced scene without fetching data. Invalid paths fall back to the root.
 
 The component exposes `openChild(id)`, `back()`, `home()`, `shareURL()` and `scenePath`. By default its navigation is local to the instance. To enable browser history, set an element ID and the `history` attribute before rendering; its fragment key becomes `constellation.ID`. Other fragment parameters are retained. Scene changes dispatch `{ id, path, scene }` through `scene-change`.
+
+## Bounds and navigation state
+
+Validation rejects missing children, cycles and paths deeper than 16 levels, including shared branches and temporal references. Deep-link fragments are JSON path arrays encoded as URL parameters; paths must start at the declared root and follow actual node references. Malformed, oversized or missing-target links restore the root without fetching anything. IDs are data, never executable module names.
+
+Navigation remembers camera, filter, theme, timeline frame and valid selection for at most eight recently visited scenes. `navigationCacheStatistics` reports the bound on the runtime. Returning to a cached scene restores its view without recomputing a layout. Breadcrumbs announce the current scene and receive keyboard focus after navigation; handlers and transitions are disposed with the host.
+
+Run `node examples/hierarchy-demo.mjs` for an offline organization example, or `node scripts/benchmark-hierarchy.mjs` to check a 16-scene/2,048-node export. The reference artifact is about 4.3 MiB; the benchmark enforces a 16 MiB budget. Catalogs and precompiled markup remain bounded by the model limits.

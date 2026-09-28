@@ -10,19 +10,21 @@ export function validateHierarchy(hierarchy, validateScene) {
     if (nodes > 16384) throw new Error('Hierarchy exceeds 16,384 aggregate nodes.');
   }
   if (!scenes.has(hierarchy.root)) throw new Error('Hierarchy root scene is missing.');
-  const visiting = new Set(), visited = new Set();
-  function visit(sceneId, depth) {
+  const visiting = new Set(), depths = new Map();
+  function visit(sceneId) {
     if (visiting.has(sceneId)) throw new Error('Hierarchy contains a cycle.');
-    if (depth > 16) throw new Error('Hierarchy exceeds 16 levels.');
-    if (visited.has(sceneId)) return;
+    if (depths.has(sceneId)) return depths.get(sceneId);
     const entry = scenes.get(sceneId); if (!entry) throw new Error(`Missing child scene: ${sceneId}`);
     visiting.add(sceneId);
-    for (const node of entry.scene.nodes) if (node.interaction.childScene !== undefined) {
+    let depth = 1;
+    const allNodes = [...entry.scene.nodes, ...entry.scene.timeline?.frames.flatMap(frame => frame.scene.nodes) || []];
+    for (const node of allNodes) if (node.interaction.childScene !== undefined) {
       if (!id(node.interaction.childScene)) throw new Error('Invalid child scene reference.');
-      visit(node.interaction.childScene, depth + 1);
+      depth = Math.max(depth, 1 + visit(node.interaction.childScene));
     }
-    visiting.delete(sceneId); visited.add(sceneId);
+    if (depth > 16) throw new Error('Hierarchy exceeds 16 levels.');
+    visiting.delete(sceneId); depths.set(sceneId, depth); return depth;
   }
-  for (const sceneId of scenes.keys()) visit(sceneId, 1);
+  for (const sceneId of scenes.keys()) visit(sceneId);
   return hierarchy;
 }

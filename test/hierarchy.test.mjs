@@ -42,6 +42,16 @@ test('explicit node references compile into deterministic serializable child sce
   assert.throws(() => createHierarchy(definition, { signal: abort.signal }), /abort/i);
 });
 
+test('hierarchy rejects cycles, shared-branch depth overflow and oversized catalogs', () => {
+  const cyclic = structuredClone(definition);
+  cyclic.scenes[1] = { id: 'compiler', scene: root, links: [{ nodeId: 'demo/compiler', target: 'account' }] };
+  assert.throws(() => createHierarchy(cyclic), /cycle/);
+  const chain = length => Array.from({ length }, (_, i) => ({ id: String(i).padStart(2, '0'), scene: root, links: i ? [{ nodeId: 'demo/compiler', target: String(i - 1).padStart(2, '0') }] : [] }));
+  assert.equal(createHierarchy({ root: '15', scenes: chain(16) }).hierarchy.scenes.length, 16);
+  assert.throws(() => createHierarchy({ root: '16', scenes: chain(17) }), /16 levels/);
+  assert.throws(() => createHierarchy({ root: '00', scenes: chain(65) }), /definitions/);
+});
+
 test('hierarchy drill-down, breadcrumbs and browser deep links restore compiled scenes', { skip: !browser, timeout: 30000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-hierarchy-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html'); await writeFile(file, renderSceneHTML(createHierarchy(definition)));
@@ -60,5 +70,9 @@ test('hierarchy drill-down, breadcrumbs and browser deep links restore compiled 
   await waitFor(`document.querySelector('main')?.constellation?.scenePath?.length === 2`);
   await evaluate(`document.querySelector('main').constellation.back()`);
   assert.deepEqual(await evaluate(`document.querySelector('main').constellation.scenePath`), ['account']);
+  assert.ok(await evaluate(`document.querySelector('main').constellation.navigationCacheStatistics.entries <= 8`));
+  await evaluate(`history.replaceState(null,'','#constellation=%5B%22account%22%2C%22missing%22%5D')`);
+  await cdp('Page.reload');
+  await waitFor(`document.querySelector('main')?.constellation?.scenePath?.length === 1`);
   assert.deepEqual(errors, []);
 });
