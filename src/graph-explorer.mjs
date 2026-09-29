@@ -6,6 +6,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
   const svg = shadow.querySelector('svg');
   const nodes = [...svg.querySelectorAll('.repository')].filter(node => node.style.display !== 'none');
   const names = nodes.map(node => node.querySelector('.star').dataset.repo);
+  const graphNames = [...new Set(names)];
   const metadata = new Map(nodes.map(node => {
     const star = node.querySelector('.star');
     return [star.dataset.repo, { label: star.dataset.label || star.dataset.repo, kind: star.dataset.kind || 'repository', members: JSON.parse(star.dataset.members || '[]'), commit: star.dataset.commit, detail: node.querySelector('title')?.textContent }];
@@ -21,7 +22,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
   if (!selection.start) selection.end = null;
   onSelect(selection);
   const edges = [...svg.querySelectorAll('.shared-language')].filter(edge => names.includes(edge.dataset.from) && names.includes(edge.dataset.to));
-  const pairs = edges.flatMap(edge => [names.indexOf(edge.dataset.from), names.indexOf(edge.dataset.to)]);
+  const pairs = edges.flatMap(edge => [graphNames.indexOf(edge.dataset.from), graphNames.indexOf(edge.dataset.to)]);
   const style = document.createElement('style');
   style.textContent = `
     .repository{cursor:pointer}.repository:focus-visible{outline:2px solid var(--sky-accent);outline-offset:4px}.repository:focus-visible .star-halo{opacity:.65}
@@ -35,11 +36,11 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
   function display() {
     const start = names.includes(selection.start) ? selection.start : null;
     const end = names.includes(selection.end) ? selection.end : null;
-    const related = new Set(start ? graphSelection(names, pairs, start, end) : []);
+    const related = new Set(start ? graphSelection(graphNames, pairs, start, end) : []);
     // Keep both endpoints visible when no path exists.
     if (start) related.add(start);
     if (end) related.add(end);
-    const path = start && end ? graphSelection(names, pairs, start, end) : [];
+    const path = start && end ? graphSelection(graphNames, pairs, start, end) : [];
     const kind = metadata.get(start)?.kind;
     const category = kind && kind !== 'repository';
     svg.toggleAttribute('data-exploring', Boolean(start) && highlight);
@@ -48,6 +49,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
       node.setAttribute('aria-pressed', String(names[i] === start || names[i] === end));
     });
     for (const label of svg.querySelectorAll('.repo-label')) label.toggleAttribute('data-related', related.has(label.dataset.repo));
+    for (const bridge of svg.querySelectorAll('.temporal-bridge')) bridge.toggleAttribute('data-related', bridge.dataset.nodeId === start);
     for (const edge of edges) {
       const { from, to } = edge.dataset;
       const shown = end ? path.some((name, i) => i > 0 && ((path[i - 1] === from && name === to) || (path[i - 1] === to && name === from)))
@@ -62,6 +64,10 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
         : `No path between ${label(start)} and ${label(end)} in the displayed connections.`
       : `${label(start)}: ${related.size - 1} connected node${related.size === 2 ? '' : 's'}.`;
     panel.append(status);
+    if (start && svg.querySelector('[data-temporal-year]')) {
+      const years = nodes.filter(node => node.querySelector('.star').dataset.repo === start).map(node => Number(node.dataset.year));
+      const history = document.createElement('p'); history.textContent = `First visible: ${Math.min(...years)}. Present through: ${Math.max(...years)}. Visible in: ${years.length} yearly layers. First visibility is limited to this window.`; panel.append(history);
+    }
     if (start) {
       const selected = metadata.get(start);
       if (selected.kind === 'commit' && /^[a-z\d][a-z\d-]*\/[a-z\d_.-]+\/commit\/[a-f\d]{40,64}$/i.test(selected.commit || '')) {

@@ -1,3 +1,4 @@
+import { v6Parameters } from './design-randomizer-v6.mjs';
 import { motionParts, v5Parameters } from './design-randomizer-v5.mjs';
 export function mountRandomizeMotion(hero, master, storage) {
   const details = document.createElement('details'); details.className = 'randomize-motion-menu';
@@ -21,8 +22,8 @@ export function mountRandomizeMotion(hero, master, storage) {
   hero.append(details);
   return { read, sync,
     restore(code) {
-      if (!/^v5:/i.test(code || '')) { sync(); return; }
-      const { animations } = v5Parameters(code);
+      if (!/^v[56]:/i.test(code || '')) { sync(); return; }
+      const { animations } = (/^v6:/i.test(code) ? v6Parameters(code) : v5Parameters(code));
       master.checked = Object.values(animations).some(Boolean);
       // A still code keeps the user's part preferences for their next animated design.
       if (master.checked) for (const [key, input] of inputs) input.checked = animations[key];

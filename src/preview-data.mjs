@@ -79,7 +79,7 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
     const value = accounts[sourceKey(account, options)];
     return Array.isArray(value) ? value : undefined;
   };
-  async function load(account, options, { refresh = false, onProgress } = {}) {
+  async function load(account, options, { refresh = false, onProgress, activity = true } = {}) {
     const name = username(account).toLowerCase();
     const key = sourceKey(name, options);
     if (pending.has(key)) return pending.get(key);
@@ -103,7 +103,7 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
       caches.set(name, cache);
       accounts[key] = listed;
       save();
-      await loadActivity(name, refresh);
+      if (activity) await loadActivity(name, refresh);
       if (options.nodeMode === 'commits') {
         const history = commitHistoryOptions(options), previous = commitSnapshots.get(name);
         if (history && (refresh || !previous || previous.repository.toLowerCase() !== history.repository.toLowerCase() || (history.branch && previous.branch !== history.branch))) commitSnapshots.set(name, await commitClient.load(history.repository, { branch: history.branch, refresh }));
@@ -141,5 +141,5 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
       accounts[key] = [...merged.values()]; save();
     }
   }
-  return { snapshot, load, contributed, remember, commitHistory: account => commitSnapshots.get(username(account).toLowerCase()), setCommitHistory: (account, snapshot) => commitSnapshots.set(username(account).toLowerCase(), snapshot), activity: account => activityAccounts[username(account).toLowerCase()], profile: account => profiles.get(username(account).toLowerCase()), organization: account => organizationSnapshots.get(username(account).toLowerCase()) };
+  return { snapshot, load, loadActivity: (account, refresh = false) => loadActivity(username(account).toLowerCase(), refresh), contributed, remember, commitHistory: account => commitSnapshots.get(username(account).toLowerCase()), setCommitHistory: (account, snapshot) => commitSnapshots.set(username(account).toLowerCase(), snapshot), activity: account => activityAccounts[username(account).toLowerCase()], profile: account => profiles.get(username(account).toLowerCase()), organization: account => organizationSnapshots.get(username(account).toLowerCase()) };
 }

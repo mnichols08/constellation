@@ -67,7 +67,7 @@ test('v3 motion recipes replay all four motion styles and offer fully still desi
     assert.doesNotMatch(renderConstellation('tester', repos.slice(0, 4), still), /<animate(?:Transform)? |animation:twinkle/);
   }
   assert.deepEqual([...styles].sort(), ['floating', 'perspective', 'spin', 'sway']);
-  assert.match(newDesignCode({ motion: false }), /^v5:m000-/);
+  assert.match(newDesignCode({ motion: false }), /^v6:m000-/);
 });
 
 test('seeded randomness and versioned design codes reproduce a complete visual recipe', () => {
@@ -78,7 +78,7 @@ test('seeded randomness and versioned design codes reproduce a complete visual r
   assert.notEqual(seededRandom('other')(), values[0]);
   assert.equal(resolveSeed('Tester'), 'tester');
   assert.throws(() => resolveSeed('tester', { seedMode: 'random' }));
-  assert.match(newDesignCode(), /^v5:mfff-/);
+  assert.match(newDesignCode(), /^v6:mfff-/);
   const design = randomizeDesign('v1:fixture');
   assert.deepEqual(design, randomizeDesign('v1:fixture'));
   assert.notDeepEqual(design, randomizeDesign('v1:other'));

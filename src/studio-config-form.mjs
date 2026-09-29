@@ -12,6 +12,12 @@ export function createFormRestorer(document) {
   return options => {
     document.getElementById('max-repos').max = String(options.nodeCap || 100);
     for (const [key, id] of Object.entries(fields)) set(id, options[key]);
+    if (options.temporalStack?.enabled) set('arrangement', 'temporal-stack');
+    for (const key of ['yearStart', 'yearEnd', 'yearStep', 'depthGap', 'tilt', 'connections']) set(`temporal-${key}`, options.temporalStack?.[key]);
+    set('temporal-innerArrangement', options.temporalStack?.innerArrangement);
+    set('temporal-form', options.temporalGeometry?.shape);
+    for (const key of ['radius', 'depth', 'startRadius', 'endRadius', 'waist', 'twist', 'surface']) set(`temporal-${key}`, options.temporalGeometry?.[key]);
+    set('temporal-orientation', options.temporalGeometry?.orientation?.y);
     const rotation = options.ringRotations || Array(4).fill(options.ringRotation || 0);
     for (let i = 0; i < 4; i++) {
       set(`ring-rotation-${i}`, rotation[i]);

@@ -369,7 +369,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   const first = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`);
   await evaluate(`document.querySelector('#randomize-full').checked=true;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-motion').checked=true;click('randomize-design');`);
   assert.notEqual(await evaluate(`document.querySelector('#design-code').value`), 'v1:browser');
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:mfff-/);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v6:mfff-/);
   assert.equal(await evaluate(`(async()=>{const {randomizeDesign}=await import('/src/design-randomizer.mjs');return document.querySelector('#link-ring-motion').checked===randomizeDesign(document.querySelector('#design-code').value).ringAnimation.linked;})()`), true);
   assert.ok(await evaluate(`(async()=>{
     const {randomizeDesign}=await import('/src/design-randomizer.mjs');
@@ -382,7 +382,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   // A v5 draw may select an empty historical/filter pool or a CSS-only layer.
   assert.equal(await evaluate(`document.querySelector('#animate').checked && document.querySelector('#design-starlightAnimate').checked && document.querySelector('#animate-rings').checked`), true);
   await evaluate(`click('randomize-motion');click('randomize-design');`);
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:m000-/);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v6:m000-/);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('animate,animateTransform').length`), 0);
   await evaluate(`input('design-code','v1:browser');click('reseed-design');`);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').outerHTML.replace(/Generated [^<]+ UTC/g,'Generated TIME')`), first);
@@ -508,7 +508,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#load-projects').hidden`), true, 'the displayed pool already has language data');
   const requestsBeforeRandomizing = apiCalls;
   await evaluate(`document.querySelector('#randomize-full').checked=true;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-motion').checked=true;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));for(const input of document.querySelectorAll('.randomize-motion-parts input')){input.checked=input.id==='randomize-ring2';input.dispatchEvent(new Event('input'));}document.querySelector('#randomize-design').click();`);
-  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v5:m008-/);
+  assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v6:m008-/);
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length > 0`), 'randomization selects a nonempty design');
   assert.equal(await evaluate(`document.querySelector('#design-starlightAnimate').checked`), false);
   assert.equal(await evaluate(`Number(document.querySelector('#ring-speed-0').value)`), 0);

@@ -1,5 +1,30 @@
 // Embedded with the standalone runtime; pass functions explicitly, never evaluate config.
 export function mountTimeline(root, source, options, mount) {
+  if (source.temporalStack) {
+    const canvas = root.querySelector('[data-canvas]'), stackSVG = canvas.innerHTML;
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.textContent = 'Open Timeline';
+    const controls = document.createElement('div'); controls.className = 'constellation-toolbar'; controls.append(toggle); root.prepend(controls);
+    let stacked = true, runtime = mount(root, source, options);
+    function switchMode(value) {
+      if (value === stacked) return;
+      const state = { filter: runtime.filter, theme: runtime.theme, selection: runtime.selection };
+      runtime.destroy(); stacked = value;
+      if (stacked) { canvas.innerHTML = stackSVG; runtime = mount(root, source, options); }
+      else {
+        const ordinary = { ...source }; delete ordinary.temporalStack;
+        runtime = mountTimeline(root, ordinary, options, mount);
+      }
+      runtime.setFilter(state.filter); runtime.setTheme(state.theme);
+      if (state.selection) try { runtime.selectNode(state.selection, { focus: false }); } catch { /* Project absent in this frame. */ }
+      toggle.textContent = stacked ? 'Open Timeline' : 'Return to Temporal Stack'; root.constellation = api;
+    }
+    const api = { get selection() { return runtime.selection; }, get selectionState() { return runtime.selectionState; }, get camera() { return runtime.camera; }, get filter() { return runtime.filter; }, get theme() { return runtime.theme; }, get frameIndex() { return runtime.frameIndex; }, destroy() { runtime.destroy(); controls.remove(); } };
+    for (const method of ['selectNode', 'clearSelection', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme']) api[method] = (...args) => runtime[method](...args);
+    for (const method of ['setFrame', 'setDate', 'compareWithNow']) api[method] = (...args) => { switchMode(false); return runtime[method](...args); };
+    for (const method of ['setTemporalView', 'focusYear', 'focusTemporalNode', 'resetTemporalView']) api[method] = (...args) => { switchMode(true); return runtime[method](...args); };
+    toggle.addEventListener('click', () => switchMode(!stacked));
+    root.constellation = api; return api;
+  }
   if (!source.timeline) return mount(root, source, options);
   const frames = source.timeline.frames;
   const abort = new AbortController();

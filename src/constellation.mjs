@@ -1,5 +1,8 @@
 import { layoutScene } from './layout-api.mjs';
 import { createTimeline } from './timeline.mjs';
+import { createTemporalStack } from './temporal-stack.mjs';
+import { temporalStackOptions } from './temporal-stack-model.mjs';
+import { temporalGeometryMath, validateRingPlacements } from './temporal-geometry.mjs';
 import { createLayoutHost, validateLayoutReference } from './layout-host.mjs';
 import { normalizeMappings, mapRecord } from './data-mappings.mjs';
 import { createLayers } from './scene-layers.mjs';
@@ -225,6 +228,10 @@ export function renderConstellation(account, repositories, options = {}, runtime
 }
 
 export function createScene(account, repositories, options = {}, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {}) {
+  if (options.temporalStack !== undefined) temporalStackOptions(options.temporalStack);
+  if (options.temporalGeometry !== undefined) temporalGeometryMath.options(options.temporalGeometry);
+  if (options.ringPlacements !== undefined) validateRingPlacements(options.ringPlacements);
+  if (options.arrangement === 'temporal-stack' || options.temporalStack?.enabled) return createTemporalStack(account, repositories, options, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost });
   if (options.timeline !== undefined) return createTimeline(account, repositories, options, options.timeline, { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost });
   signal?.throwIfAborted();
   const layers = createLayers(options.layers);

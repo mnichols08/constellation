@@ -1,4 +1,4 @@
-export function mountRepositoryPicker(host, { apply, message, findRepositories }) {
+export function mountRepositoryPicker(host, { apply, message, findRepositories, prefix = '', guided = false }) {
   let repositories = [], selected = new Set(), signature, context, busy = false, edited = false;
   const added = new Set();
   const search = document.createElement('input');
@@ -24,7 +24,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories }
     const element = document.createElement('button'); element.type = 'button'; element.id = id; element.textContent = text; element.className = 'secondary';
     element.addEventListener('click', callback); actions.append(element); buttons.push(element); return element;
   };
-  const visible = () => repositories.filter(repo => repo.full_name.toLowerCase().includes(search.value.trim().toLowerCase()));
+  const visible = () => repositories.filter(repo => `${repo.full_name} ${repo.description || ''} ${(repo.topics || []).join(' ')} ${repo.language || ''}`.toLowerCase().includes(search.value.trim().toLowerCase()));
   const updateCount = () => { count.textContent = `${selected.size} selected · ${visible().length} of ${repositories.length} listed`; };
   const draw = () => {
     list.replaceChildren();
@@ -32,6 +32,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories }
       const row = document.createElement('label'), input = document.createElement('input'), name = document.createElement('span');
       input.type = 'checkbox'; input.value = repo.full_name; input.checked = selected.has(repo.full_name); input.disabled = busy;
       name.textContent = repo.full_name + (repo.fork ? ' · fork' : '') + (repo.archived ? ' · archived' : '');
+      if (guided) { const detail = document.createElement('small'); detail.textContent = [repo.description, repo.language, `${repo.stargazers_count || 0} stars`, (repo.pushed_at || repo.updated_at || '').slice(0, 10)].filter(Boolean).join(' · '); name.append(document.createElement('br'), detail); }
       input.addEventListener('change', () => { edited = true; if (input.checked) selected.add(repo.full_name); else selected.delete(repo.full_name); updateCount(); });
       row.append(input, name); list.append(row);
     }
@@ -76,7 +77,12 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories }
   direct.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); discover(true); } });
   search.addEventListener('input', draw);
   host.append(discovery, label, search, count, actions, list, help);
+  if (prefix) { for (const element of host.querySelectorAll('[id]')) element.id = prefix + element.id; for (const element of host.querySelectorAll('label[for]')) element.htmlFor = prefix + element.htmlFor; }
+  if (guided) { actions.querySelector('[id$="apply-repository-selection"]').hidden = true; actions.querySelector('[id$="automatic-repositories"]').hidden = true; help.textContent = 'Choose the projects you want to showcase. Team repositories and direct additions are public GitHub data.'; }
   return {
+    selection: () => [...selected].sort(),
+    busy: () => busy,
+    select(names) { selected = new Set(names); edited = true; draw(); },
     update(account, pool, options, automaticPool) {
       const nextContext = JSON.stringify([account.toLowerCase(), options.repoSource, options.includeRepos]);
       if (nextContext !== context) { added.clear(); edited = false; context = nextContext; }

@@ -95,11 +95,11 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   });
   presetMenu.addEventListener('keydown', event => { if (event.key === 'Escape') { presetMenu.open = false; presetSummary.focus(); } });
   document.addEventListener('click', event => { if (!presetMenu.contains(event.target)) presetMenu.open = false; });
-  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v5:… (older codes also work)'; designCode.maxLength = 103;
+  const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v6:… (older codes also work)'; designCode.maxLength = 106;
   const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code';
   const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
   const recipeOptions = recipe => ({ ...recipe, organizationUser: current.options.organizationUser, accountType: current.options.accountType, organizationScope: current.options.organizationScope, organizationView: current.options.organizationView, organization: current.options.organization, repoSource: current.options.repoSource || 'all', codingRhythmTimezone: current.options.codingRhythmTimezone || 'UTC', starfield: recipe.starfield || { mode: 'classic' } });
-  const reseed = async code => { const options = recipeOptions(randomizeDesign(code)); await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
+  const reseed = async code => { const options = recipeOptions(randomizeDesign(code, { repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots, ringPlacements: current.options.ringPlacements })); await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
   const motionLabel = document.createElement('label'); motionLabel.className = 'randomize-motion';
   const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = false; motionLabel.append(motion, ' Animations');
   const partSwitch = (id, text, checked) => {
@@ -115,7 +115,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const randomize = button(hero, 'randomize-design', '✦ Randomize selected', async () => {
     if (!current) return;
     if (!full.checked && !styling.checked && !motion.checked && !projects.checked) { message('Select Styling, Animations or Repositories to randomize.'); return; }
-    const settings = { motion: motion.checked, animations: animationParts.read(), ...historyControls.bounds() };
+    const settings = { motion: motion.checked, animations: animationParts.read(), ...historyControls.bounds(), repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots };
     if (!full.checked) {
       const parts = { styling: styling.checked, animations: motion.checked, repositories: projects.checked };
       const pool = projects.checked ? repositoryCandidates(current.options) : [];
@@ -131,7 +131,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
       message('Selected parts randomized. Other settings kept. Use Share link or save the config to keep this combination.');
       return;
     }
-    const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(recipeOptions(candidate)));
+    const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(recipeOptions(candidate)), 256, { repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots, ringPlacements: current.options.ringPlacements });
     if (!recipe) { message('No matching randomized design found in the loaded repositories. Your current design is unchanged.'); return; }
     if (!await apply({ version: 1, account: current.account, options: recipeOptions(recipe) }, { requireVisibleNodes: true, fallback: current })) {
       message('That draw rendered no projects. Your previous design is restored. Try again, or use Reset project filters.'); return;

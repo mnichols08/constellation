@@ -1,3 +1,4 @@
+import { mountTemporalRingEditor } from './temporal-ring-editor.mjs';
 // Clamp the pair as a unit so a chart boundary never separates a label from its node.
 export function movePair(origin, target, label, height) {
   const dx = label ? label.x - origin.x : 0;
@@ -34,6 +35,9 @@ export function mountLabelEditor(host, source, onMove, previewMove, locked = tru
   shadow.replaceChildren(style, svg);
   svg.setAttribute('role', 'group');
   if (locked) return;
+  if (svg.querySelector('#temporal-geometry-data')) return mountTemporalRingEditor(svg, onMove, previewMove, snapToRings);
+  const temporal = Boolean(svg.querySelector('[data-temporal-year]'));
+  if (temporal) snapToRings = false;
   const ringPoints = [...svg.querySelectorAll('.identity-point')].map(point => ({
     x: Number(point.dataset.snapX), y: Number(point.dataset.snapY), occupied: JSON.parse(point.dataset.occupied || '[]'),
   }));
@@ -49,7 +53,7 @@ export function mountLabelEditor(host, source, onMove, previewMove, locked = tru
   }));
   const availablePoints = ringPoints.filter(point => point.occupied.every(owner => originals.has(owner)));
   const point = event => {
-    const matrix = (svg.querySelector('.perspective-scene') || svg).getScreenCTM();
+    const matrix = (event.currentTarget?.closest('[data-temporal-year]') || svg.querySelector('.perspective-scene') || svg).getScreenCTM();
     return matrix ? new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse()) : null;
   };
   for (const group of svg.querySelectorAll('.repository')) {
@@ -89,6 +93,15 @@ export function mountLabelEditor(host, source, onMove, previewMove, locked = tru
         }
       }
       const updated = new DOMParser().parseFromString(previewMove(id, current), 'image/svg+xml');
+      if (temporal) {
+        for (const selector of ['.repository', '.star', '.temporal-birth', '.repo-label', '.shared-language', '.temporal-bridge']) {
+          const next = [...updated.querySelectorAll(selector)];
+          [...svg.querySelectorAll(selector)].forEach((node, index) => {
+            for (const attribute of ['cx', 'cy', 'x', 'y', 'd', 'transform']) if (next[index]?.hasAttribute(attribute)) node.setAttribute(attribute, next[index].getAttribute(attribute));
+          });
+        }
+        return;
+      }
       for (const selector of ['.connections', '.bridges']) {
         svg.querySelector(selector).replaceChildren(...[...updated.querySelector(selector).childNodes].map(node => document.importNode(node, true)));
       }

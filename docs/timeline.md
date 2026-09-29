@@ -1,5 +1,9 @@
 # Timelines and historical evidence
 
+For simultaneous yearly planes and project continuity trails, see
+[Temporal Stack](temporal-stack.md). Its Open Timeline control retains the
+one-frame navigation and comparison behavior described here.
+
 Timelines compile a bounded series of scenes through the same Rust/WASM layouts and mappings as ordinary visualizations. Every timeline has an explicit reference date and ends with the current input records at that date. SVG renders that final scene as a static fallback; HTML and the web component add Previous date/Next date controls with an evidence label.
 
 ```js

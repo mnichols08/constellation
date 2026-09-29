@@ -1,3 +1,7 @@
+import { mountOnboarding } from './onboarding-ui.mjs';
+import { intentStore } from './onboarding-model.mjs';
+import { generateGuidedDesign } from './onboarding-generator.mjs';
+import { newSeed } from './seeded-random.mjs';
 import { deriveCodingRhythm } from './coding-rhythm.mjs';
 import { createScene } from './constellation.mjs';
 import { renderSceneSVG } from './renderer-svg.mjs';
@@ -39,9 +43,13 @@ const commitFields = createCommitFieldData({ fetchImpl: createPreviewFetch({ pro
 let commitFieldLoading = false, commitFieldDiagnostic = '';
 let loading = false;
 let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
+let guidedHost;
+let intentStorage; try { intentStorage = window.localStorage; } catch {}
+const intents = intentStore(intentStorage);
 function enterStudio() {
   if (!workspace) workspace = mountStudioLayout();
   document.documentElement.dataset.entry = 'studio';
+  if (guidedHost) guidedHost.hidden = true;
 }
 let importedOptions = {};
 const $ = selector => document.querySelector(selector);
@@ -204,6 +212,23 @@ function render({ requireVisibleNodes = false } = {}) {
   $('#max-repos').disabled = options.repoSource === 'pinned';
   const selected = selectRepositoryPool(repositories, options);
   options.arrangement = $('#arrangement').value;
+  $('#temporal-stack-controls').hidden = options.arrangement !== 'temporal-stack';
+  if (options.arrangement === 'temporal-stack') {
+    options.temporalStack = { ...options.temporalStack, enabled: true };
+    for (const key of ['yearStart', 'yearEnd', 'yearStep', 'depthGap', 'tilt', 'connections']) {
+      const value = $(`#temporal-${key}`).value;
+      if (value === '') delete options.temporalStack[key];
+      else options.temporalStack[key] = key === 'connections' ? value : Number(value);
+    }
+    options.temporalStack.innerArrangement = $('#temporal-innerArrangement').value;
+    options.temporalGeometry = { ...options.temporalGeometry, shape: $('#temporal-form').value, surface: $('#temporal-surface').value };
+    for (const key of ['radius', 'depth', 'startRadius', 'endRadius', 'waist', 'twist']) options.temporalGeometry[key] = Number($(`#temporal-${key}`).value);
+    options.temporalGeometry.orientation = { x: 0, z: 0, ...options.temporalGeometry.orientation, y: Number($('#temporal-orientation').value) };
+    for (const element of document.querySelectorAll('[data-temporal-parameter]')) {
+      const parameter = element.dataset.temporalParameter, shape = options.temporalGeometry.shape;
+      element.hidden = parameter === 'cone' ? shape !== 'cone' : parameter === 'radius' ? shape === 'cone' : parameter === 'waist' ? shape !== 'hourglass' : shape !== 'helix' && !options.temporalGeometry.twist;
+    }
+  } else delete options.temporalStack;
   if ($('#link-ring-motion').checked) for (let i = 1; i < 4; i++) {
     $(`#ring-speed-${i}`).value = $('#ring-speed-0').value;
     $(`#ring-direction-${i}`).value = $('#ring-direction-0').value;
@@ -323,9 +348,14 @@ function render({ requireVisibleNodes = false } = {}) {
     workflowUrl = URL.createObjectURL(new Blob([$('#workflow').value], { type: 'text/yaml;charset=utf-8' }));
     $('#download-workflow').href = workflowUrl;
   };
-  const movedOptions = (repo, pair) => ({ ...options, starPositions: { ...options.starPositions, ...pair.placements, [repo]: pair.star }, labelOffsets: { ...options.labelOffsets, ...pair.offsets } });
+  const movedOptions = (repo, pair) => {
+    const ringPlacements = { ...options.ringPlacements, ...pair.ringPlacements };
+    for (const [id, point] of Object.entries(ringPlacements)) if (point === null) delete ringPlacements[id];
+    return { ...options, ...(pair.ringPlacements ? { ringPlacements } : {}), starPositions: { ...options.starPositions, ...pair.placements, [repo]: pair.star }, labelOffsets: { ...options.labelOffsets, ...pair.offsets } };
+  };
   mountLabelEditor(labelEditor, svg, (repo, pair, kind) => {
     const moved = movedOptions(repo, pair);
+    if (pair.ringPlacements) importedOptions.ringPlacements = moved.ringPlacements;
     starPlacements.set(placementKey, moved.starPositions);
     labelPlacements.set(placementKey, moved.labelOffsets);
     render();
@@ -386,6 +416,8 @@ $('#repo-source').addEventListener('change', () => {
 });
 for (const link of document.querySelectorAll('a[href="#token-help"]')) link.addEventListener('click', () => { $('#token-help').open = true; });
 for (const id of ['#arrangement', '#identity-ring', '#snap-rings']) $(id).addEventListener('input', render);
+for (const input of document.querySelectorAll('#temporal-stack-controls input, #temporal-stack-controls select')) input.addEventListener('input', render);
+$('#temporal-form').addEventListener('change', () => { if ($('#temporal-form').value === 'helix' && Number($('#temporal-twist').value) === 0) $('#temporal-twist').value = '240'; render(); });
 $('#node-mode').addEventListener('input', () => {
   render();
   if ($('#node-mode').value === 'commits') {
@@ -517,10 +549,64 @@ form.addEventListener('submit', event => {
       const discovery = settings.organization.contributors.enabled ? settings.organization : presetOptions('organization-community').organization;
       loadAccount(username(organization), false, 'all', { account: username(organization), options: { organizationScope: settings.organizationScope, organization: discovery, accountType: 'organization', organizationUser: name, organizationView: 'collaboration', arrangement: 'community-galaxy', maxRepos: 100, showOther: true } });
     }
-    else loadAccount(name);
+    else if (studio.store.draft(name)) loadAccount(name, false, 'all', studio.store.draft(name));
+    else if (intents.read(name)) startGuided(name);
+    else if (document.documentElement.dataset.entry === 'studio') loadAccount(name);
+    else startGuided(name);
   }
   catch (error) { message(error.message, true); }
 });
+async function startGuided(name) {
+  if (loading) return;
+  loading = true; form.querySelector('button').disabled = true;
+  message('Loading your public projects…');
+  try {
+    const options = { ...presetOptions('project-map'), maxRepos: 100, includeForks: true };
+    const next = await data.load(name, options, { activity: false });
+    if (!next.length) throw Error('No public projects found. Try another account.');
+    studio.flush(); const previousDraft = studio.store.draft(name); let generated = false;
+    account = name; repositories = next; isSample = false; loadedSource = 'all';
+    $('#output-repository').value = `${account}/${data.profile(account)?.type === 'Organization' ? '.github' : account}`;
+    applyOptions(options);
+    if (!workspace) workspace = mountStudioLayout();
+    guidedHost ??= document.createElement('section'); guidedHost.id = 'guided-setup'; guidedHost.setAttribute('aria-label', 'Create your constellation');
+    $('.observatory').before(guidedHost);
+    mountOnboarding(guidedHost, { account, repositories: () => repositories, year: new Date().getUTCFullYear(), initial: intents.read(account),
+      findRepositories: findGuidedRepositories,
+      save: intent => intents.save(account, intent),
+      customize: () => { if (!generated && previousDraft) applyOptions(previousDraft.options); enterStudio(); render(); },
+      useDesign: () => { document.documentElement.dataset.entry = 'install'; workspace.reveal($('#download-config')); },
+      generate: async (intent, refreshActivity = false) => {
+        loading = true; form.querySelector('button').disabled = true;
+        try {
+          const seed = newSeed(), year = new Date().getUTCFullYear();
+          let result = generateGuidedDesign(account, repositories, intent, { seed, year });
+          repositories = await data.load(account, result.config.options, { activity: false });
+          let diagnostic = '';
+          if (result.activity !== 'none') {
+            try {
+              if (result.activity === 'asteroids') {
+                const loaded = await commitFields.load(selectRepositories(repositories, result.config.options), { refresh: refreshActivity });
+                diagnostic = loaded.diagnostics.join(' ');
+                if (!Object.keys(loaded.snapshots).some(key => intent.projects.some(name => name.toLowerCase() === key) && loaded.snapshots[key].commits.length)) diagnostic ||= 'No public commits available for these projects.';
+              } else {
+                const snapshot = await data.loadActivity(account, refreshActivity);
+                diagnostic = snapshot.diagnostic || (!snapshot.events.length ? 'No recent public events available.' : '');
+              }
+            } catch (error) { diagnostic = error.message; }
+            if (diagnostic) result = generateGuidedDesign(account, repositories, intent, { seed, year, activityAvailable: false });
+          }
+          applyOptions(result.config.options);
+          if (!render({ requireVisibleNodes: true })) throw Error('These filters leave no visible projects. Go back and edit your language or topic choices.');
+          generated = true; studio.flush(); intents.save(account, intent);
+          return diagnostic ? `Created without activity: ${diagnostic} You can retry activity or keep this design.` : '';
+        } finally { loading = false; form.querySelector('button').disabled = false; }
+      },
+    });
+    message(`Loaded ${repositories.length} public projects. Choose what to showcase.`);
+  } catch (error) { message(error.message, true); }
+  finally { loading = false; form.querySelector('button').disabled = false; }
+}
 $('#load-projects').addEventListener('click', () => loadAccount(account));
 $('#refresh-data').addEventListener('click', () => loadAccount(account, true));
 
@@ -601,7 +687,7 @@ function applyOptions(options) {
   previousRingRotation = options.ringRotations || Array(4).fill(options.ringRotation || 0);
   graphSelection = options.selection || {};
 }
-for (const [value, text] of [['galaxy', 'Galaxy · language clusters'], ['solar-system', 'Solar System · major repositories']]) {
+for (const [value, text] of [['galaxy', 'Galaxy · language clusters'], ['solar-system', 'Solar System · major repositories'], ['temporal-stack', 'Temporal Stack · project history in depth']]) {
   const option = document.createElement('option'); option.value = value; option.textContent = text; option.disabled = !rustAvailable; $('#arrangement').append(option);
 }
 for (const [value, label] of [['community-galaxy', 'Community galaxy'], ['collaboration-gravity', 'Collaboration gravity'], ['era-rings', 'Era rings']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; $('#arrangement').append(option); }
@@ -624,11 +710,7 @@ studioCommits = mountStudioCommits(designHost, { fetchImpl: createPreviewFetch({
   return true;
 } });
 mountStudioStory(designHost, () => capturedScene && { ...capturedScene, presentation: { ...capturedScene.presentation, options: { ...capturedScene.presentation.options, selection: graphSelection } } });
-studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
-  reveal: id => { const element = document.getElementById(id); if (element) { workspace?.reveal(element); element.focus(); } },
-  hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account), commitHistoryData: data.commitHistory(account) }),
-  repositoryPool: () => repositories,
-  findRepositories: async ({ organization, repository, onProgress }) => {
+async function findGuidedRepositories({ organization, repository, onProgress }) {
     if (loading) throw Error('Wait for your account to finish loading.');
     if (isSample) throw Error('Load your GitHub account first to find your team projects.');
     const startedAccount = account;
@@ -642,7 +724,12 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
     repositories = [...merged.values()];
     studioCommits?.update(repositories);
     return result;
-  },
+  }
+studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); } catch (error) { message(error.message, true); } },
+  reveal: id => { const element = document.getElementById(id); if (element) { workspace?.reveal(element); element.focus(); } },
+  hasMatchingNodes: options => canRenderPreview(repositories, { ...options, accountData: data.profile(account), organizationData: data.organization(account), commitHistoryData: data.commitHistory(account) }),
+  repositoryPool: () => repositories,
+  findRepositories: findGuidedRepositories,
   selectedRepositories: options => selectRepositories(repositories, options),
   repositoryCandidates: options => selectRepositories(repositories, { ...options, includeRepos: undefined, maxRepos: 100 }),
   apply: async (config, { loadOrganization = false, loadPresetData = false, requireVisibleNodes = false, fallback } = {}) => {
@@ -684,6 +771,8 @@ $('#load-organization').addEventListener('click', () => loadAccount(account));
 if (document.documentElement.dataset.entry === 'studio') enterStudio();
 $('#open-studio').disabled = false;
 $('#open-studio').addEventListener('click', () => { enterStudio(); $('#username').focus(); });
+const guidedRestart = document.createElement('button'); guidedRestart.type = 'button'; guidedRestart.className = 'secondary'; guidedRestart.textContent = 'Guided setup'; guidedRestart.addEventListener('click', () => { if (isSample) { $('#username').focus(); message('Enter your GitHub username to begin guided setup.'); } else { studio.flush(); startGuided(account); } });
+$('.design-launcher').append(guidedRestart);
 imageViewer = mountImageViewer($('.design-launcher'));
 const initialDraft = studio.store.draft(account);
 async function loadCommitFields(refresh = false) {

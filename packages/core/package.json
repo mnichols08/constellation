@@ -1,6 +1,6 @@
 {
   "name": "@constellation/core",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "description": "Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.",
   "engines": {
@@ -13,6 +13,7 @@
   "files": [
     "src",
     "README.md",
+    "temporal-stack.md",
     "scene-api.md",
     "layers.md",
     "data-pipeline.md",

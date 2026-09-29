@@ -9,7 +9,7 @@ const descriptions = {
   connections: ['Shared relationships and optional visual bridges.', 'connection-density'],
   nodes: ['Project and category markers, including their activity effects.', 'design-nodeSize'],
   labels: ['Project names. Labels can remain visible when nodes are hidden.', 'show-labels'],
-  annotations: ['History, rhythm, legends, captions and credit.', 'design-legend'],
+  annotations: ['History, rhythm, legends and captions. The project credit stays visible.', 'design-legend'],
   selection: ['Highlight the selected neighborhood or path.', 'color-node'],
 };
 

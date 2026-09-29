@@ -10,7 +10,7 @@ records instead of assembling an unrelated global order.
 | backdrop | background, effects, starfield |
 | underlay | historical/organization/rhythm annotations |
 | world | rings, classic starfield dust, connections, nodes, labels |
-| overlay | captions, legends, timestamps, empty-state text and credit |
+| overlay | captions, legends, timestamps and empty-state text |
 | interaction | selection/highlight |
 
 The world phase is inside the existing perspective camera and historical scene
@@ -74,3 +74,5 @@ Try [the layer example](../examples/layer-study.json) and its
 Config imports and share links validate layer IDs and scalar controls; they cannot
 supply executable code, markup or arbitrary rendering phases. Workflow export uses
 the same validated v6 controls. Scene JSON remains an internal trusted format.
+
+The `mnichols08/constellation` project credit is always rendered independently of annotation visibility, opacity and order, including Temporal Universe exports.

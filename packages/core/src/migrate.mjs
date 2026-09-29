@@ -7,7 +7,7 @@ export function migrateConfig(value, { account = 'your-universe' } = {}) {
   if (typeof value === 'string' && /^https?:\/\//i.test(value.trim())) {
     config = decodeShare(value.trim());
     if (!config) throw new Error('The URL does not contain a constellation view.');
-  } else if (typeof value === 'string' && /^v[1-5]:/i.test(value.trim())) config = parseConfig(value.trim(), account);
+  } else if (typeof value === 'string' && /^v[1-6]:/i.test(value.trim())) config = parseConfig(value.trim(), account);
   else {
     const validation = validateConfig(value);
     if (!validation.valid) throw new Error(validation.errors.map(error => `${error.path}: ${error.message}`).join('; '));

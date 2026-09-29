@@ -23,7 +23,7 @@ Use **Randomize selected** with independent switches:
 - **Repositories**: choose a subset from the loaded repositories eligible under your current filters and source, up to the current repository limit. Preserves the style and animation settings; no API calls.
 - **Full random**: opt into the original broad randomizer, including layout, graph mode, filters and history. This overrides Styling and Repositories; Animations controls whether the full recipe includes motion.
 
-Unchecked categories stay unchanged. With no category selected, nothing changes. Partial results combine your current settings with a new draw, so use **Share link**, a saved preset or exported JSON to reproduce them. Their design-code field is cleared because a single recipe code cannot represent that combination. Full random still generates a reproducible `v5` code. Reduced-motion viewers always receive a static view.
+Unchecked categories stay unchanged. With no category selected, nothing changes. Partial results combine your current settings with a new draw, so use **Share link**, a saved preset or exported JSON to reproduce them. Their design-code field is cleared because a single recipe code cannot represent that combination. Full random generates a reproducible `v6` design code. Reduced-motion viewers always receive a static view.
 
 For example, `v5:m008-y2026-f2012-my-sky` permits only the second ring to animate and draws historical years from 2012–2026. The code stores the loaded account's year range, so replay does not drift into new random years as time passes. Turning motion permissions on or off retains the same seeded visual choices. Existing `v1`–`v4` recipes are frozen and remain supported.
 
@@ -231,3 +231,31 @@ Contribution orbits, inferred language eras, stellar ages, foreign galaxies and 
 ## First visit
 
 A first visit in a browser shows the original landing page. Load an account or choose **Explore the sample studio** to enter the editor. Later visits open the studio directly; shared account/design links also go straight to the studio. The visit is remembered locally in that browser. Clearing site storage restores the landing page; if local storage is unavailable, the landing page remains available on each fresh visit.
+
+### Temporal recipes (v6)
+
+Full Random chooses Temporal Universe in 28% of eligible seeded draws. It favors
+stack, cylinder, sphere and dome over cone, hourglass and helix. Geometry and
+camera values use curated ranges rather than independent full-range sliders.
+At least six repositories and three distinct creation years are required, or
+three useful observed snapshot/current years within the most recent 20 years.
+Missing history falls back to an ordinary design. Retrospective slices describe
+known existence using current metadata, never invented historical metrics.
+
+A code such as `v6:mfff-y2026-f2015-e1-fixture-38` records the motion permissions,
+reference year, first year and eligibility (`e1`; `e0` means ordinary only).
+The same code and source/configuration replay the same choices. The recipe pins
+its reference date to the end of that code's reference year. The v5 generator,
+its 12-bit mask and all released v1�v5 recipe outputs remain unchanged. Config
+schema version 7 is separate from design-code version 6; no config migration is
+needed. Old codes remain directly importable.
+
+Full Random preserves explicit semantic `ringPlacements` when selecting temporal
+geometry. Partial styling/animation draws retain the temporal form and placements.
+Because manual placements and snapshot data are external to a design code, save
+JSON or a share link to reproduce those inputs as well. Source eligibility is
+rechecked when Studio restores a temporal code on a different account.
+
+Run `node scripts/preview-temporal-random.mjs` for the six reproducible fixtures
+and a screenshot gallery in `.dist/temporal-random/`. Their recipe hashes are
+locked in `test/fixtures/randomizer-v6.json`.

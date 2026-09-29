@@ -10,8 +10,8 @@ import { projectLifecycle } from './history/project-lifecycle.mjs';
 import { historyLayers, historyCSS } from './history/history-svg.mjs';
 import { renderTimeLapse } from './history/time-lapse-svg.mjs';
 import { renderCodingRhythm, codingRhythmCSS, rhythmDescription } from './coding-rhythm-svg.mjs';
-import { githubMark } from './github-mark.mjs';
-import { starfieldOptions, renderStarfield, starfieldCSS } from './starfield.mjs';
+import { renderCredit } from './github-mark.mjs';
+import { starfieldOptions, renderStarfield, renderClassicDust, starfieldCSS } from './starfield.mjs';
 import { activityOptions, activityForNode } from './activity.mjs';
 import { activityMarkup, activityCSS } from './activity-effects.mjs';
 import { asteroidFieldMarkup, asteroidFieldCSS } from './asteroid-field.mjs';
@@ -21,6 +21,7 @@ import { focusSVG } from './selection.mjs';
 import { perspectiveOptions, perspectiveMarkup } from './perspective.mjs';
 import { animateRingSVG, ringAnimationOptions, floatingAnimationOptions } from './ring-animation.mjs';
 import { rustAvailable } from './engine.mjs';
+import { renderTemporalStackSVG } from './temporal-stack-svg.mjs';
 
 import { repositoryLanguages } from './constellation.mjs';
 const hash = value => {
@@ -36,8 +37,9 @@ const themes = {
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 
-export function renderSceneSVG(visualScene) {
+export function renderSceneSVG(visualScene, renderOptions) {
   assertScene(visualScene);
+  if (visualScene.temporalStack) return renderTemporalStackSVG(visualScene, renderOptions);
   if (visualScene.kind === 'time-lapse') {
     const { account, repositories, options, reference } = visualScene.presentation;
     return renderTimeLapse(account, repositories, { ...options, layers: Object.fromEntries(visualScene.latest.layers.map(layer => [layer.id, { visible: layer.visible, opacity: layer.opacity }])) }, (_account, _repositories, settings) => {
@@ -83,7 +85,7 @@ export function renderSceneSVG(visualScene) {
   const organizationEras = arrangement === 'era-rings' ? [...new Set(repos.map(repo => repo.organizationGroup || repo.name))].sort() : [];
   const eraRings = organizationEras.map((era, i) => `<ellipse class="organization-era-ring" cx="450" cy="${centerY}" rx="${(365 * (i + 1) / (organizationEras.length + 1)).toFixed(1)}" ry="${((compact ? 85 : 190) * (i + 1) / (organizationEras.length + 1)).toFixed(1)}" fill="none" stroke="var(--sky-accent)" stroke-opacity=".18" stroke-dasharray="2 5"><title>${escape(era)}</title></ellipse>`).join('');
   const historyLayer = hasHistory ? historyLayers(name, visualScene.presentation.historyRepositories, options, { centerY, spreadY, height }) : { markup: '', note: '', description: '' };
-  const dust = Array.from({ length: profile.dustCount }, (_, i) => `<circle cx="${20 + hash(`${options.seedMode ? seed : name}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${options.seedMode ? seed : name}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
+  const dust = renderClassicDust(options.seedMode ? seed : name, { compact, count: profile.dustCount });
   const edges = [...selectedEdges].sort((a, b) => Number(backbone.has(a)) - Number(backbone.has(b))).map((edge, index) => {
     const { from, to, shared, sharedLanguages, sharedTopics, sharedRepositories = [] } = edge;
     const dx = to.x - from.x, dy = to.y - from.y;
@@ -185,7 +187,7 @@ ${transparent ? '' : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height
 ${visibleStars.length ? '' : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? 'All nodes are hidden. Restore visibility in Individual nodes.' : graph.emptyMessage ? escape(graph.emptyMessage) : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : sourceHasRepositories ? 'No projects match these filters or historical year.' : options.repoSource === 'pinned' ? 'No public pinned repositories match this selection.' : 'No public repositories to show yet.'}</text>`}
 ${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || 'legacy'} · Glow: ${options.nodeGlowMode || 'uniform'} · Color: ${options.nodeColorMode || 'custom'} · Links: ${options.connectionWeight || 'uniform'}${activitySettings.activityEffect === 'asteroids' ? ' · Asteroids: latest 24 loaded commits per repository' : activitySettings.activityEffect !== 'off' ? ` · ${activitySettings.activityEffect}: public activity / ${['1d', '7d', '30d'].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ''}`)}</text>` : ''}
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ''}
-<a href="https://github.com/mnichols08/constellation" target="_blank" rel="noopener noreferrer">${githubMark.replace('<svg ', `<svg x="744" y="${height - 23}" `)}<text class="credit" x="868" y="${height - 14}">mnichols08/constellation</text></a>` })}
+` })}${renderCredit(height)}
 </svg>\n`;
   return animateRingSVG(focusSVG(svg, selectionForScene(visualScene)), ringAnimation, geometry, visibleStars, centerY, spreadY, escape, floatingAnimation, Array.from({ length: ringPoints.length / 3 }, (_, i) => ({ x: 450 + (ringPoints[i * 3] - 240) * 368 / 172, y: centerY + (ringPoints[i * 3 + 1] - 240) * spreadY / 172 })));
 }

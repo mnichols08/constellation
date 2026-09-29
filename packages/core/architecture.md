@@ -1,5 +1,10 @@
 # Constellation architecture
 
+Temporal Stack adds a validated Scene v1 attachment referencing Timeline frames.
+Existing artifact layouts supply shared anchors; Rust retains per-frame graph
+relationships. A shared JavaScript projection composes local XY planes along the
+year/depth axis for SVG and offline interaction. See [Temporal Stack](temporal-stack.md).
+
 The platform separates source loading, normalization, declarative transformation, graph projection, layout, scene compilation and rendering:
 
 ```mermaid
@@ -35,4 +40,4 @@ Determinism requires identical input data, config, seed, engine and explicit ref
 
 See the [baseline architecture](architecture-baseline.md) for the original 2.0 boundaries and [migration guide](migration-v3.md) for supported compatibility.
 
-Core and the web component release together at 3.0.0. JSON sources and themes are independently versioned packages at 1.1.0, reflecting additive v2 descriptors/adapters without changing their legacy exports. Theme pack content versions remain 1.0.0.
+Core and the web component release together at 3.1.0. JSON sources and themes are independently versioned packages at 1.1.0, reflecting additive v2 descriptors/adapters without changing their legacy exports. Theme pack content versions remain 1.0.0.

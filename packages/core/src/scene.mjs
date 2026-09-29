@@ -2,6 +2,7 @@ import { layerDefinitions, validateLayerOptions, validateLayerOrder } from './sc
 import { historyOptions } from './history/settings.mjs';
 import { validateHierarchy } from './hierarchy-model.mjs';
 import { validateStory } from './story-model.mjs';
+import { validateTemporalStack } from './temporal-stack-model.mjs';
 // Stable Scene API v1; independently versioned from package/config releases.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -91,6 +92,7 @@ function record(scene, path = '$') {
     if (!object(timeline) || timeline.version !== 1 || !Array.isArray(timeline.frames) || timeline.frames.length < 1 || timeline.frames.length > 64 || timeline.referenceDate !== scene.metadata.referenceDate) fail(path, 'invalid timeline');
     let previous = '', totalNodes = 0;
     for (const frame of timeline.frames) {
+      if (frame.scene?.temporalStack !== undefined) fail(path, 'timeline frames cannot nest temporal stacks');
       if (typeof frame.date !== 'string' || !Number.isFinite(Date.parse(frame.date)) || new Date(frame.date).toISOString() !== frame.date || frame.date <= previous || frame.date > timeline.referenceDate || frame.id !== frame.date || !['snapshot', 'current', 'current-metadata'].includes(frame.evidence) || frame.scene?.kind !== 'scene' || frame.scene.timeline !== undefined || frame.scene.hierarchy !== undefined || frame.scene.story !== undefined || frame.scene.metadata.referenceDate !== frame.date) fail(path, 'invalid timeline frame');
       record(frame.scene, `${path}.timeline.${frame.id}`); previous = frame.date;
       totalNodes += frame.scene.nodes.length;
@@ -98,6 +100,7 @@ function record(scene, path = '$') {
     }
     if (previous !== timeline.referenceDate) fail(path, 'timeline must end at the reference date');
   }
+  if (scene.temporalStack !== undefined) validateTemporalStack(scene);
   if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.length === 90 && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length > 6144 || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
 }
 

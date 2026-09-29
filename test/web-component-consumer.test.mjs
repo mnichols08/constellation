@@ -15,7 +15,7 @@ test('web component package works outside the repository with bounded assets and
   const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
   const core = JSON.parse(await readFile(join(root, 'node_modules', '@constellation', 'core', 'package.json'), 'utf8'));
   assert.equal(manifest.dependencies['@constellation/core'], core.version);
-  assert.deepEqual((await readdir(directory)).sort(), ['README.md', 'index.mjs', 'package.json']);
+  assert.deepEqual((await readdir(directory)).sort(), ['README.md', 'index.mjs', 'package.json', 'temporal-stack.md']);
   assert.ok((await stat(join(directory, 'index.mjs'))).size < 24 * 1024);
   const coreFiles = await readdir(join(root, 'node_modules', '@constellation', 'core'), { recursive: true });
   let bytes = 0;
