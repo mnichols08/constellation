@@ -2,6 +2,17 @@ import { seededRandom } from './seeded-random.mjs';
 
 export const defaultStarfield = { mode: 'space', density: 55, brightness: .8, depth: .8, twinkle: true, seed: '' };
 
+// Keep the historical dust sequence shared by ordinary and temporal worlds.
+export function renderClassicDust(seed, { compact = false, count = 85 } = {}) {
+  const hash = value => {
+    let n = [...value].reduce((n, char) => (Math.imul(n, 31) + char.charCodeAt(0)) >>> 0, 7);
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    return (n ^ (n >>> 16)) >>> 0;
+  };
+  return Array.from({ length: count }, (_, i) => `<circle cx="${20 + hash(`${seed}:x:${i}`) % 860}" cy="${(compact ? 58 : 90) + hash(`${seed}:y:${i}`) % (compact ? 180 : 405)}" r="${i % 3 ? '.6' : '1'}" opacity=".25"/>`).join('');
+}
+
 export function starfieldOptions(value) {
   if (value !== undefined && (!value || typeof value !== 'object' || Array.isArray(value))) throw new Error('starfield must be an object.');
   const options = { ...defaultStarfield, mode: 'classic', ...value };

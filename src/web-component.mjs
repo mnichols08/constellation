@@ -50,6 +50,10 @@ export class ConstellationView extends HTMLElement {
   setFilter(value) { return this.#active().setFilter(value); }
   setTheme(value) { return this.#active().setTheme(value); }
   setFrame(value) { const runtime = this.#active(); if (!runtime.setFrame) throw new Error('This scene has no timeline.'); return runtime.setFrame(value); }
+  setTemporalView(value) { return this.#active().setTemporalView(value); }
+  focusYear(value) { return this.#active().focusYear(value); }
+  focusTemporalNode(value) { return this.#active().focusTemporalNode(value); }
+  resetTemporalView() { return this.#active().resetTemporalView(); }
   setDate(value) { const runtime = this.#active(); if (!runtime.setDate) throw new Error('This scene has no timeline.'); return runtime.setDate(value); }
   compareWithNow(value) { const runtime = this.#active(); if (!runtime.compareWithNow) throw new Error('This scene has no timeline.'); return runtime.compareWithNow(value); }
   openChild(id) { const runtime = this.#active(); if (!runtime.openChild) throw new Error('This scene has no hierarchy.'); return runtime.openChild(id); }

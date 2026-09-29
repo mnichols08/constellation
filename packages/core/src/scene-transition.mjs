@@ -1,5 +1,11 @@
 // DOM-only interpolation of already computed scenes; no layout or graph algorithms.
 export function replaceInteractiveSVG(canvas, markup, previous, next, { duration = 300 } = {}) {
+  // A canonical project can have many temporal occurrences. The ordinary
+  // one-node-per-ID interpolator must not collapse those identities.
+  if (previous?.temporalStack || next.temporalStack) {
+    canvas.innerHTML = markup;
+    return () => {};
+  }
   const oldSVG = canvas.querySelector('svg');
   const oldGroups = new Map([...oldSVG?.querySelectorAll('.repository') || []].map(group => [group.querySelector('.star')?.dataset.repo, group]));
   const oldNodes = new Map((previous?.nodes || []).map(node => [node.id, node]));

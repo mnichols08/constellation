@@ -7,6 +7,20 @@ import { renderWorkflow } from '../src/export.mjs';
 import { migrateWorkflow } from '../src/migrate.mjs';
 import { encodeShare, decodeShare } from '../src/share-link.mjs';
 
+test('project credit survives hidden and transparent annotations in ordinary and temporal scenes', () => {
+  for (const temporal of [false, true]) for (const control of [{ visible: false }, { opacity: 0 }, { opacity: .2 }]) {
+    const scene = createScene('layers', [{ name: 'core', full_name: 'layers/core', created_at: '2020-01-01' }], {
+      referenceDate: '2026-09-01', generatedAt: '2026-09-01', animate: false, legend: true,
+      ...(temporal ? { arrangement: 'temporal-stack', temporalGeometry: { shape: 'sphere' } } : {}),
+      layers: { annotations: control },
+    });
+    const svg = renderSceneSVG(scene);
+    assert.match(svg, /<a href="https:\/\/github.com\/mnichols08\/constellation"[^>]*>[\s\S]*?<text class="credit"[^>]*>mnichols08\/constellation<\/text><\/a>/);
+    if (!temporal && (control.visible === false || control.opacity === 0)) assert.doesNotMatch(svg, /<text class="generated-at"|<text class="mapping-legend"/);
+    for (const group of svg.matchAll(/<g data-scene-layer="annotations"[^>]*>([\s\S]*?)<\/g>/g)) assert.doesNotMatch(group[1], /class="credit"/);
+  }
+});
+
 test('layer controls survive share links and workflow migration without executable payloads', () => {
   const layers = { nodes: { opacity: 0.4 }, annotations: { visible: false } };
   const url = encodeShare('https://example.com/', 'layers', { layers });
@@ -21,7 +35,8 @@ test('hidden annotations stay hidden in animated historical exports and zero-opa
   for (const mode of ['grow', 'orbit', 'crossfade']) {
     const scene = createScene('layers', repositories, { referenceDate: '2026-09-01T00:00:00Z', history: { timeLapse: { enabled: true, mode } }, layers: { annotations: { visible: false } } });
     const svg = renderSceneSVG(parseScene(serializeScene(scene)));
-    assert.doesNotMatch(svg, /<text class="history-year|class="credit"/);
+    assert.doesNotMatch(svg, /<text class="history-year/);
+    assert.match(svg, /class="credit"/);
     assert.match(svg, /prefers-reduced-motion/);
   }
   const scene = createScene('layers', repositories, { layers: { nodes: { opacity: 0 } } });

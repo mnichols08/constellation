@@ -1,5 +1,9 @@
 # Scene pipeline
 
+The optional version-1 `scene.temporalStack` attachment references yearly Timeline
+frames, stable local anchors and typed continuity bridges without changing Scene
+API v1. [Temporal Stack](temporal-stack.md) documents validation and limits.
+
 Inspect scenes without producing SVG:
 
 ```sh

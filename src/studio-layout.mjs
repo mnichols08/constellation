@@ -52,6 +52,7 @@ export function mountStudioLayout() {
 
   const look = panel('look');
   field('design-visualTheme', look); field('arrangement', look); field('layout', look);
+  look.append($('#temporal-stack-controls'));
   section('design-sky-mode', look);
   section('design-nodeSize', look).querySelector('summary').textContent = 'Node appearance';
   section('palette-controls', look);

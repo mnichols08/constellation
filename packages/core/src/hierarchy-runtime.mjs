@@ -58,7 +58,7 @@ export function mountHierarchy(root, source, options, mountScene) {
     get scenePath() { return [...path]; }, get navigationCacheStatistics() { return { entries: stateCache.size, maxEntries: 8 }; }, get frameIndex() { return runtime.frameIndex; }, get selection() { return runtime.selection; }, get selectionState() { return runtime.selectionState; }, get camera() { return runtime.camera; }, get filter() { return runtime.filter; }, get theme() { return runtime.theme; },
     destroy() { abort.abort(); stateCache.clear(); disposeTransition?.(); runtime?.destroy(); nav.remove(); },
   };
-  for (const method of ['selectNode', 'clearSelection', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme', 'setFrame', 'setDate', 'compareWithNow']) api[method] = (...args) => { if (!runtime[method]) throw new Error('The active scene does not support this operation.'); return runtime[method](...args); };
+  for (const method of ['setTemporalView', 'focusYear', 'focusTemporalNode', 'resetTemporalView', 'selectNode', 'clearSelection', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme', 'setFrame', 'setDate', 'compareWithNow']) api[method] = (...args) => { if (!runtime[method]) throw new Error('The active scene does not support this operation.'); return runtime[method](...args); };
   home.addEventListener('click', api.home, { signal: abort.signal }); back.addEventListener('click', api.back, { signal: abort.signal });
   crumbs.addEventListener('click', event => { const button = event.target.closest('[data-ancestor]'); if (button) navigate(path.slice(0, Number(button.dataset.ancestor) + 1)); }, { signal: abort.signal });
   root.addEventListener('scene-open-request', event => openChild(event.detail.id), { signal: abort.signal });

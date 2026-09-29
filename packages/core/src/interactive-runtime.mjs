@@ -1,3 +1,4 @@
+import { mountTemporalStack } from './temporal-stack-runtime.mjs';
 // This function is also embedded verbatim into standalone HTML. Keep dependencies
 // explicit in its arguments and use DOM text APIs for all scene-provided content.
 export function mountInteractive(root, source, options = {}) {
@@ -9,12 +10,13 @@ export function mountInteractive(root, source, options = {}) {
   const status = root.querySelector('[data-status]');
   const details = root.querySelector('[data-details]');
   const base = [...scene.viewport.viewBox];
-  const records = new Map(scene.nodes.map(node => [node.id, node]));
+  const records = new Map((scene.temporalStack ? scene.timeline.frames.flatMap(frame => frame.scene.nodes) : scene.nodes).map(node => [node.id, node]));
   const groups = [...svg.querySelectorAll('.repository')].filter(group => group.style.display !== 'none');
   const allIds = [...new Set(groups.map(group => group.querySelector('.star')?.dataset.repo).filter(id => records.has(id)))];
   let ids = [...allIds];
   const groupId = group => group.querySelector('.star')?.dataset.repo;
   let camera = [...base], selected = null, endpoint = null, path = [], dragging = null, moved = false;
+  let occurrenceYear = null;
   const edges = [...svg.querySelectorAll('.shared-language')].filter(edge => ids.includes(edge.dataset.from) && ids.includes(edge.dataset.to));
   let pairs = Uint32Array.from(edges.flatMap(edge => [ids.indexOf(edge.dataset.from), ids.indexOf(edge.dataset.to)]));
   let filter = { query: '', language: '' }, theme = 'original';
@@ -46,11 +48,15 @@ export function mountInteractive(root, source, options = {}) {
     if (!details) return;
     details.replaceChildren();
     if (!id) return;
-    const record = records.get(id), metadata = record.metadata;
+    const frame = scene.temporalStack && occurrenceYear !== null ? scene.timeline.frames.findLast(frame => new Date(frame.date).getUTCFullYear() === occurrenceYear) : null;
+    const record = frame?.scene.nodes.find(node => node.id === id) || records.get(id), metadata = record.metadata;
     const heading = document.createElement('h2'); heading.textContent = metadata.name || id;
     const description = document.createElement('p'); description.textContent = metadata.description || '';
     const summary = document.createElement('p'); summary.textContent = [metadata.language, Number.isFinite(metadata.stargazers_count) ? `${metadata.stargazers_count} stars` : null].filter(Boolean).join(' · ');
     details.append(heading, description, summary);
+    if (scene.temporalStack) {
+      const evidence = document.createElement('p'); evidence.textContent = frame ? `${occurrenceYear} · ${frame.evidence === 'current-metadata' ? 'Retrospective view using current metadata' : frame.evidence} · ${frame.date.slice(0, 10)}` : 'Latest available metadata for this project.'; details.append(evidence);
+    }
     if (record.interaction.childScene) {
       const open = document.createElement('button'); open.type = 'button'; open.textContent = 'Explore this node';
       open.dataset.openChild = record.interaction.childScene; details.append(open);
@@ -85,8 +91,9 @@ export function mountInteractive(root, source, options = {}) {
       edge.toggleAttribute('data-related', endpoint ? path.some((id, i) => i > 0 && ((path[i - 1] === from && id === to) || (path[i - 1] === to && id === from))) : from === selected || to === selected);
     }
   }
-  function selectNode(id, { focus = true, extend = false } = {}) {
+  function selectNode(id, { focus = true, extend = false, year = null } = {}) {
     if (!records.has(id) || !ids.includes(id)) throw new Error(`Unknown or hidden node: ${id}`);
+    occurrenceYear = year;
     if (extend && selected) endpoint = id;
     else { selected = id; endpoint = null; }
     svg.removeAttribute('data-exploring');
@@ -101,6 +108,7 @@ export function mountInteractive(root, source, options = {}) {
     announce('Selection cleared.'); emit('node-select', { id: null, node: null });
   }
   function fit() {
+    if (scene.temporalStack) return setCamera(base);
     const visible = scene.nodes.filter(node => ids.includes(node.id));
     if (!visible.length) return setCamera(base);
     const left = Math.min(...visible.map(node => node.geometry.x - node.geometry.radius)) - 30;
@@ -148,7 +156,7 @@ export function mountInteractive(root, source, options = {}) {
   const search = root.querySelector('[data-search]'), language = root.querySelector('[data-language]'), themeControl = root.querySelector('[data-theme]');
   if (search) listen(search, 'input', () => setFilter({ ...filter, query: search.value }));
   if (language) {
-    for (const name of [...new Set(scene.nodes.map(node => node.metadata.language).filter(value => typeof value === 'string' && value))].sort()) {
+    for (const name of [...new Set([...records.values()].map(node => node.metadata.language).filter(value => typeof value === 'string' && value))].sort()) {
       const option = document.createElement('option'); option.value = name; option.textContent = name; language.append(option);
     }
     listen(language, 'change', () => setFilter({ ...filter, language: language.value }));
@@ -165,18 +173,19 @@ export function mountInteractive(root, source, options = {}) {
     const id = groupId(group), record = records.get(id);
     if (!record) continue;
     group.setAttribute('role', 'button'); group.setAttribute('tabindex', id === ids[0] ? '0' : '-1');
-    group.setAttribute('aria-label', `${record.metadata.name}. Select and focus.`); group.setAttribute('aria-pressed', 'false');
-    listen(group, 'click', event => { if (!moved) { event.stopPropagation(); selectNode(id, { extend: event.shiftKey }); } });
+    group.setAttribute('aria-label', `${record.metadata.name}${group.dataset.year ? `, ${group.dataset.year}` : ''}. Select and focus.`); group.setAttribute('aria-pressed', 'false');
+    listen(group, 'click', event => { if (!moved) { event.stopPropagation(); selectNode(id, { extend: event.shiftKey, year: group.dataset.year ? Number(group.dataset.year) : null }); } });
     listen(group, 'pointerenter', () => { announce(record.metadata.name); emit('node-hover', { id }); });
     listen(group, 'pointerleave', () => emit('node-hover', { id: null }));
     listen(group, 'keydown', event => {
-      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(id, { extend: event.shiftKey }); }
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(id, { extend: event.shiftKey, year: group.dataset.year ? Number(group.dataset.year) : null }); }
       if (event.key === 'Escape') { event.preventDefault(); clearSelection(); }
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
         event.preventDefault(); event.stopPropagation();
-        const index = ids.indexOf(id), next = event.key === 'Home' ? 0 : event.key === 'End' ? ids.length - 1 : (index + (['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1) + ids.length) % ids.length;
-        for (const node of groups) node.tabIndex = groupId(node) === ids[next] ? 0 : -1;
-        groups.find(node => groupId(node) === ids[next] && node.getBoundingClientRect().width > 0)?.focus();
+        const navigation = scene.temporalStack ? [...new Set(groups.filter(node => node.getBoundingClientRect().width > 0).map(groupId))] : ids;
+        const index = navigation.indexOf(id), next = event.key === 'Home' ? 0 : event.key === 'End' ? navigation.length - 1 : (index + (['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1) + navigation.length) % navigation.length;
+        for (const node of groups) node.tabIndex = groupId(node) === navigation[next] ? 0 : -1;
+        groups.find(node => groupId(node) === navigation[next] && node.getBoundingClientRect().width > 0)?.focus();
       }
     });
   }
@@ -203,6 +212,9 @@ export function mountInteractive(root, source, options = {}) {
     if (event.key === 'Escape') clearSelection();
   });
   const api = { selectNode, clearSelection, fit, reset, setCamera, setFilter, setTheme, get filter() { return { ...filter }; }, get theme() { return theme; }, get camera() { return [...camera]; }, get selection() { return selected; }, get selectionState() { return { start: selected, end: endpoint, path: [...path] }; }, destroy() { abort.abort(); resize?.disconnect(); dragging = null; delete root.constellation; } };
+  const temporalRuntime = mountTemporalStack(root, scene, api);
+  const destroy = api.destroy;
+  api.destroy = () => { temporalRuntime.destroy(); destroy(); };
   root.constellation = api;
   announce('Select a node to focus. Drag to pan; use the zoom controls or mouse wheel.');
   if (options.emitReady !== false) emit('scene-ready', { nodes: ids.length });

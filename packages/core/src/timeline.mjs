@@ -1,6 +1,7 @@
 import { createScene } from './constellation.mjs';
 import { historicalSnapshot } from './history/historical-snapshot.mjs';
 import { normalizeRecords, toGraphRecords } from './data-pipeline.mjs';
+import { createTemporalStack } from './temporal-stack.mjs';
 
 export const TIMELINE_VERSION = 1;
 const date = value => {
@@ -19,6 +20,7 @@ export function temporalMetadata(records) {
 }
 
 export function createTimeline(account, records, options = {}, definition = {}, runtime = {}) {
+  if (options.arrangement === 'temporal-stack' || options.temporalStack?.enabled) return createTemporalStack(account, records, { ...options, timeline: definition }, runtime);
   if (!definition || typeof definition !== 'object' || Array.isArray(definition) || Object.keys(definition).some(key => !['referenceDate', 'dates', 'snapshots'].includes(key))) throw new Error('Invalid timeline definition.');
   const referenceDate = date(definition.referenceDate || options.referenceDate);
   records = toGraphRecords(normalizeRecords(records, { deferIdentityCheck: true, signal: runtime.signal }).records);

@@ -1,0 +1,96 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { browser, openBrowser } from '../scripts/browser-harness.mjs';
+import { createPreviewServer } from '../scripts/preview-server.mjs';
+
+test('guided first visit, constraints, optional failure, exports, customize and draft return', { skip: !browser, timeout: 60000 }, async t => {
+  const calls = [];
+  const repos = Array.from({ length: 8 }, (_, i) => ({ name: `r${i}`, full_name: `alice/r${i}`, description: `Project ${i}`, language: 'Rust', created_at: `${2015 + i}-01-01`, updated_at: '2026-01-01', languages: { Rust: 100 }, topics: ['tools'], stargazers_count: i }));
+  const server = createPreviewServer({ fetchImpl: async url => { calls.push(url);
+    if (url.includes('/search/issues')) return Response.json({ total_count: 1, items: [{ user: { login: 'alice' }, pull_request: {}, repository_url: 'https://api.github.com/repos/team/discovered' }] });
+    if (url.includes('/search/commits')) return Response.json({ total_count: 0, items: [] });
+    if (/\/repos\/team\/(direct|discovered)$/.test(url)) { const name = url.split('/').pop(); return Response.json({ ...repos[0], name, full_name: `team/${name}`, private: false }); }
+    return Response.json(url.includes('/events') || url.includes('/commits?') ? { message: 'Unavailable' } : url.includes('/languages') ? { Rust: 100 } : url.includes('/repos?') ? repos : { login: 'alice', type: 'User' }, url.includes('/events') || url.includes('/commits?') ? { status: 503 } : {}); } });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const page = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
+  const { evaluate: e, waitFor: wait, cdp } = page;
+  const click = text => e(`[...document.querySelectorAll('#guided-setup button')].find(button => button.textContent === ${JSON.stringify(text)}).click()`);
+  await wait(`document.querySelector('#open-studio')?.disabled === false`);
+  assert.equal(await e(`document.documentElement.dataset.entry`), 'landing');
+  assert.equal(await e(`getComputedStyle(document.querySelector('.studio-body')).display`), 'none');
+  await e(`document.querySelector('#username').value='alice'; document.querySelector('#account-form').requestSubmit()`);
+  await wait(`document.documentElement.dataset.entry === 'guided'`);
+  assert.equal(calls.some(url => url.includes('/events')), false);
+  assert.equal(await e(`document.activeElement.tagName`), 'H2');
+  await e(`document.querySelector('#guided-add-repository-name').value='team/direct'; document.querySelector('#guided-add-public-repository').click()`);
+  await wait(`document.querySelector('#guided-repository-picker-list input[value="team/direct"]')?.checked`);
+  await e(`document.querySelector('#guided-contribution-organization').value='team'; document.querySelector('#guided-find-contributed-repositories').click()`);
+  await wait(`document.querySelector('#guided-repository-picker-list input[value="team/discovered"]') && !document.querySelector('#guided-find-contributed-repositories').disabled`);
+  await e(`document.querySelector('#guided-repository-picker-list input[value="team/discovered"]').click()`);
+  await e(`document.querySelector('#guided-repository-search').value='r0'; document.querySelector('#guided-repository-search').dispatchEvent(new Event('input'))`);
+  assert.equal(await e(`document.querySelectorAll('#guided-repository-picker-list input').length`), 1);
+
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await e(`document.documentElement.scrollWidth <= innerWidth`), true);
+  await click('Continue'); await click('Continue'); await click('Continue');
+  await e(`document.querySelector('[name="guided-activity"][value="orbit"]').click()`); await click('Continue');
+  await e(`document.querySelector('[name="guided-history"][value="3d"]').click()`); await click('Continue');
+  await click('Generate my constellation');
+  await wait(`document.documentElement.dataset.entry === 'result'`);
+  assert.match(await e(`document.querySelector('#guided-status').textContent`), /without activity/);
+  const draft = () => e(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
+  const before = await draft(); assert.ok(before.includeRepos.includes('team/direct')); assert.ok(before.includeRepos.includes('team/discovered')); assert.equal(before.arrangement, 'temporal-stack'); assert.equal(before.contributionOrbit.enabled, false);
+  await click('Generate another'); await wait(`!document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
+  const after = await draft(); assert.deepEqual(after.includeRepos, before.includeRepos); assert.deepEqual(after.languages, before.languages);
+  await mkdir('.dist', { recursive: true });
+  const resultShot = await cdp('Page.captureScreenshot'); await writeFile('.dist/onboarding-result-mobile.png', Buffer.from(resultShot.data, 'base64'));
+  await click('Use this design'); assert.equal(await e(`document.documentElement.dataset.entry`), 'install');
+  assert.equal(await e(`document.querySelector('#panel-save').hidden`), false);
+  await click('Customize'); assert.equal(await e(`document.documentElement.dataset.entry`), 'studio');
+  assert.equal(await e(`document.querySelectorAll('.studio-tabs [role="tab"]').length`), 7);
+  await e(`[...document.querySelectorAll('.design-launcher button')].find(button => button.textContent === 'Guided setup').click()`);
+  await wait(`document.documentElement.dataset.entry === 'guided'`);
+  assert.deepEqual((await draft()).includeRepos, before.includeRepos, 'entering the wizard preserves the manual draft');
+  await click('Open full Studio');
+  assert.deepEqual((await draft()).includeRepos, before.includeRepos);
+
+  await cdp('Page.reload'); await wait(`document.querySelector('#open-studio')?.disabled === false`);
+  await e(`document.querySelector('#username').value='alice'; document.querySelector('#account-form').requestSubmit()`);
+  await wait(`document.querySelector('#refresh-data').hidden === false`);
+  assert.equal(await e(`document.documentElement.dataset.entry`), 'studio');
+  assert.deepEqual((await draft()).includeRepos, before.includeRepos);
+  assert.deepEqual(page.errors, []);
+});
+
+test('sparse profiles skip empty questions, no-activity stays lazy, asteroids load automatically', { skip: !browser, timeout: 60000 }, async t => {
+  const calls = [];
+  const repo = { name: 'app', full_name: 'bob/app', private: false, language: 'Rust', languages: { Rust: 100 }, created_at: '2026-01-01', updated_at: '2026-01-01' };
+  const server = createPreviewServer({ fetchImpl: async url => {
+    calls.push(url);
+    if (url.includes('/commits?')) return Response.json([{ sha: '1'.repeat(40), parents: [], author: { login: 'bob' }, commit: { message: 'Build app', committer: { date: '2026-09-01' } } }]);
+    return Response.json(url.includes('/repos?') ? [repo] : url.includes('/repos/bob/app') ? repo : { login: 'bob', type: 'User' });
+  } });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate: e, waitFor: wait, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
+  const click = text => e(`[...document.querySelectorAll('#guided-setup button')].find(button => button.textContent === ${JSON.stringify(text)}).click()`);
+  await wait(`document.querySelector('#open-studio')?.disabled === false`);
+  await e(`document.querySelector('#username').value='bob'; document.querySelector('#account-form').requestSubmit()`);
+  await wait(`document.documentElement.dataset.entry === 'guided'`);
+  assert.match(await e(`document.querySelector('#guided-setup > p').textContent`), /Step 1 of 4/);
+  await click('Continue'); await click('Continue');
+  await e(`document.querySelector('[name="guided-activity"][value="none"]').click()`); await click('Continue'); await click('Generate my constellation');
+  await wait(`document.documentElement.dataset.entry === 'result'`);
+  assert.equal(calls.some(url => url.includes('/events') || url.includes('/commits?')), false);
+  await click('Edit answers'); await click('Continue'); await click('None'); await click('Continue'); await click('Continue'); await click('Generate my constellation');
+  await wait(`document.querySelector('#guided-status').textContent.includes('no visible projects')`);
+  assert.equal(await e(`document.documentElement.dataset.entry`), 'guided');
+  await click('Back'); await click('Back'); await click('All'); await click('Continue');
+  await e(`document.querySelector('[name="guided-activity"][value="asteroids"]').click()`); await click('Continue'); await click('Generate my constellation');
+  await wait(`document.documentElement.dataset.entry === 'result'`);
+  assert.equal(calls.filter(url => url.includes('/commits?')).length, 1);
+  assert.equal(calls.some(url => url.includes('/events')), false);
+  assert.equal(await e(`JSON.parse(localStorage.getItem('constellation-config-v1:bob')).draft.activityEffect`), 'asteroids');
+  assert.deepEqual(errors, []);
+});

@@ -1,0 +1,38 @@
+import { randomizeV6, temporalEligibility } from './design-randomizer-v6.mjs';
+import { seededRandom } from './seeded-random.mjs';
+import { presetOptions } from './studio-presets.mjs';
+import { parseConfig, CONFIG_VERSION } from './config-schema.mjs';
+import { validateIntent, choicesFor } from './onboarding-model.mjs';
+
+// Intent is compiled here; neither the renderer nor exported Scene JSON knows about the wizard.
+export function generateGuidedDesign(account, repositories, answers, { seed, year, activityAvailable = true } = {}) {
+  const intent = validateIntent(answers), random = seededRandom(`guided:${seed}`);
+  const { selected } = choicesFor(repositories, intent.projects, year);
+  if (selected.length !== intent.projects.length) throw Error('Some selected projects are unavailable. Edit your project selection.');
+  const span = temporalEligibility(selected, [], year);
+  const code = `v6:m${intent.motion === 'still' ? '000' : '7ff'}-y${year}-f${span.firstYear}-e${Number(span.eligible)}-${seed}`;
+  let options = randomizeV6(code, { repositories: selected });
+  const history = span.eligible ? intent.history === 'surprise' ? (random() < .4 ? '3d' : random() < .5 ? 'history' : 'current') : intent.history : 'current';
+  if (history === '3d') {
+    // Reuse the v6 temporal recipe rather than creating another geometry randomizer.
+    for (let attempt = 0; options.arrangement !== 'temporal-stack' && attempt < 100; attempt++) options = randomizeV6(`${code}-${attempt}`, { repositories: selected });
+  } else { options.arrangement = history === 'history' ? 'era-rings' : ['rings', 'galaxy', 'solar-system', 'field'][Math.floor(random() * 4)]; options.temporalStack = { enabled: false }; }
+  const motion = intent.motion !== 'still';
+  const activity = !activityAvailable ? 'none' : intent.activity === 'surprise' ? ['asteroids', 'orbit', 'recent', 'recent', 'subtle'][Math.floor(random() * 5)] : intent.activity;
+  Object.assign(options, {
+    includeRepos: [...intent.projects], maxRepos: intent.projects.length, repoSource: 'all', includeForks: true, includeArchived: true, minStars: 0, updatedWithin: 0, repoQuery: '',
+    languages: intent.languages, topics: intent.topics, showOther: true, nodeMode: 'repositories', hiddenNodes: [], hiddenLabels: [],
+    activityEffect: activity === 'asteroids' ? 'asteroids' : activity === 'recent' ? 'pulse' : activity === 'subtle' ? 'glow' : 'off', activityAnimate: motion,
+    codingRhythm: false, contributionComet: { enabled: false }, contributionOrbit: { enabled: activity === 'orbit', animate: motion }, foreignGalaxies: { enabled: false }, stellarAges: { enabled: false },
+    history: { mode: 'current', year: null, timeLapse: { enabled: false } }, languageEvolution: { enabled: false },
+    animate: motion, starlightAnimate: motion, legend: true,
+  });
+  if (intent.vibe !== 'surprise') {
+    const preset = presetOptions(intent.vibe === 'clean' ? 'minimal-readme' : intent.vibe === 'technical' ? 'technology-atlas' : 'project-map');
+    options.visualTheme = intent.vibe === 'classic' ? 'constellation' : preset.visualTheme;
+    delete options.visualStyle;
+    if (intent.vibe === 'clean') options.starfield = { mode: 'classic', density: 20, twinkle: false };
+  }
+  if (!motion) { options.ringAnimation.enabled = false; options.ringAnimation.speeds = [0, 0, 0, 0]; options.perspective.animate = false; options.floatingAnimation.enabled = false; options.starfield.twinkle = false; }
+  return { config: parseConfig({ version: CONFIG_VERSION, account, options }), activity, history };
+}

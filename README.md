@@ -2,7 +2,17 @@
 
 Turn developer and project data into interactive maps, visual stories, embedded experiences, and README graphics.
 
-Start with a GitHub username in Studio, or keep your README updated with the Action below. Static SVG remains the default. Advanced workflows use the same scene engine:
+## Make your constellation
+
+1. Open [Constellation](https://mnichols08.github.io/constellation/) and enter your GitHub username.
+2. Choose the projects and technologies you want to showcase.
+3. Choose activity, history and a visual feel, then generate your design.
+4. Keep it, **Generate another**, or open **Customize** for the full Studio.
+5. Choose **Use this design** to export it or install it in your README.
+
+[Guided setup](docs/guided-setup.md) explains recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. Shared designs and the sample Studio open directly; existing account drafts resume without being overwritten by onboarding.
+
+Static SVG remains the default. Advanced workflows use the same scene engine:
 
 - [Offline interactive HTML](docs/interactive-html.md) with pan, zoom, selection and filters.
 - [Web component](docs/web-component.md) for framework-free embedding.
@@ -244,3 +254,7 @@ Selecting a node now updates **Download SVG**, the style preview, and the workfl
 ## Organization universes
 
 Load a GitHub organization automatically, or enter a username plus an organization to highlight shared projects and collaborators. Explore community, collaboration, technology and era views with bounded contributor scans and cached public data. See [organization setup, limits and data coverage](docs/organizations.md).
+
+## Temporal Stack
+
+Choose **Arrangement → Temporal Stack** to explore project history as a Stack, Cylinder, Cone, Sphere, Dome, Hourglass or Helix. Projects keep their identity ring points across years and form changes; drag onto an occupied point to swap placements. Try the **Development Sphere** or **Evolution Helix** preset. Static SVG, offline HTML and the web component share perspective geometry. Historical layers distinguish saved snapshots from creation-date views using current metadata. See the [Temporal Stack guide](docs/temporal-stack.md) for settings, evidence, camera APIs and limits.

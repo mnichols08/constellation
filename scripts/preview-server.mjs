@@ -4,6 +4,9 @@ import { readdirSync } from 'node:fs';
 import { fetchPinnedRepositories } from '../src/constellation.mjs';
 
 const allowed = new Map([
+  ...['onboarding-model', 'onboarding-generator', 'onboarding-ui'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['temporal-geometry', 'temporal-ring-layout', 'temporal-geometry-drawing', 'temporal-geometry-svg', 'temporal-geometry-runtime', 'temporal-ring-editor'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['temporal-stack', 'temporal-stack-model', 'temporal-stack-svg', 'temporal-stack-runtime', 'temporal-scene-layers', 'temporal-motion', 'temporal-svg-motion'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/hierarchy-model.mjs', ['../src/hierarchy-model.mjs', 'text/javascript']],
   ['/src/story-model.mjs', ['../src/story-model.mjs', 'text/javascript']],
   ['/src/studio-boot.mjs', ['../src/studio-boot.mjs', 'text/javascript']],
@@ -25,7 +28,7 @@ const allowed = new Map([
   ['/profiles/preview.html', ['../profiles/preview.html', 'text/html']],
   ['/src/studio-layout.css', ['../src/studio-layout.css', 'text/css']],
   ['/src/preview.css', ['../src/preview.css', 'text/css']],
-  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection', 'artifact-layouts', 'config-schema', 'config-store', 'design-randomizer', 'design-randomizer-v5', 'randomize-parts', 'layout-refinement', 'studio-randomize-motion', 'export-image', 'image-viewer', 'node-sizing', 'repository-filters', 'repository-picker', 'contributed-repositories', 'commit-constellation', 'seeded-random', 'share-link', 'studio-config-form', 'studio-design', 'studio-presets', 'studio-layout', 'themes', 'visual-mapping', 'starfield', 'coding-rhythm', 'coding-rhythm-svg', 'activity', 'activity-effects', 'github-activity', 'github-mark', 'sample-activity'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection', 'artifact-layouts', 'config-schema', 'config-store', 'design-randomizer', 'design-randomizer-v5', 'design-randomizer-v6', 'randomize-parts', 'layout-refinement', 'studio-randomize-motion', 'export-image', 'image-viewer', 'node-sizing', 'repository-filters', 'repository-picker', 'contributed-repositories', 'commit-constellation', 'seeded-random', 'share-link', 'studio-config-form', 'studio-design', 'studio-presets', 'studio-layout', 'themes', 'visual-mapping', 'starfield', 'coding-rhythm', 'coding-rhythm-svg', 'activity', 'activity-effects', 'github-activity', 'github-mark', 'sample-activity'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/wasm/constellation_core.js', ['../src/wasm/constellation_core.js', 'text/javascript']],
   ['/src/wasm/constellation_core_bg.wasm', ['../src/wasm/constellation_core_bg.wasm', 'application/wasm']],
   ...['constellation', 'mnichols08', 'mnichols08-dark', 'mnichols08-light'].map(name => [`/dist/${name}.svg`, [`../dist/${name}.svg`, 'image/svg+xml']]),

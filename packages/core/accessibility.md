@@ -9,3 +9,5 @@ Reduced motion pauses SVG animation and disables CSS/node/camera transitions. Ch
 Embedders should provide a useful page heading and record labels/descriptions, preserve visible control focus, and avoid custom CSS that hides content or reduces contrast. The component uses Shadow DOM for style isolation and composed events for host integration. Studio keeps ordinary design creation separate from optional layer/Story editors.
 
 Browser tests exercise keyboard operation, reduced-motion changes, mobile sizing, breadcrumb focus, Story previews and Chromium's accessibility tree. These automated checks complement manual assistive-technology testing; they are not a claim of universal screen-reader coverage.
+
+Temporal Stack provides labelled depth, rotation and tilt sliders, a year selector, Latest year and Reset perspective buttons. Year focus announces its evidence. Halos and camera changes are static with or without reduced motion. See [Temporal Stack](temporal-stack.md).

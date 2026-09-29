@@ -1,6 +1,7 @@
+import { renderSceneSVG } from './renderer-svg.mjs';
 import { commitHistoryOptions } from './commit-constellation.mjs';
 import { rhythmDefaults, resolveRhythmTimezone } from './coding-rhythm.mjs';
-import { renderConstellation, username } from './constellation.mjs';
+import { createScene, username } from './constellation.mjs';
 import { visualCSS } from './visual-style.mjs';
 import { sizingModes } from './node-sizing.mjs';
 import { historyFields } from './history/settings.mjs';
@@ -25,6 +26,9 @@ fields.add('nodeCap');
 fields.add('simplifyAbove');
 fields.add('layers');
 fields.add('timeline');
+fields.add('temporalStack');
+fields.add('temporalGeometry');
+fields.add('ringPlacements');
 fields.add('transforms');
 fields.add('mappings');
 fields.add('layoutEngine');
@@ -74,7 +78,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     if (Object.values(options[key]).some(point => !object(point) || Object.keys(point).some(key => !['x', 'y'].includes(key)) || Math.abs(point.x) > 10000 || Math.abs(point.y) > 10000)) throw new Error('Invalid manual coordinates.');
   }
   if (options.sizingMode !== undefined && !sizingModes.includes(options.sizingMode)) throw new Error('Invalid sizing mode.');
-  if (options.designCode !== undefined && (typeof options.designCode !== 'string' || !/^v[12345]:[a-z\d-]{1,100}$/i.test(options.designCode))) throw new Error('Invalid design code.');
+  if (options.designCode !== undefined && (typeof options.designCode !== 'string' || !/^v[123456]:[a-z\d-]{1,103}$/i.test(options.designCode))) throw new Error('Invalid design code.');
   if (options.nodeSize !== undefined && !sizingModes.includes(options.nodeSize)) throw new Error('Invalid node size mode.');
   if (options.majorMetric !== undefined && !['stars', 'updated'].includes(options.majorMetric)) throw new Error('Invalid major repository metric.');
   if (options.visualStyle) {
@@ -84,13 +88,13 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   }
   if ('codingRhythmTimezone' in options) options.codingRhythmTimezone = resolveRhythmTimezone(options.codingRhythmTimezone);
   // Reuse the rendering validators, including legacy fields and motion settings.
-  renderConstellation('validation', [], { ...options, layoutEngine: undefined, layoutOptions: undefined, ...(options.themePack && !options.themePack.preset ? { themePack: undefined } : {}) });
+  renderSceneSVG(createScene('validation', [], { ...options, layoutEngine: undefined, layoutOptions: undefined, ...(options.themePack && !options.themePack.preset ? { themePack: undefined } : {}) }), { interactive: true });
   return JSON.parse(JSON.stringify(options));
 }
 
 export function parseConfig(value, fallbackAccount = 'your-universe') {
   if (typeof value === 'string' && value.length > MAX_CONFIG_BYTES) throw new Error('Configuration is too large.');
-  const input = typeof value === 'string' ? /^v[1-5]:/i.test(value.trim()) ? randomizeDesign(value.trim()) : JSON.parse(value) : value;
+  const input = typeof value === 'string' ? /^v[1-6]:/i.test(value.trim()) ? randomizeDesign(value.trim()) : JSON.parse(value) : value;
   if (!object(input)) throw new Error('Configuration must be a JSON object.');
   inspect(input);
   if ('version' in input && ![1, 6, CONFIG_VERSION].includes(input.version)) throw new Error('Unsupported configuration version. Use constellation migrate for legacy design codes or configs.');

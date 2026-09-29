@@ -1,4 +1,28 @@
 /* A bounded workspace: controls scroll independently of the live canvas. */
+html[data-entry="result"] body.studio-ready .studio-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: clamp(320px, 60vh, 720px); }
+html[data-entry="result"] #graph-explorer, html[data-entry="install"] #graph-explorer { display: none; }
+html[data-entry="result"] #guided-setup { padding: 16px 24px; margin: 12px auto; }
+html[data-entry="result"] #guided-setup h2 { margin: 8px 0; }
+html[data-entry="landing"] .observatory > :not(.status-bar), html[data-entry="guided"] .observatory > :not(.status-bar) { display: none; }
+html[data-entry="landing"] .customization, html[data-entry="landing"] .about, html[data-entry="landing"] .editor-panel, html[data-entry="landing"] #style-preview { display: none; }
+html[data-entry="result"] .controls, html[data-entry="result"] .design-launcher, html[data-entry="install"] .design-launcher, html[data-entry="install"] .studio-tabs { display: none; }
+html[data-entry="install"] .design-launcher { display: flex; justify-content: flex-end; }
+html[data-entry="install"] .design-launcher > :not(.download) { display: none; }
+html[data-entry="result"] .studio-body { grid-template-columns: minmax(0, 1fr); }
+html[data-entry="result"] .studio-about, html[data-entry="guided"] .studio-about, html[data-entry="install"] .studio-about { display: none; }
+#guided-setup { max-width: 780px; margin: 20px auto; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+#guided-setup[hidden] { display: none; }
+#guided-setup h2 { font-size: 26px; margin: 12px 0 20px; }
+#guided-setup fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 16px 0; padding: 16px; }
+#guided-setup fieldset label { display: flex; gap: 10px; padding: 10px 0; align-items: center; }
+#guided-setup input:not([type="checkbox"]):not([type="radio"]) { display: block; width: 100%; min-width: 0; margin: 8px 0; padding: 10px; }
+#guided-setup .repository-picker-list { max-height: 330px; overflow: auto; }
+#guided-setup .repository-picker-list label { display: flex; gap: 10px; padding: 9px 0; overflow-wrap: anywhere; }
+#guided-setup small { color: var(--muted); }
+.guided-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+#guided-setup button { padding: 10px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--accent); color: var(--page); cursor: pointer; }
+#guided-setup button:disabled { opacity: .55; cursor: wait; }
+@media(max-width:600px) { #guided-setup { padding: 16px; } #guided-setup h2 { font-size: 22px; } html[data-entry="install"] .studio-body { display: block; } }
 #studio-loading, #open-studio { display: none; }
 html[data-entry="landing"] #open-studio { display: inline-block; margin-top: 16px; }
 html[data-entry="studio"] body:not(.studio-ready) main > :not(#studio-loading) { display: none; }

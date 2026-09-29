@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.0 — 2026-09-29
+
+- Introduce onboarding-first setup with project recommendations, language/topic choices, optional activity and history, constrained regeneration, export and full Studio customization.
+- Add Temporal Universe stacks and true 3D forms, ring placement, temporal motion and compatible SVG, interactive HTML and component rendering.
+- Add seeded v6 temporal design recipes while preserving previous recipe formats and config v7 compatibility.
+- Restore background stars and classic dust in temporal scenes; keep the project credit visible independently of annotation visibility and opacity.
+- Preserve account drafts, shared views and repository discovery; load guided activity on demand with recoverable failures and no fabricated account data.
+- Rebuild Core and web-component packages at 3.1.0 and document guided setup and temporal geometry.
+- Validate 297 JavaScript tests, including browser onboarding, export, temporal rendering and external package consumers.
+
 ## 3.0.0 — 2026-09-27
 
 - Declare the scene-based platform stable: Scene/Renderer/Layout/Web Component/Story v1, Plugin/Source v2, Theme v2 and config v7.

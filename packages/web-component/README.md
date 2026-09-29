@@ -39,3 +39,5 @@ Changing `src`, supplying a new scene/config, or disconnecting cancels in-flight
 Source caching retains at most four JSON documents, each at most 1 MiB; larger valid documents are used without retention, and documents above 32 MiB are rejected. `cacheStatistics` reports source and computation counts. `await reload()` clears source caching and reloads the current URL. ResizeObserver reports `view-resize` without disturbing the camera.
 
 Web Component API v1 is exported as `WEB_COMPONENT_API_VERSION = 1`. Legacy v6 configuration remains accepted. Story, timeline and hierarchy methods/events are documented in their dedicated guides. Use a unique element ID when opting into URL history.
+
+Temporal scenes also expose `setTemporalView`, `focusYear`, `focusTemporalNode` and `resetTemporalView`. See [Temporal Stack](temporal-stack.md).

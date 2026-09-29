@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { randomizeDesign, newDesignCode, randomizeMatchingDesign } from '../src/design-randomizer.mjs';
-import { motionParts, v5Parameters } from '../src/design-randomizer-v5.mjs';
+import { randomizeDesign, randomizeMatchingDesign } from '../src/design-randomizer.mjs';
+import { motionParts, v5Parameters, newV5Code as newDesignCode } from '../src/design-randomizer-v5.mjs';
 import { renderConstellation, graphNodes } from '../src/constellation.mjs';
 import { parseConfig, serializeConfig } from '../src/config-schema.mjs';
 import { encodeShare, decodeShare } from '../src/share-link.mjs';
