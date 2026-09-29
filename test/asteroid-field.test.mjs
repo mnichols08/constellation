@@ -17,7 +17,7 @@ test('commit asteroids are deterministic, tied to real commit links and exclude 
   const svg = asteroidFieldMarkup(options);
   assert.equal((svg.match(/class="commit-asteroid"/g) || []).length, 1);
   assert.match(svg, new RegExp(`/commit/${commit.sha}`));
-  assert.match(svg, /animateMotion/);
+  assert.doesNotMatch(svg, /animateMotion|commit-ship|commit-flight-path/);
   assert.equal(svg, asteroidFieldMarkup(options));
   assert.equal(asteroidFieldMarkup({ ...options, snapshot: undefined }), '');
   assert.equal(asteroidFieldMarkup({ ...options, id: 'other/repo' }), '');
@@ -29,7 +29,7 @@ test('fields follow repository motion and retain reduced-motion and static expor
   const svg = renderConstellation('example', repos, { ...settings, ringAnimation: { enabled: true } });
   assert.match(svg, /<svg class="activity-asteroid-field"[^>]*><animate attributeName="x"/);
   assert.match(svg, /prefers-reduced-motion:reduce/);
-  assert.match(svg, /commit-ship-still/);
+  assert.doesNotMatch(svg, /commit-ship|commit-flight-path/);
   assert.doesNotMatch(svg, /NaN|Infinity|<script/);
   const still = renderConstellation('example', repos, { ...settings, animate: false });
   assert.doesNotMatch(still, /<animateMotion/);
