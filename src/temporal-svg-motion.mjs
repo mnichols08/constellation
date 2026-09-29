@@ -15,18 +15,26 @@ export function animateTemporalSVG(svg, scene) {
   // A common cycle keeps independent parts in phase at the loop boundary.
   const gcd = (a, b) => b ? gcd(b, a % b) : a;
   let milliseconds = 1;
-  for (const period of periods) { const value = Math.round(period * 1000); milliseconds = milliseconds / gcd(milliseconds, value) * value; }
-  // Complex asynchronous cycles are still available in the offline runtime;
-  // SVG sampling is bounded rather than allocating an unbounded animation.
-  if (milliseconds > 600000) return svg;
-  const duration = milliseconds / 1000, count = Math.min(144, Math.max(24, Math.ceil(duration / Math.min(...periods) * 16)));
+  for (const period of periods) {
+    const value = Math.round(period * 1000);
+    milliseconds = milliseconds / gcd(milliseconds, value) * value;
+    if (milliseconds > 600000) break;
+  }
+  // Independent durations may have a common cycle lasting hours. Keep those
+  // SVGs moving with a bounded forward-and-back excerpt, closing the loop
+  // without a jump. Interactive HTML continues along the exact live timeline.
+  const excerpt = milliseconds > 600000;
+  const duration = excerpt ? 120 : milliseconds / 1000;
+  const intervals = Math.ceil(duration / Math.min(...periods) * 16);
+  const count = Math.min(144, Math.max(24, excerpt ? Math.ceil(intervals / 2) * 2 : intervals));
   const values = new Map(), number = value => Number(value.toFixed(2));
   const add = (key, attribute, value) => {
     if (!values.has(key)) values.set(key, { attribute, values: [] });
     values.get(key).values.push(value);
   };
   for (let i = 0; i <= count; i++) {
-    const drawing = temporalGeometryDrawing(scene, { elapsed: i * duration / count });
+    const elapsed = (excerpt ? Math.min(i, count - i) : i) * duration / count;
+    const drawing = temporalGeometryDrawing(scene, { elapsed });
     for (const item of drawing.items) {
       if (item.kind === 'dust') continue;
       if (item.kind === 'node') {
