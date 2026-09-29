@@ -91,7 +91,8 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), true);
   await cdp('Page.reload');
   for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
-  assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'studio', 'subsequent visits open the studio');
+  assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'landing', 'returning visits keep customization opt-in');
+  await evaluate(`document.querySelector('#open-studio').click()`);
   assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), true);
   for (const [mode, accent, sky] of [['dark', '#c7d6ff', '#080e20'], ['light', '#304e8a', '#f7f8fc']]) {
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: mode }] });
@@ -135,6 +136,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     assert.ok(result.maxError < .2, 'curved endpoints follow independently animated nodes: ' + JSON.stringify(result));
     assert.ok(result.curved > 0, 'animated connections retain curvature');
   }
+  await evaluate(`document.querySelector('#open-studio').click()`);
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.click = id => document.getElementById(id).click();`);
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
   await evaluate(`input('design-activityEffect', 'asteroids');`);
@@ -420,10 +422,13 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await cdp('Page.navigate', { url: share });
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#design-seed')?.value==='shared'`)) break; await delay(100); }
   assert.equal(await evaluate(`document.querySelector('#design-nodeSize').value`), 'age');
+  assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'result');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.controls')).display`), 'none');
   await delay(500);
   await cdp('Page.navigate', { url: base });
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#design-seed')?.value==='shared'`)) break; await delay(100); }
   assert.equal(await evaluate(`document.querySelector('#design-seed').value`), 'shared');
+  await evaluate(`document.querySelector('#open-studio').click()`);
   await evaluate(`window.input = (id,value) => { const el = document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); }; window.account = name => { document.querySelector('#username').value=name; document.querySelector('#account-form').requestSubmit(); };account('tester');`);
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#map-title').textContent.includes('@tester')`)) break; await delay(50); }
   assert.equal(apiCalls, 3);

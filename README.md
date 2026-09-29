@@ -7,10 +7,10 @@ Turn developer and project data into interactive maps, visual stories, embedded 
 1. Open [Constellation](https://mnichols08.github.io/constellation/) and enter your GitHub username.
 2. Choose the projects and technologies you want to showcase.
 3. Choose activity, history and a visual feel, then generate your design.
-4. Keep it, **Generate another**, or open **Customize** for the full Studio.
+4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
 5. Choose **Use this design** to export it or install it in your README.
 
-[Guided setup](docs/guided-setup.md) explains recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. Shared designs and the sample Studio open directly; existing account drafts resume without being overwritten by onboarding.
+[Guided setup](docs/guided-setup.md) explains recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. Shared designs and existing account drafts open as previews; customization is always opt-in. **Saved constellations** reopens your named designs from this browser. The sample Studio remains an explicit shortcut.
 
 Static SVG remains the default. Advanced workflows use the same scene engine:
 

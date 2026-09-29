@@ -106,7 +106,7 @@ export function mountStudioLayout() {
   function fitWorkspace() {
     const top = body.getBoundingClientRect().top + window.scrollY;
     const footer = $('.status-bar').getBoundingClientRect().height;
-    body.style.setProperty('--studio-height', `${Math.max(300, window.innerHeight - top - footer - 12)}px`);
+    body.style.setProperty('--studio-height', `${Math.max(220, window.innerHeight - top - footer - 12)}px`);
   }
   const sizing = new ResizeObserver(fitWorkspace);
   for (const element of [$('.masthead'), $('.intro'), $('.studio-header'), launcher, $('.status-bar')]) sizing.observe(element);

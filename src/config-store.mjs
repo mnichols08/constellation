@@ -15,6 +15,12 @@ export function createConfigStore(storage) {
   const valid = (value, account) => { try { const result = parseConfig(value, account); return result.account.toLowerCase() === account.toLowerCase() ? result : null; } catch { return null; } };
   const name = value => { const result = value.trim(); if (!result || result.length > 80) throw new Error('Preset names need 1–80 characters.'); return result; };
   return {
+    library() {
+      try {
+        const accounts = Array.from({ length: storage?.length || 0 }, (_, index) => storage.key(index)).filter(key => key?.startsWith('constellation-config-v1:')).map(key => key.slice('constellation-config-v1:'.length));
+        return accounts.flatMap(account => read(account).presets.filter(preset => valid(preset.config, account)).map(preset => ({ account, ...preset }))).sort((a, b) => a.name.localeCompare(b.name) || a.account.localeCompare(b.account));
+      } catch { return []; }
+    },
     draft: account => valid(read(account).draft, account),
     saveDraft(account, options) { return write(account, { ...read(account), draft: JSON.parse(serializeConfig(account, options)) }); },
     reset(account) { const value = read(account); delete value.draft; return write(account, value); },

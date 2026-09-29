@@ -1,6 +1,9 @@
 import { temporalGeometryMath } from './temporal-geometry.mjs';
 
 export function mountTemporalRingEditor(svg, onMove, previewMove, snap) {
+  // Connections can cross a star's center after depth sorting. They carry no
+  // editor actions and must not intercept pointer events intended for nodes.
+  for (const path of svg.querySelectorAll('.temporal-bridge,.shared-language')) path.style.pointerEvents = 'none';
   // Editing uses the stable final geometry rather than chasing moving targets.
   svg.pauseAnimations?.(); svg.setCurrentTime?.(0);
   const data = JSON.parse(svg.querySelector('#temporal-geometry-data').textContent);

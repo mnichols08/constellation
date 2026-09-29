@@ -8,8 +8,8 @@
 (() => {
   let visited = false;
   try { visited = localStorage.getItem('constellation:visited') === '1'; } catch {}
-  const params = new URLSearchParams(location.search);
-  document.documentElement.dataset.entry = visited || ['user', 'organization', 'view', 'design', 'preset'].some(key => params.has(key)) ? 'studio' : 'landing';
+  document.documentElement.dataset.returning = String(visited);
+  document.documentElement.dataset.entry = 'landing';
 })();
 </script>
 <link rel="stylesheet" href="./src/preview.css">
@@ -42,7 +42,7 @@
 </details>
 </section>
 <section class="observatory" aria-label="Constellation studio">
-<div class="studio-header"><div><span class="live-dot"></span><span id="map-title">The sample sky</span><span id="sample-badge" class="badge">DEMO</span></div><span class="chart-number">CELESTIAL ATLAS / 001</span></div>
+<div class="studio-header"><div><span class="live-dot"></span><span id="map-title">The sample sky</span><span id="sample-badge" class="badge">DEMO</span></div><label class="constellation-title-control" for="constellation-title">Title<input id="constellation-title" maxlength="80" placeholder="Name your constellation"></label><button id="save-constellation" type="button" class="secondary">Save constellation</button></div>
 <section class="graph-filters" aria-label="Choose languages and topics">
   <div class="filter-heading"><h2>Make your own star graph</h2><label class="visual-toggle" for="show-other">Include Other<input id="show-other" type="checkbox"></label></div>
   <p>Choose any number of languages and topics from the project pool. Within each row, matches use “any”; across rows, projects must match both. Other means no detected language.</p>

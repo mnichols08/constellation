@@ -29,6 +29,13 @@ test('unsupported history and unavailable activity safely compile to current, qu
   const result = generateGuidedDesign('alice', small, intent, { seed: 'quiet', year: 2026, activityAvailable: false });
   assert.equal(result.history, 'current'); assert.equal(result.activity, 'none'); assert.equal(result.config.options.contributionOrbit.enabled, false);
 });
+test('skipping or clearing topics leaves selected projects visible', () => {
+  for (const topics of [null, []]) {
+    const result = generateGuidedDesign('alice', repos, { ...defaultIntent(repos), topics, activity: 'none' }, { seed: 'skip-topics', year: 2026 });
+    assert.equal(result.config.options.topics, null);
+    assert.deepEqual(result.config.options.includeRepos, defaultIntent(repos).projects);
+  }
+});
 test('intent storage validates, isolates accounts, and tolerates unavailable storage', () => {
   const values = new Map(), store = intentStore({ getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) });
   const intent = defaultIntent(repos); store.save('Alice', intent); assert.deepEqual(store.read('alice'), intent); assert.equal(store.read('bob'), null);
