@@ -100,16 +100,17 @@ export function mountStudioLayout() {
   $('.intro h1').textContent = 'Your code, written in the stars.';
   $('#account-form button').textContent = 'Build constellation';
   document.body.classList.add('studio-ready');
+  $('.preview-action-buttons').append($('#open-constellation-library'));
   activate('look');
   // Header wrapping and system fonts vary across platforms. Measure the space
   // above/below the canvas instead of assuming a fixed toolbar height.
   function fitWorkspace() {
     const top = body.getBoundingClientRect().top + window.scrollY;
-    const footer = $('.status-bar').getBoundingClientRect().height;
+    const footer = $('.status-bar').getBoundingClientRect().height + $('.preview-actions').getBoundingClientRect().height;
     body.style.setProperty('--studio-height', `${Math.max(220, window.innerHeight - top - footer - 12)}px`);
   }
   const sizing = new ResizeObserver(fitWorkspace);
-  for (const element of [$('.masthead'), $('.intro'), $('.studio-header'), launcher, $('.status-bar')]) sizing.observe(element);
+  for (const element of [$('.masthead'), $('.intro'), $('.studio-header'), launcher, $('.preview-actions'), $('.status-bar')]) sizing.observe(element);
   window.addEventListener('resize', fitWorkspace);
   fitWorkspace();
   function reveal(element) {

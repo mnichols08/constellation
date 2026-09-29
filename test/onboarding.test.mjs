@@ -49,3 +49,15 @@ test('guided account load postpones optional activity and reuses cached reposito
   await data.loadActivity('alice'); assert.equal(calls.filter(url => url.includes('/events')).length, 1);
   await data.load('alice', { maxRepos: 100 }, { activity: false }); assert.equal(calls.filter(url => url.includes('/repos?')).length, 1);
 });
+test('guided entry loads metadata first and hydrates only chosen projects', async () => {
+  const calls = [], metadata = repos.map(({ languages, ...repo }) => ({ ...repo, language: 'Rust' }));
+  const data = createPreviewData({ fetchImpl: async url => {
+    calls.push(url);
+    return Response.json(url.endsWith('/languages') ? { Rust: 100 } : url.includes('/repos?') ? metadata : { login: 'alice', type: 'User' });
+  } });
+  await data.load('alice', { maxRepos: 100 }, { activity: false, languages: false });
+  assert.equal(calls.some(url => url.endsWith('/languages')), false);
+  await data.load('alice', { maxRepos: 1, includeRepos: ['alice/r0'] }, { activity: false });
+  assert.deepEqual(calls.filter(url => url.endsWith('/languages')), ['https://api.github.com/repos/alice/r0/languages']);
+  assert.equal(calls.some(url => url.includes('/events')), false);
+});

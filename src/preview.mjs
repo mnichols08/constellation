@@ -554,7 +554,6 @@ form.addEventListener('submit', event => {
       loadAccount(username(organization), false, 'all', { account: username(organization), options: { organizationScope: settings.organizationScope, organization: discovery, accountType: 'organization', organizationUser: name, organizationView: 'collaboration', arrangement: 'community-galaxy', maxRepos: 100, showOther: true } }, { previewOnly: document.documentElement.dataset.entry !== 'studio' });
     }
     else if (document.documentElement.dataset.entry === 'studio') loadAccount(name);
-    else if (studio.store.draft(name)) loadAccount(name, false, 'all', studio.store.draft(name), { previewOnly: true });
     else startGuided(name);
   }
   catch (error) { message(error.message, true); }
@@ -575,10 +574,16 @@ function showSavedPreview() {
 async function startGuided(name) {
   if (loading) return;
   loading = true; form.querySelector('button').disabled = true;
+  document.documentElement.dataset.entry = 'guided';
+  guidedHost ??= document.createElement('section'); guidedHost.id = 'guided-setup'; guidedHost.hidden = false; guidedHost.setAttribute('aria-label', 'Create your constellation'); guidedHost.setAttribute('aria-busy', 'true');
+  $('.observatory').before(guidedHost);
+  const loadingTitle = document.createElement('h2'); loadingTitle.tabIndex = -1; loadingTitle.textContent = `Setting up @${name}`;
+  const loadingStatus = document.createElement('p'); loadingStatus.setAttribute('role', 'status'); loadingStatus.textContent = 'Loading your public projects…';
+  guidedHost.replaceChildren(loadingTitle, loadingStatus); loadingTitle.focus();
   message('Loading your public projects…');
   try {
     const options = { ...presetOptions('project-map'), maxRepos: 100, includeForks: true };
-    const next = await data.load(name, options, { activity: false });
+    const next = await data.load(name, options, { activity: false, languages: false });
     if (!next.length) throw Error('No public projects found. Try another account.');
     studio.flush(); const previousDraft = studio.store.draft(name); let generated = false;
     account = name; repositories = next; isSample = false; loadedSource = 'all';
@@ -589,6 +594,12 @@ async function startGuided(name) {
     $('.observatory').before(guidedHost);
     mountOnboarding(guidedHost, { account, repositories: () => repositories, year: new Date().getUTCFullYear(), initial: intents.read(account),
       findRepositories: findGuidedRepositories,
+      prepareProjects: async (projects, progress) => {
+        loading = true; form.querySelector('button').disabled = true;
+        progress('Loading technologies for your selected projects…');
+        try { repositories = await data.load(account, { ...options, includeRepos: projects, maxRepos: projects.length }, { activity: false, onProgress: (done, total) => progress(`Loading technologies… ${done}/${total}`) }); }
+        finally { loading = false; form.querySelector('button').disabled = false; }
+      },
       save: intent => intents.save(account, intent),
       customize: () => { if (!generated && previousDraft) applyOptions(previousDraft.options); enterStudio(); render(); },
       useDesign: () => { document.documentElement.dataset.entry = 'install'; workspace.reveal($('#download-config')); },
@@ -620,8 +631,12 @@ async function startGuided(name) {
       },
     });
     message(`Loaded ${repositories.length} public projects. Choose what to showcase.`);
-  } catch (error) { message(error.message, true); }
-  finally { loading = false; form.querySelector('button').disabled = false; }
+  } catch (error) {
+    loadingStatus.textContent = error.message; loadingStatus.setAttribute('role', 'alert');
+    const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Try again'; retry.addEventListener('click', () => startGuided(name)); guidedHost.append(retry);
+    message(error.message, true);
+  }
+  finally { loading = false; guidedHost.removeAttribute('aria-busy'); form.querySelector('button').disabled = false; }
 }
 $('#load-projects').addEventListener('click', () => loadAccount(account));
 $('#refresh-data').addEventListener('click', () => loadAccount(account, true));
@@ -786,10 +801,14 @@ studio = mountStudioDesign({ host: designHost, changed: () => { try { render(); 
 $('#load-organization').addEventListener('click', () => loadAccount(account));
 $('#open-studio').disabled = false;
 $('#open-studio').addEventListener('click', () => { enterStudio(); $('#username').focus(); });
-const guidedRestart = document.createElement('button'); guidedRestart.type = 'button'; guidedRestart.className = 'secondary'; guidedRestart.textContent = 'Guided setup'; guidedRestart.addEventListener('click', () => { if (isSample) { $('#username').focus(); message('Enter your GitHub username to begin guided setup.'); } else { studio.flush(); startGuided(account); } });
+const guidedRestart = document.createElement('button'); guidedRestart.id = 'start-guided-setup'; guidedRestart.type = 'button'; guidedRestart.className = 'secondary'; guidedRestart.textContent = 'Guided setup'; guidedRestart.addEventListener('click', () => {
+  if (isSample && !form.elements.username.value.trim()) { document.documentElement.dataset.entry = 'landing'; if (guidedHost) guidedHost.hidden = true; form.elements.username.focus(); form.elements.username.reportValidity(); return; }
+  try { const name = isSample ? username(form.elements.username.value) : account; studio.flush(); startGuided(name); }
+  catch (error) { message(error.message, true); form.elements.username.focus(); }
+});
 $('.design-launcher').append(guidedRestart);
 imageViewer = mountImageViewer($('.design-launcher'));
-$('.studio-header').append($('#view-fullscreen'));
+$('.preview-action-buttons').append($('#view-fullscreen'));
 $('#constellation-title').addEventListener('change', () => { importedOptions.title = $('#constellation-title').value.trim(); render(); });
 $('#save-constellation').addEventListener('click', () => {
   try {

@@ -24,7 +24,7 @@
 <p class="eyebrow"><span></span> EVERY PROJECT HAS A PLACE IN YOUR SKY</p>
 <h1>Your code, written<br>in the <em>stars.</em></h1>
 <p class="lede">Choose your projects, answer a few questions,<br>and make a constellation that’s uniquely yours.</p>
-<form id="account-form"><label class="sr-only" for="account-mode">Constellation for</label><select id="account-mode" aria-label="Constellation for"><option value="auto">Account</option><option value="organization">Organization</option><option value="paired">User in organization</option></select><label class="sr-only" for="username">GitHub account name or URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Username or organization" required autocapitalize="none" autocomplete="off" spellcheck="false"><label class="sr-only" for="organization-account">Organization to connect with this user</label><input id="organization-account" placeholder="Organization name" hidden autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Build constellation <span aria-hidden="true">&#8599;</span></button></form>
+<form id="account-form"><label class="sr-only" for="account-mode">Constellation for</label><select id="account-mode" aria-label="Constellation for"><option value="auto">Account</option><option value="organization">Organization</option><option value="paired">User in organization</option></select><label class="sr-only" for="username">GitHub account name or URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Username or organization" required autocapitalize="none" autocomplete="off" spellcheck="false"><label class="sr-only" for="organization-account">Organization to connect with this user</label><input id="organization-account" placeholder="Organization name" hidden autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Start guided setup <span aria-hidden="true">&#8599;</span></button></form>
 <button id="open-studio" type="button" class="secondary" disabled>Explore the sample studio</button>
 <p class="form-note">Load once, customize freely. Project data stays saved in this tab, including after a reload. Only loading or refreshing data uses GitHub API requests.</p>
 <details id="token-help" class="token-help">
@@ -42,7 +42,7 @@
 </details>
 </section>
 <section class="observatory" aria-label="Constellation studio">
-<div class="studio-header"><div><span class="live-dot"></span><span id="map-title">The sample sky</span><span id="sample-badge" class="badge">DEMO</span></div><label class="constellation-title-control" for="constellation-title">Title<input id="constellation-title" maxlength="80" placeholder="Name your constellation"></label><button id="save-constellation" type="button" class="secondary">Save constellation</button></div>
+<div class="studio-header"><div><span class="live-dot"></span><span id="map-title">The sample sky</span><span id="sample-badge" class="badge">DEMO</span></div></div>
 <section class="graph-filters" aria-label="Choose languages and topics">
   <div class="filter-heading"><h2>Make your own star graph</h2><label class="visual-toggle" for="show-other">Include Other<input id="show-other" type="checkbox"></label></div>
   <p>Choose any number of languages and topics from the project pool. Within each row, matches use “any”; across rows, projects must match both. Other means no detected language.</p>
@@ -94,6 +94,7 @@
 <button type="button" id="copy-markdown" class="secondary">Copy README snippet</button><p class="export-note">Made for your README.<br>Beautiful anywhere.</p>
 </aside>
 </div>
+<section class="preview-actions" aria-label="Save and view your constellation"><label class="constellation-title-control" for="constellation-title">Constellation title<input id="constellation-title" maxlength="80" placeholder="Name your constellation"></label><div class="preview-action-buttons"><button id="save-constellation" type="button" class="secondary">Save constellation</button></div></section>
 <div class="status-bar"><p id="status" role="status" aria-live="polite">An imagined collection of projects. Enter your username to discover your own.</p><button id="reset-project-filters" type="button" class="secondary" hidden>Reset project filters</button><span aria-hidden="true">✧</span></div>
 </section>
 <section class="customization" aria-label="CSS and daily workflow">

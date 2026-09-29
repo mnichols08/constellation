@@ -13,7 +13,7 @@ The shared project picker also finds public repositories you contributed to. By 
 
 ## Keep, regenerate, or customize
 
-The preview toolbar includes **View full screen**, with zoom, pan and an Escape/Close action. Replace the generic chart number with your own **Title**, then choose **Save constellation**. **Saved constellations** in the page header opens your local library, including on a later visit. Save different titles to keep different designs; saving the same title updates that design. The library reuses Studio presets, supports up to 30 named designs per account, and can open or delete them. These saves live only in this browser's localStorage, so export config JSON for backup or another device.
+The action area below the preview includes **View full screen**, with zoom, pan and an Escape/Close action. Replace the generic chart number with your own **Title**, then choose **Save constellation**. **Saved constellations** beside the preview actions opens your local library. It is also available from the landing page on a later visit. Save different titles to keep different designs; saving the same title updates that design. The library reuses Studio presets, supports up to 30 named designs per account, and can open or delete them. These saves live only in this browser's localStorage, so export config JSON for backup or another device.
 
 **Generate another** changes the seed and visual interpretation while retaining the selected projects, language/topic filters, activity preference, history preference and motion policy. Surprise answers permit variation within that preference. A fixed seed, year, repository snapshot and answers produce the same ordinary config.
 
@@ -23,7 +23,7 @@ The preview toolbar includes **View full screen**, with zoom, pan and an Escape/
 
 ## Returning and shared views
 
-The existing `constellation:visited` flag records returning visits, but every ordinary visit starts at the guided entry. Entering an account with a saved draft restores its preview with Customize available on demand. An unfinished guided setup with saved answers can be resumed by entering the same account. The sample Studio remains an explicit shortcut. Shared configs, presets and design links open their previews without showing the customization screen; imports, timelines and stories retain their existing content.
+The existing `constellation:visited` flag records returning visits, but every ordinary visit starts at the guided entry. Entering an account starts guided setup even when a draft exists; starting the questions does not overwrite it. Open Saved constellations to return directly to a named design, or choose Open full Studio during setup to restore the account draft. An unfinished guided setup with saved answers can be resumed by entering the same account. The sample Studio remains an explicit shortcut. Shared configs, presets and design links open their previews without showing the customization screen; imports, timelines and stories retain their existing content.
 
 Answers live in a separate validated, versioned local browser record for each account (`constellation-intent-v1`). They are not added to Scene JSON, config exports, workflows or renderer inputs. Designs continue to use the existing draft and preset store. Clearing browser storage removes local drafts and answers; blocked storage does not prevent generation, but download JSON to keep your work.
 
