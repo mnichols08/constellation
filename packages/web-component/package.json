@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -9,7 +9,7 @@
     "temporal-stack.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.1.1"
+    "@constellation/core": "3.1.2"
   },
   "license": "UNLICENSED"
 }

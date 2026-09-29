@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.2 — 2026-09-29
+
+- Fix temporal SVG previews and exports silently becoming static when ring, floating and perspective animation periods have a long shared cycle.
+- Use a bounded forward-and-back SVG loop for those combinations while interactive HTML retains continuous motion; preserve reduced-motion and animation-off behavior.
+- Verify automatic movement in the Studio browser preview and standalone SVG, loop continuity and the existing offline motion controls.
+- Rebuild Core and web-component packages at 3.1.2.
+
 ## 3.1.1 — 2026-09-29
 
 - Start guided setup immediately from account entry, including accounts with an existing draft, without overwriting the saved design.

@@ -9,6 +9,8 @@ import { temporalGeometryDrawing } from '../src/temporal-geometry-drawing.mjs';
 import { aggregateActivity } from '../src/activity.mjs';
 import { deriveCodingRhythm } from '../src/coding-rhythm.mjs';
 import { openBrowser, browser } from '../scripts/browser-harness.mjs';
+import { once } from 'node:events';
+import { createPreviewServer } from '../scripts/preview-server.mjs';
 
 const records = Array.from({ length: 8 }, (_, i) => ({ name: `p${i}`, full_name: `motion/p${i}`, language: 'Rust', created_at: '2018-01-01', stargazers_count: 80 - i }));
 const options = { referenceDate: '2026-09-01', arrangement: 'temporal-stack', temporalGeometry: { shape: 'sphere' }, starfield: { mode: 'space', twinkle: true }, animate: true,
@@ -16,6 +18,40 @@ const options = { referenceDate: '2026-09-01', arrangement: 'temporal-stack', te
   ringAnimation: { enabled: true, speeds: [0, .5, 0, 0], modes: ['spin', 'spin', 'spin', 'spin'] },
   perspective: { enabled: true, animate: false, duration: 30, range: 5 } };
 const sceneFor = extra => createScene('motion', records, { ...options, ...extra });
+
+test('unrelated animation periods produce a bounded, seamless SVG loop instead of a still image', () => {
+  const scene = sceneFor({ perspective: { enabled: true, animate: true, duration: 31, range: 15 } });
+  const svg = renderSceneSVG(scene);
+  const animations = [...svg.matchAll(/<(?:animate|animateTransform) data-temporal-motion=""[^>]*>/g)];
+  assert.ok(animations.length > 0);
+  for (const [tag] of animations) {
+    assert.match(tag, /dur="120s"/);
+    const samples = tag.match(/values="([^"]+)"/)[1].split(';');
+    assert.ok(samples.length <= 145);
+    assert.equal(samples[0], samples.at(-1));
+  }
+  assert.ok(animations.some(([tag]) => new Set(tag.match(/values="([^"]+)"/)[1].split(';')).size > 1));
+  assert.equal(svg, renderSceneSVG(scene));
+  assert.doesNotMatch(renderSceneSVG(sceneFor({ ...scene.presentation.options, animate: false })), /data-temporal-motion/);
+});
+
+test('Studio temporal preview starts moving with unrelated durations and motion unlocked for editing', { skip: !browser, timeout: 45000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, cdp, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
+  await waitFor(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+  await evaluate(`document.querySelector('#open-studio').click();
+    for (const [id, value] of Object.entries({arrangement:'temporal-stack','temporal-form':'sphere','perspective-duration':'31','perspective-range':'15','ring-speed-0':'0.5','ring-speed-1':'0.5','ring-speed-2':'0.5','ring-speed-3':'0.5'})) document.getElementById(id).value=value;
+    for (const id of ['animate','animate-rings','perspective-enabled','perspective-animate']) document.getElementById(id).checked=true;
+    document.querySelector('#lock-stars').checked=false;
+    document.querySelector('#arrangement').dispatchEvent(new Event('input'));`);
+  await waitFor(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-temporal-motion]'))`);
+  await evaluate(`window.svg=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg'); window.node=svg.querySelector('.repository'); window.initial=node.getCTM().e`);
+  assert.equal(await evaluate('svg.animationsPaused()'), false);
+  await waitFor('Math.abs(node.getCTM().e-initial) > .1');
+  assert.deepEqual(errors, []);
+});
 
 test('ring permissions move only attached identities and keep trail/edge endpoints exact', () => {
   const scene = sceneFor(), before = temporalGeometryDrawing(scene), after = temporalGeometryDrawing(scene, { elapsed: 15 });
@@ -85,7 +121,7 @@ test('offline motion pauses for reduced motion and composes with form changes, f
 test('standalone animated SVG projects moving ring nodes and offers a reduced-motion image fallback', { skip: !browser, timeout: 30000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'temporal-svg-motion-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  await writeFile(join(directory, 'index.svg'), renderSceneSVG(sceneFor()));
+  await writeFile(join(directory, 'index.svg'), renderSceneSVG(sceneFor({ perspective: { enabled: true, animate: true, duration: 31, range: 15 } })));
   const { cdp, evaluate, waitFor, errors } = await openBrowser(t, pathToFileURL(join(directory, 'index.svg')).href);
   await waitFor(`Boolean(document.querySelector('[data-temporal-motion]'))`);
   await evaluate(`window.svg=document.querySelector('svg'); svg.pauseAnimations(); svg.setCurrentTime(0); window.node=[...document.querySelectorAll('.repository')].find(node=>node.dataset.nodeId==='motion/p0'); window.initial=node.getCTM().e; svg.setCurrentTime(15)`);

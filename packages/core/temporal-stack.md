@@ -212,8 +212,10 @@ rhythm and contribution orbit render once as reference-date observations.
 
 Standalone SVG uses script-free sampled projected motion when the independent
 periods share a cycle of at most ten minutes, with at most 144 sample intervals.
-More complex asynchronous cycles retain static spatial geometry in SVG and run
-in interactive HTML. SVG images provide a reduced-motion fallback; explicitly
+Longer asynchronous cycles play the first minute forward and then backward in a
+bounded two-minute SVG loop, keeping geometry moving without a jump at the loop
+boundary. Interactive HTML retains continuous motion at the configured speeds.
+SVG images provide a reduced-motion fallback; explicitly
 `animate: false` exports contain no animation elements. Static geometry never
 depends on motion to show its shape.
 
