@@ -100,7 +100,10 @@ test('Studio perspective dragging snaps in the active year and keeps semantic pl
   const drag = await evaluate(`(async()=>{
     const {temporalGeometryMath:m}=await import('/src/temporal-geometry.mjs');
     const svg=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg'), data=JSON.parse(svg.querySelector('#temporal-geometry-data').textContent);
-    svg.scrollIntoView({block:'center'});
+    svg.scrollIntoView({block:'center',behavior:'instant'});
+    // The responsive workspace sizes the canvas in ResizeObserver. Measure drag
+    // coordinates only after that layout and the resulting paint have settled.
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const candidates=[...svg.querySelectorAll('.repository')].filter(node=>node.dataset.year==='2024');
     const node=candidates.find(node=>{const r=node.querySelector('.star').getBoundingClientRect();return svg.getRootNode().elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.repository')===node;});
     if(!node) throw Error('No exposed node in the active cross-section');
