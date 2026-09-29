@@ -25,7 +25,11 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
     const names = available()[kind];
     const note = document.createElement('p'); note.textContent = kind === 'languages' ? 'Highlight technologies across your selected projects. None uses the existing empty language filter and may leave no visible projects.' : 'Focus on projects with these topics. Skip keeps every topic.'; body.append(note);
     const choices = document.createElement('div'); choices.className = 'guided-actions'; body.append(choices);
-    for (const [label, value] of [['Recommended', null], ['All', null], [kind === 'topics' ? 'Skip' : 'None', kind === 'topics' ? null : []]]) button(choices, label, () => { intent[kind] = value; draw(); });
+    for (const [label, value] of [['Recommended', null], ['All', null], [kind === 'topics' ? 'Skip' : 'None', kind === 'topics' ? null : []]]) button(choices, label, () => {
+      intent[kind] = value;
+      if (kind === 'topics' && label === 'Skip') { save(intent); step++; }
+      draw();
+    });
     const field = document.createElement('fieldset'), legend = document.createElement('legend'); legend.textContent = 'Choose specific ' + kind; field.append(legend);
     for (const name of names) { const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.checked = intent[kind] === null || intent[kind].includes(name); input.addEventListener('change', () => { const selected = new Set(intent[kind] ?? names); input.checked ? selected.add(name) : selected.delete(name); intent[kind] = [...selected].sort(); }); label.append(input, document.createTextNode(name)); field.append(label); } body.append(field);
   }
@@ -54,10 +58,11 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
         if (picker.busy()) { status.textContent = 'Wait for repository discovery to finish.'; return; }
         intent.projects = picker.selection();
         const next = available();
-        for (const kind of ['languages', 'topics']) if (intent[kind] !== null) intent[kind] = intent[kind].filter(name => next[kind].includes(name));
+        for (const kind of ['languages', 'topics']) if (intent[kind]?.length) { const matching = intent[kind].filter(name => next[kind].includes(name)); intent[kind] = matching.length ? matching : null; }
         if (!next.topics.length) intent.topics = null;
         if (!next.history.eligible) intent.history = 'current';
       }
+      if (current === 'topics' && !intent.topics?.length) intent.topics = null;
       try { intent = validateIntent(intent); } catch (error) { status.textContent = error.message; return; }
       save(intent);
       if (step < steps().length - 1) { step++; draw(); } else await run();

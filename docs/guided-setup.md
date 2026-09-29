@@ -13,6 +13,8 @@ The shared project picker also finds public repositories you contributed to. By 
 
 ## Keep, regenerate, or customize
 
+The preview toolbar includes **View full screen**, with zoom, pan and an Escape/Close action. Replace the generic chart number with your own **Title**, then choose **Save constellation**. **Saved constellations** in the page header opens your local library, including on a later visit. Save different titles to keep different designs; saving the same title updates that design. The library reuses Studio presets, supports up to 30 named designs per account, and can open or delete them. These saves live only in this browser's localStorage, so export config JSON for backup or another device.
+
 **Generate another** changes the seed and visual interpretation while retaining the selected projects, language/topic filters, activity preference, history preference and motion policy. Surprise answers permit variation within that preference. A fixed seed, year, repository snapshot and answers produce the same ordinary config.
 
 **Use this design** opens the existing Save controls and SVG download without opening the customization tabs. Download SVG, PNG, interactive HTML or JSON; create a share link; or open Daily GitHub workflow to install it in your README repository. **Customize** reveals all seven Studio tabs, including layers, history, temporal geometry, story editing and advanced settings. The project credit remains visible even when annotations are hidden.

@@ -271,6 +271,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   }
   restore({ starfield: defaultStarfield });
   return {
+    config: () => structuredClone(current),
     store, restore, flush, historyRange: historyControls.range, scene: layerControls.update,
     read: () => {
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);

@@ -35,15 +35,24 @@ test('guided first visit, constraints, optional failure, exports, customize and 
 
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await e(`document.documentElement.scrollWidth <= innerWidth`), true);
-  await click('Continue'); await click('Continue'); await click('Continue');
+  await click('Continue'); await click('Continue');
+  await e(`for(const input of document.querySelectorAll('#guided-setup fieldset input[type="checkbox"]')) if(input.checked) input.click()`);
+  await click('Skip');
+  assert.equal(await e(`document.querySelector('#guided-setup h2').textContent`), 'Show your activity?');
+  assert.equal(await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice')).topics`), null);
   await e(`document.querySelector('[name="guided-activity"][value="orbit"]').click()`); await click('Continue');
   await e(`document.querySelector('[name="guided-history"][value="3d"]').click()`); await click('Continue');
   await click('Generate my constellation');
   await wait(`document.documentElement.dataset.entry === 'result'`);
   assert.match(await e(`document.querySelector('#guided-status').textContent`), /without activity/);
+  await e(`document.querySelector('#view-fullscreen').click()`);
+  assert.equal(await e(`document.querySelector('#image-viewer').open`), true);
+  await e(`document.querySelector('#viewer-close').click()`);
+  await e(`document.querySelector('#constellation-title').value='My first universe'; document.querySelector('#save-constellation').click()`);
   const draft = () => e(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
   const before = await draft(); assert.ok(before.includeRepos.includes('team/direct')); assert.ok(before.includeRepos.includes('another-org/discovered')); assert.equal(before.arrangement, 'temporal-stack'); assert.equal(before.contributionOrbit.enabled, false);
   await click('Generate another'); await wait(`!document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
+  await e(`document.querySelector('#constellation-title').value='My second universe'; document.querySelector('#save-constellation').click()`);
   const after = await draft(); assert.deepEqual(after.includeRepos, before.includeRepos); assert.deepEqual(after.languages, before.languages);
   await mkdir('.dist', { recursive: true });
   const resultShot = await cdp('Page.captureScreenshot'); await writeFile('.dist/onboarding-result-mobile.png', Buffer.from(resultShot.data, 'base64'));
@@ -58,8 +67,12 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   assert.deepEqual((await draft()).includeRepos, before.includeRepos);
 
   await cdp('Page.reload'); await wait(`document.querySelector('#open-studio')?.disabled === false`);
-  await e(`document.querySelector('#username').value='alice'; document.querySelector('#account-form').requestSubmit()`);
+  await e(`document.querySelector('#open-constellation-library').click()`);
+  assert.equal(await e(`document.querySelectorAll('.saved-constellation-row').length`), 2);
+  await e(`[...document.querySelectorAll('.saved-constellation-row')].find(row=>row.textContent.includes('My first universe')).querySelector('button').click()`);
   await wait(`document.documentElement.dataset.entry === 'result'`);
+  assert.equal(await e(`document.querySelector('#constellation-title').value`), 'My first universe');
+  assert.equal((await draft()).seed, before.seed);
   assert.equal(await e(`getComputedStyle(document.querySelector('.controls')).display`), 'none');
   assert.deepEqual((await draft()).includeRepos, before.includeRepos);
   assert.deepEqual(page.errors, []);

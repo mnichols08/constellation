@@ -1,4 +1,6 @@
 import { mountOnboarding } from './onboarding-ui.mjs';
+import { mountConstellationLibrary } from './constellation-library.mjs';
+import { parseConfig } from './config-schema.mjs';
 import { intentStore } from './onboarding-model.mjs';
 import { generateGuidedDesign } from './onboarding-generator.mjs';
 import { newSeed } from './seeded-random.mjs';
@@ -382,6 +384,8 @@ function render({ requireVisibleNodes = false } = {}) {
   $('#star-count').textContent = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(shown.reduce((total, repo) => total + (repo.stargazers_count || 0), 0));
   $('#limit-value').value = options.repoSource === 'pinned' ? 'All pins' : options.maxRepos;
   $('#map-title').textContent = isSample ? 'The sample sky' : options.accountData?.type === 'Organization' ? `${account} · Organization universe${options.organizationUser ? ` · @${options.organizationUser}` : ''}` : `@${account}’s sky`;
+  if (document.activeElement !== $('#constellation-title')) $('#constellation-title').value = options.title || '';
+  $('#save-constellation').disabled = isSample;
   $('#organization-status').textContent = projected.organization ? `${projected.note || 'Project contributors'} ${options.organizationData?.diagnostic || ''}` : `@${account} · Developer universe`;
   if (labelDiagnostics.length) {
     $('#filter-summary').textContent += ` ${labelDiagnostics.length} labels omitted (hover for reasons).`;
@@ -560,7 +564,7 @@ function showSavedPreview() {
   document.documentElement.dataset.entry = 'result';
   guidedHost ??= document.createElement('section'); guidedHost.id = 'guided-setup'; guidedHost.hidden = false;
   $('.observatory').before(guidedHost);
-  const heading = document.createElement('h2'); heading.textContent = `@${account} � Your constellation`; heading.tabIndex = -1;
+  const heading = document.createElement('h2'); heading.textContent = `@${account} · Your constellation`; heading.tabIndex = -1;
   const note = document.createElement('p'); note.textContent = 'Your saved design is ready. Customize it or start guided setup to create another.';
   const actions = document.createElement('div'); actions.className = 'guided-actions';
   for (const [label, run] of [['Use this design', () => { document.documentElement.dataset.entry = 'install'; workspace.reveal($('#download-config')); }], ['Customize', () => enterStudio()], ['Guided setup', () => startGuided(account)]]) {
@@ -785,6 +789,24 @@ $('#open-studio').addEventListener('click', () => { enterStudio(); $('#username'
 const guidedRestart = document.createElement('button'); guidedRestart.type = 'button'; guidedRestart.className = 'secondary'; guidedRestart.textContent = 'Guided setup'; guidedRestart.addEventListener('click', () => { if (isSample) { $('#username').focus(); message('Enter your GitHub username to begin guided setup.'); } else { studio.flush(); startGuided(account); } });
 $('.design-launcher').append(guidedRestart);
 imageViewer = mountImageViewer($('.design-launcher'));
+$('.studio-header').append($('#view-fullscreen'));
+$('#constellation-title').addEventListener('change', () => { importedOptions.title = $('#constellation-title').value.trim(); render(); });
+$('#save-constellation').addEventListener('click', () => {
+  try {
+    const title = $('#constellation-title').value.trim();
+    if (!title) { $('#constellation-title').focus(); message('Give your constellation a title before saving.', true); return; }
+    importedOptions.title = title; render();
+    if (!studio.store.savePreset(account, title, studio.config().options)) throw Error('Browser storage is unavailable. Download config JSON to keep this design.');
+    message(`Saved “${title}” in this browser. Open Saved constellations to bring it back.`);
+  } catch (error) { message(error.message, true); }
+});
+mountConstellationLibrary({ store: studio.store, load: async saved => {
+  const config = parseConfig(saved);
+  form.elements.username.value = config.account;
+  const loaded = await loadAccount(config.account, false, config.options.repoSource || 'all', config, { previewOnly: true });
+  if (loaded) studio.flush();
+  return loaded;
+} });
 const initialDraft = studio.store.draft(account);
 async function loadCommitFields(refresh = false) {
   if (commitFieldLoading || isSample) return;

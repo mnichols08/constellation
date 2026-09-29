@@ -4,6 +4,7 @@ import { readdirSync } from 'node:fs';
 import { fetchPinnedRepositories } from '../src/constellation.mjs';
 
 const allowed = new Map([
+  ['/src/constellation-library.mjs', ['../src/constellation-library.mjs', 'text/javascript']],
   ...['onboarding-model', 'onboarding-generator', 'onboarding-ui'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ...['temporal-geometry', 'temporal-ring-layout', 'temporal-geometry-drawing', 'temporal-geometry-svg', 'temporal-geometry-runtime', 'temporal-ring-editor'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ...['temporal-stack', 'temporal-stack-model', 'temporal-stack-svg', 'temporal-stack-runtime', 'temporal-scene-layers', 'temporal-motion', 'temporal-svg-motion'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),

@@ -8,7 +8,9 @@
 - Restore background stars and classic dust in temporal scenes; keep the project credit visible independently of annotation visibility and opacity.
 - Preserve account drafts, shared views and repository discovery; load guided activity on demand with recoverable failures and no fabricated account data.
 - Rebuild Core and web-component packages at 3.1.0 and document guided setup and temporal geometry.
-- Validate 297 JavaScript tests, including browser onboarding, export, temporal rendering and external package consumers.
+- Add fullscreen previews, editable constellation titles and a local library of named designs; default contribution discovery to all organizations.
+- Make returning visits guided by default, keep customization opt-in and make skipping topics clear its filter and advance.
+- Validate 298 JavaScript tests, including browser onboarding, export, temporal rendering and external package consumers.
 
 ## 3.0.0 — 2026-09-27
 
