@@ -79,7 +79,7 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
     const value = accounts[sourceKey(account, options)];
     return Array.isArray(value) ? value : undefined;
   };
-  async function load(account, options, { refresh = false, onProgress, activity = true } = {}) {
+  async function load(account, options, { refresh = false, onProgress, activity = true, languages = true } = {}) {
     const name = username(account).toLowerCase();
     const key = sourceKey(name, options);
     if (pending.has(key)) return pending.get(key);
@@ -115,7 +115,7 @@ export function createPreviewData({ storage, fetchImpl = fetch, fetchPinned = cr
         effective.organizationData = organizationSnapshots.get(name);
       }
       try {
-        if (options.nodeMode !== 'commits') await fetchRepositoryLanguages(selectRepositoryPool(listed, effective), { fetchImpl, cache, onProgress });
+        if (languages && options.nodeMode !== 'commits') await fetchRepositoryLanguages(selectRepositoryPool(listed, effective), { fetchImpl, cache, onProgress });
       } catch (error) {
         if (profile.type !== 'Organization') throw error;
         organizationSnapshots.get(name).diagnostic += ' Some language details unavailable; using primary languages. ' + error.message;

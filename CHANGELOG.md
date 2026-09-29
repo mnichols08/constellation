@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.1 — 2026-09-29
+
+- Start guided setup immediately from account entry, including accounts with an existing draft, without overwriting the saved design.
+- Make the Guided setup button usable from the sample Studio and show loading progress and retry errors immediately.
+- Load repository metadata first and fetch language details only for selected projects when continuing.
+- Move title, save, fullscreen and library controls below the preview; keep the header compact and the mobile workspace bounded.
+- Validate 299 JavaScript tests, including real pointer clicks, draft preservation, deferred language loading and mobile preview controls.
+
 ## 3.1.0 — 2026-09-29
 
 - Introduce onboarding-first setup with project recommendations, language/topic choices, optional activity and history, constrained regeneration, export and full Studio customization.

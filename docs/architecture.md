@@ -40,4 +40,4 @@ Determinism requires identical input data, config, seed, engine and explicit ref
 
 See the [baseline architecture](architecture-baseline.md) for the original 2.0 boundaries and [migration guide](migration-v3.md) for supported compatibility.
 
-Core and the web component release together at 3.1.0. JSON sources and themes are independently versioned packages at 1.1.0, reflecting additive v2 descriptors/adapters without changing their legacy exports. Theme pack content versions remain 1.0.0.
+Core and the web component release together at 3.1.1. JSON sources and themes are independently versioned packages at 1.1.0, reflecting additive v2 descriptors/adapters without changing their legacy exports. Theme pack content versions remain 1.0.0.

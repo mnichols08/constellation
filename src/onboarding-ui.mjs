@@ -2,7 +2,7 @@ import { mountRepositoryPicker } from './repository-picker.mjs';
 import { defaultIntent, choicesFor, validateIntent } from './onboarding-model.mjs';
 import { recommendProjects } from './onboarding-model.mjs';
 
-export function mountOnboarding(host, { repositories, account, initial, year, findRepositories, generate, customize, useDesign, save }) {
+export function mountOnboarding(host, { repositories, account, initial, year, findRepositories, prepareProjects, generate, customize, useDesign, save }) {
   let intent = initial || defaultIntent(repositories()), step = 0, busy = false, picker;
   const heading = document.createElement('h2'); heading.tabIndex = -1;
   const progress = document.createElement('p');
@@ -57,6 +57,14 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
       if (current === 'projects') {
         if (picker.busy()) { status.textContent = 'Wait for repository discovery to finish.'; return; }
         intent.projects = picker.selection();
+        if (!intent.projects.length || intent.projects.length > 100) { status.textContent = 'Choose 1–100 projects to continue.'; return; }
+        if (prepareProjects) {
+          busy = true; host.setAttribute('aria-busy', 'true');
+          for (const button of host.querySelectorAll('button')) button.disabled = true;
+          try { await prepareProjects(intent.projects, text => { status.textContent = text; }); }
+          catch (error) { status.textContent = error.message; return; }
+          finally { busy = false; host.removeAttribute('aria-busy'); for (const button of host.querySelectorAll('button')) button.disabled = false; }
+        }
         const next = available();
         for (const kind of ['languages', 'topics']) if (intent[kind]?.length) { const matching = intent[kind].filter(name => next[kind].includes(name)); intent[kind] = matching.length ? matching : null; }
         if (!next.topics.length) intent.topics = null;

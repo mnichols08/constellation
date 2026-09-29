@@ -1,6 +1,6 @@
 export function mountConstellationLibrary({ store, load }) {
   const launch = document.createElement('button'); launch.type = 'button'; launch.id = 'open-constellation-library'; launch.className = 'secondary'; launch.textContent = 'Saved constellations';
-  document.querySelector('.masthead').append(launch);
+  document.querySelector('#open-studio').after(launch);
   const dialog = document.createElement('dialog'); dialog.id = 'constellation-library'; dialog.setAttribute('aria-labelledby', 'constellation-library-title');
   const heading = document.createElement('h2'); heading.id = 'constellation-library-title'; heading.textContent = 'Your saved constellations';
   const note = document.createElement('p'); note.textContent = 'Saved in this browser, grouped by GitHub account. Download config JSON to keep a portable copy.';
