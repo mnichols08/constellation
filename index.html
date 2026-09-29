@@ -8,8 +8,8 @@
 (() => {
   let visited = false;
   try { visited = localStorage.getItem('constellation:visited') === '1'; } catch {}
-  const params = new URLSearchParams(location.search);
-  document.documentElement.dataset.entry = visited || ['user', 'organization', 'view', 'design', 'preset'].some(key => params.has(key)) ? 'studio' : 'landing';
+  document.documentElement.dataset.returning = String(visited);
+  document.documentElement.dataset.entry = 'landing';
 })();
 </script>
 <link rel="stylesheet" href="./src/preview.css">

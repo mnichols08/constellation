@@ -9,9 +9,9 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   const calls = [];
   const repos = Array.from({ length: 8 }, (_, i) => ({ name: `r${i}`, full_name: `alice/r${i}`, description: `Project ${i}`, language: 'Rust', created_at: `${2015 + i}-01-01`, updated_at: '2026-01-01', languages: { Rust: 100 }, topics: ['tools'], stargazers_count: i }));
   const server = createPreviewServer({ fetchImpl: async url => { calls.push(url);
-    if (url.includes('/search/issues')) return Response.json({ total_count: 1, items: [{ user: { login: 'alice' }, pull_request: {}, repository_url: 'https://api.github.com/repos/team/discovered' }] });
+    if (url.includes('/search/issues')) return Response.json({ total_count: 1, items: [{ user: { login: 'alice' }, pull_request: {}, repository_url: 'https://api.github.com/repos/another-org/discovered' }] });
     if (url.includes('/search/commits')) return Response.json({ total_count: 0, items: [] });
-    if (/\/repos\/team\/(direct|discovered)$/.test(url)) { const name = url.split('/').pop(); return Response.json({ ...repos[0], name, full_name: `team/${name}`, private: false }); }
+    if (/\/repos\/(team|another-org)\/(direct|discovered)$/.test(url)) { const name = url.split('/').pop(); return Response.json({ ...repos[0], name, full_name: new URL(url).pathname.slice(7), private: false }); }
     return Response.json(url.includes('/events') || url.includes('/commits?') ? { message: 'Unavailable' } : url.includes('/languages') ? { Rust: 100 } : url.includes('/repos?') ? repos : { login: 'alice', type: 'User' }, url.includes('/events') || url.includes('/commits?') ? { status: 503 } : {}); } });
   server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const page = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
@@ -27,8 +27,9 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   await e(`document.querySelector('#guided-add-repository-name').value='team/direct'; document.querySelector('#guided-add-public-repository').click()`);
   await wait(`document.querySelector('#guided-repository-picker-list input[value="team/direct"]')?.checked`);
   await e(`document.querySelector('#guided-contribution-organization').value='team'; document.querySelector('#guided-find-contributed-repositories').click()`);
-  await wait(`document.querySelector('#guided-repository-picker-list input[value="team/discovered"]') && !document.querySelector('#guided-find-contributed-repositories').disabled`);
-  await e(`document.querySelector('#guided-repository-picker-list input[value="team/discovered"]').click()`);
+  await wait(`document.querySelector('#guided-repository-picker-list input[value="another-org/discovered"]') && !document.querySelector('#guided-find-contributed-repositories').disabled`);
+  assert.ok(calls.filter(url => url.includes('/search/')).every(url => !new URL(url).searchParams.get('q').includes('org:')));
+  await e(`document.querySelector('#guided-repository-picker-list input[value="another-org/discovered"]').click()`);
   await e(`document.querySelector('#guided-repository-search').value='r0'; document.querySelector('#guided-repository-search').dispatchEvent(new Event('input'))`);
   assert.equal(await e(`document.querySelectorAll('#guided-repository-picker-list input').length`), 1);
 
@@ -41,7 +42,7 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   await wait(`document.documentElement.dataset.entry === 'result'`);
   assert.match(await e(`document.querySelector('#guided-status').textContent`), /without activity/);
   const draft = () => e(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
-  const before = await draft(); assert.ok(before.includeRepos.includes('team/direct')); assert.ok(before.includeRepos.includes('team/discovered')); assert.equal(before.arrangement, 'temporal-stack'); assert.equal(before.contributionOrbit.enabled, false);
+  const before = await draft(); assert.ok(before.includeRepos.includes('team/direct')); assert.ok(before.includeRepos.includes('another-org/discovered')); assert.equal(before.arrangement, 'temporal-stack'); assert.equal(before.contributionOrbit.enabled, false);
   await click('Generate another'); await wait(`!document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
   const after = await draft(); assert.deepEqual(after.includeRepos, before.includeRepos); assert.deepEqual(after.languages, before.languages);
   await mkdir('.dist', { recursive: true });
@@ -58,8 +59,8 @@ test('guided first visit, constraints, optional failure, exports, customize and 
 
   await cdp('Page.reload'); await wait(`document.querySelector('#open-studio')?.disabled === false`);
   await e(`document.querySelector('#username').value='alice'; document.querySelector('#account-form').requestSubmit()`);
-  await wait(`document.querySelector('#refresh-data').hidden === false`);
-  assert.equal(await e(`document.documentElement.dataset.entry`), 'studio');
+  await wait(`document.documentElement.dataset.entry === 'result'`);
+  assert.equal(await e(`getComputedStyle(document.querySelector('.controls')).display`), 'none');
   assert.deepEqual((await draft()).includeRepos, before.includeRepos);
   assert.deepEqual(page.errors, []);
 });

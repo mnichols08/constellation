@@ -98,6 +98,7 @@ test('Studio perspective dragging snaps in the active year and keeps semantic pl
   await evaluate(`document.querySelector('#arrangement').value='temporal-stack'; document.querySelector('#temporal-form').value='sphere'; document.querySelector('#snap-rings').checked=true; document.querySelector('#lock-stars').checked=false; document.querySelector('#arrangement').dispatchEvent(new Event('input'));`);
   await waitFor(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('#temporal-geometry-data'))`);
   const drag = await evaluate(`(async()=>{
+    window.dragEvents=[]; for(const type of ['pointerdown','pointermove','pointerup']) document.addEventListener(type,e=>dragEvents.push({type,x:e.clientX,y:e.clientY,target:e.composedPath()[0].outerHTML?.slice(0,200)}),true);
     const {temporalGeometryMath:m}=await import('/src/temporal-geometry.mjs');
     const svg=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg'), data=JSON.parse(svg.querySelector('#temporal-geometry-data').textContent);
     svg.scrollIntoView({block:'center',behavior:'instant'});
@@ -122,7 +123,7 @@ test('Studio perspective dragging snaps in the active year and keeps semantic pl
   await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...drag.end, button: 'left', buttons: 1 });
   await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...drag.end, button: 'left', clickCount: 1 });
   const placement = () => evaluate(`JSON.parse(document.querySelector('#preview').firstChild.shadowRoot.querySelector('#temporal-geometry-data').textContent).geometry.placements[draggedId]`);
-  assert.deepEqual(await placement(), await evaluate('targetSlot'));
+  assert.deepEqual(await placement(), await evaluate('targetSlot'), JSON.stringify({drag, events:await evaluate('dragEvents')}));
   assert.deepEqual(await evaluate(`JSON.parse(document.querySelector('#preview').firstChild.shadowRoot.querySelector('#temporal-geometry-data').textContent).geometry.placements[displacedId]`), await evaluate('originSlot'));
   await evaluate(`document.querySelector('#temporal-form').value='cone'; document.querySelector('#temporal-form').dispatchEvent(new Event('input'));`);
   assert.deepEqual(await placement(), await evaluate('targetSlot'));

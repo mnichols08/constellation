@@ -9,15 +9,19 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
   const help = document.createElement('p'); help.className = 'export-note';
   help.textContent = 'Choose projects, then apply. This clears project filters and hidden nodes. Historical views and organization scope still apply. Adding an unpinned project switches the source to all repositories.';
   const discovery = document.createElement('div'); discovery.className = 'repository-discovery';
-  const organization = document.createElement('input'); organization.id = 'contribution-organization'; organization.placeholder = 'Optional organization, e.g. chingu-voyages';
-  const orgLabel = document.createElement('label'); orgLabel.htmlFor = organization.id; orgLabel.textContent = 'Find team projects';
+  const scope = document.createElement('select'); scope.id = 'contribution-scope';
+  for (const [value, text] of [['all', 'All organizations and owners'], ['organization', 'Only one organization']]) { const option = document.createElement('option'); option.value = value; option.textContent = text; scope.append(option); }
+  const scopeLabel = document.createElement('label'); scopeLabel.htmlFor = scope.id; scopeLabel.textContent = 'Search contributions across';
+  const organization = document.createElement('input'); organization.id = 'contribution-organization'; organization.placeholder = 'Organization, e.g. chingu-voyages'; organization.disabled = true;
+  scope.addEventListener('change', () => { organization.disabled = scope.value === 'all'; });
+  const orgLabel = document.createElement('label'); orgLabel.htmlFor = organization.id; orgLabel.textContent = 'Organization name (only for a narrowed search)';
   const find = document.createElement('button'); find.type = 'button'; find.id = 'find-contributed-repositories'; find.className = 'secondary'; find.textContent = 'Find repositories I contributed to';
   const direct = document.createElement('input'); direct.id = 'add-repository-name'; direct.placeholder = 'owner/repository or GitHub URL';
   const directLabel = document.createElement('label'); directLabel.htmlFor = direct.id; directLabel.textContent = 'Add a public repository';
   const add = document.createElement('button'); add.type = 'button'; add.id = 'add-public-repository'; add.className = 'secondary'; add.textContent = 'Add repository';
   const feedback = document.createElement('p'); feedback.id = 'repository-discovery-status'; feedback.className = 'export-note'; feedback.setAttribute('role', 'status');
-  feedback.textContent = 'Search your public pull requests and commits, including team projects. If a project is missing, paste its URL below.';
-  discovery.append(orgLabel, organization, find, feedback, directLabel, direct, add);
+  feedback.textContent = 'Find your public pull requests and commits across any organization, including projects you do not own. Membership is not required. If a project is missing, paste its URL below.';
+  discovery.append(scopeLabel, scope, orgLabel, organization, find, feedback, directLabel, direct, add);
   const actions = document.createElement('div'); actions.className = 'repository-picker-actions';
   const buttons = [find, add];
   const button = (id, text, callback) => {
@@ -56,7 +60,8 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
     busy = true; buttons.forEach(button => { button.disabled = true; }); draw();
     feedback.textContent = manual ? 'Loading repository…' : 'Searching contributions…';
     try {
-      const result = await findRepositories({ organization: organization.value, repository: manual ? direct.value : undefined, onProgress: text => { feedback.textContent = text; } });
+      if (!manual && scope.value === 'organization' && !organization.value.trim()) throw Error('Enter an organization name or choose All organizations and owners.');
+      const result = await findRepositories({ organization: scope.value === 'all' ? '' : organization.value, repository: manual ? direct.value : undefined, onProgress: text => { feedback.textContent = text; } });
       const merged = new Map(repositories.map(repo => [repo.full_name.toLowerCase(), repo]));
       for (const repo of result.repositories) {
         added.add(repo.full_name.toLowerCase());
