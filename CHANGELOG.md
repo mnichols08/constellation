@@ -2,6 +2,8 @@
 
 ## 3.2.0 — 2026-09-29
 
+- Remove decorative ships and flight paths from commit asteroid fields; retain author colors and clickable commit asteroids.
+
 - Add direct GitHub token sign-in to the hosted Studio, verify account identity, and start guided setup automatically.
 - Enable hosted live pinned-repository previews and authenticated public-data requests without a local server.
 - Keep tokens only in page memory, with sign-out, rejected-token handling, cancellation and credential confinement to GitHub's API.

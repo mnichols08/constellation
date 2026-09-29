@@ -141,13 +141,11 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
   await evaluate(`input('design-activityEffect', 'asteroids');`);
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.commit-asteroid').length > 20`));
-  const shipTravel = await evaluate(`(() => { const root=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg');const ship=root.querySelector('.commit-ship-moving');const svg=ship.ownerSVGElement;svg.pauseAnimations();svg.setCurrentTime(1);const first=ship.getCTM();svg.setCurrentTime(7);const last=ship.getCTM();return Math.hypot(first.e-last.e,first.f-last.f); })()`);
-  assert.ok(shipTravel > 5, 'ships visibly navigate around their repository: ' + shipTravel);
+  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.commit-ship,.commit-flight-path').length`), 0);
   const asteroidShot = await cdp('Page.captureScreenshot');
   await writeFile('.dist/commit-asteroid-field.png', Buffer.from(asteroidShot.data, 'base64'));
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.commit-ship-moving')).display`), 'none');
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.commit-ship-still')).display`), 'inline');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.commit-asteroid')).transitionDuration`), '0s');
   await evaluate(`input('design-activityEffect', 'off');`);
   await cdp('Emulation.setEmulatedMedia', { features: [] });
   await evaluate(`click('history-comet');`);
@@ -738,7 +736,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.commit-asteroid').length >= 4`), 'real account loads actual commit asteroids');
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('.activity-asteroid-field a').getAttribute('href').startsWith('https://github.com/collective/repo-0/commit/')`));
   const fieldSVG = await evaluate(`(async()=> (await fetch(document.querySelector('.download').href)).text())()`);
-  assert.match(fieldSVG, /activity-asteroid-field/); assert.match(fieldSVG, /animateMotion/);
+  assert.match(fieldSVG, /activity-asteroid-field/); assert.doesNotMatch(fieldSVG, /commit-ship|commit-flight-path/);
   await cdp('Page.navigate', { url: `${base}/?user=alice&preset=project-map` });
   for (let i = 0; i < 100; i++) { if (await evaluate(`document.querySelector('#repository-picker-list')?.textContent.includes('alice/repo-0')`)) break; await delay(25); }
   await evaluate(`document.querySelector('#tab-projects').click(); document.querySelector('#find-contributed-repositories').click();`);

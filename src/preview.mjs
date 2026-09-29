@@ -324,7 +324,7 @@ function render({ requireVisibleNodes = false } = {}) {
   if (asteroids) {
     const targets = selectRepositories(repositories, options);
     const loaded = targets.filter(repo => Object.hasOwn(options.commitFieldData, repo.full_name.toLowerCase())).length;
-    $('#commit-field-status').textContent = isSample ? 'Demo commit asteroids. Ships follow the sample authors’ commits. Load an account to use real commits.' : `${loaded} of ${targets.length} repositories loaded · latest 24 commits per repository · 12 repositories per batch. Ships represent up to three authors. Click an asteroid to open its commit. ${commitFieldDiagnostic}`;
+    $('#commit-field-status').textContent = isSample ? 'Demo commit asteroids. Colors identify commit authors. Load an account to use real commits.' : `${loaded} of ${targets.length} repositories loaded · latest 24 commits per repository · 12 repositories per batch. Colors identify commit authors. Click an asteroid to open its commit. ${commitFieldDiagnostic}`;
     $('#load-commit-field').textContent = loaded && loaded < targets.length ? 'Load next repositories' : 'Load commit asteroids';
     $('#load-commit-field').disabled = isSample || commitFieldLoading || loaded === targets.length;
     $('#refresh-commit-field').disabled = isSample || commitFieldLoading;
