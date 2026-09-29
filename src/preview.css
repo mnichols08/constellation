@@ -31,3 +31,16 @@ body{background:radial-gradient(ellipse at 50% 5%,#dde5f766,transparent 48%),var
 .design-launcher{display:flex;align-items:center;flex-wrap:wrap;gap:20px;padding:22px 24px;border-bottom:1px solid var(--line);background:var(--panel)}.design-launcher-title{font-size:17px;font-weight:600}.design-launcher-title p{font-size:12px;color:var(--muted);font-weight:400;margin:6px 0 0}.randomize-primary{padding:15px 23px;border:1px solid var(--accent);border-radius:7px;background:var(--accent);color:var(--page);font:inherit;font-weight:700;cursor:pointer}.randomize-primary:hover{filter:brightness(1.15)}.design-code-controls{margin-left:auto;display:grid;grid-template-columns:minmax(140px,1fr) auto;gap:6px 10px}.design-code-controls label{grid-column:1/-1;font-size:10px;color:var(--muted)}.design-code-controls input{min-width:0;width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;color:var(--text);background:var(--page);font:12px monospace}.design-code-controls .secondary{margin:0;padding:7px 12px}.design-launcher :focus-visible{outline:2px solid var(--accent);outline-offset:4px}@media(max-width:660px){.design-launcher{gap:15px;padding:18px 16px}.randomize-primary{width:100%}.design-code-controls{width:100%;margin:0}}
 
 .randomize-motion{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px}.randomize-motion input{width:16px;height:16px;margin:0;accent-color:var(--accent,#8b7cf8)}
+/* Account access stays available from every Studio view. */
+#github-sign-in{max-width: min(30rem, 90vw);border:1px solid #64748b;border-radius:16px;padding:24px;background:#111827;color:#e5e7eb}
+#github-sign-in::backdrop{background:#020617bb}
+#github-sign-in input{display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;background:#020617;color:#fff;border:1px solid #64748b;border-radius:8px}
+#github-sign-in p{line-height:1.5}
+#github-sign-in a{color:#a5b4fc}
+#github-auth-close{float:right}
+#github-auth-open{width:auto;max-width:35%;margin:0 12px 0 auto;padding:8px 12px;overflow:hidden;text-overflow:ellipsis;display:block;white-space:nowrap;flex-shrink:0}
+#github-token-form{display:block;margin:16px 0 0;padding:0;border:0;box-shadow:none;background:transparent;color:inherit}
+#github-token-submit{width:100%;white-space:normal}
+#github-auth-close{width:auto;margin:0 0 12px 12px;color:#e5e7eb}
+#github-sign-out{color:#e5e7eb}
+@media(max-width:400px){.masthead .source-link{display:none}}

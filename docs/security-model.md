@@ -11,3 +11,9 @@ Source fetches run only for configured/registered sources, use cancellation and 
 WASM is required for supported rendering. Missing assets or restrictive policy produce a clear startup failure; there is no alternate JavaScript layout/traversal fallback. Keep the packaged engine assets and MIME types intact.
 
 Tests cover malformed configs/scenes, prototype keys, escaping, safe links, CSP enforcement, module registration boundaries, private repository scope, cancellation, isolated package loading and browser interactions. Bounds are detailed in [scaling](scaling.md), [timeline](timeline.md), [hierarchy](hierarchical-scenes.md) and [Story](story-mode.md) guides.
+
+## Hosted token sign-in
+
+The GitHub Pages Studio accepts a personal access token and verifies its identity through `GET https://api.github.com/user` before use. Credentials remain in page memory; no token is written to localStorage, sessionStorage, configs, share links or exports. Sign-out, reload, and authenticated 401 responses clear the session. Requests carrying the browser credential target only the exact GitHub API origin and reject redirects. A browser-supplied token bypasses the local API proxy. Existing server-side `.env` authentication remains available independently.
+
+Signing in starts guided setup for the verified login. Only public project data is used; signing in does not enable private constellation exports. Use a fine-grained token with public repository access and no additional write permissions. Token sign-in does not implement OAuth: GitHub Pages is static hosting, while GitHub's OAuth code exchange requires a server-held client secret. This release requires no external backend.

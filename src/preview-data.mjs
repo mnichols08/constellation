@@ -1,4 +1,4 @@
-import { username, fetchRepositories, fetchRepositoryLanguages, selectRepositoryPool, graphNodes } from './constellation.mjs';
+import { username, fetchRepositories, fetchRepositoryLanguages, fetchPinnedRepositories, selectRepositoryPool, graphNodes } from './constellation.mjs';
 import { fetchPublicActivity } from './github-activity.mjs';
 import { sanitizeActivityEvents } from './activity.mjs';
 import { createOrganizationData, attachFocusEvidence } from './organization/data.mjs';
@@ -17,18 +17,20 @@ export function canRenderPreview(repositories, options) {
   return graphNodes(repositories, options).nodes.some(node => !hidden.has(node.full_name));
 }
 
-export function createPreviewFetch({ proxyBase, fetchImpl = fetch } = {}) {
+export function createPreviewFetch({ proxyBase, fetchImpl = fetch, session } = {}) {
   return (url, options) => {
     const target = new URL(url);
+    if (session?.token && target.origin === 'https://api.github.com') return session.fetch(url, options);
     const destination = proxyBase && target.origin === 'https://api.github.com'
       ? `${proxyBase}${target.pathname}${target.search}` : url;
     return fetchImpl(destination, options);
   };
 }
 
-export function createPinnedFetch({ proxyBase, fetchImpl = fetch } = {}) {
+export function createPinnedFetch({ proxyBase, fetchImpl = fetch, session } = {}) {
   return async account => {
-    if (!proxyBase) throw new Error('Pinned previews need the local studio with GH_TOKEN in .env. The daily workflow uses its automatic GitHub token.');
+    if (session?.token) return fetchPinnedRepositories(account, { token: session.token, fetchImpl: session.fetch });
+    if (!proxyBase) throw new Error('Sign in with a GitHub token to preview pinned repositories, or use GH_TOKEN in the local studio.');
     const response = await fetchImpl(`${proxyBase}/users/${username(account)}/pinned`, { signal: AbortSignal.timeout(20000) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.message || 'Could not load pinned repositories.');

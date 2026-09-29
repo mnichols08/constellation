@@ -34,14 +34,20 @@ import { explainFilters } from './filter-explanation.mjs';
 import { rustAvailable, identityPoints } from './engine.mjs';
 import { needsContributorData } from './organization/settings.mjs';
 
+import { createGitHubSession } from './github-session.mjs';
 import { createPreviewData, createPreviewFetch, createPinnedFetch, canRenderPreview } from './preview-data.mjs';
 
 let storage;
 try { storage = window.sessionStorage; } catch {}
 const proxyBase = document.querySelector('meta[name="constellation-api"]')?.content;
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
-const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase }), fetchPinned: createPinnedFetch({ proxyBase }) });
-const commitFields = createCommitFieldData({ fetchImpl: createPreviewFetch({ proxyBase }) });
+const session = createGitHubSession({ onChange: profile => {
+  document.querySelector('#github-auth-open').textContent = profile ? `@${profile.login}` : 'Sign in';
+  document.querySelector('#github-sign-out').hidden = !profile;
+  document.querySelector('#github-auth-status').textContent = profile ? `Signed in as @${profile.login}.` : 'Signed out. You can still browse public projects.';
+} });
+const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase, session }), fetchPinned: createPinnedFetch({ proxyBase, session }) });
+const commitFields = createCommitFieldData({ fetchImpl: createPreviewFetch({ proxyBase, session }) });
 let commitFieldLoading = false, commitFieldDiagnostic = '';
 let loading = false;
 let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
@@ -59,6 +65,28 @@ if (proxyBase) $('.form-note').textContent = localAuth
   ? 'Using your local GitHub token. Loaded data is retained; customization makes no additional GitHub requests.'
   : 'No local GitHub token found. Add GH_TOKEN to .env and restart npm run preview to authenticate. Loaded data is retained while customizing.';
 const form = $('#account-form');
+const authDialog = $('#github-sign-in');
+for (const button of document.querySelectorAll('[data-open-github-auth]')) button.addEventListener('click', () => { authDialog.showModal(); $('#github-token').focus(); });
+$('#github-auth-close').addEventListener('click', () => authDialog.close());
+authDialog.addEventListener('close', () => { session.cancelSignIn(); $('#github-token').value = ''; });
+$('#github-sign-out').addEventListener('click', () => { session.signOut(); $('#github-token').value = ''; });
+$('#github-token-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = $('#github-token-submit'), value = $('#github-token').value;
+  $('#github-token').value = ''; button.disabled = true;
+  $('#github-auth-status').textContent = 'Verifying your GitHub account…';
+  try {
+    const profile = await session.signIn(value);
+    if (profile) {
+      form.elements.username.value = profile.login;
+      $('#account-mode').value = 'auto'; syncAccountMode();
+      authDialog.close();
+      await startGuided(profile.login);
+    }
+  } catch (error) { $('#github-auth-status').textContent = error.message; }
+  finally { button.disabled = false; }
+});
+
 function syncAccountMode() {
   const mode = $('#account-mode').value;
   $('#organization-account').hidden = mode !== 'paired';
@@ -497,9 +525,9 @@ async function loadAccount(nextAccount, refresh = false, source = $('#repo-sourc
   preview.setAttribute('aria-busy', 'true');
   message('Loading project data… You can keep adjusting styles.');
   try {
-    if (source === 'pinned' && (!proxyBase || !localAuth)) {
+    if (source === 'pinned' && !session.token && (!proxyBase || !localAuth)) {
       $('#token-help').open = true;
-      throw new Error('Pinned previews require a personal access token. Create one using the token setup below, save GH_TOKEN in the local project .env, and restart npm run preview. The daily workflow uses GitHub’s automatic token.');
+      throw new Error('Sign in with your GitHub token to preview pinned repositories. Local GH_TOKEN and automatic workflow tokens also remain supported.');
     }
     // Fetch languages for the configuration that will actually be applied. A new
     // account without a draft must not inherit the previous account's filters.
@@ -726,7 +754,7 @@ for (const [value, label] of [['commits', 'Commits as stars'], ['contributors', 
 buildVisualControls();
 restoreForm = createFormRestorer(document);
 const designHost = document.createElement('div'); designHost.className = 'design-controls'; $('.stats').before(designHost);
-studioCommits = mountStudioCommits(designHost, { fetchImpl: createPreviewFetch({ proxyBase }), highlightAuthor: author => {
+studioCommits = mountStudioCommits(designHost, { fetchImpl: createPreviewFetch({ proxyBase, session }), highlightAuthor: author => {
   importedOptions.commitHistory = { ...importedOptions.commitHistory, author }; render();
 }, showConstellation: async (snapshot, author) => {
   if (loading) throw Error('Wait for the account to finish loading.');

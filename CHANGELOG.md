@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.0 — 2026-09-29
+
+- Add direct GitHub token sign-in to the hosted Studio, verify account identity, and start guided setup automatically.
+- Enable hosted live pinned-repository previews and authenticated public-data requests without a local server.
+- Keep tokens only in page memory, with sign-out, rejected-token handling, cancellation and credential confinement to GitHub's API.
+- Preserve anonymous browsing and local `.env` authentication. Hosting remains GitHub-only; OAuth redirect sign-in is deferred pending an external backend.
+- Rebuild Core and web-component packages at 3.2.0.
+
 ## 3.1.2 — 2026-09-29
 
 - Fix temporal SVG previews and exports silently becoming static when ring, floating and perspective animation periods have a long shared cycle.

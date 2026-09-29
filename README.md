@@ -33,7 +33,7 @@ In Studio, enable **History & evolution → Contribution streak comet** to turn 
 
 ![Example GitHub constellation](./dist/constellation.svg)
 
-The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require a personal access token and the local studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
+The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require authentication: sign in with a personal access token directly in the hosted studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
 
 ## Quick start
 
@@ -170,11 +170,11 @@ For a one-time image without Actions, click **Download SVG**, commit the file to
 
 Choose **Project source → Pinned repositories** to build the graph from the public repositories pinned to a profile. Pins can belong to other owners; pinned gists and private repositories are excluded. All public pins are considered regardless of the project-limit slider, while fork, language, topic, and explicit repository filters still apply. Repository, language, and topic node views all work with pins. Click **Refresh data from GitHub** after changing your profile pins; daily workflows fetch the current pins on every run.
 
-**You must create a personal access token to load live pins in the local studio or run pinned generation locally.** GitHub's [pinnedItems field](https://docs.github.com/en/graphql/reference/users) is accessed through its authenticated GraphQL API. The hosted studio can demonstrate sample pins and export a pinned workflow, but cannot load live pins without a local authenticated server.
+**Sign in with a personal access token to load live pins in the hosted studio, or configure a token for local generation.** GitHub's [pinnedItems field](https://docs.github.com/en/graphql/reference/users) is accessed through its authenticated GraphQL API. In the hosted studio, click **Sign in**, paste your token, and start guided setup as your verified GitHub account. Requests go directly to GitHub. The token stays in page memory and is cleared on sign-out or reload; it is never stored with designs or share links. Public browsing remains available without signing in. This release uses token sign-in; OAuth redirect sign-in would require an external backend because GitHub Pages cannot hold the OAuth client secret.
 
 1. Open [GitHub's fine-grained token creation form](https://github.com/settings/personal-access-tokens/new).
 2. Give the token a name and expiration, choose your account as resource owner, and select **Public repositories**. Fine-grained tokens already include public repository read access; additional write permissions are unnecessary for loading pins. See [GitHub's GraphQL authentication guide](https://docs.github.com/en/graphql/guides/forming-calls-with-graphql).
-3. Create and copy the token. In the root of this local project, create or edit `.env`:
+3. Create and copy the token into the hosted studio’s **Sign in** dialog. For local server authentication instead, create or edit `.env` in the project root:
 
    ```dotenv
    GH_TOKEN=YOUR_TOKEN_HERE
@@ -203,7 +203,7 @@ The studio uses the Workshop's charcoal, olive, and yellow palette. Click a star
 
 With Node.js 22 or later, run `npm run preview` and open http://127.0.0.1:4173.
 
-For authenticated local requests, add `GH_TOKEN=YOUR_TOKEN` to `.env` in this project, then restart the preview server. `GITHUB_TOKEN` and `gh_token` also work. The server loads `.env` automatically and keeps the token out of the browser. Without a token it uses public requests. The hosted static studio continues to use public requests.
+For authenticated local requests, add `GH_TOKEN=YOUR_TOKEN` to `.env` in this project, then restart the preview server. `GITHUB_TOKEN` and `gh_token` also work. The server loads `.env` automatically and keeps the token out of the browser. Without a token it uses public requests. The hosted static studio uses public requests until you sign in with your own token.
 
 Run `npm test` to verify changes. See [Releasing](.github/RELEASING.md) for version tags and Marketplace publishing.
 
