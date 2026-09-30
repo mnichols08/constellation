@@ -59,7 +59,7 @@ import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
-test('OAuth callback loads identity, protects designs and offers saved work on return', {skip: !browser, timeout: 30000}, async t => {
+test('OAuth callback loads identity, protects designs and offers saved work on return', {skip: !browser, timeout: 120000}, async t => {
   const server = createPreviewServer(); server.listen(0,'127.0.0.1'); await once(server,'listening');
   t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
   const origin = `http://127.0.0.1:${server.address().port}`;

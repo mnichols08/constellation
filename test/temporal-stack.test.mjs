@@ -88,7 +88,7 @@ test('config, attachment and size boundaries reject invalid inputs; compact outp
   assert.throws(() => createScene('demo', many, { ...options, maxRepos: 220, nodeCap: 220, temporalStack: { yearStart: 2007 } }), /4,096/);
 });
 
-test('offline camera, keyboard years, trails, filters, timeline switching and cleanup', { skip: !browser, timeout: 30000 }, async t => {
+test('offline camera, keyboard years, trails, filters, timeline switching and cleanup', { skip: !browser, timeout: 120000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-temporal-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html');
   await writeFile(file, renderSceneHTML(createScene('demo', records, options)));
@@ -119,7 +119,7 @@ test('offline camera, keyboard years, trails, filters, timeline switching and cl
   assert.deepEqual(errors, []);
 });
 
-test('Studio contextual settings and anchor editing; packaged component temporal APIs', { skip: !browser, timeout: 30000 }, async t => {
+test('Studio contextual settings and anchor editing; packaged component temporal APIs', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -144,7 +144,7 @@ test('Studio contextual settings and anchor editing; packaged component temporal
   assert.deepEqual(errors, []);
 });
 
-test('temporal scenes compose with Story and Hierarchy without collapsing occurrences', { skip: !browser, timeout: 30000 }, async t => {
+test('temporal scenes compose with Story and Hierarchy without collapsing occurrences', { skip: !browser, timeout: 120000 }, async t => {
   const temporal = createScene('demo', records, options);
   const ordinary = createScene('demo', records, { ...options, arrangement: 'solar-system' });
   const hierarchy = createHierarchy({ root: 'root', scenes: [

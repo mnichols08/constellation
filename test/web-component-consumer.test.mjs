@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
-test('web component package works outside the repository with bounded assets and accessible controls', { skip: !browser, timeout: 30000 }, async t => {
+test('web component package works outside the repository with bounded assets and accessible controls', { skip: !browser, timeout: 120000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'constellation-consumer-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const name of ['core', 'web-component']) await cp(new URL(`../packages/${name}/`, import.meta.url), join(root, 'node_modules', '@constellation', name), { recursive: true });

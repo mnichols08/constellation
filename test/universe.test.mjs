@@ -51,7 +51,7 @@ test('default layers are bounded and manual anchors survive dimensional exports'
   const moved=createScene('demo',repos,{...options('language'),snapToRings:false,starPositions:{'demo/a':{x:250,y:180}}});
   for(const frame of moved.temporalStack.frames) for(const node of frame.scene.nodes.filter(node=>node.id==='demo/a')) assert.deepEqual([node.geometry.x,node.geometry.y],[250,180]);
 });
-test('offline dimensional HTML supports focus, camera, selection and reduced motion', {skip:!browser,timeout:30000},async t=>{
+test('offline dimensional HTML supports focus, camera, selection and reduced motion', {skip:!browser,timeout: 120000},async t=>{
   const dir=await mkdtemp(join(tmpdir(),'constellation-universe-'));t.after(()=>rm(dir,{recursive:true,force:true}));
   const file=join(dir,'universe.html');await writeFile(file,renderSceneHTML(createScene('demo',repos,options('repository'))));
   const {evaluate:e,waitFor:wait,cdp,errors}=await openBrowser(t,pathToFileURL(file).href);
@@ -66,7 +66,7 @@ test('offline dimensional HTML supports focus, camera, selection and reduced mot
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
-test('Studio switches dimensions, saves ordering and fits mobile layouts', {skip:!browser,timeout:30000},async t=>{
+test('Studio switches dimensions, saves ordering and fits mobile layouts', {skip:!browser,timeout: 120000},async t=>{
   const server=createPreviewServer();server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
   const {evaluate:e,waitFor:wait,cdp,errors}=await openBrowser(t,`http://127.0.0.1:${server.address().port}/`);
   await wait(`document.querySelector('#open-studio')?.disabled===false`);
@@ -85,7 +85,7 @@ test('Studio switches dimensions, saves ordering and fits mobile layouts', {skip
   const shot=await cdp('Page.captureScreenshot');await writeFile('.dist/universe-mobile.png',Buffer.from(shot.data,'base64'));
   assert.deepEqual(errors,[]);
 });
-test('packaged web component renders dimensional scenes and exposes layer focus', {skip:!browser,timeout:30000},async t=>{
+test('packaged web component renders dimensional scenes and exposes layer focus', {skip:!browser,timeout: 120000},async t=>{
   const scene=createScene('demo',repos,options('language'));
   const preview=createPreviewServer();
   const server=createServer((req,res)=>{

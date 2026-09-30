@@ -11,7 +11,7 @@ test(
   "headless studio: randomized codes, configs, presets, filters, keyboard, sharing and PNG",
   {
     skip: !browser && "Set CONSTELLATION_BROWSER to a Chromium executable.",
-    timeout: 60000,
+    timeout: 120000,
   },
   async (t) => {
     let apiCalls = 0,

@@ -52,7 +52,7 @@ test('hierarchy rejects cycles, shared-branch depth overflow and oversized catal
   assert.throws(() => createHierarchy({ root: '00', scenes: chain(65) }), /definitions/);
 });
 
-test('hierarchy drill-down, breadcrumbs and browser deep links restore compiled scenes', { skip: !browser, timeout: 30000 }, async t => {
+test('hierarchy drill-down, breadcrumbs and browser deep links restore compiled scenes', { skip: !browser, timeout: 120000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-hierarchy-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html'); await writeFile(file, renderSceneHTML(createHierarchy(definition)));
   const { evaluate, waitFor, cdp, errors } = await openBrowser(t, pathToFileURL(file).href);

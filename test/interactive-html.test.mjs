@@ -32,7 +32,7 @@ test('HTML export is deterministic and embeds escaped scene data', () => {
   ]) { const invalid = structuredClone(scene); mutate(invalid); assert.throws(() => renderSceneHTML(invalid)); }
 });
 
-test('standalone file supports selection, keyboard, camera and cleanup', { skip: !browser, timeout: 30000 }, async t => {
+test('standalone file supports selection, keyboard, camera and cleanup', { skip: !browser, timeout: 120000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-html-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html');

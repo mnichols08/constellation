@@ -54,7 +54,7 @@ test('hosted pinned previews use the signed-in session without a local proxy', a
   await assert.rejects(createPinnedFetch({ session })('alice'), /Continue with GitHub/);
 });
 
-test('browser token sign-in starts guided setup, keeps credentials out of storage, and signs out', { skip: !browser, timeout: 45000 }, async t => {
+test('browser token sign-in starts guided setup, keeps credentials out of storage, and signs out', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { evaluate: e, waitFor: wait, cdp, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);

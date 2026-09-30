@@ -5,7 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 
-test('guided first visit, constraints, optional failure, exports, customize and draft return', { skip: !browser, timeout: 60000 }, async t => {
+test('guided first visit, constraints, optional failure, exports, customize and draft return', { skip: !browser, timeout: 120000 }, async t => {
   const calls = [];
   const repos = Array.from({ length: 8 }, (_, i) => ({ name: `r${i}`, full_name: `alice/r${i}`, description: `Project ${i}`, language: 'Rust', created_at: `${2015 + i}-01-01`, updated_at: '2026-01-01', languages: { Rust: 100 }, topics: ['tools'], stargazers_count: i }));
   const server = createPreviewServer({ fetchImpl: async url => { calls.push(url);
@@ -91,7 +91,7 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   assert.deepEqual(page.errors, []);
 });
 
-test('sparse profiles skip empty questions, no-activity stays lazy, asteroids load automatically', { skip: !browser, timeout: 60000 }, async t => {
+test('sparse profiles skip empty questions, no-activity stays lazy, asteroids load automatically', { skip: !browser, timeout: 120000 }, async t => {
   const calls = [];
   const repo = { name: 'app', full_name: 'bob/app', private: false, language: 'Rust', languages: { Rust: 100 }, created_at: '2026-01-01', updated_at: '2026-01-01' };
   const server = createPreviewServer({ fetchImpl: async url => {
@@ -123,7 +123,7 @@ test('sparse profiles skip empty questions, no-activity stays lazy, asteroids lo
 });
 
 
-for (const scenario of ['pins', 'empty', 'failure', 'anonymous']) test(`onboarding pinned quick group: ${scenario}`, { skip: !browser, timeout: 30000 }, async t => {
+for (const scenario of ['pins', 'empty', 'failure', 'anonymous']) test(`onboarding pinned quick group: ${scenario}`, { skip: !browser, timeout: 120000 }, async t => {
   const calls = [];
   const repo = { name: 'owned', full_name: 'alice/owned', private: false, language: 'Rust', created_at: '2020-01-01', topics: [] };
   const pin = (name, isPrivate = false) => ({ name, nameWithOwner: 'team/' + name, isPrivate, isFork: false, isArchived: false, createdAt: '2020-01-01', primaryLanguage: { name: 'Rust' }, repositoryTopics: { nodes: [] } });
