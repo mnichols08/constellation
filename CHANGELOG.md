@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.5.1 — 2026-09-30
+
+- Fix an intermittent browser-test startup failure by waiting for a complete, valid Chrome DevTools port file instead of accepting an empty or partial write.
+- Limit JavaScript test-file concurrency to two to reduce concurrent Chrome startup contention in CI while retaining all browser checks.
+- Add startup regression coverage for missing, empty, partial and invalid port files and exited browser processes; update Core and web-component package versions.
+
 ## 3.5.0 — README Showcase
 
 - Add explicit Featured, Supporting, Experimental and Historical project roles with bounded featured order. Roles remain separate from GitHub stars, activity, archive status and topics, survive randomization and daily generation, and are retained when a project is temporarily unavailable.

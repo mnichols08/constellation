@@ -8,6 +8,21 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 export const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => existsSync(path));
 
+export async function waitForDevToolsPort(path, { isRunning = () => true, timeoutMs = 15000, pollIntervalMs = 100 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline && isRunning()) {
+    try {
+      // Chrome creates this file before writing it. Require a complete, valid
+      // port line so an empty or partial write cannot end the startup wait.
+      const match = /^(\d+)\r?\n/.exec(await readFile(path, 'utf8'));
+      if (match && Number(match[1]) > 0 && Number(match[1]) <= 65535) return match[1];
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    await delay(pollIntervalMs);
+  }
+}
+
 
 export async function openBrowser(t, url) {
   const profile = await mkdtemp(join(tmpdir(), 'constellation-browser-'));
@@ -24,11 +39,9 @@ export async function openBrowser(t, url) {
     socket?.close(); child.kill();
     for (let i = 0; i < 20; i++) { try { await rm(profile, { recursive: true, force: true }); break; } catch { await delay(100); } }
   });
-  let port;
-  for (let i = 0; i < 150; i++) {
-    if (launchError || child.exitCode !== null) break;
-    try { port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await delay(100); }
-  }
+  const port = await waitForDevToolsPort(join(profile, 'DevToolsActivePort'), {
+    isRunning: () => !launchError && child.exitCode === null && child.signalCode === null,
+  });
   assert.ok(port, `Chromium did not start: ${launchError || diagnostics || 'DevTools port unavailable'}`);
   const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl);
