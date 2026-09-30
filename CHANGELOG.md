@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.5.2 — 2026-09-30
+
+- Run test files serially after release-tag verification exposed Chrome startup timeouts with two concurrent workers.
+- Give Linux test browsers private writable cache/config directories, avoid constrained shared memory on Actions, and wait for browser exit before deleting profiles.
+- Use the shared browser harness for the Studio integration suite so startup and cleanup fixes apply to every browser test. Keep all application assertions enabled.
+
 ## 3.5.1 — 2026-09-30
 
 - Fix an intermittent browser-test startup failure by waiting for a complete, valid Chrome DevTools port file instead of accepting an empty or partial write.
