@@ -51,7 +51,7 @@ test('hosted pinned previews use the signed-in session without a local proxy', a
   assert.equal(calls.at(-1).url, 'https://api.github.com/graphql');
   assert.equal(calls.at(-1).options.headers.get('Authorization'), 'Bearer test-token');
   session.signOut();
-  await assert.rejects(createPinnedFetch({ session })('alice'), /Sign in/);
+  await assert.rejects(createPinnedFetch({ session })('alice'), /Continue with GitHub/);
 });
 
 test('browser token sign-in starts guided setup, keeps credentials out of storage, and signs out', { skip: !browser, timeout: 45000 }, async t => {
@@ -92,3 +92,4 @@ test('browser token sign-in starts guided setup, keeps credentials out of storag
   assert.equal(await e(`document.querySelector('#github-token').value`), '');
   assert.deepEqual(errors, []);
 });
+

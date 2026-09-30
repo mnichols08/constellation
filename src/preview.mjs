@@ -647,6 +647,16 @@ async function startGuided(name) {
     $('.observatory').before(guidedHost);
     mountOnboarding(guidedHost, { account, profile: session.profile || data.profile(account), repositories: () => repositories, year: new Date().getUTCFullYear(), initial: intents.read(account),
       findRepositories: findGuidedRepositories,
+      loadPinned: async () => {
+        if (!session.token && !localAuth) throw Error('Continue with GitHub to choose pinned repositories, or keep exploring public projects.');
+        loading = true; form.querySelector('button').disabled = true;
+        try {
+          const pinned = await data.load(account, { ...options, repoSource: 'pinned' }, { activity: false, languages: false });
+          data.remember(account, pinned);
+          repositories = data.snapshot(account);
+          return pinned;
+        } finally { loading = false; form.querySelector('button').disabled = false; }
+      },
       prepareProjects: async (projects, progress) => {
         loading = true; form.querySelector('button').disabled = true;
         progress('Loading technologies for your selected projects…');

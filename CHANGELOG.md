@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.1 — 2026-09-30
+
+- Add Pinned repositories to onboarding project choices. Load authenticated public profile pins on demand, including projects owned by other accounts, and keep individual selection editable.
+- Preserve the existing selection for empty or failed pin requests; explain sign-in requirements for anonymous users. Defer language details and activity requests until needed.
+- Cover keyboard selection, public/private boundaries, pins from other owners, back navigation, empty/error states and anonymous use. Rebuild package mirrors.
+
 ## 3.4.0 — 2026-09-30
 
 - Generalize the existing Universe layer/geometry engine to Year, Language, Repository and Topic axes. Preserve Timeline evidence and continuity rules for years.

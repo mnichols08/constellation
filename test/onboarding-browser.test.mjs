@@ -121,3 +121,40 @@ test('sparse profiles skip empty questions, no-activity stays lazy, asteroids lo
 });
 
 
+for (const scenario of ['pins', 'empty', 'failure', 'anonymous']) test(`onboarding pinned quick group: ${scenario}`, { skip: !browser, timeout: 30000 }, async t => {
+  const calls = [];
+  const repo = { name: 'owned', full_name: 'alice/owned', private: false, language: 'Rust', created_at: '2020-01-01', topics: [] };
+  const pin = (name, isPrivate = false) => ({ name, nameWithOwner: 'team/' + name, isPrivate, isFork: false, isArchived: false, createdAt: '2020-01-01', primaryLanguage: { name: 'Rust' }, repositoryTopics: { nodes: [] } });
+  const server = createPreviewServer({ token: scenario === 'anonymous' ? undefined : 'test-local-token', fetchImpl: async url => {
+    calls.push(String(url));
+    if (String(url).includes('/graphql')) return scenario === 'failure' ? Response.json({}, {status:503}) : Response.json({data:{repositoryOwner:{pinnedItems:{nodes:scenario === 'empty' ? [] : [pin('pinned'),pin('private',true)],pageInfo:{hasNextPage:false,endCursor:null}}}}});
+    return Response.json(String(url).endsWith('/languages') ? {Rust:100} : String(url).includes('/repos?') ? [repo] : {login:'alice',type:'User'});
+  } });
+  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const {evaluate:e,waitFor:wait,cdp,errors}=await openBrowser(t,`http://127.0.0.1:${server.address().port}/`);
+  await wait(`document.querySelector('#open-studio')?.disabled===false`);
+  await e(`document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`);
+  await wait(`!!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
+  const selection=()=>e(`Array.from(document.querySelectorAll('#guided-repository-picker-list input:checked'),node=>node.value)`);
+  const original=await selection();assert.equal(calls.some(url=>url.includes('/graphql')),false);
+  await e(`const pinnedButton=[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Pinned repositories');pinnedButton.focus();`);
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});
+  await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+  await wait(`!document.querySelector('#guided-setup').hasAttribute('aria-busy') && document.querySelector('#guided-status').textContent.length > 0`);
+  const status=await e(`document.querySelector('#guided-status').textContent`);
+  if(scenario==='pins') {
+    assert.deepEqual(await selection(),['team/pinned']);assert.match(status,/Selected 1 pinned/);
+    await e(`document.querySelector('#guided-repository-picker-list input[value="team/pinned"]').click()`);assert.deepEqual(await selection(),[]);
+    await e(`document.querySelector('#guided-repository-picker-list input[value="team/pinned"]').click();[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Continue').click()`);
+    await wait(`document.querySelector('#guided-setup h2').textContent==='What should your constellation reveal?'`);
+    await e(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Back').click()`);
+    assert.deepEqual(await selection(),['team/pinned']);
+    assert.deepEqual(await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice')).projects`),['team/pinned']);
+  } else {
+    assert.deepEqual(await selection(),original);
+    assert.match(status,scenario==='empty'?/no public pinned/:scenario==='failure'?/Could not load pinned/:/Continue with GitHub/);
+  }
+  assert.equal(calls.filter(url=>url.includes('/graphql')).length,scenario==='anonymous'?0:1);
+  assert.equal(calls.some(url=>url.includes('/events')||url.includes('/commits?')),false);
+  assert.deepEqual(errors,[]);
+});

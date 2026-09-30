@@ -30,7 +30,7 @@ export function createPreviewFetch({ proxyBase, fetchImpl = fetch, session } = {
 export function createPinnedFetch({ proxyBase, fetchImpl = fetch, session } = {}) {
   return async account => {
     if (session?.token) return fetchPinnedRepositories(account, { token: session.token, fetchImpl: session.fetch });
-    if (!proxyBase) throw new Error('Sign in with a GitHub token to preview pinned repositories, or use GH_TOKEN in the local studio.');
+    if (!proxyBase) throw new Error('Continue with GitHub to preview pinned repositories, or use GH_TOKEN in the local studio.');
     const response = await fetchImpl(`${proxyBase}/users/${username(account)}/pinned`, { signal: AbortSignal.timeout(20000) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.message || 'Could not load pinned repositories.');

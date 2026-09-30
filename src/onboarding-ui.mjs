@@ -2,7 +2,7 @@ import { mountRepositoryPicker } from './repository-picker.mjs';
 import { defaultIntent, choicesFor, validateIntent } from './onboarding-model.mjs';
 import { recommendProjects } from './onboarding-model.mjs';
 
-export function mountOnboarding(host, { repositories, account, profile, initial, year, findRepositories, prepareProjects, generate, customize, useDesign, save }) {
+export function mountOnboarding(host, { repositories, account, profile, initial, year, findRepositories, loadPinned, prepareProjects, generate, customize, useDesign, save }) {
   let intent = initial || defaultIntent(repositories()), step = 0, busy = false, picker;
   const heading = document.createElement('h2'); heading.tabIndex = -1;
   const progress = document.createElement('p');
@@ -47,6 +47,28 @@ export function mountOnboarding(host, { repositories, account, profile, initial,
       const note = document.createElement('p'); note.textContent = 'Recommended balances recent work, popularity, project detail and original projects. You can change every selection.'; body.append(note);
       const shortcuts = document.createElement('div'); shortcuts.className = 'guided-actions'; body.append(shortcuts);
       for (const [mode, label] of [['recommended', 'Recommended'], ['recent', 'Recently active'], ['popular', 'Most starred'], ['all', 'All'], ['contributed', 'Contributed to']]) button(shortcuts, label, () => mode === 'contributed' ? picker.contributed() : picker.select(mode === 'all' ? repositories().filter(repo => !repo.private).map(repo => repo.full_name) : recommendProjects(repositories(), mode)));
+      button(shortcuts, 'Pinned repositories', async () => {
+        if (busy || picker.busy()) return;
+        busy = true; host.setAttribute('aria-busy', 'true');
+        for (const control of host.querySelectorAll('button, input, select')) control.disabled = true;
+        status.textContent = 'Loading pinned repositories…';
+        try {
+          if (!loadPinned) throw Error('Continue with GitHub to choose pinned repositories.');
+          const pinned = (await loadPinned()).filter(repo => !repo.private);
+          if (!pinned.length) { status.textContent = 'This account has no public pinned repositories. Your selection is unchanged.'; return; }
+          const names = pinned.map(repo => repo.full_name);
+          picker.update(account, repositories(), { includeRepos: names }, pinned);
+          picker.select(names);
+          status.textContent = `Selected ${names.length} pinned repositories. You can change any selection.`;
+        } catch (error) { status.textContent = error.message; }
+        finally {
+          busy = false; host.removeAttribute('aria-busy');
+          for (const control of host.querySelectorAll('button, input, select')) control.disabled = false;
+          const scope = host.querySelector('[id$="contribution-scope"]');
+          const organization = host.querySelector('[id$="contribution-organization"]');
+          if (organization) organization.disabled = scope?.value === 'all';
+        }
+      });
       const pool = document.createElement('div'); body.append(pool);
       picker = mountRepositoryPicker(pool, { prefix: 'guided-', guided: true, apply() {}, message: text => { status.textContent = text; }, findRepositories });
       picker.update(account, repositories(), { includeRepos: intent.projects }, repositories().filter(repo => intent.projects.includes(repo.full_name)));

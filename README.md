@@ -5,7 +5,7 @@ Turn developer and project data into interactive maps, embedded experiences, and
 ## Make your constellation
 
 1. Open [Constellation](https://mnichols08.github.io/constellation/) and choose **Continue with GitHub** or **Explore a public account**.
-2. Choose the projects and technologies you want to showcase.
+2. Choose the projects and technologies you want to showcase—use Recommended, Recently active, Most starred, Contributed to or **Pinned repositories** (requires GitHub sign-in).
 3. Choose relationships, optional activity and your universe, then generate your design.
 4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
 5. Choose **Use this constellation** to export it or install it in your README.
