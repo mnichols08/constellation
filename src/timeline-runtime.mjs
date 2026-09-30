@@ -1,5 +1,6 @@
 // Embedded with the standalone runtime; pass functions explicitly, never evaluate config.
 export function mountTimeline(root, source, options, mount) {
+  if (source.temporalStack && !source.timeline) return mount(root, source, options);
   if (source.temporalStack) {
     const canvas = root.querySelector('[data-canvas]'), stackSVG = canvas.innerHTML;
     const toggle = document.createElement('button'); toggle.type = 'button'; toggle.textContent = 'Open Timeline';
@@ -21,7 +22,7 @@ export function mountTimeline(root, source, options, mount) {
     const api = { get selection() { return runtime.selection; }, get selectionState() { return runtime.selectionState; }, get camera() { return runtime.camera; }, get filter() { return runtime.filter; }, get theme() { return runtime.theme; }, get frameIndex() { return runtime.frameIndex; }, destroy() { runtime.destroy(); controls.remove(); } };
     for (const method of ['selectNode', 'clearSelection', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme']) api[method] = (...args) => runtime[method](...args);
     for (const method of ['setFrame', 'setDate', 'compareWithNow']) api[method] = (...args) => { switchMode(false); return runtime[method](...args); };
-    for (const method of ['setTemporalView', 'focusYear', 'focusTemporalNode', 'resetTemporalView']) api[method] = (...args) => { switchMode(true); return runtime[method](...args); };
+    for (const method of ['setTemporalView', 'focusLayer', 'focusYear', 'focusTemporalNode', 'resetTemporalView']) api[method] = (...args) => { switchMode(true); return runtime[method](...args); };
     toggle.addEventListener('click', () => switchMode(!stacked));
     root.constellation = api; return api;
   }

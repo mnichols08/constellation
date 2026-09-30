@@ -8,10 +8,10 @@ export function temporalGeometryDrawing(scene, view = {}) {
   const profile = { ...geometry.profile, ...(view.shape ? { shape: view.shape } : {}), ...(view.twist !== undefined ? { twist: view.twist } : {}), ...(view.surface ? { surface: view.surface } : {}) };
   const motion = temporalMotion(scene.presentation.options, view.elapsed ?? 0);
   const camera = temporalGeometryMath.camera(profile, stack.settings, { ...view, rotation: (view.rotation ?? 0) + motion.camera });
-  const frames = new Map(scene.timeline.frames.map(frame => [frame.id, frame]));
-  const frameNodes = new Map(scene.timeline.frames.map(frame => [frame.id, new Map(frame.scene.nodes.map(node => [node.id, node]))]));
-  const planes = stack.layers.map((layer, index) => ({ ...layer, ...temporalGeometryMath.plane(profile, index, stack.layers.length, view.depth ?? 1) }));
-  const byYear = new Map(planes.map(plane => [plane.year, plane]));
+  const frames = new Map((stack.frames || scene.timeline.frames).map(frame => [frame.id, frame]));
+  const frameNodes = new Map((stack.frames || scene.timeline.frames).map(frame => [frame.id, new Map(frame.scene.nodes.map(node => [node.id, node]))]));
+  const planes = stack.layers.map((layer, index) => ({ ...layer, layerId: layer.id ?? layer.year, label: layer.label ?? String(layer.year), ...temporalGeometryMath.plane(profile, index, stack.layers.length, view.depth ?? 1) }));
+  const byYear = new Map(planes.map(plane => [plane.layerId, plane]));
   const projectors = new Map();
   const project = (local, plane) => {
     if (!projectors.has(plane.t)) projectors.set(plane.t, temporalGeometryMath.projector(plane, profile, geometry.outerRadius, camera));
@@ -22,7 +22,7 @@ export function temporalGeometryDrawing(scene, view = {}) {
   const opacity = id => scene.layers.find(layer => layer.id === id)?.opacity ?? 1;
   const items = [], labels = [], years = [], positions = new Map(), first = new Map();
   const line = (key, kind, a, b, extra = {}) => items.push({ key, kind, points: [a, b], depth: (a.depth + b.depth) / 2, ...extra });
-  for (const plane of [...planes].reverse()) for (const node of frames.get(plane.frameId).scene.nodes) if (!first.has(node.id)) first.set(node.id, plane.year);
+  for (const plane of [...planes].reverse()) for (const node of frames.get(plane.frameId).scene.nodes) if (!first.has(node.id)) first.set(node.id, plane.layerId);
   for (const [index, plane] of planes.entries()) {
     const frame = frames.get(plane.frameId), nodes = new Map(frame.scene.nodes.map(node => [node.id, node]));
     const center = project({ x: 450, y: 270 }, plane), emphasis = Math.max(.6, 1 - index * .035);
@@ -32,34 +32,34 @@ export function temporalGeometryDrawing(scene, view = {}) {
         const a = project(localRing(geometry.radii[ring], segment * Math.PI / 24), plane), b = project(localRing(geometry.radii[ring], (segment + 1) * Math.PI / 24), plane);
         const rear = (a.depth + b.depth) / 2 < center.depth;
         if (ring === 3) outerPoints.push(a);
-        if (visible('rings')) line(`ring:${index}:${ring}:${segment}`, 'ring', a, b, { year: plane.year, ring, rear, opacity: opacity('rings') * (rear ? .12 : .42) * emphasis });
+        if (visible('rings')) line(`ring:${index}:${ring}:${segment}`, 'ring', a, b, { layerId: plane.layerId, year: plane.year, ring, rear, opacity: opacity('rings') * (rear ? .12 : .42) * emphasis });
       }
     }
-    const evidence = frame.evidence === 'current-metadata' ? 'Current-metadata retrospective view' : frame.evidence === 'snapshot' ? `Snapshot · ${frame.date.slice(0, 10)}` : 'Current';
-    years.push({ year: plane.year, evidence, x: Math.min(...outerPoints.map(p => p.x)) - 18, y: center.y, depth: center.depth });
+    const evidence = stack.axis !== 'year' ? 'Current repository membership' : frame.evidence === 'current-metadata' ? 'Current-metadata retrospective view' : frame.evidence === 'snapshot' ? `Snapshot · ${frame.date.slice(0, 10)}` : 'Current';
+    years.push({ layerId: plane.layerId, year: plane.year, label: plane.label, evidence, x: Math.min(...outerPoints.map(p => p.x)) - 18, y: center.y, depth: center.depth });
     for (const node of frame.scene.nodes) {
-      const point = project(motion.local(node.geometry, geometry.placements[node.id]), plane), key = `${plane.year}::${node.id}`;
+      const point = project(motion.local(node.geometry, geometry.placements[node.id]), plane), key = `${plane.layerId}::${node.id}`;
       positions.set(key, point);
       if (node.interaction.hidden || !visible('nodes')) continue;
-      items.push({ key: `node:${key}`, kind: 'node', node, point, year: plane.year, depth: point.depth, opacity: emphasis * opacity('nodes') * (node.style.opacity ?? 1), birth: first.get(node.id) === plane.year, placement: geometry.placements[node.id] });
+      items.push({ key: `node:${key}`, kind: 'node', node, point, layerId: plane.layerId, year: plane.year, depth: point.depth, opacity: emphasis * opacity('nodes') * (node.style.opacity ?? 1), birth: stack.axis === 'year' && first.get(node.id) === plane.layerId, placement: geometry.placements[node.id] });
     }
     if (visible('connections')) for (const [edgeIndex, edge] of frame.scene.edges.entries()) {
       if (nodes.get(edge.from).interaction.hidden || nodes.get(edge.to).interaction.hidden) continue;
-      line(`edge:${index}:${edgeIndex}`, 'relationship', positions.get(`${plane.year}::${edge.from}`), positions.get(`${plane.year}::${edge.to}`), { year: plane.year, from: edge.from, to: edge.to, opacity: opacity('connections') * emphasis * .35 });
+      line(`edge:${index}:${edgeIndex}`, 'relationship', positions.get(`${plane.layerId}::${edge.from}`), positions.get(`${plane.layerId}::${edge.to}`), { layerId: plane.layerId, year: plane.year, from: edge.from, to: edge.to, opacity: opacity('connections') * emphasis * .35 });
     }
     if (visible('labels')) for (const label of frame.scene.labels) {
       if (label.hidden || nodes.get(label.id).interaction.hidden) continue;
       // Keep label offsets in readable screen units rather than foreshortening text.
-      const node = nodes.get(label.id), p = positions.get(`${plane.year}::${label.id}`);
-      labels.push({ key: `label:${plane.year}::${label.id}`, year: plane.year, label, x: p.x + (label.x - node.geometry.x) * p.scale, y: p.y + (label.y - node.geometry.y) * p.scale, opacity: opacity('labels') * emphasis });
+      const node = nodes.get(label.id), p = positions.get(`${plane.layerId}::${label.id}`);
+      labels.push({ key: `label:${plane.layerId}::${label.id}`, layerId: plane.layerId, year: plane.year, label, x: p.x + (label.x - node.geometry.x) * p.scale, y: p.y + (label.y - node.geometry.y) * p.scale, opacity: opacity('labels') * emphasis });
     }
   }
   if (visible('connections')) for (const bridge of stack.bridges) {
-    const older = byYear.get(bridge.fromYear), newer = byYear.get(bridge.toYear);
+    const older = byYear.get((bridge.fromLayer ?? bridge.fromYear)), newer = byYear.get((bridge.toLayer ?? bridge.toYear));
     const old = frameNodes.get(older.frameId).get(bridge.nodeId), next = frameNodes.get(newer.frameId).get(bridge.nodeId);
     if (old.interaction.hidden || next.interaction.hidden) continue;
     const points = Array.from({ length: 9 }, (_, i) => project(motion.local({ x: old.geometry.x + (next.geometry.x - old.geometry.x) * i / 8, y: old.geometry.y + (next.geometry.y - old.geometry.y) * i / 8 }, geometry.placements[bridge.nodeId]), temporalGeometryMath.section(profile, older.t + (newer.t - older.t) * i / 8, view.depth ?? 1)));
-    items.push({ key: `bridge:${bridge.fromYear}:${bridge.nodeId}`, kind: 'temporal', points, depth: points.reduce((sum, p) => sum + p.depth, 0) / points.length, ...bridge, opacity: opacity('connections') * .26 });
+    items.push({ key: `bridge:${(bridge.fromLayer ?? bridge.fromYear)}:${bridge.nodeId}`, kind: 'temporal', points, depth: points.reduce((sum, p) => sum + p.depth, 0) / points.length, ...bridge, opacity: opacity('connections') * .26 });
   }
   // Cap curved profiles with guide-only polar sections. No project is placed at
   // a zero-radius pole. Other shapes use their first/last actual cross-section.

@@ -12,6 +12,8 @@ Turn developer and project data into interactive maps, embedded experiences, and
 
 [Guided setup](docs/guided-setup.md) explains recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. Shared designs and existing account drafts open as previews; customization is always opt-in. **Saved constellations** reopens your named designs from this browser. The sample Studio remains an explicit shortcut.
 
+Explore your work with **Universe → Stack by Year, Language, Repository or Topic**. Language/topic planes reveal overlapping projects; repository planes connect shared technologies. [Universe dimensions](docs/temporal-stack.md) explains evidence, ordering and exports.
+
 Static SVG remains the default. Advanced workflows use the same scene engine:
 
 - [Offline interactive HTML](docs/interactive-html.md) with pan, zoom, selection and filters.
@@ -170,7 +172,7 @@ For a one-time image without Actions, click **Download SVG**, commit the file to
 
 Choose **Project source → Pinned repositories** to build the graph from the public repositories pinned to a profile. Pins can belong to other owners; pinned gists and private repositories are excluded. All public pins are considered regardless of the project-limit slider, while fork, language, topic, and explicit repository filters still apply. Repository, language, and topic node views all work with pins. Click **Refresh data from GitHub** after changing your profile pins; daily workflows fetch the current pins on every run.
 
-**Sign in with a personal access token to load live pins in the hosted studio, or configure a token for local generation.** GitHub's [pinnedItems field](https://docs.github.com/en/graphql/reference/users) is accessed through its authenticated GraphQL API. In the hosted studio, click **Sign in**, paste your token, and start guided setup as your verified GitHub account. Requests go directly to GitHub. The token stays in page memory and is cleared on sign-out or reload; it is never stored with designs or share links. Public browsing remains available without signing in. This release uses token sign-in; OAuth redirect sign-in would require an external backend because GitHub Pages cannot hold the OAuth client secret.
+**Continue with GitHub to load live pins in the hosted Studio**, or configure a token for local generation. GitHub’s [pinnedItems field](https://docs.github.com/en/graphql/reference/users) uses its authenticated GraphQL API. OAuth verifies your account and starts creation automatically, or offers your saved constellations. Tokens remain in page memory and clear on sign-out or reload. Public browsing needs no login. See [GitHub App deployment](docs/github-oauth.md) for the isolated exchange service and permissions.
 
 1. Open [GitHub's fine-grained token creation form](https://github.com/settings/personal-access-tokens/new).
 2. Give the token a name and expiration, choose your account as resource owner, and select **Public repositories**. Fine-grained tokens already include public repository read access; additional write permissions are unnecessary for loading pins. See [GitHub's GraphQL authentication guide](https://docs.github.com/en/graphql/guides/forming-calls-with-graphql).

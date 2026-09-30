@@ -38,11 +38,11 @@ export function mountTemporalRingEditor(svg, onMove, previewMove, snap) {
     }
   };
   for (const group of svg.querySelectorAll('.repository')) {
-    const id = group.dataset.nodeId, year = Number(group.dataset.year), star = group.querySelector('.star');
+    const id = group.dataset.nodeId, year = group.dataset.layerId ?? group.dataset.year, star = group.querySelector('.star');
     const origin = { x: Number(star.getAttribute('cx')), y: Number(star.getAttribute('cy')) };
-    const index = data.layers.findIndex(layer => layer.year === year);
+    const index = data.layers.findIndex(layer => String(layer.id ?? layer.year) === year);
     const plane = temporalGeometryMath.plane(profile, index, data.layers.length);
-    const label = [...svg.querySelectorAll('.repo-label')].find(label => label.dataset.repo === id && Number(label.dataset.year) === year);
+    const label = [...svg.querySelectorAll('.repo-label')].find(label => label.dataset.repo === id && (label.dataset.layerId ?? label.dataset.year) === year);
     const offsets = label ? { [id]: { x: Number(label.getAttribute('x')) - origin.x, y: Number(label.getAttribute('y')) - origin.y } } : {};
     const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     hit.setAttribute('class', 'star-hit'); hit.setAttribute('cx', origin.x); hit.setAttribute('cy', origin.y); hit.setAttribute('r', '13'); group.append(hit);

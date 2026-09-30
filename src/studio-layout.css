@@ -280,7 +280,7 @@ html[data-entry="landing"] #open-constellation-library { margin: 16px 0 0 12px; 
   .preview-action-buttons button { flex: 1; padding: 8px 6px; font-size: 10px; white-space: nowrap; }
 }
 /* Guided creation uses native controls with visual previews, including on phones. */
-#guided-setup { max-width: 960px; margin: 24px auto; padding: clamp(16px, 4vw, 36px); border: 1px solid #7895bd55; border-radius: 20px; background: #0b172bcc; }
+#guided-setup { max-width: 960px; margin: 24px auto; padding: clamp(16px, 4vw, 36px); border: 1px solid #7895bd55; border-radius: 20px; background: var(--panel); }
 #guided-setup > p:first-child { line-height: 1.8; overflow-wrap: anywhere; }
 .guided-identity { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .guided-identity img { border-radius: 50%; }
@@ -295,3 +295,6 @@ html[data-entry="landing"] #open-constellation-library { margin: 16px 0 0 12px; 
 @media (max-width: 480px) { #guided-setup { margin: 12px 0; } #guided-setup .repository-picker-list { grid-template-columns: 1fr; } .masthead { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { #guided-setup * { animation: none !important; transition: none !important; } }
 .studio-ready .intro > [data-open-github-auth], .studio-ready .intro > p:not([class]) { display: none; }
+.intro > [data-open-github-auth], #github-oauth-start { border: 1px solid var(--line); border-radius: 8px; background: var(--accent); color: var(--page); padding: 14px 20px; font: inherit; cursor: pointer; }
+#github-auth-open { max-width: 46%; }
+html[data-entry="result"] .intro { display: none; }

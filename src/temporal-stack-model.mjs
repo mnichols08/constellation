@@ -1,12 +1,14 @@
 import { temporalGeometryMath, validateRingPlacements } from './temporal-geometry.mjs';
-export const TEMPORAL_STACK_VERSION = 1;
+export const TEMPORAL_STACK_VERSION = 2;
 export const MAX_TEMPORAL_LAYERS = 20;
 export const MAX_TEMPORAL_NODES = 4096;
 export function temporalStackOptions(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('temporalStack must be an object.');
-  const defaults = { enabled: false, yearStep: 1, depthGap: 120, perspective: .8, tilt: .35, scaleFalloff: .035, connections: 'same-node', innerArrangement: 'solar-system' };
-  if (Object.keys(value).some(key => ![...Object.keys(defaults), 'yearStart', 'yearEnd'].includes(key))) throw new Error('Unknown temporalStack field.');
+  const defaults = { enabled: false, axis: 'year', yearStep: 1, depthGap: 120, perspective: .8, tilt: .35, scaleFalloff: .035, connections: 'same-node', innerArrangement: 'solar-system' };
+  if (Object.keys(value).some(key => ![...Object.keys(defaults), 'yearStart', 'yearEnd', 'layerValues'].includes(key))) throw new Error('Unknown temporalStack field.');
   const result = { ...defaults, ...value };
+  if (!['year', 'language', 'repository', 'topic'].includes(result.axis)) throw Error('Invalid temporalStack.axis.');
+  if (result.layerValues !== undefined && (!Array.isArray(result.layerValues) || !result.layerValues.length || result.layerValues.length > 20 || new Set(result.layerValues).size !== result.layerValues.length || result.layerValues.some(value => typeof value !== 'string' || !value.length || value.length > 200))) throw Error('Invalid temporalStack.layerValues.');
   if (typeof result.enabled !== 'boolean' || !['same-node', 'none'].includes(result.connections) || !['solar-system', 'galaxy', 'rings'].includes(result.innerArrangement)) throw new Error('Invalid temporalStack settings.');
   for (const [key, min, max, integer] of [['yearStart', 1970, 9998, true], ['yearEnd', 1970, 9998, true], ['yearStep', 1, 100, true], ['depthGap', 20, 240], ['perspective', 0, 1], ['tilt', .15, .85], ['scaleFalloff', 0, .08]]) {
     if (result[key] !== undefined && (!Number.isFinite(result[key]) || result[key] < min || result[key] > max || integer && !Number.isInteger(result[key]))) throw new Error(`Invalid temporalStack.${key}.`);
@@ -27,26 +29,41 @@ export function projectTemporalPlane(depth, settings, view = {}) {
 }
 export function temporalBridges(layers, frames, connections) {
   if (connections === 'none') return [];
-  const result = [];
-  for (let i = 1; i < layers.length; i++) {
-    const newer = layers[i - 1], older = layers[i];
-    const ids = new Set(frames.get(newer.frameId).nodes.map(node => node.id));
-    for (const node of frames.get(older.frameId).nodes) if (ids.has(node.id)) result.push({ type: 'temporal', nodeId: node.id, fromYear: older.year, toYear: newer.year });
+  const result = [], previous = new Map();
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i];
+    for (const node of frames.get(layer.frameId).nodes) {
+      const newer = previous.get(node.id);
+      if (newer && (layer.axis || newer.index === i - 1)) result.push(layer.axis
+        ? { type: 'dimensional', nodeId: node.id, fromLayer: layer.id, toLayer: newer.layer.id }
+        : { type: 'temporal', nodeId: node.id, fromYear: layer.year, toYear: newer.layer.year });
+      previous.set(node.id, { layer, index: i });
+    }
   }
   return result;
 }
-export function validateTemporalStack(scene) {
+export function validateTemporalStack(scene, validateFrame) {
   const stack = scene.temporalStack;
   const fail = () => { throw new Error('Scene: invalid temporalStack attachment.'); };
-  if (!stack || stack.version !== 1 || stack.axis !== 'year' || !scene.timeline || !Array.isArray(stack.layers) || !stack.layers.length || stack.layers.length > MAX_TEMPORAL_LAYERS || !Array.isArray(stack.bridges)) fail();
+  if (!stack || ![1, 2].includes(stack.version) || !['year', 'language', 'repository', 'topic'].includes(stack.axis) || (stack.axis === 'year' ? !scene.timeline || stack.version !== 1 || stack.frames !== undefined : stack.version !== 2 || !Array.isArray(stack.frames) || stack.frames.length !== stack.layers?.length || !stack.geometry || scene.timeline !== undefined) || !Array.isArray(stack.layers) || !stack.layers.length || stack.layers.length > MAX_TEMPORAL_LAYERS || !Array.isArray(stack.bridges)) fail();
   const settings = temporalStackOptions(stack.settings);
-  if (Object.keys(settings).some(key => stack.settings[key] !== settings[key]) || typeof stack.reduced !== 'boolean') fail();
-  const frames = new Map(scene.timeline.frames.map(frame => [frame.id, frame.scene]));
-  let previous = Infinity;
+  if (Object.keys(settings).some(key => key === 'axis' && stack.version === 1 && stack.settings.axis === undefined ? false : stack.settings[key] !== settings[key]) || settings.axis !== stack.axis || typeof stack.reduced !== 'boolean') fail();
+  const frameList = stack.frames || scene.timeline.frames;
+  if (stack.frames) for (const frame of stack.frames) {
+    if (!frame || typeof frame.id !== 'string' || frame.evidence !== 'current-membership' || frame.date !== undefined || !frame.scene || frame.scene.temporalStack || frame.scene.timeline || frame.scene.story || frame.scene.hierarchy) fail();
+    validateFrame(frame.scene);
+  }
+  const frames = new Map(frameList.map(frame => [frame.id, frame.scene]));
+  if (frames.size !== frameList.length) fail();
+  let previous = Infinity; const ids = new Set();
   const anchors = new Map();
   let total = 0;
   for (const [index, layer] of stack.layers.entries()) {
-    if (!Number.isInteger(layer.year) || layer.year >= previous || layer.depth !== -index || !frames.has(layer.frameId) || new Date(layer.frameId).getUTCFullYear() !== layer.year) fail();
+    if (!layer || layer.depth !== -index || !frames.has(layer.frameId)) fail();
+    if (stack.axis !== 'year') {
+      if (layer.axis !== stack.axis || typeof layer.value !== 'string' || !layer.value.length || layer.value.length > 200 || layer.label !== layer.value || layer.id !== stack.axis + ':' + encodeURIComponent(layer.value) || layer.frameId !== layer.id || layer.evidence !== 'current-membership' || ids.has(layer.id) || layer.year !== undefined) fail();
+      ids.add(layer.id);
+    } else if (!Number.isInteger(layer.year) || layer.year >= previous || layer.depth !== -index || !frames.has(layer.frameId) || new Date(layer.frameId).getUTCFullYear() !== layer.year) fail();
     previous = layer.year;
     total += frames.get(layer.frameId).nodes.length;
     for (const node of frames.get(layer.frameId).nodes) {
@@ -70,7 +87,7 @@ export function validateTemporalStack(scene) {
     }
     validateRingPlacements(g.placements);
     const occupied = new Set();
-    const allAnchors = new Map(scene.timeline.frames.flatMap(frame => frame.scene.nodes.map(node => [node.id, node.geometry])));
+    const allAnchors = new Map(frameList.flatMap(frame => frame.scene.nodes.map(node => [node.id, node.geometry])));
     for (const [id, p] of Object.entries(g.placements)) {
       const key = `${p.ring}:${p.point}`, point = points.get(key), anchor = allAnchors.get(id);
       if (!point || !anchor || occupied.has(key) || point.x !== anchor.x || point.y !== anchor.y) fail();

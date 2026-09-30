@@ -87,8 +87,13 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     visualCSS(options.visualStyle);
   }
   if ('codingRhythmTimezone' in options) options.codingRhythmTimezone = resolveRhythmTimezone(options.codingRhythmTimezone);
+  // A dimensional layer needs repository membership, which is unavailable during
+  // data-independent config validation. Validate its settings on an ordinary empty
+  // scene; compilation checks selected membership once actual records are loaded.
+  const dimensional = options.temporalStack?.axis && options.temporalStack.axis !== 'year';
+  const probe = dimensional ? { ...options, arrangement: options.arrangement === 'temporal-stack' ? options.temporalStack.innerArrangement || 'rings' : options.arrangement, temporalStack: { ...options.temporalStack, enabled: false } } : options;
   // Reuse the rendering validators, including legacy fields and motion settings.
-  renderSceneSVG(createScene('validation', [], { ...options, layoutEngine: undefined, layoutOptions: undefined, ...(options.themePack && !options.themePack.preset ? { themePack: undefined } : {}) }), { interactive: true });
+  renderSceneSVG(createScene('validation', [], { ...probe, layoutEngine: undefined, layoutOptions: undefined, ...(options.themePack && !options.themePack.preset ? { themePack: undefined } : {}) }), { interactive: true });
   return JSON.parse(JSON.stringify(options));
 }
 

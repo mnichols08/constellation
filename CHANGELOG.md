@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0 — 2026-09-30
+
+- Generalize the existing Universe layer/geometry engine to Year, Language, Repository and Topic axes. Preserve Timeline evidence and continuity rules for years.
+- Represent current memberships with semantic v2 attachment layers and isolated frames, without fake dates; retain v1 year attachment parsing and config v7.
+- Rank and bound default layers, accept explicit ordering, connect repeated identities across dimensional planes, and populate repository planes with the existing combined language/topic/project graph.
+- Add Stack by, searchable layer values and ordered selection to Studio, dimensional choices to onboarding, and layer focus to offline HTML and web components. Preserve shared geometry, manual placements, motion and reduced-motion rendering.
+- Add membership/ordering/validation, legacy year, SVG, offline HTML, mobile Studio and packaged-component coverage. Validate 320 JavaScript tests, 34 Rust tests, CLI SVG/HTML exports for all dimensional axes, and six temporal scaling cases. Rebuild package mirrors and document the model and API.
+
 ## 3.3.0 — 2026-09-30
 
 - Add GitHub App authorization-code sign-in with strong state, S256 PKCE, one-use callbacks and an isolated secret-bearing exchange service. Hosted onboarding no longer asks for a pasted token; anonymous exploration and local/CLI/Actions tokens remain available.

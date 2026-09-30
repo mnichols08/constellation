@@ -100,7 +100,7 @@ function record(scene, path = '$') {
     }
     if (previous !== timeline.referenceDate) fail(path, 'timeline must end at the reference date');
   }
-  if (scene.temporalStack !== undefined) validateTemporalStack(scene);
+  if (scene.temporalStack !== undefined) validateTemporalStack(scene, frame => record(frame, path + '.temporalStack.frame'));
   if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.length === 90 && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length > 6144 || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
 }
 
@@ -144,7 +144,7 @@ export function sceneStatistics(scene) {
     labels: current.labels.length,
     visibleLabels: visible('labels') ? current.labels.filter(label => !label.hidden).length : 0,
     layers: current.layers.map(layer => layer.id),
-    frames: scene.timeline?.frames.length || (scene.kind === 'time-lapse' ? scene.frames.length + 1 : 1),
+    frames: scene.temporalStack?.frames?.length || scene.timeline?.frames.length || (scene.kind === 'time-lapse' ? scene.frames.length + 1 : 1),
     referenceDate: scene.metadata.referenceDate,
     pipeline: structuredClone(current.presentation.pipeline),
   };

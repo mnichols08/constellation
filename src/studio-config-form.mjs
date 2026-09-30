@@ -14,6 +14,8 @@ export function createFormRestorer(document) {
     for (const [key, id] of Object.entries(fields)) set(id, options[key]);
     if (options.temporalStack?.enabled) set('arrangement', 'temporal-stack');
     for (const key of ['yearStart', 'yearEnd', 'yearStep', 'depthGap', 'tilt', 'connections']) set(`temporal-${key}`, options.temporalStack?.[key]);
+    set('temporal-axis', options.temporalStack?.axis || 'year');
+    set('temporal-layerValues', options.temporalStack?.layerValues?.join('\n') || '');
     set('temporal-innerArrangement', options.temporalStack?.innerArrangement);
     set('temporal-form', options.temporalGeometry?.shape);
     for (const key of ['radius', 'depth', 'startRadius', 'endRadius', 'waist', 'twist', 'surface']) set(`temporal-${key}`, options.temporalGeometry?.[key]);

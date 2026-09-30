@@ -66,9 +66,12 @@
 <div class="sky-panel"><div id="preview" aria-busy="false"></div><div id="graph-explorer" class="graph-explorer" aria-label="Explore connections"></div><div class="sky-legend"><span><i class="legend-star"></i> <span id="node-legend">Project</span></span><span><i class="legend-line"></i> <span id="relationship-legend">Shared language</span></span><span><i class="legend-bridge"></i> Visual bridge</span></div></div>
 <aside class="controls" aria-label="Customize your constellation"><p class="eyebrow">MAKE IT YOURS</p><h2>Your constellation</h2><label for="layout">Format</label><select id="layout"><option value="compact">Compact README · 900 × 280</option><option value="atlas" selected>Full atlas · 900 × 560</option></select>
 <label for="arrangement">Arrangement</label><select id="arrangement"><option value="rings" selected>On identity ring points</option><option value="field">Star field</option><option value="orbital">Identity orbits</option><option value="force">Connected clusters</option></select>
-<fieldset id="temporal-stack-controls" hidden><legend>Temporal Stack</legend>
+<fieldset id="temporal-stack-controls" hidden><legend>Universe</legend>
+<label for="temporal-axis">Stack by</label><select id="temporal-axis"><option value="year">Year</option><option value="language">Language</option><option value="repository">Repository</option><option value="topic">Topic</option></select>
+<label for="temporal-layerValues">Layers in order (one per line; blank selects the most represented)</label><textarea id="temporal-layerValues" rows="3" placeholder="JavaScript&#10;Rust"></textarea>
+<label for="temporal-layer-search">Find a dimension value</label><input id="temporal-layer-search" type="search" list="temporal-layer-choices"><datalist id="temporal-layer-choices"></datalist><button id="temporal-layer-add" type="button">Add layer</button>
 <label for="temporal-innerArrangement">Project placement</label><select id="temporal-innerArrangement"><option value="rings">Identity ring points</option><option value="solar-system">Solar System</option><option value="galaxy">Galaxy</option></select>
-<label for="temporal-form">Temporal form</label><select id="temporal-form"><option value="stack">Stack</option><option value="cylinder">Cylinder</option><option value="cone">Cone</option><option value="sphere">Sphere</option><option value="dome">Dome</option><option value="hourglass">Hourglass</option><option value="helix">Helix</option></select>
+<label for="temporal-form">Universe form</label><select id="temporal-form"><option value="stack">Stack</option><option value="cylinder">Cylinder</option><option value="cone">Cone</option><option value="sphere">Sphere</option><option value="dome">Dome</option><option value="hourglass">Hourglass</option><option value="helix">Helix</option></select>
 <div data-temporal-parameter="radius"><label for="temporal-radius">Radius</label><input id="temporal-radius" type="range" min="80" max="600" value="320"></div>
 <div data-temporal-parameter="cone"><label for="temporal-startRadius">Newest radius</label><input id="temporal-startRadius" type="range" min="40" max="600" value="320"><label for="temporal-endRadius">Oldest radius</label><input id="temporal-endRadius" type="range" min="40" max="600" value="96"></div>
 <label for="temporal-depth">Structure depth</label><input id="temporal-depth" type="range" min="80" max="1600" value="640">
@@ -81,7 +84,7 @@
 <label for="temporal-yearStep">Year interval</label><input id="temporal-yearStep" type="number" min="1" max="100" value="1">
 <label for="temporal-depthGap" hidden>Legacy year separation</label><input id="temporal-depthGap" type="range" min="20" max="240" value="120" hidden>
 <label for="temporal-tilt">Plane tilt</label><input id="temporal-tilt" type="range" min="0.15" max="0.85" step="0.05" value="0.35">
-<label for="temporal-connections">Temporal connections</label><select id="temporal-connections"><option value="same-node">Same project</option><option value="none">None</option></select>
+<label for="temporal-connections">Connections across layers</label><select id="temporal-connections"><option value="same-node">Shared identity</option><option value="none">None</option></select>
 <p class="export-note">Older layers use current metadata unless snapshots are supplied. Halos mark first visibility in this window. Interactive HTML adds year focus and camera controls.</p>
 </fieldset>
 <label for="node-mode">Nodes represent</label><select id="node-mode"><option value="combined" selected>Repositories + languages + topics</option><option value="repositories">Repositories</option><option value="languages">Languages</option><option value="topics">Topics</option></select>
@@ -92,7 +95,7 @@
 <p id="position-help" class="export-note">Each node and its label stay attached. Unlock to drag either one and move the pair, or use arrow keys. Hold Shift for larger steps.</p>
 <button type="button" id="reset-stars" class="secondary">Reset node &amp; label positions</button>
 </div></details><details class="control-section"><summary>Projects & data</summary><div class="control-section-body"><label for="repo-source">Project source</label><select id="repo-source" aria-describedby="pinned-help"><option value="all">All public repositories</option><option value="pinned">Pinned repositories · token for preview</option></select>
-<p id="pinned-help" class="export-note" hidden><strong>Personal token required for pinned previews.</strong> <a href="#token-help">Sign in with a token</a> to load live pins here. Daily workflows use GitHub’s automatic token.</p>
+<p id="pinned-help" class="export-note" hidden><strong>GitHub sign-in enables pinned previews.</strong> <a href="#token-help">Continue with GitHub</a> to load live pins here. Daily workflows use GitHub’s automatic token.</p>
 <label for="max-repos" class="range-label">Project limit <output id="limit-value" for="max-repos">45</output></label><input id="max-repos" type="range" min="5" max="100" step="5" value="45">
 <button type="button" id="load-projects" class="secondary" hidden>Load project data</button>
 <button type="button" id="refresh-data" class="secondary" hidden>Refresh data from GitHub</button>

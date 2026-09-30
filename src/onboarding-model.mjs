@@ -14,14 +14,15 @@ export function choicesFor(repositories, projects, year) {
   return { selected, languages: [...new Set(selected.flatMap(repositoryLanguages))].sort(), topics: [...new Set(selected.flatMap(repo => repo.topics || []))].sort(), history: temporalEligibility(selected, [], year) };
 }
 export function defaultIntent(repositories) {
-  return { version: 1, projects: recommendProjects(repositories), languages: null, topics: null, relationships: 'auto', activity: 'none', history: 'current', motion: 'automatic', vibe: 'cosmic' };
+  return { version: 1, projects: recommendProjects(repositories), languages: null, topics: null, relationships: 'auto', dimension: 'language', activity: 'none', history: 'current', motion: 'automatic', vibe: 'cosmic' };
 }
 export function validateIntent(value) {
   const strings = (list, max) => Array.isArray(list) && list.length <= max && list.every(item => typeof item === 'string' && item.length > 0 && item.length <= 200);
-  if (!value || value.version !== 1 || !strings(value.projects, 100) || !value.projects.length || !['languages', 'topics'].every(key => value[key] === null || strings(value[key], 100)) || !['none', 'surprise', 'asteroids', 'orbit', 'recent', 'subtle'].includes(value.activity) || !['current', 'rings', 'galaxy', 'history', '3d', 'surprise'].includes(value.history) || !['automatic', 'still'].includes(value.motion) || !['cosmic', 'clean', 'technical', 'classic', 'surprise'].includes(value.vibe)) throw Error('Choose 1–100 projects and valid showcase preferences.');
+  if (!value || value.version !== 1 || !strings(value.projects, 100) || !value.projects.length || !['languages', 'topics'].every(key => value[key] === null || strings(value[key], 100)) || !['none', 'surprise', 'asteroids', 'orbit', 'recent', 'subtle'].includes(value.activity) || !['current', 'rings', 'galaxy', 'dimension', 'history', '3d', 'surprise'].includes(value.history) || !['automatic', 'still'].includes(value.motion) || !['cosmic', 'clean', 'technical', 'classic', 'surprise'].includes(value.vibe)) throw Error('Choose 1–100 projects and valid showcase preferences.');
   if (!['auto', 'projects', 'languages', 'topics', 'everything'].includes(value.relationships ?? 'auto')) throw Error('Choose valid relationships.');
-  value = { ...value, relationships: value.relationships ?? 'auto' };
-  return Object.fromEntries(['version', 'relationships', 'projects', 'languages', 'topics', 'activity', 'history', 'motion', 'vibe'].map(key => [key, structuredClone(value[key])]));
+  if (!['language', 'topic', 'repository'].includes(value.dimension ?? 'language')) throw Error('Choose a valid dimension.');
+  value = { ...value, dimension: value.dimension ?? 'language', relationships: value.relationships ?? 'auto' };
+  return Object.fromEntries(['version', 'dimension', 'relationships', 'projects', 'languages', 'topics', 'activity', 'history', 'motion', 'vibe'].map(key => [key, structuredClone(value[key])]));
 }
 export function intentStore(storage) {
   const key = account => `constellation-intent-v1:${account.toLowerCase()}`;

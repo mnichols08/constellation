@@ -49,6 +49,7 @@ export class ConstellationView extends HTMLElement {
   reset() { return this.#active().reset(); }
   setFilter(value) { return this.#active().setFilter(value); }
   setTheme(value) { return this.#active().setTheme(value); }
+  focusLayer(value) { const runtime = this.#active(); if (!runtime.focusLayer) throw new Error('This scene has no universe.'); return runtime.focusLayer(value); }
   setFrame(value) { const runtime = this.#active(); if (!runtime.setFrame) throw new Error('This scene has no timeline.'); return runtime.setFrame(value); }
   setTemporalView(value) { return this.#active().setTemporalView(value); }
   focusYear(value) { return this.#active().focusYear(value); }
@@ -135,7 +136,7 @@ export class ConstellationView extends HTMLElement {
       // Validate custom styling before inserting renderer-owned SVG markup.
       const chapterScenes = [this.#scene, ...this.#scene.story?.chapters.map(chapter => chapter.scene) || []];
       const roots = chapterScenes.flatMap(scene => [scene, ...scene.hierarchy?.scenes.map(entry => entry.scene) || []]);
-      const scenes = roots.flatMap(scene => scene.kind === 'time-lapse' ? [scene, scene.latest, ...scene.frames.map(frame => frame.scene)] : [scene, ...scene.timeline?.frames.map(frame => frame.scene) || []]);
+      const scenes = roots.flatMap(scene => scene.kind === 'time-lapse' ? [scene, scene.latest, ...scene.frames.map(frame => frame.scene)] : [scene, ...(scene.temporalStack?.frames || scene.timeline?.frames || []).map(frame => frame.scene)]);
       for (const scene of scenes) for (const key of ['css', 'customCSS']) {
         const css = scene.presentation.options[key];
         if (css && /(?:@import|url\s*\(|expression\s*\(|\\)/i.test(css.replace(/\/\*[\s\S]*?\*\//g, ''))) throw new Error('Embedded scene CSS must be self-contained.');

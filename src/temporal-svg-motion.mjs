@@ -43,11 +43,11 @@ export function animateTemporalSVG(svg, scene) {
       } else add(item.key, 'd', item.points.map((p, j) => `${j ? 'L' : 'M'}${number(p.x)} ${number(p.y)}`).join('') + (item.kind === 'surface' ? 'Z' : ''));
     }
     for (const item of drawing.labels) add(item.key, 'transform', `1 0 0 1 ${number(item.x - item.label.x)} ${number(item.y - item.label.y)}`);
-    for (const item of drawing.years) add(`year:${item.year}`, 'transform', `1 0 0 1 ${number(item.x)} ${number(item.y)}`);
+    for (const item of drawing.years) add(`year:${item.layerId}`, 'transform', `1 0 0 1 ${number(item.x)} ${number(item.y)}`);
   }
   const unescape = value => value.replace(/&(amp|lt|gt|quot|apos);/g, (_, name) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[name]);
-  const animated = svg.replace(/<(?:g|path|text)\b[^>]*\bdata-(?:geometry-key|temporal-year)="[^"]+"[^>]*>/g, tag => {
-    const key = tag.match(/data-geometry-key="([^"]+)"/)?.[1] || `year:${tag.match(/data-temporal-year="([^"]+)"/)[1]}`;
+  const animated = svg.replace(/<(?:g|path|text)\b[^>]*\bdata-(?:geometry-key|layer-label)="[^"]*"[^>]*>/g, tag => {
+    const key = tag.match(/data-geometry-key="([^"]+)"/)?.[1] || `year:${tag.match(/data-layer-id="([^"]+)"/)[1]}`;
     const motion = values.get(unescape(key));
     if (!motion || motion.values.every(value => value === motion.values[0])) return tag;
     const timing = `data-temporal-motion="" dur="${duration}s" repeatCount="indefinite"`;

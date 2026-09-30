@@ -10,7 +10,7 @@ export function mountInteractive(root, source, options = {}) {
   const status = root.querySelector('[data-status]');
   const details = root.querySelector('[data-details]');
   const base = [...scene.viewport.viewBox];
-  const records = new Map((scene.temporalStack ? scene.timeline.frames.flatMap(frame => frame.scene.nodes) : scene.nodes).map(node => [node.id, node]));
+  const records = new Map((scene.temporalStack ? (scene.temporalStack.frames || scene.timeline.frames).flatMap(frame => frame.scene.nodes) : scene.nodes).map(node => [node.id, node]));
   const groups = [...svg.querySelectorAll('.repository')].filter(group => group.style.display !== 'none');
   const allIds = [...new Set(groups.map(group => group.querySelector('.star')?.dataset.repo).filter(id => records.has(id)))];
   let ids = [...allIds];
@@ -48,7 +48,7 @@ export function mountInteractive(root, source, options = {}) {
     if (!details) return;
     details.replaceChildren();
     if (!id) return;
-    const frame = scene.temporalStack && occurrenceYear !== null ? scene.timeline.frames.findLast(frame => new Date(frame.date).getUTCFullYear() === occurrenceYear) : null;
+    const frame = scene.temporalStack?.axis === 'year' && occurrenceYear !== null ? scene.timeline.frames.findLast(frame => new Date(frame.date).getUTCFullYear() === occurrenceYear) : null;
     const record = frame?.scene.nodes.find(node => node.id === id) || records.get(id), metadata = record.metadata;
     const heading = document.createElement('h2'); heading.textContent = metadata.name || id;
     const description = document.createElement('p'); description.textContent = metadata.description || '';

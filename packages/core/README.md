@@ -34,3 +34,7 @@ node src/cli.mjs --username octocat --fixture repos.json --config settings.json 
 Rebuild `packages/core` after source or WASM changes. A core tarball can be installed by path (`npm install ./constellation-core-3.2.0.tgz`). Package tests copy the built package outside the checkout and verify WASM initialization, rendering, validation and filtering there.
 
 Interactive exports: `renderSceneHTML(scene, { title })` produces an offline HTML document. See [interactive HTML](interactive-html.md).
+
+## Universe dimensions
+
+`temporalStack.axis` supports `year` (default), `language`, `repository` and `topic`. Optional `layerValues` selects and orders dimensional layers. Config stays v7; v1 year attachments remain readable, while dimensional scenes use attachment v2 without a Timeline. See [Universe dimensions](temporal-stack.md).

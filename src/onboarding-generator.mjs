@@ -12,11 +12,12 @@ export function generateGuidedDesign(account, repositories, answers, { seed, yea
   const span = temporalEligibility(selected, [], year);
   const code = `v6:m${intent.motion === 'still' ? '000' : '7ff'}-y${year}-f${span.firstYear}-e${Number(span.eligible)}-${seed}`;
   let options = randomizeV6(code, { repositories: selected });
-  const history = ['rings', 'galaxy'].includes(intent.history) ? intent.history : span.eligible ? intent.history === 'surprise' ? (random() < .4 ? '3d' : random() < .5 ? 'history' : 'current') : intent.history : 'current';
+  const history = ['rings', 'galaxy', 'dimension'].includes(intent.history) ? intent.history : span.eligible ? intent.history === 'surprise' ? (random() < .4 ? '3d' : random() < .5 ? 'history' : 'current') : intent.history : 'current';
   if (history === '3d') {
     // Reuse the v6 temporal recipe rather than creating another geometry randomizer.
     for (let attempt = 0; options.arrangement !== 'temporal-stack' && attempt < 100; attempt++) options = randomizeV6(`${code}-${attempt}`, { repositories: selected });
   } else { options.arrangement = ['rings', 'galaxy'].includes(history) ? history : history === 'history' ? 'era-rings' : ['rings', 'galaxy', 'solar-system', 'field'][Math.floor(random() * 4)]; options.temporalStack = { enabled: false }; }
+  if (history === 'dimension') { options.arrangement = 'temporal-stack'; options.temporalStack = { enabled: true, axis: intent.dimension, innerArrangement: 'rings' }; }
   const motion = intent.motion !== 'still';
   const activity = !activityAvailable ? 'none' : intent.activity === 'surprise' ? ['asteroids', 'orbit', 'recent', 'recent', 'subtle'][Math.floor(random() * 5)] : intent.activity;
   Object.assign(options, {

@@ -39,7 +39,7 @@ export function applyTemporalGeometryDrawing(svg, scene, view) {
     label.dataset.baseOpacity = item.opacity; label.setAttribute('opacity', item.opacity);
   }
   for (const item of drawing.years) {
-    const label = svg.querySelector(`[data-temporal-year="${item.year}"]`);
+    const label = [...svg.querySelectorAll('[data-layer-label]')].find(label => label.dataset.layerId === String(item.layerId));
     label.dataset.baseOpacity = '1'; label.setAttribute('opacity', '1');
     label.setAttribute('transform', `translate(${item.x} ${item.y})`);
   }

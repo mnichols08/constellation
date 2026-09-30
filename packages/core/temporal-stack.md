@@ -1,7 +1,7 @@
-# Temporal Stack
+# Universe dimensions and Temporal Stack
 
-Choose **Arrangement → Temporal Stack · project history in depth** or apply
-**Developer Universe** in Studio. Each year is a transformed cross-section; the newest is
+Choose **Arrangement → Universe · explore dimensions in depth** or apply
+**Developer Universe** in Studio. **Stack by** switches between Year, Language, Repository and Topic. Each year is a transformed cross-section; the newest is
 largest and nearest, with older years receding downward. Filaments connect the
 same project in adjacent displayed layers. Selection highlights its occurrences
 and reports first visibility, last visibility and number of layers.
@@ -26,7 +26,25 @@ Galaxy, plus contextual form parameters. Identity points come from the existing
 Rust ring engine. The API also supports `galaxy` and `rings` as inner arrangements. This is temporal composition,
 not a replacement Layout API algorithm.
 
-## Evidence
+## Dimensional layers (v3.4)
+
+Set `temporalStack.axis` to `language`, `repository` or `topic`; omitted means `year`.
+Language and topic layers contain repositories with that membership. Polyglot repositories occur in multiple planes. Filaments connect each repeated identity to its previous occurrence, including across intervening planes without that identity. Repository layers use the existing combined graph: the project plus its language and topic nodes. Shared language/topic identities connect repository planes.
+
+Defaults select at most eight values, ranked by repository representation, then total stars, then name. Explicit `layerValues` selects and orders up to twenty values. Studio provides a searchable value list, **Add layer**, and an editable ordered list (one value per line). Blank restores defaults. Values must exist in the filtered project pool; unavailable values produce a recoverable error. Compact exports show at most three selected layers and disclose reduction. A repository without technology/topic metadata has no invented identities.
+
+```json
+{ "arrangement": "temporal-stack", "temporalStack": {
+  "axis": "language", "layerValues": ["JavaScript", "Rust", "CSS"],
+  "innerArrangement": "rings", "connections": "same-node"
+} }
+```
+
+Config remains v7. Existing v1 year attachments deserialize unchanged. Dimensional attachments are v2: `layers` hold `id, axis, value, label, depth, frameId, evidence`; `frames` hold isolated scenes and `current-membership` evidence. They have no fabricated year/date or Timeline attachment. Frame count, recursive attachments, identities, anchors, bridges and aggregate node bounds are validated. The same ring layout, geometry projections, motion and SVG/offline/component rendering serve every axis.
+
+The runtime and web component add `focusLayer(layerId)`; dimensional controls emit `universe-layer-change` with layer, axis and evidence. Year controls retain `focusYear` and existing events. Dimensional views have no Timeline toggle. Existing geometry, camera, manual ring placement, animation, reduced motion, filtering and exports remain available.
+
+## Year evidence
 
 Default historical layers reuse Timeline's creation-date filtering at year end.
 Their evidence is `current-metadata`: repositories known to exist by that date,

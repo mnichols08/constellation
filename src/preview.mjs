@@ -262,7 +262,12 @@ function render({ requireVisibleNodes = false } = {}) {
   options.arrangement = $('#arrangement').value;
   $('#temporal-stack-controls').hidden = options.arrangement !== 'temporal-stack';
   if (options.arrangement === 'temporal-stack') {
-    options.temporalStack = { ...options.temporalStack, enabled: true };
+    options.temporalStack = { ...options.temporalStack, enabled: true, axis: $('#temporal-axis').value };
+    const layerValues = $('#temporal-layerValues').value.split('\n').map(value => value.trim()).filter(Boolean);
+    if (layerValues.length && options.temporalStack.axis !== 'year') options.temporalStack.layerValues = [...new Set(layerValues)]; else delete options.temporalStack.layerValues;
+    for (const key of ['yearStart', 'yearEnd', 'yearStep']) { const input = $('#temporal-' + key); input.hidden = options.temporalStack.axis !== 'year'; document.querySelector('label[for="temporal-' + key + '"]').hidden = input.hidden; }
+    const values = [...new Set(repositories.flatMap(repo => options.temporalStack.axis === 'language' ? Object.keys(repo.languages || (repo.language ? { [repo.language]: 1 } : {})) : options.temporalStack.axis === 'topic' ? repo.topics || [] : [repo.full_name]))].sort();
+    $('#temporal-layer-choices').replaceChildren(...values.map(value => { const option = document.createElement('option'); option.value = value; return option; }));
     for (const key of ['yearStart', 'yearEnd', 'yearStep', 'depthGap', 'tilt', 'connections']) {
       const value = $(`#temporal-${key}`).value;
       if (value === '') delete options.temporalStack[key];
@@ -466,7 +471,9 @@ $('#repo-source').addEventListener('change', () => {
 });
 for (const link of document.querySelectorAll('a[href="#token-help"]')) link.addEventListener('click', () => { $('#token-help').open = true; });
 for (const id of ['#arrangement', '#identity-ring', '#snap-rings']) $(id).addEventListener('input', render);
-for (const input of document.querySelectorAll('#temporal-stack-controls input, #temporal-stack-controls select')) input.addEventListener('input', render);
+for (const input of document.querySelectorAll('#temporal-stack-controls input:not([type=search]), #temporal-stack-controls select, #temporal-stack-controls textarea')) input.addEventListener('input', render);
+$('#temporal-axis').addEventListener('change', () => { $('#temporal-layerValues').value = ''; render(); });
+$('#temporal-layer-add').addEventListener('click', () => { const value = $('#temporal-layer-search').value.trim(); if (value) { const input = $('#temporal-layerValues'); input.value = [...new Set([...input.value.split('\n').filter(Boolean), value])].join('\n'); render(); } });
 $('#temporal-form').addEventListener('change', () => { if ($('#temporal-form').value === 'helix' && Number($('#temporal-twist').value) === 0) $('#temporal-twist').value = '240'; render(); });
 $('#node-mode').addEventListener('input', () => {
   render();
@@ -764,7 +771,7 @@ function applyOptions(options) {
   previousRingRotation = options.ringRotations || Array(4).fill(options.ringRotation || 0);
   graphSelection = options.selection || {};
 }
-for (const [value, text] of [['galaxy', 'Galaxy · language clusters'], ['solar-system', 'Solar System · major repositories'], ['temporal-stack', 'Temporal Stack · project history in depth']]) {
+for (const [value, text] of [['galaxy', 'Galaxy · language clusters'], ['solar-system', 'Solar System · major repositories'], ['temporal-stack', 'Universe · explore dimensions in depth']]) {
   const option = document.createElement('option'); option.value = value; option.textContent = text; option.disabled = !rustAvailable; $('#arrangement').append(option);
 }
 for (const [value, label] of [['community-galaxy', 'Community galaxy'], ['collaboration-gravity', 'Collaboration gravity'], ['era-rings', 'Era rings']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; $('#arrangement').append(option); }
