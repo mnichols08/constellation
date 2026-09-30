@@ -9,6 +9,12 @@
 - In a deterministic mock, independent contribution and commit loaders use 2 GitHub GETs instead of 3 by sharing repository metadata; this fixture result is not generalized to other request paths.
 - Add request-cache, CLI persistence, refresh-race, auth, cancellation, rate-limit, proxy and browser regression coverage. Rebuild Core and web-component package outputs.
 
+## 3.5.2 — 2026-09-30
+
+- Run test files serially after release-tag verification exposed Chrome startup timeouts with two concurrent workers.
+- Give Linux test browsers private writable cache/config directories, avoid constrained shared memory on Actions, and wait for browser exit before deleting profiles.
+- Use the shared browser harness for the Studio integration suite so startup and cleanup fixes apply to every browser test. Keep all application assertions enabled.
+
 ## 3.5.1 — 2026-09-30
 
 - Fix an intermittent browser-test startup failure by waiting for a complete, valid Chrome DevTools port file instead of accepting an empty or partial write.
@@ -228,7 +234,6 @@
 - Add self-contained interactive HTML export from compiled scenes and CLI `build --format html`.
 - Support pan, cursor-centred zoom, hover, selection, click-to-focus, fit/reset and keyboard controls.
 - Add offline browser and CLI tests, escaped embedded data, and a runnable HTML example. Static SVG remains the default.
-
 
 ## Unreleased
 

@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 export const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => existsSync(path));
 
@@ -28,15 +27,33 @@ export async function openBrowser(t, url) {
   const profile = await mkdtemp(join(tmpdir(), 'constellation-browser-'));
   // Hosted Linux runners restrict Chrome's namespace sandbox. This isolated
   // test browser only loads our localhost fixtures and uses a disposable profile.
-  const runnerArgs = process.env.GITHUB_ACTIONS === 'true' && process.platform === 'linux' ? ['--no-sandbox'] : [];
-  const child = spawn(browser, ['--headless=new', ...runnerArgs, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+  const runnerArgs = process.env.GITHUB_ACTIONS === 'true' && process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : [];
+  const env = { ...process.env };
+  if (process.platform === 'linux') {
+    env.XDG_CACHE_HOME = join(profile, 'cache');
+    env.XDG_CONFIG_HOME = join(profile, 'config');
+    await mkdir(env.XDG_CACHE_HOME, { recursive: true });
+    await mkdir(env.XDG_CONFIG_HOME, { recursive: true });
+  }
+  const child = spawn(browser, ['--headless=new', ...runnerArgs, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { env, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
   let launchError = '', diagnostics = '';
   child.on('error', error => { launchError = error.message; });
   child.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-8000); });
   let socket, cdp;
   t.after(async () => {
     if (cdp) try { await cdp('Browser.close'); } catch {}
-    socket?.close(); child.kill();
+    socket?.close();
+    if (child.exitCode === null && child.signalCode === null && !launchError) {
+      const exited = new Promise(resolve => child.once('exit', resolve));
+      child.kill();
+      let timer;
+      await Promise.race([exited, new Promise(resolve => { timer = setTimeout(resolve, 2000); })]);
+      clearTimeout(timer);
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL');
+        await exited;
+      }
+    }
     for (let i = 0; i < 20; i++) { try { await rm(profile, { recursive: true, force: true }); break; } catch { await delay(100); } }
   });
   const port = await waitForDevToolsPort(join(profile, 'DevToolsActivePort'), {
