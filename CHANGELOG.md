@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.3.0 — 2026-09-30
+
+- Add GitHub App authorization-code sign-in with strong state, S256 PKCE, one-use callbacks and an isolated secret-bearing exchange service. Hosted onboarding no longer asks for a pasted token; anonymous exploration and local/CLI/Actions tokens remain available.
+- Automatically use authenticated identity, show profile details, support sign-out and returning local designs, and keep credentials outside design storage and exports.
+- Rework guided creation around visual project cards, relationship choices, optional illustrated activity and universe structure; retain advanced Studio, keyboard/mobile support and lazy activity requests.
+- Add OAuth security/callback/returning-user tests and deployment instructions. Actual hosted sign-in requires owner registration and deployment of the new GitHub App and service; automated tests use simulated GitHub responses.
+- Rebuild Core and web-component mirrors.
+
 ## 3.2.2 — 2026-09-30
 
 - Retire Story creation from Studio navigation and exports; remove the unused Studio editor. Remove promotion from onboarding, README and the current example gallery.

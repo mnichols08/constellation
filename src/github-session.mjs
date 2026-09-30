@@ -34,7 +34,7 @@ export function createGitHubSession({ fetchImpl = fetch, onChange = () => {} } =
       const user = await response.json();
       if (!/^[a-z\d][a-z\d-]{0,38}$/i.test(user.login || '')) throw new Error('GitHub returned an invalid account.');
       if (attempt !== revision) return null;
-      token = candidate; profile = { login: user.login };
+      token = candidate; profile = { login: user.login, ...(typeof user.name === 'string' ? { name: user.name.slice(0, 200) } : {}), ...(typeof user.avatar_url === 'string' && user.avatar_url.startsWith('https://avatars.githubusercontent.com/') ? { avatar: user.avatar_url } : {}) };
       onChange(profile);
       return profile;
     },

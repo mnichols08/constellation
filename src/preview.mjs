@@ -1,3 +1,4 @@
+import { createGitHubOAuth } from './github-oauth.mjs';
 import { mountOnboarding } from './onboarding-ui.mjs';
 import { mountConstellationLibrary } from './constellation-library.mjs';
 import { parseConfig } from './config-schema.mjs';
@@ -41,8 +42,9 @@ try { storage = window.sessionStorage; } catch {}
 const proxyBase = document.querySelector('meta[name="constellation-api"]')?.content;
 const localAuth = document.querySelector('meta[name="constellation-auth"]')?.content === 'authenticated';
 const session = createGitHubSession({ onChange: profile => {
-  document.querySelector('#github-auth-open').textContent = profile ? `@${profile.login}` : 'Sign in';
+  document.querySelector('#github-auth-open').textContent = profile ? `@${profile.login}` : 'Continue with GitHub';
   document.querySelector('#github-sign-out').hidden = !profile;
+  if (profile?.avatar) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.width = 24; image.height = 24; document.querySelector('#github-auth-open').prepend(image); }
   document.querySelector('#github-auth-status').textContent = profile ? `Signed in as @${profile.login}.` : 'Signed out. You can still browse public projects.';
 } });
 const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase, session }), fetchPinned: createPinnedFetch({ proxyBase, session }) });
@@ -65,10 +67,30 @@ if (proxyBase) $('.form-note').textContent = localAuth
   : 'No local GitHub token found. Add GH_TOKEN to .env and restart npm run preview to authenticate. Loaded data is retained while customizing.';
 const form = $('#account-form');
 const authDialog = $('#github-sign-in');
-for (const button of document.querySelectorAll('[data-open-github-auth]')) button.addEventListener('click', () => { authDialog.showModal(); $('#github-token').focus(); });
+const oauth = createGitHubOAuth({ clientId: document.querySelector('meta[name="constellation-oauth-client"]')?.content, exchangeUrl: document.querySelector('meta[name="constellation-oauth-exchange"]')?.content, redirectUri: location.origin + location.pathname, storage });
+$('#github-advanced-auth').hidden = !['localhost', '127.0.0.1'].includes(location.hostname);
+$('#github-oauth-start').addEventListener('click', async () => {
+  try { location.assign(await oauth.begin()); }
+  catch (error) { $('#github-auth-status').textContent = error.message; }
+});
+async function authenticatedEntry(profile) {
+  form.elements.username.value = profile.login;
+  $('#account-mode').value = 'auto'; syncAccountMode(); authDialog.close();
+  const saved = studio.store.library().filter(item => item.account.toLowerCase() === profile.login.toLowerCase());
+  if (!saved.length) { await startGuided(profile.login); return; }
+  document.documentElement.dataset.entry = 'guided';
+  guidedHost ??= document.createElement('section'); guidedHost.id = 'guided-setup'; guidedHost.hidden = false; $('.observatory').before(guidedHost);
+  const heading = document.createElement('h2'); heading.textContent = 'Continue your constellations';
+  const note = document.createElement('p'); note.textContent = 'Welcome back, @' + profile.login + '. Your saved designs are ready.';
+  guidedHost.replaceChildren(heading, note);
+  for (const [label, run] of [['Open existing', () => $('#open-constellation-library').click()], ['Create another', () => startGuided(profile.login)], ['Rerun onboarding', () => startGuided(profile.login)]]) {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.addEventListener('click', run); guidedHost.append(button);
+  }
+}
+for (const button of document.querySelectorAll('[data-open-github-auth]')) button.addEventListener('click', () => { authDialog.showModal(); $('#github-oauth-start').focus(); });
 $('#github-auth-close').addEventListener('click', () => authDialog.close());
 authDialog.addEventListener('close', () => { session.cancelSignIn(); $('#github-token').value = ''; });
-$('#github-sign-out').addEventListener('click', () => { session.signOut(); $('#github-token').value = ''; });
+$('#github-sign-out').addEventListener('click', () => { oauth.cancel(); session.signOut(); $('#github-token').value = ''; });
 $('#github-token-form').addEventListener('submit', async event => {
   event.preventDefault();
   const button = $('#github-token-submit'), value = $('#github-token').value;
@@ -77,10 +99,7 @@ $('#github-token-form').addEventListener('submit', async event => {
   try {
     const profile = await session.signIn(value);
     if (profile) {
-      form.elements.username.value = profile.login;
-      $('#account-mode').value = 'auto'; syncAccountMode();
-      authDialog.close();
-      await startGuided(profile.login);
+      await authenticatedEntry(profile);
     }
   } catch (error) { $('#github-auth-status').textContent = error.message; }
   finally { button.disabled = false; }
@@ -619,7 +638,7 @@ async function startGuided(name) {
     if (!workspace) workspace = mountStudioLayout();
     guidedHost ??= document.createElement('section'); guidedHost.id = 'guided-setup'; guidedHost.setAttribute('aria-label', 'Create your constellation');
     $('.observatory').before(guidedHost);
-    mountOnboarding(guidedHost, { account, repositories: () => repositories, year: new Date().getUTCFullYear(), initial: intents.read(account),
+    mountOnboarding(guidedHost, { account, profile: session.profile || data.profile(account), repositories: () => repositories, year: new Date().getUTCFullYear(), initial: intents.read(account),
       findRepositories: findGuidedRepositories,
       prepareProjects: async (projects, progress) => {
         loading = true; form.querySelector('button').disabled = true;
@@ -874,4 +893,11 @@ const initialShare = studio.shared();
 if (initialShare) {
   if (initialShare.account === account) { applyOptions(initialShare.options); render(); showSavedPreview(); }
   else { form.elements.username.value = initialShare.account; loadAccount(initialShare.account, false, initialShare.options.repoSource || 'all', initialShare, { previewOnly: true }); }
+}
+
+// Consume callback only after Studio initialization; remove codes before rendering links.
+if (new URL(location.href).searchParams.has('code') || new URL(location.href).searchParams.has('error')) {
+  const callback = location.href; history.replaceState(null, '', location.pathname + location.hash);
+  try { const credential = await oauth.complete(callback); if (credential) { const profile = await session.signIn(credential); if (profile) await authenticatedEntry(profile); } }
+  catch (error) { authDialog.showModal(); $('#github-auth-status').textContent = error.message; }
 }

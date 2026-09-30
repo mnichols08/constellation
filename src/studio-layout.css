@@ -279,3 +279,19 @@ html[data-entry="landing"] #open-constellation-library { margin: 16px 0 0 12px; 
   .preview-action-buttons { gap: 6px; }
   .preview-action-buttons button { flex: 1; padding: 8px 6px; font-size: 10px; white-space: nowrap; }
 }
+/* Guided creation uses native controls with visual previews, including on phones. */
+#guided-setup { max-width: 960px; margin: 24px auto; padding: clamp(16px, 4vw, 36px); border: 1px solid #7895bd55; border-radius: 20px; background: #0b172bcc; }
+#guided-setup > p:first-child { line-height: 1.8; overflow-wrap: anywhere; }
+.guided-identity { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.guided-identity img { border-radius: 50%; }
+#guided-setup fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; border: 0; padding: 12px 0; }
+#guided-setup fieldset label, #guided-setup .repository-picker-list > label { border: 1px solid #7895bd66; border-radius: 12px; padding: 14px; display: flex; align-items: flex-start; gap: 10px; min-width: 0; cursor: pointer; }
+#guided-setup label:has(input:checked) { background: #34598055; border-color: #afccf4; }
+#guided-setup .repository-picker-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; max-height: 460px; }
+#guided-setup small { display: block; line-height: 1.6; margin-top: 8px; }
+#guided-setup :focus-visible { outline: 3px solid #eccc81; outline-offset: 3px; }
+#guided-setup input[type=checkbox], #guided-setup input[type=radio] { flex: 0 0 auto; }
+#guided-setup .guided-actions { flex-wrap: wrap; gap: 10px; }
+@media (max-width: 480px) { #guided-setup { margin: 12px 0; } #guided-setup .repository-picker-list { grid-template-columns: 1fr; } .masthead { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { #guided-setup * { animation: none !important; transition: none !important; } }
+.studio-ready .intro > [data-open-github-auth], .studio-ready .intro > p:not([class]) { display: none; }

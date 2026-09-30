@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="constellation-oauth-client" content=""><meta name="constellation-oauth-exchange" content="">
+<meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark"><meta name="description" content="Turn your GitHub projects into a personal constellation. Explore your sky and bring it to your README.">
 <title>GitHub Constellation — Your code, written in the stars</title>
 <script>
@@ -16,17 +18,20 @@
 <link rel="stylesheet" href="./src/studio-layout.css">
 </head>
 <body>
-<header class="masthead"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">✧</span>constellation <span class="brand-tag">for GitHub</span></a><button id="github-auth-open" type="button" class="secondary" data-open-github-auth>Sign in</button><a class="source-link" href="https://github.com/mnichols08/constellation">View on GitHub ↗</a></header>
+<header class="masthead"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">✧</span>constellation <span class="brand-tag">for GitHub</span></a><button id="github-auth-open" type="button" class="secondary" data-open-github-auth>Continue with GitHub</button><a class="source-link" href="https://github.com/mnichols08/constellation">View on GitHub ↗</a></header>
 <dialog id="github-sign-in" aria-labelledby="github-auth-title">
 <button id="github-auth-close" type="button" class="secondary">Close</button>
 <h2 id="github-auth-title">Sign in to GitHub</h2>
+<button id="github-oauth-start" type="button">Continue with GitHub</button>
+<p>Connect securely to load your profile and pinned repositories. Public exploration needs no login.</p>
+<details id="github-advanced-auth" hidden><summary>Advanced local development: token fallback</summary>
 <form id="github-token-form">
 <label for="github-token">Personal access token</label>
 <input id="github-token" type="password" required autocomplete="off" spellcheck="false" autocapitalize="none">
 <p>Your token is sent directly to GitHub and kept only until you reload or close this page. It is never saved in your designs or share links.</p>
 <p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a fine-grained token</a> with public repository access. No write permissions are needed.</p>
 <button id="github-token-submit" type="submit">Sign in and start guided setup</button>
-</form>
+</form></details>
 <p id="github-auth-status" role="status" aria-live="polite"></p>
 <button id="github-sign-out" type="button" class="secondary" hidden>Sign out</button>
 </dialog>
@@ -36,14 +41,15 @@
 <section class="intro">
 <p class="eyebrow"><span></span> EVERY PROJECT HAS A PLACE IN YOUR SKY</p>
 <h1>Your code, written<br>in the <em>stars.</em></h1>
-<p class="lede">Choose your projects, answer a few questions,<br>and make a constellation that’s uniquely yours.</p>
-<form id="account-form"><label class="sr-only" for="account-mode">Constellation for</label><select id="account-mode" aria-label="Constellation for"><option value="auto">Account</option><option value="organization">Organization</option><option value="paired">User in organization</option></select><label class="sr-only" for="username">GitHub account name or URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Username or organization" required autocapitalize="none" autocomplete="off" spellcheck="false"><label class="sr-only" for="organization-account">Organization to connect with this user</label><input id="organization-account" placeholder="Organization name" hidden autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Start guided setup <span aria-hidden="true">&#8599;</span></button></form>
+<p class="lede">Connect, curate your projects, and discover the connections across your work.</p>
+<button type="button" data-open-github-auth>Continue with GitHub</button><p>Or explore a public account—no login needed.</p>
+<form id="account-form"><label class="sr-only" for="account-mode">Constellation for</label><select id="account-mode" aria-label="Constellation for"><option value="auto">Account</option><option value="organization">Organization</option><option value="paired">User in organization</option></select><label class="sr-only" for="username">GitHub account name or URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Username or organization" required autocapitalize="none" autocomplete="off" spellcheck="false"><label class="sr-only" for="organization-account">Organization to connect with this user</label><input id="organization-account" placeholder="Organization name" hidden autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Explore a public account <span aria-hidden="true">&#8599;</span></button></form>
 <button id="open-studio" type="button" class="secondary" disabled>Explore the sample studio</button>
 <p class="form-note">Load once, customize freely. Project data stays saved in this tab, including after a reload. Only loading or refreshing data uses GitHub API requests.</p>
 <details id="token-help" class="token-help">
 <summary>Sign in to preview pinned repositories</summary>
-<p>Connect your GitHub account with a personal access token to load profile pins and use your authenticated API allowance. Public projects remain available without signing in.</p>
-<button type="button" class="secondary" data-open-github-auth>Sign in with a token</button>
+<p>Continue with GitHub to load profile pins and use your authenticated API allowance. Public projects remain available without signing in.</p>
+<button type="button" class="secondary" data-open-github-auth>Continue with GitHub</button>
 <p>Local development also supports <code>GH_TOKEN</code> in <code>.env</code>. Daily workflows use GitHub’s automatic token.</p>
 </details>
 </section>

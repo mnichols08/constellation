@@ -1,4 +1,5 @@
 export function mountRepositoryPicker(host, { apply, message, findRepositories, prefix = '', guided = false }) {
+  const contributed = new Set();
   let repositories = [], selected = new Set(), signature, context, busy = false, edited = false;
   const added = new Set();
   const search = document.createElement('input');
@@ -36,7 +37,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
       const row = document.createElement('label'), input = document.createElement('input'), name = document.createElement('span');
       input.type = 'checkbox'; input.value = repo.full_name; input.checked = selected.has(repo.full_name); input.disabled = busy;
       name.textContent = repo.full_name + (repo.fork ? ' · fork' : '') + (repo.archived ? ' · archived' : '');
-      if (guided) { const detail = document.createElement('small'); detail.textContent = [repo.description, repo.language, `${repo.stargazers_count || 0} stars`, (repo.pushed_at || repo.updated_at || '').slice(0, 10)].filter(Boolean).join(' · '); name.append(document.createElement('br'), detail); }
+      if (guided) { const detail = document.createElement('small'); detail.textContent = [repo.description, repo.language, (repo.topics || []).map(topic => '#' + topic).join(' '), contributed.has(repo.full_name.toLowerCase()) ? 'Contributed to' : '', `${repo.stargazers_count || 0} stars`, (repo.pushed_at || repo.updated_at || '').slice(0, 10)].filter(Boolean).join(' · '); name.append(document.createElement('br'), detail); }
       input.addEventListener('change', () => { edited = true; if (input.checked) selected.add(repo.full_name); else selected.delete(repo.full_name); updateCount(); });
       row.append(input, name); list.append(row);
     }
@@ -65,6 +66,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
       const merged = new Map(repositories.map(repo => [repo.full_name.toLowerCase(), repo]));
       for (const repo of result.repositories) {
         added.add(repo.full_name.toLowerCase());
+        if (!manual) contributed.add(repo.full_name.toLowerCase());
         if (!merged.has(repo.full_name.toLowerCase())) merged.set(repo.full_name.toLowerCase(), repo);
         if (manual) selected.add(repo.full_name);
       }
@@ -85,6 +87,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
   if (prefix) { for (const element of host.querySelectorAll('[id]')) element.id = prefix + element.id; for (const element of host.querySelectorAll('label[for]')) element.htmlFor = prefix + element.htmlFor; }
   if (guided) { actions.querySelector('[id$="apply-repository-selection"]').hidden = true; actions.querySelector('[id$="automatic-repositories"]').hidden = true; help.textContent = 'Choose the projects you want to showcase. Team repositories and direct additions are public GitHub data.'; }
   return {
+    contributed: async () => { await discover(false); selected = new Set(repositories.filter(repo => contributed.has(repo.full_name.toLowerCase())).map(repo => repo.full_name)); draw(); },
     selection: () => [...selected].sort(),
     busy: () => busy,
     select(names) { selected = new Set(names); edited = true; draw(); },

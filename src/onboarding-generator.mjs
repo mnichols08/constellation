@@ -12,16 +12,16 @@ export function generateGuidedDesign(account, repositories, answers, { seed, yea
   const span = temporalEligibility(selected, [], year);
   const code = `v6:m${intent.motion === 'still' ? '000' : '7ff'}-y${year}-f${span.firstYear}-e${Number(span.eligible)}-${seed}`;
   let options = randomizeV6(code, { repositories: selected });
-  const history = span.eligible ? intent.history === 'surprise' ? (random() < .4 ? '3d' : random() < .5 ? 'history' : 'current') : intent.history : 'current';
+  const history = ['rings', 'galaxy'].includes(intent.history) ? intent.history : span.eligible ? intent.history === 'surprise' ? (random() < .4 ? '3d' : random() < .5 ? 'history' : 'current') : intent.history : 'current';
   if (history === '3d') {
     // Reuse the v6 temporal recipe rather than creating another geometry randomizer.
     for (let attempt = 0; options.arrangement !== 'temporal-stack' && attempt < 100; attempt++) options = randomizeV6(`${code}-${attempt}`, { repositories: selected });
-  } else { options.arrangement = history === 'history' ? 'era-rings' : ['rings', 'galaxy', 'solar-system', 'field'][Math.floor(random() * 4)]; options.temporalStack = { enabled: false }; }
+  } else { options.arrangement = ['rings', 'galaxy'].includes(history) ? history : history === 'history' ? 'era-rings' : ['rings', 'galaxy', 'solar-system', 'field'][Math.floor(random() * 4)]; options.temporalStack = { enabled: false }; }
   const motion = intent.motion !== 'still';
   const activity = !activityAvailable ? 'none' : intent.activity === 'surprise' ? ['asteroids', 'orbit', 'recent', 'recent', 'subtle'][Math.floor(random() * 5)] : intent.activity;
   Object.assign(options, {
     includeRepos: [...intent.projects], maxRepos: intent.projects.length, repoSource: 'all', includeForks: true, includeArchived: true, minStars: 0, updatedWithin: 0, repoQuery: '',
-    languages: intent.languages, topics: intent.topics?.length ? intent.topics : null, showOther: true, nodeMode: 'repositories', hiddenNodes: [], hiddenLabels: [],
+    languages: intent.languages, topics: intent.topics?.length ? intent.topics : null, showOther: true, nodeMode: ({ languages: 'languages', topics: 'topics', everything: 'combined' })[intent.relationships] || 'repositories', connectionBasis: intent.relationships === 'languages' ? 'languages' : intent.relationships === 'topics' ? 'topics' : 'both', hiddenNodes: [], hiddenLabels: [],
     activityEffect: activity === 'asteroids' ? 'asteroids' : activity === 'recent' ? 'pulse' : activity === 'subtle' ? 'glow' : 'off', activityAnimate: motion,
     codingRhythm: false, contributionComet: { enabled: false }, contributionOrbit: { enabled: activity === 'orbit', animate: motion }, foreignGalaxies: { enabled: false }, stellarAges: { enabled: false },
     history: { mode: 'current', year: null, timeLapse: { enabled: false } }, languageEvolution: { enabled: false },

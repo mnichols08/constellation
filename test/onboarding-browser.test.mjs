@@ -41,13 +41,15 @@ test('guided first visit, constraints, optional failure, exports, customize and 
 
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await e(`document.documentElement.scrollWidth <= innerWidth`), true);
-  await click('Continue'); await click('Continue');
-  await e(`for(const input of document.querySelectorAll('#guided-setup fieldset input[type="checkbox"]')) if(input.checked) input.click()`);
-  await click('Skip');
-  assert.equal(await e(`document.querySelector('#guided-setup h2').textContent`), 'Show your activity?');
+  await click('Continue');
+  await click('Back'); assert.ok(await e(`document.querySelector('#guided-repository-search') !== null`));
+  await click('Continue');
+  await e(`document.querySelector('#guided-setup details').open=true`);
+  await click('Skip'); await click('Continue');
+  assert.equal(await e(`document.querySelector('#guided-setup h2').textContent`), 'Add a little life');
   assert.equal(await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice')).topics`), null);
   await e(`document.querySelector('[name="guided-activity"][value="orbit"]').click()`); await click('Continue');
-  await e(`document.querySelector('[name="guided-history"][value="3d"]').click()`); await click('Continue');
+  await e(`document.querySelector('[name="guided-history"][value="3d"]').click()`);
   await click('Generate my constellation');
   await wait(`document.documentElement.dataset.entry === 'result'`);
   assert.match(await e(`document.querySelector('#guided-status').textContent`), /without activity/);
@@ -62,7 +64,7 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   const after = await draft(); assert.deepEqual(after.includeRepos, before.includeRepos); assert.deepEqual(after.languages, before.languages);
   await mkdir('.dist', { recursive: true });
   const resultShot = await cdp('Page.captureScreenshot'); await writeFile('.dist/onboarding-result-mobile.png', Buffer.from(resultShot.data, 'base64'));
-  await click('Use this design'); assert.equal(await e(`document.documentElement.dataset.entry`), 'install');
+  await click('Use this constellation'); assert.equal(await e(`document.documentElement.dataset.entry`), 'install');
   assert.equal(await e(`document.querySelector('#panel-save').hidden`), false);
   await click('Customize'); assert.equal(await e(`document.documentElement.dataset.entry`), 'studio');
   assert.equal(await e(`document.querySelectorAll('.studio-tabs [role="tab"]').length`), 6);

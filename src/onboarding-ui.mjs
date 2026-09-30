@@ -2,7 +2,7 @@ import { mountRepositoryPicker } from './repository-picker.mjs';
 import { defaultIntent, choicesFor, validateIntent } from './onboarding-model.mjs';
 import { recommendProjects } from './onboarding-model.mjs';
 
-export function mountOnboarding(host, { repositories, account, initial, year, findRepositories, prepareProjects, generate, customize, useDesign, save }) {
+export function mountOnboarding(host, { repositories, account, profile, initial, year, findRepositories, prepareProjects, generate, customize, useDesign, save }) {
   let intent = initial || defaultIntent(repositories()), step = 0, busy = false, picker;
   const heading = document.createElement('h2'); heading.tabIndex = -1;
   const progress = document.createElement('p');
@@ -20,14 +20,14 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
     parent.append(field);
   }
   const available = () => choicesFor(repositories(), intent.projects, year);
-  const steps = () => ['projects', 'languages', ...(available().topics.length ? ['topics'] : []), 'activity', ...(available().history.eligible ? ['history'] : []), 'vibe'];
+  const steps = () => ['projects', 'relationships', 'activity', 'universe'];
   function filters(kind) {
     const names = available()[kind];
     const note = document.createElement('p'); note.textContent = kind === 'languages' ? 'Highlight technologies across your selected projects. None uses the existing empty language filter and may leave no visible projects.' : 'Focus on projects with these topics. Skip keeps every topic.'; body.append(note);
     const choices = document.createElement('div'); choices.className = 'guided-actions'; body.append(choices);
     for (const [label, value] of [['Recommended', null], ['All', null], [kind === 'topics' ? 'Skip' : 'None', kind === 'topics' ? null : []]]) button(choices, label, () => {
       intent[kind] = value;
-      if (kind === 'topics' && label === 'Skip') { save(intent); step++; }
+      if (kind === 'topics' && label === 'Skip') save(intent);
       draw();
     });
     const field = document.createElement('fieldset'), legend = document.createElement('legend'); legend.textContent = 'Choose specific ' + kind; field.append(legend);
@@ -36,21 +36,30 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
   function draw() {
     host.hidden = false; document.documentElement.dataset.entry = 'guided';
     const list = steps(); step = Math.min(step, list.length - 1); const current = list[step];
-    progress.textContent = `@${account} · Step ${step + 1} of ${list.length}`;
-    heading.textContent = { projects: 'Which projects matter?', languages: 'Which technologies matter?', topics: 'What do your projects explore?', activity: 'Show your activity?', history: 'Show your project history?', vibe: 'What kind of feel do you want?' }[current];
+    progress.textContent = `@${account} · Step ${step + 1} of ${list.length} · Connect → Curate → Relationships → Activity → Universe → Preview`;
+    heading.textContent = { projects: 'Choose what matters', relationships: 'What should your constellation reveal?', activity: 'Add a little life', universe: 'Choose your universe' }[current];
     body.replaceChildren(); actions.replaceChildren(); status.textContent = '';
     if (current === 'projects') {
+      const welcome = document.createElement('p'); welcome.className = 'guided-identity'; welcome.textContent = 'Welcome, @' + account + '.' + (profile?.name ? ' ' + profile.name : '') + ' · ' + repositories().length + ' public projects';
+      const avatar = profile?.avatar || profile?.avatar_url;
+      if (typeof avatar === 'string' && avatar.startsWith('https://avatars.githubusercontent.com/')) { const img = document.createElement('img'); img.src = avatar; img.alt = ''; img.width = 48; img.height = 48; welcome.prepend(img); }
+      body.append(welcome);
       const note = document.createElement('p'); note.textContent = 'Recommended balances recent work, popularity, project detail and original projects. You can change every selection.'; body.append(note);
       const shortcuts = document.createElement('div'); shortcuts.className = 'guided-actions'; body.append(shortcuts);
-      for (const [mode, label] of [['recommended', 'Recommended'], ['recent', 'Recently active'], ['popular', 'Most popular']]) button(shortcuts, label, () => picker.select(recommendProjects(repositories(), mode)));
+      for (const [mode, label] of [['recommended', 'Recommended'], ['recent', 'Recently active'], ['popular', 'Most starred'], ['all', 'All'], ['contributed', 'Contributed to']]) button(shortcuts, label, () => mode === 'contributed' ? picker.contributed() : picker.select(mode === 'all' ? repositories().filter(repo => !repo.private).map(repo => repo.full_name) : recommendProjects(repositories(), mode)));
       const pool = document.createElement('div'); body.append(pool);
       picker = mountRepositoryPicker(pool, { prefix: 'guided-', guided: true, apply() {}, message: text => { status.textContent = text; }, findRepositories });
       picker.update(account, repositories(), { includeRepos: intent.projects }, repositories().filter(repo => intent.projects.includes(repo.full_name)));
     }
-    if (current === 'languages' || current === 'topics') filters(current);
-    if (current === 'activity') radios('Use real public activity', 'activity', [['surprise', 'Yes — surprise me'], ['asteroids', 'Yes — commit asteroids'], ['orbit', 'Yes — contribution orbit'], ['recent', 'Yes — recent activity'], ['subtle', 'Yes — keep it subtle'], ['none', 'No activity']]);
-    if (current === 'history') { radios('Choose a view', 'history', [['current', 'Current projects'], ['history', 'Project history'], ['3d', '3D Temporal Universe'], ['surprise', 'Surprise me']]); const note = document.createElement('p'); note.textContent = `History begins in ${available().history.firstYear}. Retrospective layers use creation dates and current metadata, not historical star counts.`; body.append(note); }
-    if (current === 'vibe') { radios('Feel', 'vibe', [['cosmic', 'Cosmic'], ['clean', 'Clean'], ['technical', 'Technical'], ['classic', 'Classic'], ['surprise', 'Surprise me']]); radios('Motion', 'motion', [['automatic', 'Automatic'], ['still', 'Still']]); }
+    if (current === 'relationships') {
+      radios('Emphasize', 'relationships', [['auto', 'Let Constellation decide'], ['projects', 'Projects and how they connect'], ['languages', 'Languages across my work'], ['topics', 'Topics across my work'], ['everything', 'Everything together']]);
+      const details = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = 'Refine languages and topics'; details.append(summary);
+      const marker = body.children.length; filters('languages'); if (available().topics.length) filters('topics');
+      for (const child of [...body.children].slice(marker)) details.append(child); body.append(details);
+    }
+    if (current === 'activity') radios('Use real public activity', 'activity', [['none', '○ No activity — a still sky'], ['subtle', '✦ Recent glow — light around active projects'], ['asteroids', '⁙ Commit asteroids — clusters of recent commits'], ['orbit', '◌ Contribution orbit — public activity around your work'], ['recent', '◎ Recent activity — gently pulsing projects'], ['surprise', '✧ Choose an activity effect for me']]);
+    if (current === 'universe') { radios('Structure', 'history', [['current', '✧ Single constellation'], ['rings', '◎ Identity rings'], ['galaxy', '⁙ Connected galaxy'], ...(available().history.eligible ? [['history', '◷ Evolution through time'], ['3d', '▱ Universe through time']] : [])]); const note = document.createElement('p'); note.textContent = `History begins in ${available().history.firstYear}. Retrospective layers use creation dates and current metadata, not historical star counts.`; if (available().history.eligible) body.append(note); }
+    if (current === 'universe') { radios('Feel', 'vibe', [['cosmic', 'Cosmic'], ['clean', 'Clean'], ['technical', 'Technical'], ['classic', 'Classic'], ['surprise', 'Surprise me']]); radios('Motion', 'motion', [['automatic', 'Automatic'], ['still', 'Still']]); }
     if (step) button(actions, 'Back', () => { step--; draw(); });
     button(actions, step === list.length - 1 ? 'Generate my constellation' : 'Continue', async () => {
       if (busy) return;
@@ -68,7 +77,7 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
         const next = available();
         for (const kind of ['languages', 'topics']) if (intent[kind]?.length) { const matching = intent[kind].filter(name => next[kind].includes(name)); intent[kind] = matching.length ? matching : null; }
         if (!next.topics.length) intent.topics = null;
-        if (!next.history.eligible) intent.history = 'current';
+        if (!next.history.eligible && ['history', '3d', 'surprise'].includes(intent.history)) intent.history = 'current';
       }
       if (current === 'topics' && !intent.topics?.length) intent.topics = null;
       try { intent = validateIntent(intent); } catch (error) { status.textContent = error.message; return; }
@@ -90,7 +99,7 @@ export function mountOnboarding(host, { repositories, account, initial, year, fi
     document.documentElement.dataset.entry = 'result';
     progress.textContent = `@${account}`; heading.textContent = 'Your constellation is ready'; body.replaceChildren(); actions.replaceChildren();
     status.textContent = diagnostic || 'Your choices are saved. Try another interpretation or make this one yours.';
-    button(actions, 'Generate another', run); button(actions, 'Use this design', useDesign); button(actions, 'Customize', customize);
+    button(actions, 'Generate another', run); button(actions, 'Use this constellation', useDesign); button(actions, 'Customize', customize);
     button(actions, 'Edit answers', () => { step = 0; draw(); });
     if (diagnostic) button(actions, 'Retry activity', () => run(true));
     heading.focus();

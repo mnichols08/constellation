@@ -4,11 +4,11 @@ Turn developer and project data into interactive maps, embedded experiences, and
 
 ## Make your constellation
 
-1. Open [Constellation](https://mnichols08.github.io/constellation/) and enter your GitHub username.
+1. Open [Constellation](https://mnichols08.github.io/constellation/) and choose **Continue with GitHub** or **Explore a public account**.
 2. Choose the projects and technologies you want to showcase.
-3. Choose activity, history and a visual feel, then generate your design.
+3. Choose relationships, optional activity and your universe, then generate your design.
 4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
-5. Choose **Use this design** to export it or install it in your README.
+5. Choose **Use this constellation** to export it or install it in your README.
 
 [Guided setup](docs/guided-setup.md) explains recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. Shared designs and existing account drafts open as previews; customization is always opt-in. **Saved constellations** reopens your named designs from this browser. The sample Studio remains an explicit shortcut.
 
@@ -33,7 +33,7 @@ In Studio, enable **History & evolution → Contribution streak comet** to turn 
 
 ![Example GitHub constellation](./dist/constellation.svg)
 
-The default setup needs no personal access token, fork, or config file. **Live pinned-repository previews require authentication: sign in with a personal access token directly in the hosted studio.** Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
+The default setup needs no personal access token, fork, or config file. **Continue with GitHub** identifies your account and enables authenticated capacity and live pins. Hosting owners configure a [GitHub App and OAuth exchange service](docs/github-oauth.md). Public exploration remains anonymous. Daily workflows—including pinned constellations—use GitHub's automatic token. Use the defaults below or [customize your constellation in the studio](https://mnichols08.github.io/constellation/).
 
 ## Quick start
 
