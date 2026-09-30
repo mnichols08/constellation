@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.2 — 2026-09-30
+
+- Retire Story creation from Studio navigation and exports; remove the unused Studio editor. Remove promotion from onboarding, README and the current example gallery.
+- Preserve Story v1 parsing, validation, rendering, chapter navigation and public Core/component APIs as legacy v3 compatibility. Existing JSON imports remain supported through parseScene.
+- Replace editor tests with a browser retirement check; retain the Story compatibility and component suites. Rebuild package mirrors.
+
 ## 3.2.1 — 2026-09-30
 
 - Trace DEP0040 to the bundled URL/IDNA dependencies in actions/setup-node@v4 (setup and post cleanup), reproduced locally with --trace-deprecation and confirmed in Actions runs 36651175270 and 36640876904. Constellation runtime paths do not import deprecated Punycode APIs.

@@ -1,4 +1,8 @@
-# Visual stories
+# Legacy visual stories
+
+**Legacy v3 compatibility — creation UI retired.**
+
+Existing v3 scene JSON remains readable through `parseScene`, renderers and the web component. The `createStory` public API is retained for v3 consumers. Studio no longer creates, edits or offers exports of stories.
 
 A story is an ordered, declarative set of chapters. Chapters use compiled scenes or explicit scene definitions; configuration never contains executable callbacks.
 
@@ -26,10 +30,8 @@ Call `setChapter(idOrIndex)` and inspect `chapterIndex` on the runtime or compon
 
 Manual chapter changes interpolate shared-node position, size, fill color and opacity over 300 ms; arriving/departing nodes fade. Shared node groups keep their DOM identity. Camera movement follows the chapter’s explicit view or focused node. Changing chapter again cancels the previous transition and disposes temporary graphics. The system reduced-motion preference skips these effects and immediately applies the target camera, including when changed mid-transition. No timer advances chapters automatically.
 
-## Editing in Studio
+## Compatibility boundary
 
-Open the Story tab and choose Create chapter to capture the current compiled design and selection. Change the constellation in the normal tabs, then capture another chapter. Use Active chapter to select a chapter; edit its title/narration, duplicate it, move it up/down, or remove it. Captured scenes are isolated from later design changes.
-
-Preview story opens the complete player at the selected chapter inside a sandboxed iframe. Download story HTML produces an offline artifact starting at chapter one. Download story JSON saves the editable compiled story; Import story JSON restores it. Story work stays in memory until downloaded and is separate from the ordinary README config/workflow. The Look tab and simple account workflow remain unchanged.
+The parser, validation model, chapter runtime, offline HTML and component contracts remain supported for existing artifacts. The former Studio editor and its import controls have been retired. Use `parseScene` to import previously exported JSON in a v3 consumer.
 
 Programmatic HTML previews may use `renderSceneHTML(story, { initialChapter: index })`; the renderer validates the index and keeps its CSP deterministic.

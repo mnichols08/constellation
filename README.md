@@ -1,6 +1,6 @@
 # Constellation
 
-Turn developer and project data into interactive maps, visual stories, embedded experiences, and README graphics.
+Turn developer and project data into interactive maps, embedded experiences, and README graphics.
 
 ## Make your constellation
 
@@ -16,7 +16,7 @@ Static SVG remains the default. Advanced workflows use the same scene engine:
 
 - [Offline interactive HTML](docs/interactive-html.md) with pan, zoom, selection and filters.
 - [Web component](docs/web-component.md) for framework-free embedding.
-- [Timelines](docs/timeline.md), [hierarchical exploration](docs/hierarchical-scenes.md), and [Story editing](docs/story-mode.md).
+- [Timelines](docs/timeline.md), [hierarchical exploration](docs/hierarchical-scenes.md).
 - [Core API](docs/core-api.md), [data transforms/mappings](docs/data-pipeline.md), and [extension authoring](docs/extension-authoring.md).
 
 See the [showcase gallery](examples/README.md), [accessibility guide](docs/accessibility.md), and [v2 → v3 migration guide](docs/migration-v3.md).

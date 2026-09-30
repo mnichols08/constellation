@@ -43,4 +43,4 @@ Synthetic community examples: [community galaxy](organization-community.json), [
 
 ## Interactive examples
 
-After `node scripts/build-rust.mjs` and `node scripts/build-core.mjs`, run `node examples/interactive-demo.mjs`, `node examples/timeline-demo.mjs`, `node examples/hierarchy-demo.mjs` or `node examples/story-demo.mjs`. Each writes a standalone HTML artifact under `dist/` using supplied offline data. Open it in a modern browser; no server or GitHub token is required. See the [interactive HTML guide](../docs/interactive-html.md).
+After `node scripts/build-rust.mjs` and `node scripts/build-core.mjs`, run `node examples/interactive-demo.mjs`, `node examples/timeline-demo.mjs` or `node examples/hierarchy-demo.mjs`. Each writes a standalone HTML artifact under `dist/` using supplied offline data. Open it in a modern browser; no server or GitHub token is required. See the [interactive HTML guide](../docs/interactive-html.md).

@@ -13,7 +13,6 @@ import { presetOptions } from './studio-presets.mjs';
 import { mountImageViewer } from './image-viewer.mjs';
 import { mountStudioLayout } from './studio-layout.mjs';
 import { mountStudioDesign } from './studio-design.mjs';
-import { mountStudioStory } from './studio-story.mjs';
 import { createFormRestorer } from './studio-config-form.mjs';
 import { visualThemes, themePalettes } from './themes.mjs';
 import { exportSettings } from './export-image.mjs';
@@ -768,7 +767,6 @@ studioCommits = mountStudioCommits(designHost, { fetchImpl: createPreviewFetch({
   if (!applied) throw Error($('#status').textContent);
   return true;
 } });
-mountStudioStory(designHost, () => capturedScene && { ...capturedScene, presentation: { ...capturedScene.presentation, options: { ...capturedScene.presentation.options, selection: graphSelection } } });
 async function findGuidedRepositories({ organization, repository, onProgress }) {
     if (loading) throw Error('Wait for your account to finish loading.');
     if (isSample) throw Error('Load your GitHub account first to find your team projects.');

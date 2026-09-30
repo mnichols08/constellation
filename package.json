@@ -1,12 +1,12 @@
 {
   "name": "constellation",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "private": true,
   "bin": {
     "constellation": "src/cli.mjs"
   },
   "type": "module",
-  "description": "Turn developer and project data into interactive constellations, visual stories, embeds and README graphics.",
+  "description": "Turn developer and project data into interactive constellations, embeds and README graphics.",
   "engines": {
     "node": ">=22"
   },

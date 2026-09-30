@@ -65,7 +65,7 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   await click('Use this design'); assert.equal(await e(`document.documentElement.dataset.entry`), 'install');
   assert.equal(await e(`document.querySelector('#panel-save').hidden`), false);
   await click('Customize'); assert.equal(await e(`document.documentElement.dataset.entry`), 'studio');
-  assert.equal(await e(`document.querySelectorAll('.studio-tabs [role="tab"]').length`), 7);
+  assert.equal(await e(`document.querySelectorAll('.studio-tabs [role="tab"]').length`), 6);
   await e(`[...document.querySelectorAll('.design-launcher button')].find(button => button.textContent === 'Guided setup').click()`);
   await wait(`document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
   assert.deepEqual((await draft()).includeRepos, before.includeRepos, 'entering the wizard preserves the manual draft');
@@ -117,3 +117,5 @@ test('sparse profiles skip empty questions, no-activity stays lazy, asteroids lo
   assert.equal(await e(`JSON.parse(localStorage.getItem('constellation-config-v1:bob')).draft.activityEffect`), 'asteroids');
   assert.deepEqual(errors, []);
 });
+
+
