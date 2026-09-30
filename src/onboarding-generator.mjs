@@ -22,6 +22,7 @@ export function generateGuidedDesign(account, repositories, answers, { seed, yea
   const activity = !activityAvailable ? 'none' : intent.activity === 'surprise' ? ['asteroids', 'orbit', 'recent', 'recent', 'subtle'][Math.floor(random() * 5)] : intent.activity;
   Object.assign(options, {
     includeRepos: [...intent.projects], maxRepos: intent.projects.length, repoSource: 'all', includeForks: true, includeArchived: true, minStars: 0, updatedWithin: 0, repoQuery: '',
+    ...(intent.projectShowcase ? { projectShowcase: structuredClone(intent.projectShowcase) } : {}),
     languages: intent.languages, topics: intent.topics?.length ? intent.topics : null, showOther: true, nodeMode: ({ languages: 'languages', topics: 'topics', everything: 'combined' })[intent.relationships] || 'repositories', connectionBasis: intent.relationships === 'languages' ? 'languages' : intent.relationships === 'topics' ? 'topics' : 'both', hiddenNodes: [], hiddenLabels: [],
     activityEffect: activity === 'asteroids' ? 'asteroids' : activity === 'recent' ? 'pulse' : activity === 'subtle' ? 'glow' : 'off', activityAnimate: motion,
     codingRhythm: false, contributionComet: { enabled: false }, contributionOrbit: { enabled: activity === 'orbit', animate: motion }, foreignGalaxies: { enabled: false }, stellarAges: { enabled: false },

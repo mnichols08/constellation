@@ -274,7 +274,9 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   assert.equal(await evaluate(`document.querySelector('#design-refinement-enabled').closest('.inspector-panel').id`), 'panel-nodes');
   const originalPositions = await evaluate(`Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),el=>[el.dataset.repo,el.getAttribute('cx'),el.getAttribute('cy')])`);
   await evaluate(`document.querySelector('#design-refinement-enabled').checked=true;document.querySelector('#design-refinement-enabled').dispatchEvent(new Event('input'));input('design-refinement-intensity','8');click('copy-config');`);
-  assert.deepEqual(await evaluate(`JSON.parse(document.querySelector('#config-json').value).layoutRefinement`), { enabled: true, intensity: 8 });
+  const copiedConfig = await evaluate(`document.querySelector('#config-json').value`);
+  assert.ok(copiedConfig, await evaluate(`document.querySelector('#status').textContent`));
+  assert.deepEqual(JSON.parse(copiedConfig).layoutRefinement, { enabled: true, intensity: 8 });
   assert.equal(await evaluate(`document.querySelector('#lock-stars').checked`), true, 'refinement does not unlock dragging');
   await evaluate(`click('copy-share');`);
   assert.deepEqual(await evaluate(`(async()=>{const {decodeShare}=await import('/src/share-link.mjs');return decodeShare(document.querySelector('#share-url').value).options.layoutRefinement;})()`), { enabled: true, intensity: 8 });
@@ -374,11 +376,11 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
     const recipe=randomizeDesign(document.querySelector('#design-code').value);
     const rings=['speeds','directions','modes','amplitudes','easing'].every((key,j)=>recipe.ringAnimation[key].every((value,i)=>String(value)===document.getElementById('ring-'+['speed','direction','motion','sway','easing'][j]+'-'+i).value));
     const perspective=Object.entries(recipe.perspective).every(([key,value])=>{const el=document.getElementById('perspective-'+key);return typeof value==='boolean'?el.checked===value:el.value===String(value);});
-    return rings&&perspective;
-  })()`));
+    return {rings,perspective,linked:document.querySelector('#link-ring-motion').checked,code:document.querySelector('#design-code').value};
+  })()`), { rings: true, perspective: true, linked: await evaluate(`(async()=>{const {randomizeDesign}=await import('/src/design-randomizer.mjs');return randomizeDesign(document.querySelector('#design-code').value).ringAnimation.linked;})()`), code: await evaluate(`document.querySelector('#design-code').value`) });
 
   // A v5 draw may select an empty historical/filter pool or a CSS-only layer.
-  assert.equal(await evaluate(`document.querySelector('#animate').checked && document.querySelector('#design-starlightAnimate').checked && document.querySelector('#animate-rings').checked`), true);
+  assert.equal(await evaluate(`document.querySelector('#animate').checked && document.querySelector('#design-starlightAnimate').checked && document.querySelector('#animate-rings').checked`), true, await evaluate(`JSON.stringify({animate:document.querySelector('#animate').checked,starlight:document.querySelector('#design-starlightAnimate').checked,rings:document.querySelector('#animate-rings').checked,code:document.querySelector('#design-code').value,status:document.querySelector('#status').textContent})`));
   await evaluate(`click('randomize-motion');click('randomize-design');`);
   assert.match(await evaluate(`document.querySelector('#design-code').value`), /^v6:m000-/);
   assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('animate,animateTransform').length`), 0);

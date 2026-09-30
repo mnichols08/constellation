@@ -2,15 +2,17 @@
 
 Turn developer and project data into interactive maps, embedded experiences, and README graphics.
 
+**GitHub activity tells Constellation what exists. You decide what represents you.** Mark projects Featured, Supporting, Experimental or Historical, then choose how that intent appears in your README constellation. Roles are yours; they do not infer importance from stars or recency.
+
 ## Make your constellation
 
 1. Open [Constellation](https://mnichols08.github.io/constellation/) and choose **Continue with GitHub** or **Explore a public account**.
 2. Choose the projects and technologies you want to showcase—use Recommended, Recently active, Most starred, Contributed to or **Pinned repositories** (requires GitHub sign-in).
-3. Choose relationships, optional activity and your universe, then generate your design.
+3. Choose which projects should stand out, then set relationships, optional activity and your universe.
 4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
 5. Choose **Use this constellation** to export it or install it in your README.
 
-[Guided setup](docs/guided-setup.md) explains recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. Shared designs and existing account drafts open as previews; customization is always opt-in. **Saved constellations** reopens your named designs from this browser. The sample Studio remains an explicit shortcut.
+[Guided setup](docs/guided-setup.md) explains project curation, recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. [README Showcase](docs/readme-showcase.md) explains project roles, Featured Project Gravity, presentation modes and export profiles. Shared designs and existing account drafts open as previews; customization is always opt-in. **Saved constellations** reopens your named designs from this browser. The sample Studio remains an explicit shortcut.
 
 Explore your work with **Universe → Stack by Year, Language, Repository or Topic**. Language/topic planes reveal overlapping projects; repository planes connect shared technologies. [Universe dimensions](docs/temporal-stack.md) explains evidence, ordering and exports.
 
@@ -139,7 +141,7 @@ Map node size to stars, activity, age, language/topic counts, or category member
 
 You can also pass settings directly in a link, for example `https://mnichols08.github.io/constellation/?user=octocat&preset=project-map&arrangement=galaxy&maxRepos=25`. For an organization, use `?organization=github&preset=organization-community`; add `user=USERNAME` to focus on that person. Links load current public data; download the SVG to share a fixed image. See [URL parameters and sharing](docs/designs.md#url-parameters-and-sharing).
 
-Choose Profile README, Repository README, Compact, Hero or Transparent output profiles, then download SVG or a high-resolution static PNG. Optional shapes, compact legends and lightweight effects stay inside the SVG. Keyboard selection, arrow-key placement and reduced-motion support remain available.
+Choose Hero, Wide README, Compact, Square or Transparent output profiles, then download SVG or a high-resolution static PNG. Profiles rebalance labels and decoration while retaining high-priority projects. Optional shapes, compact legends and lightweight effects stay inside the SVG. Keyboard selection, arrow-key placement and reduced-motion support remain available.
 
 See the [example designs](examples/README.md) and [design/config guide](docs/designs.md) for reproducible codes, mapping details, config compatibility, share-link limits, output sizes, and generating multiple images.
 

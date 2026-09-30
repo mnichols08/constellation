@@ -112,6 +112,63 @@ export async function fetchPinnedRepositories(account, { token, signal, fetchImp
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 
+export function projectShowcaseEntry(repo, showcase = {}) {
+  if (!repo || !repo.full_name) return null;
+  const lookup = id => showcase[id] || Object.entries(showcase).find(([key]) => key.toLowerCase() === id.toLowerCase())?.[1];
+  if (repo.nodeKind && repo.nodeKind !== 'repository' && Array.isArray(repo.members)) {
+    const entries = repo.members.map(lookup).filter(entry => entry && ['featured', 'supporting', 'experimental', 'historical'].includes(entry.role));
+    if (!entries.length) return null;
+    const role = ['featured', 'supporting', 'experimental', 'historical'].find(value => entries.some(entry => entry.role === value));
+    return { role, priority: role === 'featured' ? Math.min(...entries.filter(entry => entry.role === role).map(entry => Number.isInteger(entry.priority) ? entry.priority : 9999)) : null };
+  }
+  const entry = lookup(repo.full_name) || lookup(repo.name) || null;
+  if (!entry || !entry.role && entry.priority === undefined) return null;
+  return { role: entry.role || null, priority: Number.isInteger(entry.priority) ? entry.priority : null };
+}
+
+const showcaseOrder = { featured: 0, supporting: 1, experimental: 2, historical: 3 };
+function compareShowcase(a, b, showcase) {
+  const left = projectShowcaseEntry(a, showcase), right = projectShowcaseEntry(b, showcase);
+  const role = (showcaseOrder[left?.role] ?? 4) - (showcaseOrder[right?.role] ?? 4);
+  if (role) return role;
+  if (left?.role === 'featured' && right?.role === 'featured' && left.priority !== right.priority) return (left.priority ?? 9999) - (right.priority ?? 9999);
+  return 0;
+}
+
+function organizeRingAnchors(stars, ringPoints, identity, options) {
+  const mode = options.ringOrganization || 'identity';
+  if (!['importance', 'activity'].includes(mode) || !ringPoints.length) return stars;
+  if (mode === 'activity' && !Object.keys(options.activityData?.repositories || {}).length) return stars;
+  const radii = Array.from({ length: 4 }, (_, ring) => identity[2 + ring * 22]);
+  const slots = Array.from({ length: ringPoints.length / 3 }, (_, index) => {
+    const x = ringPoints[index * 3] - 240, y = ringPoints[index * 3 + 1] - 240, radius = Math.hypot(x, y);
+    const ring = radii.reduce((best, value, candidate) => Math.abs(radius - value) < Math.abs(radius - radii[best]) ? candidate : best, 0);
+    return { index, ring };
+  });
+  const ordered = [...stars].sort((a, b) => {
+    if (mode === 'activity') {
+      const score = star => (star.showcase?.role === 'featured' ? 2 : star.showcase?.role === 'supporting' ? 1 : 0) + (options.activityData?.repositories?.[star.repo.full_name]?.score || 0);
+      return score(b) - score(a) || compareShowcase(a.repo, b.repo, options.projectShowcase) || a.repo.full_name.localeCompare(b.repo.full_name);
+    }
+    return compareShowcase(a.repo, b.repo, options.projectShowcase) || a.repo.full_name.localeCompare(b.repo.full_name);
+  });
+  const assigned = new Array(slots.length), remaining = new Set(ordered);
+  if (mode === 'importance') {
+    const roleForRing = ['featured', 'supporting', 'experimental', 'historical'];
+    for (let ring = 0; ring < 4; ring++) {
+      const ringSlots = slots.filter(slot => slot.ring === ring);
+      const matching = ordered.filter(star => star.showcase?.role === roleForRing[ring]);
+      for (let index = 0; index < Math.min(ringSlots.length, matching.length); index++) {
+        assigned[ringSlots[index].index] = matching[index]; remaining.delete(matching[index]);
+      }
+    }
+  }
+  const open = slots.filter(slot => !assigned[slot.index]);
+  const leftovers = ordered.filter(star => remaining.has(star));
+  for (let index = 0; index < open.length; index++) assigned[open[index].index] = leftovers[index];
+  return assigned.filter(Boolean);
+}
+
 export function selectRepositoryPool(repositories, options = {}) {
   const repositoryCap = options.nodeCap === undefined ? 100 : scalingOptions(options).nodeCap;
   const historical = options.history?.mode === 'historical' || options.historicalYear !== undefined;
@@ -120,7 +177,7 @@ export function selectRepositoryPool(repositories, options = {}) {
   const { maxRepos = 45, includeForks = true, includeRepos, repoSource = 'all', sortBy = 'stars' } = options;
   if (!['all', 'pinned'].includes(repoSource)) throw new Error('repoSource must be all or pinned.');
   if (!Number.isInteger(maxRepos) || maxRepos < 1 || maxRepos > repositoryCap) throw new Error(`maxRepos must be an integer between 1 and ${repositoryCap}.`);
-  const eligible = filterRepositoryMetadata(repositories, options, date).filter(repo => repo.private !== true && (repoSource !== 'pinned' || repo.pinned === true) && (includeForks || !repo.fork) && (!includeRepos || includeRepos.includes(repo.name) || includeRepos.includes(repo.full_name)));
+  let eligible = filterRepositoryMetadata(repositories, options, date).filter(repo => repo.private !== true && (repoSource !== 'pinned' || repo.pinned === true) && (includeForks || !repo.fork) && (!includeRepos || includeRepos.includes(repo.name) || includeRepos.includes(repo.full_name)));
   if (organizationEnabled(options)) {
     const focus = options.organizationUser?.toLowerCase(), records = options.organizationData?.records;
     // Contributor coverage is a layer on the selected project map, not a filter.
@@ -129,8 +186,28 @@ export function selectRepositoryPool(repositories, options = {}) {
     const prioritized = new Set(relevant.map(repo => repo.full_name));
     return [...scopeRepositories(relevant, options, 100), ...scopeRepositories(scoped.filter(repo => !prioritized.has(repo.full_name)), options, 100)].slice(0, options.maxRepos ?? 100);
   }
+  const explicitRoles = Object.values(options.projectShowcase || {});
+  if (options.readmePresentation === 'featured-work' && explicitRoles.some(entry => entry?.role === 'featured')) {
+    const curated = eligible.filter(repo => ['featured', 'supporting'].includes(projectShowcaseEntry(repo, options.projectShowcase)?.role));
+    if (curated.length) eligible = curated;
+  }
+  const activity = options.readmePresentation === 'current-focus' ? options.activityData?.repositories : null;
   return eligible
-    .sort((a, b) => repoSource === 'pinned' ? (a.pin_order || 0) - (b.pin_order || 0) : compareRepositories(a, b, sortBy)).slice(0, repoSource === 'pinned' ? 100 : maxRepos);
+    .sort((a, b) => {
+      if (options.readmePresentation === 'project-journey') {
+        const journeyRank = repo => ({ featured: 0, historical: 0, supporting: 1, experimental: 2 })[projectShowcaseEntry(repo, options.projectShowcase)?.role] ?? 3;
+        const priority = journeyRank(a) - journeyRank(b);
+        if (priority) return priority;
+        const created = (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0);
+        if (created) return created;
+      }
+      if (activity && Object.keys(activity).length) {
+        const score = repo => (projectShowcaseEntry(repo, options.projectShowcase)?.role === 'featured' ? 2 : 0) + (activity[repo.full_name]?.score || 0);
+        const difference = score(b) - score(a);
+        if (difference) return difference;
+      }
+      return compareShowcase(a, b, options.projectShowcase) || (repoSource === 'pinned' ? (a.pin_order || 0) - (b.pin_order || 0) : compareRepositories(a, b, sortBy));
+    }).slice(0, repoSource === 'pinned' ? 100 : maxRepos);
 }
 
 export function selectRepositories(repositories, options = {}) {
@@ -159,7 +236,7 @@ export function repositoryLanguages(repo) {
 }
 
 export function graphNodes(repositories, options = {}) {
-  const mode = options.nodeMode ?? 'repositories';
+  const mode = options.readmePresentation === 'technology-identity' ? 'combined' : options.nodeMode ?? 'repositories';
   if (mode === 'commits') return commitConstellation(options);
   if (organizationEnabled(options) || organizationModes.includes(mode)) {
     // Aggregate the same filtered scope, without the direct-node cap.
@@ -170,11 +247,26 @@ export function graphNodes(repositories, options = {}) {
   if (!['repositories', 'languages', 'topics', 'combined'].includes(mode)) throw new Error('nodeMode must be repositories, languages, topics or combined.');
   const repos = selectRepositories(repositories, options);
   if (mode === 'repositories') return { nodes: repos, total: repos.length, repositoryCount: repos.length };
-  const projected = projectNodes({ mode, cap: options.nodeCap, repos: repos.map(repo => ({ id: repo.full_name,
+  const hasFeatured = Object.values(options.projectShowcase || {}).some(entry => entry?.role === 'featured');
+  const requestedCap = options.nodeCap ?? (mode === 'combined' ? 256 : 100);
+  const projected = projectNodes({ mode, cap: hasFeatured ? 2048 : options.nodeCap, repos: repos.map(repo => ({ id: repo.full_name,
     languages: (repositoryLanguages(repo).length ? repositoryLanguages(repo) : options.showOther ? ['Other'] : []).filter(value => options.languages == null || options.languages.includes(value)),
     topics: (repo.topics || []).filter(value => options.topics == null || options.topics.includes(value)),
   })) });
-  return { nodes: projected.nodes.map(node => ({ full_name: node.id, name: node.label, ...(node.kind === 'repository' ? repos.find(repo => repo.full_name === node.id) : {}), nodeKind: node.kind, members: node.members, stargazers_count: node.kind === 'repository' ? repos.find(repo => repo.full_name === node.id)?.stargazers_count || 0 : node.members.length })), total: projected.total, repositoryCount: repos.length };
+  let projectedNodes = projected.nodes;
+  if (hasFeatured && projectedNodes.length > requestedCap) {
+    const byId = new Map(repos.map(repo => [repo.full_name, repo]));
+    const roleRank = { featured: 0, supporting: 2, experimental: 4, historical: 5 };
+    projectedNodes = projectedNodes.map((node, index) => {
+      const members = node.kind === 'repository' ? [node.id] : node.members;
+      const featuredCount = members.filter(id => projectShowcaseEntry(byId.get(id), options.projectShowcase)?.role === 'featured').length;
+      const role = node.kind === 'repository' ? projectShowcaseEntry(byId.get(node.id), options.projectShowcase)?.role : null;
+      const rank = node.kind === 'repository' ? roleRank[role] ?? 6 : featuredCount ? 1 : 3;
+      return { node, index, rank, featuredCount, membership: members.length };
+    }).sort((a, b) => a.rank - b.rank || b.featuredCount - a.featuredCount || b.membership - a.membership || a.index - b.index)
+      .slice(0, requestedCap).map(item => item.node);
+  }
+  return { nodes: projectedNodes.map(node => ({ full_name: node.id, name: node.label, ...(node.kind === 'repository' ? repos.find(repo => repo.full_name === node.id) : {}), nodeKind: node.kind, members: node.members, stargazers_count: node.kind === 'repository' ? repos.find(repo => repo.full_name === node.id)?.stargazers_count || 0 : node.members.length })), total: projected.total, repositoryCount: repos.length };
 }
 
 export async function fetchRepositoryLanguages(repositories, { token, signal, fetchImpl = fetch, cache = new Map(), onProgress = () => {} } = {}) {
@@ -279,6 +371,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   if (options.transforms?.length) repositories = toGraphRecords(transformed.records);
   mappingOptions(options);
   const name = username(account);
+  for (const id of Object.keys(options.projectShowcase || {})) {
+    if (!repositories.some(repo => repo.full_name?.toLowerCase() === id.toLowerCase() && repo.private !== true)) onDiagnostic?.({ code: 'showcase-repository-unavailable', repository: id });
+  }
   const seed = resolveSeed(name, options);
   const sky = starfieldOptions(options.starfield);
   const activitySettings = activityOptions(options);
@@ -326,6 +421,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     if (!Object.hasOwn(themes.midnight, key) || !/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(color)) throw new Error('Colors must use known palette keys and 3 or 6 digit hex values.');
   }
   // CSS is local, trusted configuration, but must never escape its XML text node.
+  if (options.readmePresentation === 'technology-identity') options = { ...options, nodeMode: 'combined', connectionBasis: 'both' };
   const graph = graphNodes(repositories, options);
   const repos = graph.nodes;
   const graphIds = new Set();
@@ -345,6 +441,7 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   }
   const hiddenNodes = new Set(options.hiddenNodes || []);
   const hiddenLabels = new Set(options.hiddenLabels || []);
+  const projectShowcase = options.projectShowcase || {};
   const groups = [...new Set(repos.map(repo => repo.language || 'Other'))].sort();
   const hubs = groups.map(language => ({ language }));
   // A deterministic, account-seeded star field uses the full card instead of
@@ -356,15 +453,23 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const spreadY = compact ? 88 : 192;
   const stars = ordered.map(repo => {
     const position = scene.positions[repo.full_name];
+    const showcase = projectShowcaseEntry(repo, projectShowcase);
     return { repo, hub: hubs.find(hub => hub.language === (repo.language || 'Other')),
-      x: Math.max(32, Math.min(868, position.x)), y: Math.max(28, Math.min(height - 60, position.y)) };
+      x: Math.max(32, Math.min(868, position.x)), y: Math.max(28, Math.min(height - 60, position.y)), showcase };
   });
   const recordsById = new Map(transformed.records.map(record => [record.id, record]));
   for (const star of stars) {
     const record = recordsById.get(star.repo.full_name) || normalizeRecords([star.repo]).records[0];
     star.mapping = mapRecord({ ...record, attributes: star.repo }, mappings, { reference, activity: recent(star.repo.full_name)?.score });
     if (star.mapping.color && !Object.hasOwn(options.nodeColors || {}, star.repo.full_name)) nodeColors[star.repo.full_name] = star.mapping.color;
-    star.radius = star.mapping.size ?? (star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference));
+    let radius = star.mapping.size ?? (star.repo.organizationFocal ? 11 : nodeRadius(star.repo, options.nodeSize || options.sizingMode, reference));
+    if (star.showcase?.role === 'featured') radius *= 1.55;
+    else if (star.showcase?.role === 'experimental') radius *= 0.96;
+    else if (star.showcase?.role === 'historical') radius *= 0.85;
+    star.radius = radius;
+    if (star.showcase?.role === 'featured') star.mapping.glow = Math.max(star.mapping.glow ?? 0, 0.9);
+    else if (star.showcase?.role === 'experimental') star.mapping.glow = Math.max(star.mapping.glow ?? 0, 0.24);
+    else if (star.showcase?.role === 'historical') star.mapping.glow = Math.max(star.mapping.glow ?? 0, 0.12);
   }
   const refinedLabels = new Map();
   function renderLabels(record = false) {
@@ -372,7 +477,9 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
     // Visibility is controlled by the visual styles, independently of repo count.
     const labelBoxes = [];
     const labelPriority = { repository: 0, language: 1, topic: 2, contributor: 3, dependency: 4, era: 5 };
-    const labelOrder = [...stars].sort((a, b) => (labelPriority[a.repo.nodeKind || 'repository'] ?? 6) - (labelPriority[b.repo.nodeKind || 'repository'] ?? 6));
+    const labelOrder = [...stars].sort((a, b) => (labelPriority[a.repo.nodeKind || 'repository'] ?? 6) - (labelPriority[b.repo.nodeKind || 'repository'] ?? 6)
+      || compareShowcase(a.repo, b.repo, projectShowcase)
+      || (a.showcase?.role === 'featured' && b.showcase?.role === 'featured' ? (a.showcase.priority ?? 9999) - (b.showcase.priority ?? 9999) : 0));
     return labelOrder.map((star, index) => {
       if (simplified && index >= 100 && !Object.hasOwn(labelPositions, star.repo.full_name) && !Object.hasOwn(labelOffsets, star.repo.full_name)) {
         if (!record) onDiagnostic?.({ code: 'label-omitted', node: star.repo.full_name, reason: 'large-graph-overview' });
@@ -439,9 +546,11 @@ export function createScene(account, repositories, options = {}, { onDiagnostic,
   const backbone = new Set(candidates.filter(edge => edge.primary));
   const labels = renderLabels();
   if (options.snapToRings !== undefined && typeof options.snapToRings !== 'boolean') throw new Error('snapToRings must be a boolean.');
-  const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate)) && repos.length ? identityGeometry(options.seedMode ? seed : name) : null;
+  const geometry = (identityRing || options.snapToRings === true || ringAnimation.enabled || floatingAnimation.enabled || (perspective.enabled && perspective.animate) || ['importance', 'activity'].includes(options.ringOrganization)) && repos.length ? identityGeometry(options.seedMode ? seed : name) : null;
   const ringPoints = geometry ? identityPoints(options.seedMode ? seed : name, repos.length, ringRotations) : [];
-  const nodes = stars.map(star => ({
+  if (options.ringOrganization === 'activity' && !Object.keys(options.activityData?.repositories || {}).length) onDiagnostic?.({ code: 'ring-activity-unavailable' });
+  const ringOrderedStars = organizeRingAnchors(stars, ringPoints, geometry, options);
+  const nodes = ringOrderedStars.map(star => ({
     id: star.repo.full_name, metadata: star.repo,
     geometry: { x: star.x, y: star.y, radius: star.radius },
     style: { color: nodeColors[star.repo.full_name] ?? null, glow: star.mapping.glow ?? mappedGlow(star.repo, options.nodeGlowMode, seed, reference), opacity: star.repo.commitOpacity ?? star.mapping.opacity ?? 1, shape: star.repo.nodeKind === 'contributor' ? 'diamond' : star.repo.nodeKind === 'dependency' ? 'hexagon' : shapeFor(star.repo, options.nodeShape) },

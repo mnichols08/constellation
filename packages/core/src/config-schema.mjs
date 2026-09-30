@@ -13,7 +13,9 @@ import { validateLayoutReference } from './layout-host.mjs';
 
 export const CONFIG_VERSION = 7;
 export const MAX_CONFIG_BYTES = 250000;
-const fields = new Set('theme layout maxRepos animate includeForks bridges connectionDensity connectionBasis languages topics showOther css repoSource arrangement ringAnimation perspective floatingAnimation ringRotation ringRotations identityRing snapToRings nodeMode hiddenNodes hiddenLabels colorConnections nodeColors labelOffsets labelPositions starPositions selection colors title includeRepos minStars includeArchived updatedWithin repoQuery sortBy sizingMode exportProfile visualStyle customCSS seedMode seed nodeSize nodeColorMode nodeGlowMode connectionWeight nodeShape effect legend visualTheme metricDate majorMetric designCode starfield activityEffect activityWindow activityDetail activityConnections activityMetricDate'.split(' '));
+const projectShowcaseRoles = ['featured', 'supporting', 'experimental', 'historical'];
+const readmePresentations = ['full-universe', 'featured-work', 'current-focus', 'technology-identity', 'project-journey'];
+const fields = new Set('theme layout maxRepos animate includeForks bridges connectionDensity connectionBasis languages topics showOther css repoSource arrangement ringAnimation perspective floatingAnimation ringRotation ringRotations identityRing snapToRings nodeMode hiddenNodes hiddenLabels colorConnections nodeColors labelOffsets labelPositions starPositions selection colors title includeRepos minStars includeArchived updatedWithin repoQuery sortBy sizingMode exportProfile visualStyle customCSS seedMode seed nodeSize nodeColorMode nodeGlowMode connectionWeight nodeShape effect legend visualTheme metricDate majorMetric designCode starfield activityEffect activityWindow activityDetail activityConnections activityMetricDate projectShowcase readmePresentation ringOrganization featuredTreatment'.split(' '));
 for (const key of Object.keys(rhythmDefaults)) fields.add(key);
 for (const key of historyFields) fields.add(key);
 for (const key of organizationFields) fields.add(key);
@@ -73,6 +75,19 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     if (Object.keys(options[key]).some(name => !names.split(' ').includes(name))) throw new Error(`Unknown ${key} field.`);
   }
   if (options.selection && Object.values(options.selection).some(value => value !== null && typeof value !== 'string')) throw new Error('Selection must contain node IDs.');
+  if ('projectShowcase' in options) {
+    if (!object(options.projectShowcase)) throw new Error('projectShowcase must be an object keyed by owner/repository.');
+    for (const [key, value] of Object.entries(options.projectShowcase)) {
+      if (!/^[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]{1,100}$/i.test(key)) throw new Error(`projectShowcase.${key} must use an owner/repository ID.`);
+      if (!value || !object(value)) throw new Error(`projectShowcase.${key} must be an object.`);
+      if (Object.keys(value).some(field => !['role', 'priority'].includes(field)) || value.role === undefined) throw new Error(`projectShowcase.${key} must contain a role and may contain priority.`);
+      if (value.role !== undefined && !projectShowcaseRoles.includes(value.role)) throw new Error(`projectShowcase.${key}.role must be featured, supporting, experimental or historical.`);
+      if (value.priority !== undefined && (!Number.isInteger(value.priority) || value.priority < 1 || value.priority > 9999)) throw new Error(`projectShowcase.${key}.priority must be an integer between 1 and 9999.`);
+    }
+  }
+  if ('readmePresentation' in options && !readmePresentations.includes(options.readmePresentation)) throw new Error('readmePresentation must be full-universe, featured-work, current-focus, technology-identity or project-journey.');
+  if ('ringOrganization' in options && !['identity', 'importance', 'activity', 'manual'].includes(options.ringOrganization)) throw new Error('ringOrganization must be identity, importance, activity or manual.');
+  if ('featuredTreatment' in options && !['star', 'label', 'spotlight'].includes(options.featuredTreatment)) throw new Error('featuredTreatment must be star, label or spotlight.');
   for (const key of ['nodeColors', 'colors', 'starPositions', 'labelPositions', 'labelOffsets', 'visualStyle']) if (key in options && !object(options[key])) throw new Error(`${key} must be an object.`);
   for (const key of ['starPositions', 'labelPositions', 'labelOffsets']) if (options[key]) {
     if (Object.values(options[key]).some(point => !object(point) || Object.keys(point).some(key => !['x', 'y'].includes(key)) || Math.abs(point.x) > 10000 || Math.abs(point.y) > 10000)) throw new Error('Invalid manual coordinates.');

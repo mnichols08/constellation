@@ -44,6 +44,8 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   await click('Continue');
   await click('Back'); assert.ok(await e(`document.querySelector('#guided-repository-search') !== null`));
   await click('Continue');
+  await e(`document.querySelector('select[aria-label="Role for r0"]').value='featured'; document.querySelector('select[aria-label="Role for r0"]').dispatchEvent(new Event('change'))`);
+  await click('Continue');
   await e(`document.querySelector('#guided-setup details').open=true`);
   await click('Skip'); await click('Continue');
   assert.equal(await e(`document.querySelector('#guided-setup h2').textContent`), 'Add a little life');
@@ -58,7 +60,7 @@ test('guided first visit, constraints, optional failure, exports, customize and 
   await e(`document.querySelector('#viewer-close').click()`);
   await e(`document.querySelector('#constellation-title').value='My first universe'; document.querySelector('#save-constellation').click()`);
   const draft = () => e(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
-  const before = await draft(); assert.ok(before.includeRepos.includes('team/direct')); assert.ok(before.includeRepos.includes('another-org/discovered')); assert.equal(before.arrangement, 'temporal-stack'); assert.equal(before.contributionOrbit.enabled, false);
+  const before = await draft(); assert.ok(before.includeRepos.includes('team/direct')); assert.ok(before.includeRepos.includes('another-org/discovered')); assert.equal(before.projectShowcase['alice/r0'].role, 'featured'); assert.equal(before.arrangement, 'temporal-stack'); assert.equal(before.contributionOrbit.enabled, false);
   await click('Generate another'); await wait(`!document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
   await e(`document.querySelector('#constellation-title').value='My second universe'; document.querySelector('#save-constellation').click()`);
   const after = await draft(); assert.deepEqual(after.includeRepos, before.includeRepos); assert.deepEqual(after.languages, before.languages);
@@ -103,15 +105,15 @@ test('sparse profiles skip empty questions, no-activity stays lazy, asteroids lo
   await wait(`document.querySelector('#open-studio')?.disabled === false`);
   await e(`document.querySelector('#username').value='bob'; document.querySelector('#account-form').requestSubmit()`);
   await wait(`document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
-  assert.match(await e(`document.querySelector('#guided-setup > p').textContent`), /Step 1 of 4/);
-  await click('Continue'); await click('Continue');
+  assert.match(await e(`document.querySelector('#guided-setup > p').textContent`), /Step 1 of 5/);
+  await click('Continue'); await click('Continue'); await click('Continue');
   await e(`document.querySelector('[name="guided-activity"][value="none"]').click()`); await click('Continue'); await click('Generate my constellation');
   await wait(`document.documentElement.dataset.entry === 'result'`);
   assert.equal(calls.some(url => url.includes('/events') || url.includes('/commits?')), false);
-  await click('Edit answers'); await click('Continue'); await click('None'); await click('Continue'); await click('Continue'); await click('Generate my constellation');
+  await click('Edit answers'); await click('Continue'); await click('Continue'); await click('None'); await click('Continue'); await click('Continue'); await click('Generate my constellation');
   await wait(`document.querySelector('#guided-status').textContent.includes('no visible projects')`);
   assert.equal(await e(`document.documentElement.dataset.entry`), 'guided');
-  await click('Back'); await click('Back'); await click('All'); await click('Continue');
+  await click('Back'); await click('Back'); await click('Back'); await click('Back'); await click('All'); await click('Continue'); await click('Continue'); await click('Recommended'); await click('Continue');
   await e(`document.querySelector('[name="guided-activity"][value="asteroids"]').click()`); await click('Continue'); await click('Generate my constellation');
   await wait(`document.documentElement.dataset.entry === 'result'`);
   assert.equal(calls.filter(url => url.includes('/commits?')).length, 1);
@@ -146,7 +148,7 @@ for (const scenario of ['pins', 'empty', 'failure', 'anonymous']) test(`onboardi
     assert.deepEqual(await selection(),['team/pinned']);assert.match(status,/Selected 1 pinned/);
     await e(`document.querySelector('#guided-repository-picker-list input[value="team/pinned"]').click()`);assert.deepEqual(await selection(),[]);
     await e(`document.querySelector('#guided-repository-picker-list input[value="team/pinned"]').click();[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Continue').click()`);
-    await wait(`document.querySelector('#guided-setup h2').textContent==='What should your constellation reveal?'`);
+    await wait(`document.querySelector('#guided-setup h2').textContent==='Which projects should stand out?'`);
     await e(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Back').click()`);
     assert.deepEqual(await selection(),['team/pinned']);
     assert.deepEqual(await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice')).projects`),['team/pinned']);

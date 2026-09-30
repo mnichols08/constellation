@@ -1,12 +1,18 @@
 export function exportSettings(options = {}) {
   const profile = options.exportProfile || 'custom';
-  if (!['custom', 'readme', 'profile', 'repository', 'compact', 'hero', 'portfolio', 'transparent'].includes(profile)) throw new Error('Invalid export profile.');
-  return { ...options, ...(['readme', 'repository', 'compact'].includes(profile) ? { layout: 'compact' } : ['profile', 'hero', 'portfolio'].includes(profile) ? { layout: 'atlas' } : {}), exportProfile: profile };
+  if (!['custom', 'readme', 'profile', 'repository', 'compact', 'hero', 'wide', 'square', 'portfolio', 'transparent'].includes(profile)) throw new Error('Invalid export profile.');
+  return { ...options, ...(['readme', 'repository', 'compact', 'wide'].includes(profile) ? { layout: 'compact' } : ['profile', 'hero', 'square', 'portfolio'].includes(profile) ? { layout: 'atlas' } : {}), exportProfile: profile };
 }
 
 export function profileDimensions(profile, height) {
-  const width = ['hero', 'portfolio'].includes(profile) ? 1440 : profile === 'compact' ? 600 : 900;
-  return { width, height: height * width / 900, labelFraction: profile === 'compact' ? .35 : ['readme', 'repository'].includes(profile) ? .6 : 1, dustCount: profile === 'compact' ? 25 : ['readme', 'repository'].includes(profile) ? 45 : 85 };
+  const dimensions = {
+    hero: [900, 560], wide: [900, 320], compact: [900, 180], square: [480, 480],
+    portfolio: [1440, Math.round(height * 1.6)],
+  };
+  const [width, outputHeight] = dimensions[profile] || [900, height];
+  const compact = profile === 'compact';
+  const wide = profile === 'wide' || ['readme', 'repository'].includes(profile);
+  return { width, height: outputHeight, labelFraction: compact ? .3 : wide ? .5 : 1, dustCount: compact ? 12 : wide ? 35 : 85 };
 }
 
 export function downloadBlob(blob, filename) {

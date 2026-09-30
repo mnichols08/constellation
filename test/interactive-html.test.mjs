@@ -37,6 +37,7 @@ test('standalone file supports selection, keyboard, camera and cleanup', { skip:
   t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html');
   const linked = structuredClone(scene);
+  linked.presentation.options.projectShowcase = { [linked.nodes[0].id]: { role: 'featured', priority: 1 } };
   linked.nodes[0].metadata.html_url = 'https://example.com/project';
   linked.nodes[1].metadata.html_url = 'javascript:window.injected=true';
   linked.nodes[1].metadata.description = '<img src=x onerror=window.injected=true>';
@@ -61,6 +62,7 @@ test('standalone file supports selection, keyboard, camera and cleanup', { skip:
   assert.deepEqual(await evaluate('document.querySelector("main").constellation.camera'), base);
   assert.equal(await evaluate('document.querySelector("main").constellation.selection'), null);
   await evaluate(`document.querySelector('main').constellation.selectNode(${JSON.stringify(scene.nodes[0].id)}, {focus:false})`);
+  assert.match(await evaluate('document.querySelector("[data-details]").textContent'), /Project role: featured · Featured order 1/);
   assert.equal(await evaluate('document.querySelector("[data-details] a").getAttribute("rel")'), 'noopener noreferrer');
   await evaluate(`document.querySelector('main').constellation.selectNode(${JSON.stringify(scene.nodes[1].id)}, {focus:false})`);
   assert.equal(await evaluate('document.querySelector("[data-details] a")'), null);

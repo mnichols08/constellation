@@ -22,7 +22,13 @@ export function validateIntent(value) {
   if (!['auto', 'projects', 'languages', 'topics', 'everything'].includes(value.relationships ?? 'auto')) throw Error('Choose valid relationships.');
   if (!['language', 'topic', 'repository'].includes(value.dimension ?? 'language')) throw Error('Choose a valid dimension.');
   value = { ...value, dimension: value.dimension ?? 'language', relationships: value.relationships ?? 'auto' };
-  return Object.fromEntries(['version', 'dimension', 'relationships', 'projects', 'languages', 'topics', 'activity', 'history', 'motion', 'vibe'].map(key => [key, structuredClone(value[key])]));
+  if (value.projectShowcase !== undefined) {
+    if (!value.projectShowcase || typeof value.projectShowcase !== 'object' || Array.isArray(value.projectShowcase)) throw Error('Choose valid project roles.');
+    for (const [id, entry] of Object.entries(value.projectShowcase)) {
+      if (!/^[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]{1,100}$/i.test(id) || !entry || typeof entry !== 'object' || Array.isArray(entry) || !['featured', 'supporting', 'experimental', 'historical'].includes(entry.role) || entry.priority !== undefined && (!Number.isInteger(entry.priority) || entry.priority < 1 || entry.priority > 9999)) throw Error('Choose valid project roles and featured order.');
+    }
+  }
+  return Object.fromEntries(['version', 'dimension', 'relationships', 'projects', 'languages', 'topics', 'activity', 'history', 'motion', 'vibe', 'projectShowcase'].filter(key => value[key] !== undefined).map(key => [key, structuredClone(value[key])]));
 }
 export function intentStore(storage) {
   const key = account => `constellation-intent-v1:${account.toLowerCase()}`;

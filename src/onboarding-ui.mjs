@@ -20,7 +20,47 @@ export function mountOnboarding(host, { repositories, account, profile, initial,
     parent.append(field);
   }
   const available = () => choicesFor(repositories(), intent.projects, year);
-  const steps = () => ['projects', 'relationships', 'activity', 'universe'];
+  const steps = () => ['projects', 'showcase', 'relationships', 'activity', 'universe'];
+  function curateShowcase() {
+    intent.projectShowcase ||= {};
+    const selected = repositories().filter(repo => intent.projects.includes(repo.full_name));
+    const list = document.createElement('ol'); list.className = 'showcase-curation-list';
+    const note = document.createElement('p'); note.textContent = 'Choose the roles that reflect your intent. Recommendations do not assign roles automatically.'; body.append(note, list);
+    const featured = () => Object.entries(intent.projectShowcase).filter(([, entry]) => entry.role === 'featured').sort((a, b) => a[1].priority - b[1].priority);
+    const reorder = () => {
+      const ordered = featured();
+      ordered.forEach(([id], index) => { intent.projectShowcase[id].priority = index + 1; });
+    };
+    for (const repo of selected) {
+      const item = document.createElement('li');
+      const name = document.createElement('strong'); name.textContent = repo.name;
+      const details = document.createElement('span'); details.textContent = repo.description || repo.full_name;
+      const label = document.createElement('label'); label.textContent = `Role for ${repo.name}`;
+      const role = document.createElement('select'); role.setAttribute('aria-label', `Role for ${repo.name}`);
+      for (const [value, text] of [['', 'No role'], ['featured', 'Featured'], ['supporting', 'Supporting'], ['experimental', 'Experimental'], ['historical', 'Historical']]) {
+        const option = document.createElement('option'); option.value = value; option.textContent = text; role.append(option);
+      }
+      const existing = intent.projectShowcase[repo.full_name]; role.value = existing?.role || '';
+      role.addEventListener('change', () => {
+        if (!role.value) delete intent.projectShowcase[repo.full_name];
+        else intent.projectShowcase[repo.full_name] = { role: role.value, priority: role.value === 'featured' ? Math.max(0, ...featured().map(([, entry]) => entry.priority)) + 1 : 1 };
+        reorder();
+        item.dataset.role = role.value;
+      });
+      label.append(role); item.append(name, details, label);
+      if (existing?.role === 'featured') {
+        const up = button(item, 'Move featured project up', () => {
+          const ordered = featured(), index = ordered.findIndex(([id]) => id === repo.full_name);
+          if (index > 0) { [ordered[index - 1], ordered[index]] = [ordered[index], ordered[index - 1]]; ordered.forEach(([id], rank) => { intent.projectShowcase[id].priority = rank + 1; }); curateShowcase(); }
+        }); up.setAttribute('aria-label', `Move ${repo.name} up in featured order`);
+        const down = button(item, 'Move featured project down', () => {
+          const ordered = featured(), index = ordered.findIndex(([id]) => id === repo.full_name);
+          if (index >= 0 && index < ordered.length - 1) { [ordered[index + 1], ordered[index]] = [ordered[index], ordered[index + 1]]; ordered.forEach(([id], rank) => { intent.projectShowcase[id].priority = rank + 1; }); curateShowcase(); }
+        }); down.setAttribute('aria-label', `Move ${repo.name} down in featured order`);
+      }
+      list.append(item);
+    }
+  }
   function filters(kind) {
     const names = available()[kind];
     const note = document.createElement('p'); note.textContent = kind === 'languages' ? 'Highlight technologies across your selected projects. None uses the existing empty language filter and may leave no visible projects.' : 'Focus on projects with these topics. Skip keeps every topic.'; body.append(note);
@@ -36,8 +76,8 @@ export function mountOnboarding(host, { repositories, account, profile, initial,
   function draw() {
     host.hidden = false; document.documentElement.dataset.entry = 'guided';
     const list = steps(); step = Math.min(step, list.length - 1); const current = list[step];
-    progress.textContent = `@${account} · Step ${step + 1} of ${list.length} · Connect → Curate → Relationships → Activity → Universe → Preview`;
-    heading.textContent = { projects: 'Choose what matters', relationships: 'What should your constellation reveal?', activity: 'Add a little life', universe: 'Choose your universe' }[current];
+    progress.textContent = `@${account} · Step ${step + 1} of ${list.length} · Connect → Choose projects → Set project roles → Relationships → Activity → Universe → Preview`;
+    heading.textContent = { projects: 'Choose what matters', showcase: 'Which projects should stand out?', relationships: 'What should your constellation reveal?', activity: 'Add a little life', universe: 'Choose your universe' }[current];
     body.replaceChildren(); actions.replaceChildren(); status.textContent = '';
     if (current === 'projects') {
       const welcome = document.createElement('p'); welcome.className = 'guided-identity'; welcome.textContent = 'Welcome, @' + account + '.' + (profile?.name ? ' ' + profile.name : '') + ' · ' + repositories().length + ' public projects';
@@ -79,6 +119,7 @@ export function mountOnboarding(host, { repositories, account, profile, initial,
       const marker = body.children.length; filters('languages'); if (available().topics.length) filters('topics');
       for (const child of [...body.children].slice(marker)) details.append(child); body.append(details);
     }
+    if (current === 'showcase') curateShowcase();
     if (current === 'activity') radios('Use real public activity', 'activity', [['none', '○ No activity — a still sky'], ['subtle', '✦ Recent glow — light around active projects'], ['asteroids', '⁙ Commit asteroids — clusters of recent commits'], ['orbit', '◌ Contribution orbit — public activity around your work'], ['recent', '◎ Recent activity — gently pulsing projects'], ['surprise', '✧ Choose an activity effect for me']]);
     if (current === 'universe') { radios('Structure', 'history', [['current', '✧ Single constellation'], ['rings', '◎ Identity rings'], ['galaxy', '⁙ Connected galaxy'], ['dimension', '▱ Dimensional universe'], ...(available().history.eligible ? [['history', '◷ Evolution through time'], ['3d', '▱ Universe through time']] : [])]); const note = document.createElement('p'); note.textContent = `History begins in ${available().history.firstYear}. Retrospective layers use creation dates and current metadata, not historical star counts.`; if (available().history.eligible) body.append(note); }
     if (current === 'universe') { radios('Dimension (for dimensional universe)', 'dimension', [['language', 'Languages'], ['repository', 'Repositories'], ['topic', 'Topics']]); radios('Feel', 'vibe', [['cosmic', 'Cosmic'], ['clean', 'Clean'], ['technical', 'Technical'], ['classic', 'Classic'], ['surprise', 'Surprise me']]); radios('Motion', 'motion', [['automatic', 'Automatic'], ['still', 'Still']]); }

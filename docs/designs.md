@@ -14,6 +14,12 @@ The live canvas stays visible while the inspector scrolls. Desktop places contro
 
 Sections expand on demand, one at a time within each tab. Randomize and Download SVG remain in the toolbar. **Hide controls** expands the preview; **Customize** brings settings back. Open **Design code** in the toolbar to copy or restore a recipe. Switching panels never changes the design or fetches data.
 
+## README Showcase
+
+The **Showcase** section is product intent, separate from color and geometry. Assign roles to projects and adjust featured order with the labelled order field or Move up/Move down buttons. Full random and Generate another preserve those roles and their order. Daily generation keeps entries for temporarily missing projects and reports when a role cannot be rendered.
+
+See [README Showcase](readme-showcase.md) for role semantics, presentation modes, semantic rings, spotlight limits and the coordinated output profiles.
+
 ## Randomize, then return to a design
 
 Use **Randomize selected** with independent switches:
@@ -145,10 +151,10 @@ Profiles use the same SVG renderer:
 
 | Profile | Dimensions | Labels and decoration |
 | --- | --- | --- |
-| Profile README | 900 × 560 | Full labels, 85 dust points |
-| Repository README | 900 × 280 | At most 60% label candidates, 45 dust points |
-| Compact | 600 × 186.67 | At most 35% label candidates, 25 dust points |
-| Hero | 1440 × 896 | Full labels and decoration |
+| Hero | 900 × 560 | Full scene, full label budget |
+| Wide README | 900 × 320 | Reduced label and background density |
+| Compact | 900 × 180 | Featured-first labels, minimal background; spotlights fall back to labels |
+| Square | 480 × 480 | Full square export canvas |
 | Transparent | Current layout dimensions | No background or nebula |
 
 All profiles keep attribution and existing collision-aware labels. PNG download uses browser SVG → Image → Canvas at 2×–3× resolution; it captures a static frame and does not replace animated SVG. If the browser cannot rasterize the SVG, SVG download remains available. Output size is shown in the studio. Static example fixtures are tested under 250 KiB for 24 repositories; dense graphs and native motion can be substantially larger. Balanced connections, fewer labels, and disabled motion keep README payloads smaller.
@@ -246,7 +252,7 @@ A code such as `v6:mfff-y2026-f2015-e1-fixture-38` records the motion permission
 reference year, first year and eligibility (`e1`; `e0` means ordinary only).
 The same code and source/configuration replay the same choices. The recipe pins
 its reference date to the end of that code's reference year. The v5 generator,
-its 12-bit mask and all released v1�v5 recipe outputs remain unchanged. Config
+its 12-bit mask and all released v1�v5 recipe outputs remain unchanged. Config
 schema version 7 is separate from design-code version 6; no config migration is
 needed. Old codes remain directly importable.
 

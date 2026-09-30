@@ -82,7 +82,7 @@ test('OAuth callback loads identity, protects designs and offers saved work on r
   assert.equal(await e(`location.search`),'');
   assert.equal(await e(`sessionStorage.getItem('constellation-oauth-transaction')`),null);
   const click = async text => { await e(`[...document.querySelectorAll('#guided-setup button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`); await wait(`!document.querySelector('#guided-setup').hasAttribute('aria-busy')`); };
-  await click('Continue'); await click('Continue'); await click('Continue'); await click('Generate my constellation');
+  await click('Continue'); await click('Continue'); await click('Continue'); await click('Continue'); await click('Generate my constellation');
   await wait(`document.documentElement.dataset.entry==='result'`);
   await e(`document.querySelector('#constellation-title').value='Saved OAuth sky';document.querySelector('#save-constellation').click()`);
   assert.equal(await e(`JSON.stringify({...localStorage,...sessionStorage}).includes('oauth-browser-secret')`),false);

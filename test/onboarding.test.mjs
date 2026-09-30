@@ -42,6 +42,15 @@ test('intent storage validates, isolates accounts, and tolerates unavailable sto
   assert.equal(intentStore().save('alice', intent), false); assert.equal(intentStore().read('alice'), null);
   assert.throws(() => validateIntent({ ...intent, version: 2 })); assert.throws(() => validateIntent({ ...intent, projects: [] }));
 });
+test('explicit showcase roles persist and compile without assigning roles to suggestions', () => {
+  const intent = defaultIntent(repos);
+  assert.equal(intent.projectShowcase, undefined);
+  const curated = validateIntent({ ...intent, projectShowcase: { 'alice/r0': { role: 'featured', priority: 1 } } });
+  const generated = generateGuidedDesign('alice', repos, curated, { seed: 'curated', year: 2026 });
+  assert.deepEqual(generated.config.options.projectShowcase, curated.projectShowcase);
+  assert.deepEqual(validateIntent({ ...curated, projectShowcase: { 'alice/not-selected': { role: 'featured', priority: 1 } } }).projectShowcase, { 'alice/not-selected': { role: 'featured', priority: 1 } });
+  assert.throws(() => validateIntent({ ...curated, projectShowcase: { 'alice/r0': { role: 'featured', priority: 0 } } }));
+});
 test('guided account load postpones optional activity and reuses cached repositories', async () => {
   const calls = [];
   const data = createPreviewData({ fetchImpl: async url => { calls.push(url); return Response.json(url.includes('/events') ? [] : url.includes('/repos?') ? repos : { login: 'alice', type: 'User' }); } });

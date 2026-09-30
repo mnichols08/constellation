@@ -16,7 +16,11 @@ import { visualThemes } from './themes.mjs';
 import { newDesignCode, randomizeDesign, randomizeMatchingDesign } from './design-randomizer.mjs';
 import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
-export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
+export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
+
+export function preserveShowcaseOptions(recipe, current = {}) {
+  return { ...recipe, ...(current.projectShowcase ? { projectShowcase: structuredClone(current.projectShowcase) } : {}), ...(current.readmePresentation ? { readmePresentation: current.readmePresentation } : {}), ...(current.ringOrganization ? { ringOrganization: current.ringOrganization } : {}), ...(current.featuredTreatment ? { featuredTreatment: current.featuredTreatment } : {}) };
+}
 
 export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, findRepositories, reveal }) {
   const layerControls = mountStudioLayers(host, changed, reveal);
@@ -50,6 +54,13 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
     });
     parent.append(label, input); controls.set(key, input); return input;
   };
+  const showcasePanel = section('Showcase');
+  control(showcasePanel, 'readmePresentation', 'README presentation', [['full-universe', 'Full universe'], ['featured-work', 'Featured work'], ['current-focus', 'Current focus'], ['technology-identity', 'Technology identity'], ['project-journey', 'Project journey']]);
+  control(showcasePanel, 'ringOrganization', 'Organize rings by', [['identity', 'Identity / automatic'], ['importance', 'Project importance'], ['activity', 'Activity'], ['manual', 'Manual']]);
+  control(showcasePanel, 'featuredTreatment', 'Featured project treatment', [['star', 'Star only'], ['label', 'Star + prominent label'], ['spotlight', 'Compact spotlight']]);
+  const showcaseList = document.createElement('ol'); showcaseList.className = 'showcase-curation-list'; showcaseList.setAttribute('aria-label', 'Project roles and featured order');
+  const showcaseNote = document.createElement('p'); showcaseNote.className = 'export-note'; showcaseNote.textContent = 'Roles express your presentation intent, not GitHub popularity or activity. Projects missing from the current data keep their saved role.';
+  showcasePanel.append(showcaseNote, showcaseList);
   const refinementPanel = section('Refine layout');
   const refinementEnabled = control(refinementPanel, 'refinement-enabled', 'Refine layout', null, 'checkbox');
   const refinementIntensity = control(refinementPanel, 'refinement-intensity', 'Intensity', null, 'range');
@@ -98,7 +109,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const designCode = document.createElement('input'); designCode.id = 'design-code'; designCode.placeholder = 'v6:… (older codes also work)'; designCode.maxLength = 106;
   const codeLabel = document.createElement('label'); codeLabel.htmlFor = designCode.id; codeLabel.textContent = 'Reproducible design code';
   const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
-  const recipeOptions = recipe => ({ ...recipe, organizationUser: current.options.organizationUser, accountType: current.options.accountType, organizationScope: current.options.organizationScope, organizationView: current.options.organizationView, organization: current.options.organization, repoSource: current.options.repoSource || 'all', codingRhythmTimezone: current.options.codingRhythmTimezone || 'UTC', starfield: recipe.starfield || { mode: 'classic' } });
+  const recipeOptions = recipe => ({ ...preserveShowcaseOptions(recipe, current.options), organizationUser: current.options.organizationUser, accountType: current.options.accountType, organizationScope: current.options.organizationScope, organizationView: current.options.organizationView, organization: current.options.organization, repoSource: current.options.repoSource || 'all', codingRhythmTimezone: current.options.codingRhythmTimezone || 'UTC', starfield: recipe.starfield || { mode: 'classic' } });
   const reseed = async code => { const options = recipeOptions(randomizeDesign(code, { repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots, ringPlacements: current.options.ringPlacements })); await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
   const motionLabel = document.createElement('label'); motionLabel.className = 'randomize-motion';
   const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = false; motionLabel.append(motion, ' Animations');
@@ -110,8 +121,21 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   const styling = partSwitch('randomize-styling', 'Styling', true);
   const projects = partSwitch('randomize-repositories', 'Repositories', false);
   const full = partSwitch('randomize-full', 'Full random', false);
+  let previousRandomParts = null;
   full.title = 'Also change layouts, filters, node types and history. Animations follow the Animations switch.';
-  full.addEventListener('input', () => { styling.disabled = projects.disabled = full.checked; });
+  full.addEventListener('input', () => {
+    if (full.checked) {
+      previousRandomParts = { styling: styling.checked, projects: projects.checked };
+      styling.checked = false;
+      projects.checked = false;
+    } else if (previousRandomParts) {
+      styling.checked = previousRandomParts.styling;
+      projects.checked = previousRandomParts.projects;
+      previousRandomParts = null;
+    }
+    styling.disabled = full.checked;
+    projects.disabled = full.checked;
+  });
   const randomize = button(hero, 'randomize-design', '✦ Randomize selected', async () => {
     if (!current) return;
     if (!full.checked && !styling.checked && !motion.checked && !projects.checked) { message('Select Styling, Animations or Repositories to randomize.'); return; }
@@ -199,8 +223,45 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
       if (await apply({ version: 1, account: current.account, options }, { loadPresetData: true, fallback: current })) message(includeRepos ? `${includeRepos.length} repositories selected.` : 'Automatic repository selection restored.');
     },
   });
+  const roleValues = [['', 'No role'], ['featured', 'Featured'], ['supporting', 'Supporting'], ['experimental', 'Experimental'], ['historical', 'Historical']];
+  function roleEntries() {
+    return [...showcaseList.querySelectorAll('[data-project-role]')].map(row => {
+      const role = row.querySelector('select').value;
+      return [row.dataset.projectRole, role ? { role, priority: role === 'featured' ? Number(row.querySelector('input').value) : 1 } : null];
+    });
+  }
+  function updateShowcaseList(options = {}) {
+    const configured = options.projectShowcase || {};
+    const repositories = selectedRepositories(options);
+    showcaseList.replaceChildren(...repositories.map(repo => {
+      const entry = configured[repo.full_name] || configured[repo.name];
+      const row = document.createElement('li'); row.dataset.projectRole = repo.full_name;
+      const name = document.createElement('strong'); name.textContent = repo.name;
+      const description = document.createElement('span'); description.textContent = repo.description || repo.full_name;
+      const role = document.createElement('select'); role.setAttribute('aria-label', `Role for ${repo.name}`);
+      for (const [value, text] of roleValues) { const option = document.createElement('option'); option.value = value; option.textContent = text; role.append(option); }
+      role.value = entry?.role || '';
+      const priority = document.createElement('input'); priority.type = 'number'; priority.min = '1'; priority.max = '9999'; priority.step = '1'; priority.value = String(entry?.priority || 1); priority.setAttribute('aria-label', `Featured order for ${repo.name}`); priority.hidden = role.value !== 'featured';
+      role.addEventListener('change', () => { priority.hidden = role.value !== 'featured'; changed(); });
+      priority.addEventListener('change', changed);
+      row.append(name, description, role, priority);
+      for (const [delta, text] of [[-1, 'Move up'], [1, 'Move down']]) {
+        const move = document.createElement('button'); move.type = 'button'; move.className = 'secondary'; move.textContent = text; move.setAttribute('aria-label', `${text} ${repo.name} in featured order`); move.disabled = role.value !== 'featured';
+        move.addEventListener('click', () => {
+          const featured = [...showcaseList.querySelectorAll('[data-project-role]')].filter(item => item.querySelector('select').value === 'featured').sort((a, b) => Number(a.querySelector('input').value) - Number(b.querySelector('input').value));
+          const index = featured.indexOf(row), target = index + delta;
+          if (target < 0 || target >= featured.length) return;
+          [featured[index], featured[target]] = [featured[target], featured[index]];
+          featured.forEach((item, order) => { item.querySelector('input').value = String(order + 1); });
+          changed();
+        });
+        row.append(move);
+      }
+      return row;
+    }));
+  }
   const exports = section('Config, presets & export');
-  control(exports, 'exportProfile', 'Output profile', [['custom', 'Current layout'], ['profile', 'Profile README'], ['repository', 'Repository README'], ['compact', 'Compact'], ['hero', 'Hero'], ['transparent', 'Transparent']]);
+  control(exports, 'exportProfile', 'Output profile', [['custom', 'Current layout'], ['profile', 'Profile README'], ['repository', 'Repository README'], ['compact', 'Compact'], ['wide', 'Wide README'], ['hero', 'Hero'], ['square', 'Square'], ['transparent', 'Transparent']]);
   const size = document.createElement('p'); size.id = 'svg-size'; size.className = 'export-note'; exports.append(size);
   const json = document.createElement('textarea'); json.id = 'config-json'; json.rows = 6; json.setAttribute('aria-label', 'Configuration JSON to copy or import'); exports.append(json);
   const serialized = () => { if (!current) throw new Error('Load a design first.'); return serializeConfig(current.account, current.options); };
@@ -275,7 +336,9 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
     store, restore, flush, historyRange: historyControls.range, scene: layerControls.update,
     read: () => {
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
-      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      const projectShowcase = { ...(current?.options.projectShowcase || {}) };
+      for (const [id, entry] of roleEntries()) entry ? projectShowcase[id] = entry : delete projectShowcase[id];
+      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
       repositoryPicker.update(account, repositoryPool(), options, selectedRepositories(options));
@@ -286,6 +349,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
         presetAudience = audience; describePreset();
       }
       if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`;
+      updateShowcaseList(options);
     },
     shared() { try { return decodeShare(location.href); } catch (error) { message(error.message, true); return null; } },
   };

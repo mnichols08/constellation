@@ -310,7 +310,7 @@ function render({ requireVisibleNodes = false } = {}) {
     $(`#ring-direction-${i}`).disabled = linked;
     $(`#ring-speed-value-${i}`).value = `${options.ringAnimation.speeds[linked ? 0 : i]} RPM`;
   }
-  $('#lock-stars').disabled = options.ringAnimation.enabled || options.floatingAnimation.enabled || cameraMoving || liveTilt?.active;
+  $('#lock-stars').disabled = false;
   options.ringRotations = Array.from({ length: 4 }, (_, i) => Number($(`#ring-rotation-${i}`).value));
   options.ringRotations.forEach((angle, i) => { $(`#ring-rotation-value-${i}`).value = `${angle}°`; });
   options.identityRing = $('#identity-ring').checked;
@@ -359,9 +359,11 @@ function render({ requireVisibleNodes = false } = {}) {
   options.codingRhythmData = activitySnapshot ? deriveCodingRhythm(activitySnapshot.events, options, options.activityMetricDate || activitySnapshot.asOf) : undefined;
   const activityStatus = $('#activity-status');
   if (activityStatus) activityStatus.textContent = activitySnapshot?.diagnostic || (isSample ? 'Demo activity, using a sample week relative to today.' : activitySnapshot ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.` : 'Load an account to fetch its public activity.');
+  if (activityStatus && options.readmePresentation === 'current-focus' && !Object.keys(options.activityData?.repositories || {}).length) activityStatus.textContent += ' Current Focus has no recent activity snapshot; existing project order is retained.';
   options.selection = graphSelection;
   const labelDiagnostics = [];
-  const scene = createScene(account, repositories, { ...options, generatedAt }, { pipeline: dataPipeline, onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); } });
+  const showcaseDiagnostics = [];
+  const scene = createScene(account, repositories, { ...options, generatedAt }, { pipeline: dataPipeline, onDiagnostic: diagnostic => { if (diagnostic.code === 'label-omitted') labelDiagnostics.push(diagnostic); else if (diagnostic.code === 'showcase-repository-unavailable' || diagnostic.code === 'ring-activity-unavailable') showcaseDiagnostics.push(diagnostic); } });
   const svg = renderSceneSVG(scene);
   capturedScene = scene;
   const currentScene = scene.kind === 'time-lapse' ? scene.latest : scene;
@@ -442,6 +444,9 @@ function render({ requireVisibleNodes = false } = {}) {
     $('#filter-summary').textContent += ` ${labelDiagnostics.length} labels omitted (hover for reasons).`;
     $('#filter-summary').title = labelDiagnostics.map(item => `${item.node}: ${item.reason}`).join('\n');
   } else $('#filter-summary').title = '';
+  const unavailableShowcase = showcaseDiagnostics.filter(item => item.code === 'showcase-repository-unavailable');
+  if (unavailableShowcase.length) $('#filter-summary').textContent += ` ${unavailableShowcase.length} saved project role${unavailableShowcase.length === 1 ? '' : 's'} skipped because the repository is unavailable or private; settings are retained.`;
+  if (showcaseDiagnostics.some(item => item.code === 'ring-activity-unavailable')) $('#filter-summary').textContent += ' Activity ring organization needs a public activity snapshot; identity placement is retained.';
   if (projected.organization) {
     const kinds = new Set(projected.nodes.map(node => node.nodeKind || 'repository'));
     $('#node-legend').textContent = Object.entries({ repository: 'Project', language: 'Language', topic: 'Topic', contributor: 'Contributor (diamond)', dependency: 'Dependency (hexagon)', era: 'Project group' }).filter(([kind]) => kinds.has(kind)).map(([, label]) => label).join(' · ');
@@ -742,7 +747,15 @@ $('#copy-markdown').addEventListener('click', async () => {
 });
 $('#reset-css').addEventListener('click', () => { $('#custom-css').value = ''; render(); });
 $('#show-labels').addEventListener('input', () => { visualStyle.labels = $('#show-labels').checked; render(); });
-$('#lock-stars').addEventListener('input', render);
+$('#lock-stars').addEventListener('input', () => {
+  if (!$('#lock-stars').checked && ($('#animate-rings').checked || $('#animate-floating').checked || $('#perspective-animate').checked || liveTilt?.active)) {
+    $('#animate-rings').checked = false;
+    $('#animate-floating').checked = false;
+    $('#perspective-animate').checked = false;
+    if (liveTilt?.active) liveTilt.active = false;
+  }
+  render();
+});
 $('#reset-stars').addEventListener('click', () => {
   const key = `${account.toLowerCase()}:${$('#layout').value}:${$('#arrangement').value}`;
   starPlacements.delete(key);

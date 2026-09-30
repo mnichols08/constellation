@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.5.0 — README Showcase
+
+- Add explicit Featured, Supporting, Experimental and Historical project roles with bounded featured order. Roles remain separate from GitHub stars, activity, archive status and topics, survive randomization and daily generation, and are retained when a project is temporarily unavailable.
+- Add Featured Project Gravity to node scale, glow, label priority, existing-edge visibility, category membership emphasis and optional bounded text spotlights. Featured ecosystem emphasis uses only real repository/language/topic membership.
+- Add identity, importance, activity and manual ring organization. Importance assigns existing stable ring anchors by role and leaves saved manual coordinates intact.
+- Add a project-role curation step to guided setup, accessible reorder controls, README presentation choices, and a dedicated Showcase section in Studio.
+- Add Full universe, Featured work, Current focus, Technology identity and Project journey presentations. Activity and chronology use available public data only and degrade without fabrication.
+- Add Hero (900 × 560), Wide README (900 × 320), Compact (900 × 180) and Square (480 × 480) export profiles with adjusted label/background density; preserve high-priority labels and bounded spotlight fallback.
+- Extend Rust category projection so Featured membership precedes raw frequency when language/topic nodes are capped. Add configuration, SVG, onboarding, share/workflow, browser and Rust regression coverage; rebuild Core and web-component mirrors.
+
 ## 3.4.1 — 2026-09-30
 
 - Add Pinned repositories to onboarding project choices. Load authenticated public profile pins on demand, including projects owned by other accounts, and keep individual selection editable.

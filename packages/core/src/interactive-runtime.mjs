@@ -54,6 +54,16 @@ export function mountInteractive(root, source, options = {}) {
     const description = document.createElement('p'); description.textContent = metadata.description || '';
     const summary = document.createElement('p'); summary.textContent = [metadata.language, Number.isFinite(metadata.stargazers_count) ? `${metadata.stargazers_count} stars` : null].filter(Boolean).join(' · ');
     details.append(heading, description, summary);
+    const projectShowcase = scene.presentation?.options?.projectShowcase || {};
+    const lookup = project => projectShowcase[project] || Object.entries(projectShowcase).find(([key]) => key.toLowerCase() === project.toLowerCase())?.[1];
+    const showcase = lookup(id) || (metadata.full_name ? lookup(metadata.full_name) : null);
+    if (showcase?.role) {
+      const role = document.createElement('p'); role.textContent = `Project role: ${showcase.role}${showcase.role === 'featured' && Number.isInteger(showcase.priority) ? ` · Featured order ${showcase.priority}` : ''}`; details.append(role);
+    }
+    if (Array.isArray(metadata.members)) {
+      const featured = metadata.members.filter(member => lookup(member)?.role === 'featured').map(member => lookup(member).priority ? `${member} (#${lookup(member).priority})` : member);
+      if (featured.length) { const projects = document.createElement('p'); projects.textContent = `Featured projects using this node: ${featured.join(', ')}`; details.append(projects); }
+    }
     if (scene.temporalStack) {
       const evidence = document.createElement('p'); evidence.textContent = frame ? `${occurrenceYear} · ${frame.evidence === 'current-metadata' ? 'Retrospective view using current metadata' : frame.evidence} · ${frame.date.slice(0, 10)}` : 'Latest available metadata for this project.'; details.append(evidence);
     }
