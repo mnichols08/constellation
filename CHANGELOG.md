@@ -8,7 +8,7 @@
 - Add a project-role curation step to guided setup, accessible reorder controls, README presentation choices, and a dedicated Showcase section in Studio.
 - Add Full universe, Featured work, Current focus, Technology identity and Project journey presentations. Activity and chronology use available public data only and degrade without fabrication.
 - Add Hero (900 × 560), Wide README (900 × 320), Compact (900 × 180) and Square (480 × 480) export profiles with adjusted label/background density; preserve high-priority labels and bounded spotlight fallback.
-- Extend Rust category projection so Featured membership precedes raw frequency when language/topic nodes are capped. Add configuration, SVG, onboarding, share/workflow, browser and Rust regression coverage; rebuild Core and web-component mirrors.
+- Prioritize Featured repositories and their real category memberships when output node limits reduce the graph, while retaining the existing Rust/WASM membership and layout engines. Add configuration, SVG, onboarding, share/workflow, browser and package-consumer regression coverage; rebuild Core and web-component mirrors.
 
 ## 3.4.1 — 2026-09-30
 
