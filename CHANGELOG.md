@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.1 — 2026-09-30
+
+- Trace DEP0040 to the bundled URL/IDNA dependencies in actions/setup-node@v4 (setup and post cleanup), reproduced locally with --trace-deprecation and confirmed in Actions runs 36651175270 and 36640876904. Constellation runtime paths do not import deprecated Punycode APIs.
+- Upgrade setup-node and checkout to v6 in owned workflows, the composite action and exported workflow templates; retain Node 22 and explicitly disable unneeded automatic dependency caching. No npm dependency added.
+- Add URL/Unicode-host regression checks and deprecation guards. The GitHub-managed Pages workflow also warned in upload/deploy actions (run 36640851661); its upstream action versions are managed by GitHub, outside these files.
+- Rebuild Core and web-component mirrors.
+
 ## 3.2.0 — 2026-09-29
 
 - Remove decorative ships and flight paths from commit asteroid fields; retain author colors and clickable commit asteroids.

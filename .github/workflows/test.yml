@@ -8,10 +8,11 @@ jobs:
     env:
       CONSTELLATION_BROWSER: /usr/bin/google-chrome
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
+          package-manager-cache: false
       - run: npm test
       - name: Test Rust core
         run: cargo test --locked --manifest-path rust/constellation-core/Cargo.toml
