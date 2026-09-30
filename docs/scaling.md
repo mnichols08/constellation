@@ -9,3 +9,5 @@ The coordinate cache is keyed by account/seed, size and node identity. Only miss
 Plugin hosts cache source snapshots by account, instance, source and options, independently of view/style filters. `host.load(config, { account, refresh: true })` clears snapshots before loading. `host.clearCache()` also invalidates pending loads; an old pending load rejects rather than returning stale data after refresh. Returned nodes are copied. Registries and caches are isolated per host.
 
 Source caches retain at most 32 snapshots within an 8 MiB estimated serialization budget. A larger single snapshot remains usable but is not retained. `host.cacheStatistics` reports entries and estimated bytes (not exact heap size). Run `node --expose-gc scripts/profile-source-cache.mjs` to measure retained heap across twelve 2048-node snapshots, and `node scripts/benchmark-scaling.mjs` for render timings and Rust work counts.
+
+GitHub HTTP request caching is a separate layer from coordinate, pipeline and plugin-source caching. Its TTL, ETag, persistence, authentication and refresh behavior are documented in [GitHub request caching](github-data-cache.md).

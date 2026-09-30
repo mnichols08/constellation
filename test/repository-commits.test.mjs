@@ -55,6 +55,26 @@ test('history paginates at a pinned head, is capped, cached and explicitly refre
   await data.load('example/repo', { refresh: true }); assert.equal(urls.length, 8);
 });
 
+test('a delayed earlier history cannot replace an explicit refresh', async () => {
+  let metadataCalls = 0, startOld, finishOld;
+  const oldMetadataStarted = new Promise(resolve => { startOld = resolve; });
+  const delayedMetadata = new Promise(resolve => { finishOld = resolve; });
+  const data = createRepositoryCommits({ fetchImpl: async url => {
+    if (url.includes('/commits?')) return Response.json([raw(url.includes('sha=fresh') ? 2 : 1)]);
+    metadataCalls++;
+    if (metadataCalls === 1) { startOld(); return delayedMetadata; }
+    return Response.json({ ...metadata, default_branch: 'fresh' });
+  } });
+  const earlier = data.load('example/repo');
+  await oldMetadataStarted;
+  const fresh = await data.load('example/repo', { refresh: true });
+  finishOld(Response.json(metadata));
+  const oldResult = await earlier;
+  assert.equal(fresh.branch, 'fresh');
+  assert.equal(oldResult.branch, 'fresh');
+  assert.equal((await data.load('example/repo')).branch, 'fresh');
+});
+
 test('empty repositories, private metadata, missing branches and partial rate limits are explicit', async () => {
   for (const status of [409, 404, 429]) {
     const data = createRepositoryCommits({ fetchImpl: async url => url.includes('/commits?') ? new Response(null, { status }) : Response.json(metadata) });

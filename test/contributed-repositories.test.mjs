@@ -53,6 +53,15 @@ test('manual repository entry rejects invalid URLs and private repositories', as
   await assert.rejects(client.discover('alice', { organization: 'org is:private' }), /username/);
 });
 
+test('explicit refresh bypasses selected-repository metadata snapshots', async () => {
+  let calls = 0;
+  const client = createContributedRepositories({ fetchImpl: async () => Response.json({ ...repo('team/repo'), description: String(++calls) }) });
+  assert.equal((await client.repository('team/repo')).description, '1');
+  assert.equal((await client.repository('team/repo')).description, '1');
+  assert.equal((await client.repository('team/repo', { refresh: true })).description, '2');
+  assert.equal(calls, 2);
+});
+
 test('explicit full names load outside owned repositories while pinned selections stay pinned', async () => {
   const client = createContributedRepositories({ fetchImpl: async url => Response.json(repo(new URL(url).pathname.slice(7))) });
   const owned = [repo('alice/owned')];
@@ -82,6 +91,7 @@ test('fresh preview loads and refreshes a saved team selection and retains it ac
   assert.equal(calls.length, count);
   const refreshed = await data.load('alice', options, { refresh: true });
   assert.ok(refreshed.some(item => item.full_name === 'team/practicum' && item.languages));
+  assert.equal(calls.filter(url => url.endsWith('/repos/team/practicum')).length, 2);
 });
 
 test('personal-account contributor views load all seven selected team repositories and reuse cached scans', async () => {

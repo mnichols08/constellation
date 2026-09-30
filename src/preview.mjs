@@ -47,8 +47,10 @@ const session = createGitHubSession({ onChange: profile => {
   if (profile?.avatar) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.width = 24; image.height = 24; document.querySelector('#github-auth-open').prepend(image); }
   document.querySelector('#github-auth-status').textContent = profile ? `Signed in as @${profile.login}.` : 'Signed out. You can still browse public projects.';
 } });
-const data = createPreviewData({ storage, fetchImpl: createPreviewFetch({ proxyBase, session }), fetchPinned: createPinnedFetch({ proxyBase, session }) });
-const commitFields = createCommitFieldData({ fetchImpl: createPreviewFetch({ proxyBase, session }) });
+const previewFetch = createPreviewFetch({ proxyBase, session, storage, localAuth });
+const requestCache = previewFetch.requestCache;
+const data = createPreviewData({ storage, fetchImpl: previewFetch, fetchPinned: createPinnedFetch({ proxyBase, session }) });
+const commitFields = createCommitFieldData({ fetchImpl: previewFetch });
 let commitFieldLoading = false, commitFieldDiagnostic = '';
 let loading = false;
 let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
@@ -90,7 +92,7 @@ async function authenticatedEntry(profile) {
 for (const button of document.querySelectorAll('[data-open-github-auth]')) button.addEventListener('click', () => { authDialog.showModal(); $('#github-oauth-start').focus(); });
 $('#github-auth-close').addEventListener('click', () => authDialog.close());
 authDialog.addEventListener('close', () => { session.cancelSignIn(); $('#github-token').value = ''; });
-$('#github-sign-out').addEventListener('click', () => { oauth.cancel(); session.signOut(); $('#github-token').value = ''; });
+$('#github-sign-out').addEventListener('click', () => { oauth.cancel(); session.signOut(); requestCache.clear(); $('#github-token').value = ''; });
 $('#github-token-form').addEventListener('submit', async event => {
   event.preventDefault();
   const button = $('#github-token-submit'), value = $('#github-token').value;
@@ -545,6 +547,7 @@ for (const button of document.querySelectorAll('[data-filter]')) button.addEvent
   filterSelection[button.dataset.filter] = button.dataset.selection === 'all' ? null : []; render();
 });
 async function loadAccount(nextAccount, refresh = false, source = $('#repo-source').value, explicitConfig, { requireVisibleNodes = false, previewOnly = false } = {}) {
+  if (refresh) requestCache.clear();
   const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
   const restoring = explicitConfig || (nextAccount.toLowerCase() !== account.toLowerCase() ? studio?.store.draft(nextAccount) : null);
   if (restoring) source = restoring.options.repoSource || 'all';
@@ -678,6 +681,7 @@ async function startGuided(name) {
           let result = generateGuidedDesign(account, repositories, intent, { seed, year });
           repositories = await data.load(account, result.config.options, { activity: false });
           let diagnostic = '';
+          if (refreshActivity) requestCache.clear();
           if (result.activity !== 'none') {
             try {
               if (result.activity === 'asteroids') {
@@ -912,7 +916,7 @@ async function loadCommitFields(refresh = false) {
   } finally { commitFieldLoading = false; render(); }
 }
 $('#load-commit-field').addEventListener('click', () => loadCommitFields());
-$('#refresh-commit-field').addEventListener('click', () => loadCommitFields(true));
+$('#refresh-commit-field').addEventListener('click', () => { requestCache.clear(); loadCommitFields(true); });
 if (initialDraft) applyOptions(initialDraft.options);
 liveTilt = mountLiveTilt({ surface: preview, target: labelEditor, mode: $('#live-tilt-mode'), enable: $('#enable-device-tilt'), recenter: $('#recenter-device-tilt'), status: $('#live-tilt-status'), onChange: render });
 render();

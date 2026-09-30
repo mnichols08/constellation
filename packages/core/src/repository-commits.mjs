@@ -20,9 +20,9 @@ export function normalizeCommits(raw) {
 }
 
 export function createRepositoryCommits({ fetchImpl = fetch, token } = {}) {
-  const cache = new Map(), pending = new Map();
-  async function request(path) {
-    const response = await fetchImpl(`https://api.github.com${path}`, { headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(20000), redirect: 'error' });
+  const cache = new Map(), pending = new Map(), epochs = new Map();
+  async function request(path, refresh = false) {
+    const response = await fetchImpl(`https://api.github.com${path}`, { headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(20000), redirect: 'error', ...(refresh ? { refresh: true } : {}) });
     if (response.status === 409) return { empty: true };
     if (!response.ok) throw Error([403, 429].includes(response.status) ? 'GitHub request limit reached. Try again later or use the authenticated local Studio.' : response.status === 404 ? 'Repository or branch not found.' : `Could not load commit history (HTTP ${response.status}).`);
     return { body: response.status === 204 ? [] : await response.json(), more: /rel="next"/.test(response.headers.get('link') || '') };
@@ -32,16 +32,21 @@ export function createRepositoryCommits({ fetchImpl = fetch, token } = {}) {
     const name = repositoryName(value), ref = branch.trim();
     if (ref.length > 200 || /[\x00-\x1f]/.test(ref)) throw Error('Invalid branch or commit reference.');
     const key = `${name.toLowerCase()}:${ref}:${limit}`;
-    if (pending.has(key)) return pending.get(key);
+    if (pending.has(key) && !refresh) return pending.get(key);
     if (!refresh && cache.has(key)) return cache.get(key);
+    const epoch = refresh ? (epochs.get(key) || 0) + 1 : epochs.get(key) || 0;
+    if (refresh) epochs.set(key, epoch);
+    const isCurrent = () => (epochs.get(key) || 0) === epoch;
     const operation = (async () => {
-      const metadata = (await request(`/repos/${name}`)).body;
+      const metadata = (await request(`/repos/${name}`, refresh)).body;
+      if (!isCurrent()) return pending.get(key) || cache.get(key);
       if (!metadata || metadata.private !== false || metadata.full_name?.toLowerCase() !== name.toLowerCase()) throw Error('Choose a public repository.');
       const selectedBranch = ref || metadata.default_branch || 'HEAD';
       let commits = [], more = false, diagnostic = '', head = selectedBranch;
       for (let page = 1; page <= Math.ceil(limit / 100); page++) {
         try {
-          const result = await request(`/repos/${name}/commits?per_page=${Math.min(100, limit)}&page=${page}&sha=${encodeURIComponent(head)}`);
+          const result = await request(`/repos/${name}/commits?per_page=${Math.min(100, limit)}&page=${page}&sha=${encodeURIComponent(head)}`, refresh);
+          if (!isCurrent()) return pending.get(key) || cache.get(key);
           if (result.empty) { if (page === 1) break; throw Error('History changed while loading. Refresh to retry.'); }
           const batch = normalizeCommits(result.body);
           if (page === 1 && batch.length) head = batch[0].sha;
@@ -55,11 +60,11 @@ export function createRepositoryCommits({ fetchImpl = fetch, token } = {}) {
         }
       }
       const snapshot = { repository: metadata.full_name, branch: selectedBranch, commits: commits.slice(0, limit), partial: more || commits.length > limit, diagnostic };
-      if (!diagnostic) cache.set(key, snapshot);
+      if (!diagnostic && isCurrent()) cache.set(key, snapshot);
       return snapshot;
     })();
     pending.set(key, operation);
-    try { return await operation; } finally { pending.delete(key); }
+    try { return await operation; } finally { if (pending.get(key) === operation) pending.delete(key); }
   }
   return { load };
 }

@@ -69,6 +69,18 @@ test('commit history proxy supports branch pagination and forwards pagination li
   assert.equal((await fetch(`${base}/api/github/repos/example/repo/commits?url=https://example.com`)).status, 404);
 });
 
+test('proxy forwards conditional ETag requests and preserves 304 responses', async t => {
+  let forwardedHeaders;
+  const base = await serve(t, { fetchImpl: async (_url, options) => {
+    forwardedHeaders = new Headers(options.headers);
+    return new Response(null, { status: 304, headers: { etag: '"snapshot-v1"' } });
+  } });
+  const response = await fetch(`${base}/api/github/users/octocat`, { headers: { 'If-None-Match': '"snapshot-v1"' } });
+  assert.equal(forwardedHeaders.get('if-none-match'), '"snapshot-v1"');
+  assert.equal(response.status, 304);
+  assert.equal(response.headers.get('etag'), '"snapshot-v1"');
+});
+
 test('contribution search proxy permits public authors across organizations and rejects arbitrary queries', async t => {
   const base = await serve(t, { fetchImpl: async () => Response.json({ items: [] }) });
   for (const [endpoint, query] of [['issues', 'author:alice is:pr is:public'], ['issues', 'author:alice org:chingu-voyages is:pr is:public'], ['commits', 'author:alice is:public'], ['commits', 'author:alice org:code-the-dream is:public']]) {

@@ -90,3 +90,28 @@ test('storage restrictions do not break in-memory caching and concurrent loads a
   await data.load('octocat', { maxRepos: 5 });
   assert.equal(f.calls.length, 8);
 });
+
+test('a delayed earlier account load cannot overwrite an explicit refresh', async () => {
+  let listCalls = 0, startOld, finishOld;
+  const oldListStarted = new Promise(resolve => { startOld = resolve; });
+  const delayedOldList = new Promise(resolve => { finishOld = resolve; });
+  const response = body => ({ ok: true, status: 200, json: async () => body });
+  const fetchImpl = async url => {
+    if (/\/users\/octocat$/.test(url)) return response({ login: 'octocat', type: 'User' });
+    if (url.includes('/users/octocat/repos')) {
+      listCalls++;
+      if (listCalls === 1) { startOld(); return delayedOldList; }
+      return response([{ name: 'fresh', full_name: 'octocat/fresh', private: false, languages: { Rust: 1 } }]);
+    }
+    throw Error(`Unexpected request ${url}`);
+  };
+  const data = createPreviewData({ fetchImpl });
+  const earlier = data.load('octocat', { maxRepos: 5 }, { activity: false, languages: false });
+  await oldListStarted;
+  const refreshed = await data.load('octocat', { maxRepos: 5 }, { refresh: true, activity: false, languages: false });
+  finishOld(response([{ name: 'stale', full_name: 'octocat/stale', private: false, languages: { Rust: 1 } }]));
+  await earlier;
+  assert.equal(refreshed[0].full_name, 'octocat/fresh');
+  assert.equal(data.snapshot('octocat')[0].full_name, 'octocat/fresh');
+  assert.equal(listCalls, 2);
+});

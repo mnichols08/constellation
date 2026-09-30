@@ -57,6 +57,23 @@ test('organization resolution, public pagination, scope bounds and reusable meta
   assert.equal(calls.filter(url => new URL(url).searchParams.get('page') === '1').length, 1);
   const before = calls.length; await api.resolve('community'); await api.discover('community', { organizationScope: 'all-metadata' }); assert.equal(calls.length, before);
 });
+test('a delayed organization profile cannot overwrite explicit refresh metadata', async () => {
+  let calls = 0, startOld, finishOld;
+  const oldStarted = new Promise(resolve => { startOld = resolve; });
+  const delayedProfile = new Promise(resolve => { finishOld = resolve; });
+  const api = createOrganizationData({ fetchImpl: async () => {
+    calls++;
+    if (calls === 1) { startOld(); return delayedProfile; }
+    return Response.json({ login: 'community', name: 'Fresh profile', type: 'User' });
+  } });
+  const earlier = api.resolve('community');
+  await oldStarted;
+  const fresh = await api.resolve('community', {}, true);
+  finishOld(Response.json({ login: 'community', name: 'Old profile', type: 'User' }));
+  assert.equal((await earlier).name, 'Fresh profile');
+  assert.equal(fresh.name, 'Fresh profile');
+  assert.equal(calls, 2);
+});
 test('contributor scan bounds, rate limits, resume, deduplication and honest dates', async () => {
   const repos = repositories(12), cache = new Map(); let active = 0, peak = 0, limited = true, calls = 0;
   const storage = { getItem: key => cache.get(key), setItem: (key, value) => cache.set(key, value) };

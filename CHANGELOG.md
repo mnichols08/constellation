@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.6.0 — GitHub Request Efficiency
+
+- Share identical concurrent GitHub REST reads across Studio, organization, contribution, activity, language and commit loaders; retain independent response bodies for each consumer.
+- Add bounded 15-minute versioned request caching for public data across Studio reloads and CLI runs, with ETag revalidation, explicit-refresh bypass, auth-context isolation and refresh-race protection.
+- Respect `Retry-After` and rate-reset cooldowns without repeated retries; keep failed responses retryable and authenticated response bodies out of persistent storage. GraphQL POSTs remain uncached.
+- Forward conditional requests and `304` responses through the local proxy. Customization and rendering continue to use loaded snapshots, with no background polling.
+- In a deterministic mock, independent contribution and commit loaders use 2 GitHub GETs instead of 3 by sharing repository metadata; this fixture result is not generalized to other request paths.
+- Add request-cache, CLI persistence, refresh-race, auth, cancellation, rate-limit, proxy and browser regression coverage. Rebuild Core and web-component package outputs.
+
 ## 3.5.1 — 2026-09-30
 
 - Fix an intermittent browser-test startup failure by waiting for a complete, valid Chrome DevTools port file instead of accepting an empty or partial write.

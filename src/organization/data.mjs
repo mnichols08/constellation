@@ -18,9 +18,10 @@ export function createOrganizationData({ fetchImpl = fetch, token, storage } = {
   const key = 'constellation-organization-v1';
   let cache = {};
   try { cache = JSON.parse(storage?.getItem(key) || '{}'); if (!cache || Array.isArray(cache) || typeof cache !== 'object') cache = {}; } catch {}
+  const epochs = new Map();
   const save = () => { try { storage?.setItem(key, JSON.stringify(cache)); } catch {} };
-  const request = async path => {
-    const response = await fetchImpl(`https://api.github.com${path}`, { headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(20000), redirect: 'error' });
+  const request = async (path, refresh = false) => {
+    const response = await fetchImpl(`https://api.github.com${path}`, { headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(20000), redirect: 'error', ...(refresh ? { refresh: true } : {}) });
     if (!response.ok) { const error = Error(response.status === 403 || response.status === 429 ? 'GitHub request limit reached; cached partial results retained.' : `GitHub request failed (${response.status}).`); error.rateLimited = [403, 429].includes(response.status); throw error; }
     const body = response.status === 204 ? [] : await response.json();
     return { body, exhausted: response.headers?.get('x-ratelimit-remaining') === '0' };
@@ -29,13 +30,19 @@ export function createOrganizationData({ fetchImpl = fetch, token, storage } = {
     const name = safeName(account).toLowerCase(), { accountType } = organizationOptions(options);
     const id = `account:${name}:${accountType}`;
     if (!refresh && cache[id]) return cache[id];
-    const { body } = await request(`/${accountType === 'organization' ? 'orgs' : 'users'}/${name}`);
+    const epoch = refresh ? (epochs.get(id) || 0) + 1 : epochs.get(id) || 0;
+    if (refresh) epochs.set(id, epoch);
+    const isCurrent = () => (epochs.get(id) || 0) === epoch;
+    const { body } = await request(`/${accountType === 'organization' ? 'orgs' : 'users'}/${name}`, refresh);
+    if (!isCurrent()) return cache[id];
     if (!body || !['User', 'Organization'].includes(body.type)) throw Error('Unexpected GitHub account response.');
     const actual = accountType === 'auto' ? body.type : accountType === 'user' ? 'User' : 'Organization';
     let metadata = body;
-    if (actual === 'Organization' && accountType === 'auto') metadata = (await request(`/orgs/${name}`)).body;
-    cache[id] = Object.fromEntries(['login', 'name', 'description', 'avatar_url', 'html_url', 'blog', 'location', 'created_at', 'public_repos', 'followers'].map(field => [field, metadata[field] ?? null]));
-    cache[id].type = actual; save(); return cache[id];
+    if (actual === 'Organization' && accountType === 'auto') metadata = (await request(`/orgs/${name}`, refresh)).body;
+    const result = Object.fromEntries(['login', 'name', 'description', 'avatar_url', 'html_url', 'blog', 'location', 'created_at', 'public_repos', 'followers'].map(field => [field, metadata[field] ?? null]));
+    result.type = actual;
+    if (isCurrent()) { cache[id] = result; save(); }
+    return isCurrent() ? result : cache[id] || result;
   }
   async function discover(account, options = {}, { refresh = false, onProgress } = {}) {
     const name = safeName(account).toLowerCase(), settings = organizationOptions(options);
@@ -47,7 +54,7 @@ export function createOrganizationData({ fetchImpl = fetch, token, storage } = {
     let diagnostic = '';
     try {
       while (!state.complete && state.nextPage <= maxPages) {
-        const { body, exhausted } = await request(`/orgs/${name}/repos?type=public&sort=${sort}&per_page=100&page=${state.nextPage}`);
+        const { body, exhausted } = await request(`/orgs/${name}/repos?type=public&sort=${sort}&per_page=100&page=${state.nextPage}`, refresh);
         if (!Array.isArray(body)) throw Error('Unexpected organization repository response.');
         const known = new Set(state.repos.map(repo => repo.full_name));
         for (const repo of body) if (repo.private === false && repo.full_name?.toLowerCase().startsWith(`${name}/`) && !known.has(repo.full_name)) {
@@ -67,7 +74,7 @@ export function createOrganizationData({ fetchImpl = fetch, token, storage } = {
     try {
       while (!state.complete && state.nextPage <= 5) {
         const query = encodeURIComponent(`author:${user} org:${name} is:pr is:public`);
-        const { body, exhausted } = await request(`/search/issues?q=${query}&per_page=100&page=${state.nextPage}&sort=created&order=desc`);
+        const { body, exhausted } = await request(`/search/issues?q=${query}&per_page=100&page=${state.nextPage}&sort=created&order=desc`, refresh);
         if (!Array.isArray(body.items)) throw Error('Unexpected contribution search response.');
         state.total = Number(body.total_count) || 0;
         for (const item of body.items) {
@@ -83,9 +90,11 @@ export function createOrganizationData({ fetchImpl = fetch, token, storage } = {
       for (const fullName of Object.keys(state.evidence).sort().slice(0, 20)) {
         const repoId = `focus-repository:${fullName}`;
         if (refresh || !cache[repoId]) {
-          const { body } = await request(`/repos/${fullName}`);
+          const epoch = refresh ? (epochs.get(repoId) || 0) + 1 : epochs.get(repoId) || 0;
+          if (refresh) epochs.set(repoId, epoch);
+          const { body } = await request(`/repos/${fullName}`, refresh);
           if (body.private !== false || body.full_name?.toLowerCase() !== fullName.toLowerCase()) continue;
-          cache[repoId] = repositoryMetadata(body); save();
+          if ((epochs.get(repoId) || 0) === epoch) { cache[repoId] = repositoryMetadata(body); save(); }
         }
         repositories.push({ ...cache[repoId], focusCandidate: user });
       }
@@ -108,13 +117,15 @@ export function createOrganizationData({ fetchImpl = fetch, token, storage } = {
         const repo = selected[cursor++], id = `contributors:${repo.full_name}:${settings.maxContributorsPerRepo}`;
         if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(repo.full_name)) continue;
         try {
+          const epoch = refresh ? (epochs.get(id) || 0) + 1 : epochs.get(id) || 0;
+          if (refresh) epochs.set(id, epoch);
           if (refresh || !cache[id]) {
-            const { body, exhausted } = await request(`/repos/${repo.full_name}/contributors?per_page=${settings.maxContributorsPerRepo}&page=1`);
+            const { body, exhausted } = await request(`/repos/${repo.full_name}/contributors?per_page=${settings.maxContributorsPerRepo}&page=1`, refresh);
             if (!Array.isArray(body)) throw Error('Unexpected contributor response.');
-            cache[id] = body.slice(0, settings.maxContributorsPerRepo).map(({ login, avatar_url, contributions }) => ({ login, avatar_url, contributions })); save();
+            if ((epochs.get(id) || 0) === epoch) { cache[id] = body.slice(0, settings.maxContributorsPerRepo).map(({ login, avatar_url, contributions }) => ({ login, avatar_url, contributions })); save(); }
             if (exhausted) { stop = true; diagnostics.push('GitHub request limit reached.'); }
           }
-          records[repo.full_name] = cache[id]; onProgress?.(Object.keys(records).length, selected.length);
+          if (cache[id]) records[repo.full_name] = cache[id]; onProgress?.(Object.keys(records).length, selected.length);
         } catch (error) { diagnostics.push(error.message); if (cache[id]) records[repo.full_name] = cache[id]; if (error.rateLimited) stop = true; }
       }
     }));

@@ -23,7 +23,7 @@ async function copyModule(path) {
 await copyModule(resolve(source, 'core-api.mjs'));
 await copyModule(resolve(source, 'browser-runtime.mjs'));
 const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
-const guides = ['temporal-stack', 'scene-api', 'layers', 'data-pipeline', 'layout-api', 'interactive-html', 'timeline', 'hierarchical-scenes', 'story-mode', 'architecture', 'architecture-baseline', 'renderer-api', 'migration-v3', 'extension-authoring', 'security-model', 'accessibility', 'scaling', 'plugins', 'readme-showcase'].map(name => name + '.md');
+const guides = ['temporal-stack', 'scene-api', 'layers', 'data-pipeline', 'layout-api', 'interactive-html', 'timeline', 'hierarchical-scenes', 'story-mode', 'architecture', 'architecture-baseline', 'renderer-api', 'migration-v3', 'extension-authoring', 'security-model', 'accessibility', 'scaling', 'plugins', 'readme-showcase', 'github-data-cache'].map(name => name + '.md');
 await writeFile(resolve(target, 'package.json'), JSON.stringify({ name: '@constellation/core', version, type: 'module', description: 'Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.', engines: { node: '>=22' }, exports: { '.': './src/core-api.mjs', './browser-runtime': './src/browser-runtime.mjs' }, files: ['src', 'README.md', ...guides], license: 'UNLICENSED' }, null, 2) + '\n');
 await copyFile(resolve(root, 'docs/core-api.md'), resolve(target, 'README.md'));
 for (const guide of guides) await copyFile(resolve(root, 'docs', guide), resolve(target, guide));

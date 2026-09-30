@@ -29,7 +29,7 @@ const allowed = new Map([
   ['/profiles/preview.html', ['../profiles/preview.html', 'text/html']],
   ['/src/studio-layout.css', ['../src/studio-layout.css', 'text/css']],
   ['/src/preview.css', ['../src/preview.css', 'text/css']],
-  ...['github-oauth', 'github-session', 'preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection', 'artifact-layouts', 'config-schema', 'config-store', 'design-randomizer', 'design-randomizer-v5', 'design-randomizer-v6', 'randomize-parts', 'layout-refinement', 'studio-randomize-motion', 'export-image', 'image-viewer', 'node-sizing', 'repository-filters', 'repository-picker', 'contributed-repositories', 'commit-constellation', 'seeded-random', 'share-link', 'studio-config-form', 'studio-design', 'studio-presets', 'studio-layout', 'themes', 'visual-mapping', 'starfield', 'coding-rhythm', 'coding-rhythm-svg', 'activity', 'activity-effects', 'github-activity', 'github-mark', 'sample-activity'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
+  ...['github-oauth', 'github-session', 'github-request-cache', 'preview', 'preview-data', 'constellation', 'export', 'visual-style', 'label-editor', 'engine', 'graph-explorer', 'ring-animation', 'perspective', 'live-tilt', 'selection', 'artifact-layouts', 'config-schema', 'config-store', 'design-randomizer', 'design-randomizer-v5', 'design-randomizer-v6', 'randomize-parts', 'layout-refinement', 'studio-randomize-motion', 'export-image', 'image-viewer', 'node-sizing', 'repository-filters', 'repository-picker', 'contributed-repositories', 'commit-constellation', 'seeded-random', 'share-link', 'studio-config-form', 'studio-design', 'studio-presets', 'studio-layout', 'themes', 'visual-mapping', 'starfield', 'coding-rhythm', 'coding-rhythm-svg', 'activity', 'activity-effects', 'github-activity', 'github-mark', 'sample-activity'].map(name => [`/src/${name}.mjs`, [`../src/${name}.mjs`, 'text/javascript']]),
   ['/src/wasm/constellation_core.js', ['../src/wasm/constellation_core.js', 'text/javascript']],
   ['/src/wasm/constellation_core_bg.wasm', ['../src/wasm/constellation_core_bg.wasm', 'application/wasm']],
   ...['constellation', 'mnichols08', 'mnichols08-dark', 'mnichols08-light'].map(name => [`/dist/${name}.svg`, [`../dist/${name}.svg`, 'image/svg+xml']]),
@@ -74,16 +74,18 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
       if ((!repoList && !languages && !publicEvents && !accountInfo && !contributors && !commits && !repoMetadata && !contributionSearch) || [...url.searchParams.keys()].some(key => !(contributionSearch ? ['q', 'per_page', 'page', 'sort', 'order'] : commits ? ['per_page', 'page', 'sha'] : (publicEvents || contributors) ? ['per_page', 'page'] : accountInfo || repoMetadata ? [] : ['type', 'sort', 'per_page', 'page']).includes(key))) {
         res.writeHead(404); res.end('Not found'); return;
       }
+      res.removeHeader('Cache-Control');
       try {
         const upstream = await fetchImpl(`https://api.github.com${path}${url.search}`, {
-          headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          headers: { Accept: 'application/vnd.github+json', ...(req.headers['if-none-match'] ? { 'If-None-Match': req.headers['if-none-match'] } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           signal: AbortSignal.timeout(20000), redirect: 'error',
         });
         res.setHeader('Content-Type', 'application/json');
-        for (const header of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset', 'retry-after', 'link']) {
+        for (const header of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset', 'retry-after', 'link', 'etag', 'cache-control', 'last-modified', 'vary']) {
           const value = upstream.headers.get(header);
           if (value) res.setHeader(header, value);
         }
+        if (upstream.status === 304) { res.writeHead(304); res.end(); return; }
         if (!upstream.ok) {
           res.writeHead(upstream.status);
           res.end(JSON.stringify({ message: upstream.status === 401 ? 'The local GitHub token was rejected.' : 'GitHub request failed.' }));

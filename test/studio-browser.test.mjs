@@ -82,7 +82,7 @@ test('headless studio: randomized codes, configs, presets, filters, keyboard, sh
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Page.navigate', { url: base });
   for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`)) break; await delay(100); }
   assert.deepEqual(errors, []);
-  assert.ok(await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`), `Studio did not render: ${errors.join('\n')}`);
+  assert.ok(await evaluate(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`), `Studio did not render: ${errors.join('\n')} API calls=${apiCalls} URLs=${requestedUrls.join(',')}`);
   assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.starfield-point').length > 100`));
   assert.equal(await evaluate(`document.documentElement.dataset.entry`), 'landing', 'first visit retains the original landing layout');
   assert.equal(await evaluate(`document.body.classList.contains('studio-ready')`), false);

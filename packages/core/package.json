@@ -1,6 +1,6 @@
 {
   "name": "@constellation/core",
-  "version": "3.5.1",
+  "version": "3.6.0",
   "type": "module",
   "description": "Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.",
   "engines": {
@@ -31,7 +31,8 @@
     "accessibility.md",
     "scaling.md",
     "plugins.md",
-    "readme-showcase.md"
+    "readme-showcase.md",
+    "github-data-cache.md"
   ],
   "license": "UNLICENSED"
 }

@@ -16,6 +16,7 @@ import { organizationOptions, needsContributorData } from './organization/settin
 import { createContributedRepositories, loadSelectedRepositories } from './contributed-repositories.mjs';
 import { createRepositoryCommits } from './repository-commits.mjs';
 import { commitHistoryOptions } from './commit-constellation.mjs';
+import { createCliRequestCache } from './cli-request-cache.mjs';
 
 async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.gh_token;
@@ -50,22 +51,25 @@ async function main() {
     return;
   }
   const account = username(values.username || process.env.CONSTELLATION_USERNAME);
+  const configuredCacheTTL = Number(process.env.CONSTELLATION_GITHUB_CACHE_TTL_MS);
+  const apiRequestCache = createCliRequestCache({ fetchImpl: fetch, refresh: values['refresh-data'], dryRun: values['dry-run'], ttlMs: Number.isFinite(configuredCacheTTL) && configuredCacheTTL > 0 ? configuredCacheTTL : undefined });
+  const fetchImpl = apiRequestCache.fetch;
   const cacheFile = '.cache/constellation-organization.json';
   let savedCache = '{}';
   try { savedCache = await readFile(cacheFile, 'utf8'); } catch {}
-  const organization = createOrganizationData({ token, storage: { getItem: () => savedCache, setItem: (_key, value) => { savedCache = value; } } });
+  const organization = createOrganizationData({ token, fetchImpl, storage: { getItem: () => savedCache, setItem: (_key, value) => { savedCache = value; } } });
   const accountData = values.fixture ? { login: account, type: config.accountType === 'organization' ? 'Organization' : 'User' } : await organization.resolve(account, config, values['refresh-data']);
   const settings = organizationOptions(config);
   if (settings.contributors.strategy === 'deep') console.warn('Deep contributor scan: up to ' + settings.contributors.maxRepositories + ' API requests. Cached results will be reused; coverage remains bounded.');
   const focus = !values.fixture && accountData.type === 'Organization' && config.organizationUser ? await organization.focusRepositories(account, config.organizationUser, { refresh: values['refresh-data'] }) : null;
   const discovery = !values.fixture && accountData.type === 'Organization' && config.repoSource !== 'pinned' ? await organization.discover(account, config, { refresh: values['refresh-data'] }) : null;
-  let listed = values.fixture ? JSON.parse(await readFile(values.fixture, 'utf8')) : discovery?.repositories || await fetchRepositories(account, { token, repoSource: config.repoSource });
+  let listed = values.fixture ? JSON.parse(await readFile(values.fixture, 'utf8')) : discovery?.repositories || await fetchRepositories(account, { token, repoSource: config.repoSource, fetchImpl });
   if (focus && config.repoSource !== 'pinned') listed = [...new Map([...listed, ...focus.repositories].map(repo => [repo.full_name, repo])).values()];
-  if (!values.fixture) listed = await loadSelectedRepositories(listed, config, createContributedRepositories({ token }));
+  if (!values.fixture) listed = await loadSelectedRepositories(listed, config, createContributedRepositories({ token, fetchImpl }), { refresh: values['refresh-data'] });
   config.accountData = accountData;
   if (config.nodeMode === 'commits' && !values.fixture) {
     const history = commitHistoryOptions(config);
-    if (history) config.commitHistoryData = await createRepositoryCommits({ token }).load(history.repository, { branch: history.branch });
+    if (history) config.commitHistoryData = await createRepositoryCommits({ token, fetchImpl }).load(history.repository, { branch: history.branch, refresh: values['refresh-data'] });
   }
   if (needsContributorData(config)) {
     const targets = accountData.type === 'Organization' ? listed : selectRepositoryPool(listed, config);
@@ -76,7 +80,7 @@ async function main() {
     if (config.organizationData.diagnostic) console.warn(config.organizationData.diagnostic);
   }
   let enriched = listed;
-  if (!values.fixture && config.nodeMode !== 'commits') { try { enriched = await fetchRepositoryLanguages(selectRepositoryPool(listed, config), { token }); } catch (error) { if (accountData.type !== 'Organization') throw error; console.warn('Language details incomplete; using primary languages. ' + error.message); } }
+  if (!values.fixture && config.nodeMode !== 'commits') { try { enriched = await fetchRepositoryLanguages(selectRepositoryPool(listed, config), { token, fetchImpl }); } catch (error) { if (accountData.type !== 'Organization') throw error; console.warn('Language details incomplete; using primary languages. ' + error.message); } }
   // Retain the full public list for historical selection without fetching languages
   // for every repository. Older frames can use their known primary language.
   const byName = new Map(enriched.map(repo => [repo.full_name, repo]));
@@ -88,14 +92,14 @@ async function main() {
   if (needsHistoryEvents(config) || activityOptions(config).activityEffect !== 'off' || (codingRhythmOptions(config).codingRhythm && config.codingRhythmStyle !== 'hidden')) {
     const snapshot = values['activity-fixture'] ? { events: normalizePublicEvents(JSON.parse(await readFile(values['activity-fixture'], 'utf8'))), asOf: config.activityMetricDate || generatedAt }
       : values.fixture ? { events: [], asOf: config.activityMetricDate || generatedAt }
-        : await fetchPublicActivity(account, { token, asOf: generatedAt, accountType: accountData.type === 'Organization' ? 'organization' : 'user' });
+        : await fetchPublicActivity(account, { token, fetchImpl, asOf: generatedAt, accountType: accountData.type === 'Organization' ? 'organization' : 'user' });
     if (snapshot.diagnostic) console.warn(snapshot.diagnostic);
     historyData = snapshot;
     codingRhythmData = deriveCodingRhythm(snapshot.events, config, config.activityMetricDate || snapshot.asOf);
     activityData = aggregateActivity(snapshot.events, selectRepositories(reportingRepos, config), config, snapshot.asOf);
   }
   if (config.activityEffect === 'asteroids' && !values.fixture) {
-    const result = await createCommitFieldData({ token }).load(selectRepositories(reportingRepos, config));
+    const result = await createCommitFieldData({ token, fetchImpl }).load(selectRepositories(reportingRepos, config), { refresh: values['refresh-data'] });
     commitFieldData = result.snapshots;
     for (const diagnostic of result.diagnostics) console.warn(diagnostic);
     if (selectRepositories(reportingRepos, config).length > 12) console.warn('Commit asteroids cover the first 12 selected repositories per generation.');
