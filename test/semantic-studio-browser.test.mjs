@@ -1,0 +1,66 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { once } from 'node:events';
+import { createPreviewServer } from '../scripts/preview-server.mjs';
+import { browser, openBrowser } from '../scripts/browser-harness.mjs';
+
+test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo and zero interaction requests', {skip:!browser,timeout:120000}, async t=>{
+  const server=createPreviewServer();server.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(()=>new Promise(r=>{server.close(r);server.closeAllConnections();}));
+  const {evaluate:e,waitFor:wait,cdp,errors}=await openBrowser(t,`http://127.0.0.1:${server.address().port}`);
+  await cdp('Page.addScriptToEvaluateOnNewDocument',{source:`const originalFetch=window.fetch;window.apiCalls=[];window.fetch=async(url,options)=>{
+    if(!String(url).startsWith('https://api.github.com/'))return originalFetch(url,options);
+    apiCalls.push(String(url));
+    if(String(url).includes('/repos?'))return Response.json(Array.from({length:12},(_,i)=>({name:'r'+i,full_name:'alice/r'+i,language:i%2?'Rust':'HTML',topics:i%2?['cli']:['react'],created_at:(2015+i%10)+'-01-01',updated_at:'2026-09-01',stargazers_count:i,private:false})));
+    if(String(url).endsWith('/users/alice'))return Response.json({login:'alice',type:'User',public_repos:12});throw Error('Unexpected request '+url);
+  };`});
+  await cdp('Emulation.setFocusEmulationEnabled',{enabled:true});
+  await cdp('Page.reload');await wait(`document.querySelector('#open-studio')?.disabled===false`);
+  await e(`document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`);
+  await wait(`document.querySelector('#guided-setup h2')?.textContent==='What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
+  const calls=await e('apiCalls.length');assert.equal(calls,2);
+  await e(`[...document.querySelectorAll('#guided-setup button')].find(b=>b.textContent==='Teach me the Studio').click()`);
+  await wait(`document.querySelector('#studio-tour')?.hidden===false`);
+  await e(`document.querySelector('#tour-try').click()`);
+  const svg=`document.querySelector('#preview').firstChild.shadowRoot`;
+  await wait(`${svg}.querySelector('.account-sun')`);
+  await e(`document.querySelector('#tour-next').click();document.querySelector('#tour-next').click();document.querySelector('#tour-next').click();document.querySelector('#tour-try').click()`);
+  await wait(`${svg}.querySelector('.semantic-rings')`);
+  assert.equal(await e(`document.querySelector('#design-ringMeaning').value`),'capability');
+  for(const mode of ['showcase','activity','era','identity','capability']){
+    await e(`{const c=document.querySelector('#design-ringMeaning');c.value=${JSON.stringify(mode)};c.dispatchEvent(new Event('change',{bubbles:true}));}`);
+    await wait(`document.querySelector('#design-ringMeaning').value===${JSON.stringify(mode)}`);
+  }
+  await e(`{const c=document.querySelector('#design-accountSun');c.value='profile';c.dispatchEvent(new Event('input',{bubbles:true}));}`);
+  await wait(`${svg}.querySelectorAll('.profile-segment').length===6`);
+  await e(`document.querySelector('#teach-studio').focus(); ${svg}.querySelector('.profile-segment').focus()`);
+  assert.match(await e(`document.querySelector('#profile-dimension-summary').textContent`),/alice\/r/);
+  await e(`document.querySelector('#tour-exit').click();document.querySelector('#explain-graphic').open=true;`);
+  assert.match(await e(`document.querySelector('#explain-graphic').textContent`),/not skill ratings/);
+  await e(`document.querySelector('#copy-config').click()`);
+  const beforeDraw = await e(`document.querySelector('#config-json').value`);
+  await e(`document.querySelector('#lock-semantics').checked=true;document.querySelector('#lock-repositories').checked=true;document.querySelector('#randomize-design').click()`);
+  await wait(`!document.querySelector('#undo-randomize').disabled`);
+  assert.equal(await e(`document.querySelector('#design-ringMeaning').value`),'capability');
+  assert.match(await e(`document.querySelector('#randomize-summary').textContent`),/What changed/);
+  await e(`document.querySelector('#undo-randomize').click()`);
+  await wait(`document.querySelector('#undo-randomize').disabled`);
+  await e(`document.querySelector('#copy-config').click()`);
+  assert.deepEqual(JSON.parse(await e(`document.querySelector('#config-json').value`)),JSON.parse(beforeDraw));
+  await e(`document.querySelector('#builtin-preset').value='semantic-recency';document.querySelector('#builtin-preset').dispatchEvent(new Event('change'));document.querySelector('#apply-builtin-preset').click()`);
+  await wait(`document.querySelector('#design-ringMeaning').value==='activity'`);
+  await e(`document.querySelector('#copy-config').click()`);
+  assert.ok(Number.isFinite(Date.parse(JSON.parse(await e(`document.querySelector('#config-json').value`)).referenceDate)));
+  await e(`document.querySelector('#preset-name').value='Semantic saved';document.querySelector('#save-preset').click();document.querySelector('#teach-studio').click()`);
+  for(let i=0;i<10;i++)await e(`document.querySelector('#tour-next').click()`);
+  assert.match(await e(`document.querySelector('#tour-heading').textContent`),/11 of 11/);
+  await e(`document.querySelector('#tour-back').click();document.querySelector('#tour-skip').click();document.querySelector('#tour-exit').click()`);
+  assert.ok(await e(`[...document.querySelector('#saved-presets').options].some(o=>o.value==='Semantic saved')`));
+  assert.equal(await e('apiCalls.length'),calls);
+  await e(`document.querySelector('#builtin-preset').value='semantic-profile';document.querySelector('#apply-builtin-preset').click();document.querySelector('#explain-graphic').open=false;document.querySelector('#composition-menu').open=false;window.scrollTo(0,0);`);
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await mkdir('.cache',{recursive:true});
+  await writeFile('.cache/semantic-studio.png',Buffer.from((await cdp('Page.captureScreenshot')).data,'base64'));
+  assert.deepEqual(errors,[]);
+});

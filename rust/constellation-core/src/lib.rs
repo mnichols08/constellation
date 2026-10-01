@@ -6,9 +6,17 @@ mod profile_evidence;
 mod projection;
 mod refinement;
 mod scene;
+mod semantic;
 mod stable;
 
 use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn semantic_layout(input: &str) -> Result<String, String> {
+    if input.len() > 1_000_000 { return Err("Semantic input exceeds 1 MiB".into()); }
+    let input = serde_json::from_str(input).map_err(|error| format!("Invalid semantic input: {error}"))?;
+    serde_json::to_string(&semantic::layout(input)?).map_err(|error| error.to_string())
+}
 
 #[wasm_bindgen]
 pub fn stable_positions(input: &str) -> Result<String, String> {
@@ -93,5 +101,7 @@ mod profile_api_tests {
             .contains("Invalid developer profile"));
         let oversized = " ".repeat(1_000_001);
         assert!(developer_profile(&oversized).unwrap_err().contains("1 MiB"));
+        assert!(super::semantic_layout("{").unwrap_err().contains("Invalid semantic"));
+        assert!(super::semantic_layout(&oversized).unwrap_err().contains("1 MiB"));
     }
 }

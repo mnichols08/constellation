@@ -114,6 +114,7 @@ function enterStudio() {
   if (guidedHost) guidedHost.hidden = true;
 }
 let importedOptions = {};
+let metadataPreview = false;
 let accountAvatar = null;
 const $ = (selector) => document.querySelector(selector);
 function updateAccessUI() {
@@ -923,7 +924,7 @@ function render({ requireVisibleNodes = false } = {}) {
   $("#load-projects").textContent = `Load data for ${missing} more projects`;
   $("#load-projects").disabled = loading;
   if (
-    missing &&
+    missing && !metadataPreview &&
     options.accountData?.type !== "Organization" &&
     options.nodeMode !== "commits"
   ) {
@@ -1155,6 +1156,14 @@ function render({ requireVisibleNodes = false } = {}) {
     options.snapToRings,
   );
   preview.replaceChildren(labelEditor);
+  for (const segment of labelEditor.shadowRoot.querySelectorAll('.profile-segment')) for (const type of ['focus','click','pointerenter','keydown']) segment.addEventListener(type, event => {
+    if (type === 'keydown' && !['Enter',' '].includes(event.key)) return;
+    if (type === 'keydown') event.preventDefault();
+    selectedProfileDimensions.clear(); selectedProfileDimensions.add(segment.dataset.profileDimension); applyProfileDimensionSelection();
+  });
+  studio.tour.refresh();
+  const focusedDimension = labelEditor.shadowRoot.activeElement?.dataset.profileDimension;
+  if (focusedDimension) { selectedProfileDimensions.clear(); selectedProfileDimensions.add(focusedDimension); }
   applyProfileDimensionSelection();
   cometLab.update(labelEditor.shadowRoot.querySelector("svg"), account);
   mountGraphExplorer(
@@ -1704,7 +1713,7 @@ function showSavedPreview() {
   guidedHost.replaceChildren(heading, note, actions);
   heading.focus();
 }
-async function startGuided(name) {
+async function startGuided(name, {legacy = false} = {}) {
   if (loading) return;
   loading = true;
   form.querySelector("button").disabled = true;
@@ -1752,6 +1761,15 @@ async function startGuided(name) {
     guidedHost.setAttribute("aria-label", "Create your constellation");
     $(".observatory").before(guidedHost);
     mountOnboarding(guidedHost, {
+      enterPath: legacy ? null : (path) => {
+        metadataPreview = true;
+        if (previousDraft) applyOptions(previousDraft.options);
+        enterStudio(); render();
+        if (path === 'tour') studio.tour.open();
+        if (path === 'preset') { const menu = $('#builtin-preset').closest('details'); menu.open = true; $('#builtin-preset').focus(); }
+        if (path === 'surprise') { $('#randomize-full').checked = true; $('#randomize-full').dispatchEvent(new Event('input')); $('#randomize-design').click(); }
+        if (path === 'saved') { workspace.reveal($('#saved-presets')); $('#saved-presets').focus(); }
+      },
       access,
       account,
       profile: session.profile || data.profile(account),
@@ -2199,6 +2217,7 @@ studio = mountStudioDesign({
         commitHistoryData: data.commitHistory(account),
       },
       access,
+      { allowPrimaryLanguages: true },
     ),
   repositoryPool: () => repositories,
   findRepositories: findGuidedRepositories,
@@ -2212,6 +2231,7 @@ studio = mountStudioDesign({
   apply: async (
     config,
     {
+      localOnly = false,
       loadOrganization = false,
       loadPresetData = false,
       requireVisibleNodes = false,
@@ -2256,7 +2276,7 @@ studio = mountStudioDesign({
         }) || config.options.nodeMode === "commits";
       if (
         config.account.toLowerCase() !== account.toLowerCase() ||
-        (!isSample &&
+        (!localOnly && !isSample &&
           ((config.options.repoSource || "all") !== loadedSource ||
             loadOrganization ||
             missingPresetData ||
@@ -2278,7 +2298,11 @@ studio = mountStudioDesign({
           );
         return true;
       }
+      if (localOnly && config.options.ringMeaning === 'activity' && !config.options.referenceDate) {
+        config = {...config, options: {...config.options, referenceDate: new Date().toISOString()}};
+      }
       applyOptions(config.options);
+      if (localOnly) metadataPreview = true;
       const applied = render({ requireVisibleNodes });
       if (!applied && requireVisibleNodes) {
         restore();
@@ -2332,7 +2356,7 @@ guidedRestart.addEventListener("click", () => {
   try {
     const name = isSample ? username(form.elements.username.value) : account;
     studio.flush();
-    startGuided(name);
+    startGuided(name, {legacy: true});
   } catch (error) {
     message(error.message, true);
     form.elements.username.focus();

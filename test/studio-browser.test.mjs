@@ -181,7 +181,7 @@ test(
         }),
     );
     const base = `http://127.0.0.1:${server.address().port}`;
-    const { cdp, evaluate, errors } = await openBrowser(t, base);
+    const { cdp, evaluate, errors, waitFor: wait } = await openBrowser(t, base);
     await cdp("Emulation.setDeviceMetricsOverride", {
       width: 1440,
       height: 900,
@@ -1594,6 +1594,7 @@ test(
       "45",
       "default pool matches the repositories hydrated on account load",
     );
+    const callsBeforeMetadataPreset = apiCalls;
     failPresetLanguage = true;
     await evaluate(
       `document.querySelector('#builtin-preset').value='recent-work';document.querySelector('#apply-builtin-preset').click();`,
@@ -1607,30 +1608,23 @@ test(
         break;
       await delay(50);
     }
-    assert.doesNotMatch(
-      await evaluate(`document.querySelector('#status').textContent`),
-      /applied/,
-    );
-    assert.equal(
-      await evaluate(`document.querySelector('#design-sortBy').value`),
-      "stars",
-      "failed preset restores controls",
-    );
+    assert.match(await evaluate(`document.querySelector('#status').textContent`), /applied/);
+    assert.equal(apiCalls, callsBeforeMetadataPreset, 'preset never fetches missing language details');
+    assert.equal(await evaluate(`document.querySelector('#design-sortBy').value`), 'updated');
     await evaluate(`document.querySelector('#copy-config').click();`);
-    assert.equal(
-      await evaluate(
-        `JSON.parse(document.querySelector('#config-json').value).sortBy`,
-      ),
-      "stars",
-      "failed preset keeps exports",
-    );
-    assert.ok(
-      await evaluate(
-        `document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length>0`,
-      ),
-    );
+    assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).sortBy`), 'updated', 'metadata-only preset updates exports');
+    assert.equal(await evaluate(`document.querySelector('#load-projects').hidden`), false, 'enrichment remains explicit');
+    await evaluate(`document.querySelector('#load-projects').click();`);
+    await wait(`!document.querySelector('#load-projects').disabled`);
+    assert.ok(apiCalls > callsBeforeMetadataPreset, 'only the explicit load requests enrichment');
+    assert.equal(await evaluate(`document.querySelector('#design-sortBy').value`), 'updated', 'failed explicit enrichment retains the preset');
+    await evaluate(`document.querySelector('#copy-config').click();`);
+    assert.equal(await evaluate(`JSON.parse(document.querySelector('#config-json').value).sortBy`), 'updated', 'failed explicit enrichment keeps exports');
+    assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length>0`), 'failed enrichment keeps the previous graphic');
     failPresetLanguage = false;
-    // A different preset can select repositories outside the hydrated top 45.
+    // Explicit loading hydrates the selected pool; applying a preset stays local.
+    await evaluate(`document.querySelector('#load-projects').click();`);
+    await wait(`document.querySelector('#load-projects').hidden`);
     await evaluate(
       `document.querySelector('#builtin-preset').value='recent-work';document.querySelector('#apply-builtin-preset').click();`,
     );
@@ -1970,12 +1964,15 @@ test(
         undefined,
         "a curated preset clears any random design code",
       );
-      if (id === "organization-community")
+      if (id === "organization-community") {
+        await evaluate(`document.querySelector('#load-organization').click();`);
+        await wait(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="contributor"]').length > 0`);
         assert.ok(
           await evaluate(
             `document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star[data-kind="contributor"]').length > 0`,
           ),
         );
+      }
     }
     assert.match(
       await evaluate(`document.querySelector('#workflow').value`),

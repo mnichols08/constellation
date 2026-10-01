@@ -15,6 +15,7 @@ import {
   rhythmDescription,
 } from "./coding-rhythm-svg.mjs";
 import { renderCredit } from "./github-mark.mjs";
+import { explainGraphic, semanticActive } from './semantic-studio.mjs';
 import { renderAccountSun } from "./account-sun.mjs";
 import {
   starfieldOptions,
@@ -582,9 +583,16 @@ export function renderSceneSVG(visualScene, renderOptions) {
     return `<circle class="identity-point" data-node="${escape(owner.full_name)}"${hidden ? ' style="display:none"' : ""} cx="${x}" cy="${y}" r="${radius}" data-snap-x="${sx}" data-snap-y="${sy}" data-occupied="${escape(JSON.stringify(occupied))}"/>`;
   }).join("");
   const camera = perspectiveMarkup(perspective, centerY, height);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height}" viewBox="0 0 900 ${height}" role="img" aria-labelledby="title description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
+  const semanticStudio = options.ringMeaning !== undefined || options.accountSun === 'profile' || options.semanticLegend;
+  const meaning = explainGraphic(options);
+  const semantic = semanticActive(options) ? visualScene.semantic : null;
+  const semanticRings = semantic ? '<g class="semantic-rings" fill="none" stroke="currentColor" opacity=".2">' + semantic.radii.map((r,i) => `<ellipse cx="450" cy="${centerY}" rx="${368*r}" ry="${spreadY*r}"><title>${escape(semantic.bands[i])}</title></ellipse>`).join('') + '</g><g class="semantic-labels" fill="var(--sky-foreground)" font-size="9">' + semantic.guides.map(g => `<text x="${g.position[0]}" y="${g.position[1]}">${escape(g.text)}</text>`).join('') + '</g>' : '';
+  const semanticPoints = semantic ? '<g class="semantic-points" fill="var(--sky-accent)">' + semantic.placements.map(p => `<circle class="identity-point" data-node="${escape(p.repository)}" cx="${p.position[0]}" cy="${p.position[1]}" r="1.5" data-snap-x="${p.position[0]}" data-snap-y="${p.position[1]}" data-occupied="${escape(JSON.stringify(stars.filter(s => Math.hypot(s.x-p.position[0],s.y-p.position[1])<1).map(s=>s.repo.full_name)))}"><title>${escape(p.category)}, band ${p.band+1}</title></circle>`).join('') + '</g>' : '';
+  const legendLines = options.semanticLegend ? meaning.flatMap(line => line.match(/.{1,112}(?:\s|$)|.{1,112}/g) || []) : [];
+  const extraHeight = legendLines.length ? 18 + legendLines.length * 13 : 0;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height + extraHeight * profile.height / height}" viewBox="0 0 900 ${height + extraHeight}" role="img" aria-labelledby="title${semanticStudio ? " meaning-description" : ""} description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
 <title id="title">${escape(title ?? `${name}’s GitHub constellation`)}</title>
-${showcaseDescriptionMarkup}<desc id="description">${graph.commits ? escape(graph.note || "Commit constellation") : graph.organization ? escape(`Organization universe. ${visibleStars.length} nodes, ${selectedEdges.size} bounded connections. Contributor diamonds connect through shared projects; project and technology views show repository relationships. Contributor size reflects represented repository count. ${graph.note}`) : `${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : "public repositories"} arranged in a deterministic ${arrangement === "rings" ? "identity ring point layout" : arrangement === "field" ? "star field" : arrangement === "orbital" ? "orbital layout" : "force layout"}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === "both" ? "languages and topics" : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${selectedEdges.size} of ${visualScene.presentation.totalConnections} shared connections shown. Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps. Star size reflects ${combinedMode ? "GitHub stars for repositories and repository count for categories" : categoryMode ? "repository count" : "GitHub stars"}. ${geometry ? "Identity rings are seeded by the account name; ring points provide placement anchors for nodes. " : ""}${visibleStars.map((star) => escape(star.repo.name)).join(", ")}.${escape(rhythmDescription(options.codingRhythmData, rhythmSettings))}${escape(historyLayer.description)} ${escape(graph.note || "")}`}</desc>
+${semanticStudio ? `<desc id="meaning-description">${escape(meaning.join(" "))}${semantic ? escape(" Bands: " + semantic.bands.join("; ") + ". " + semantic.placements.map(p => `${p.repository}: ${p.category}, band ${p.band+1}`).join("; ")) : ""}</desc>` : ""}${showcaseDescriptionMarkup}<desc id="description">${graph.commits ? escape(graph.note || "Commit constellation") : graph.organization ? escape(`Organization universe. ${visibleStars.length} nodes, ${selectedEdges.size} bounded connections. Contributor diamonds connect through shared projects; project and technology views show repository relationships. Contributor size reflects represented repository count. ${graph.note}`) : `${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : "public repositories"} arranged in a deterministic ${semantic ? options.ringMeaning + " semantic ring layout" : arrangement === "rings" ? "identity ring point layout" : arrangement === "field" ? "star field" : arrangement === "orbital" ? "orbital layout" : "force layout"}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === "both" ? "languages and topics" : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${selectedEdges.size} of ${visualScene.presentation.totalConnections} shared connections shown. Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps. Star size reflects ${semanticStudio ? escape(options.nodeSize || options.sizingMode || (categoryMode ? "repository membership" : "classic GitHub stars")) : combinedMode ? "GitHub stars for repositories and repository count for categories" : categoryMode ? "repository count" : "GitHub stars"}. ${geometry && !semantic ? "Identity rings are seeded by the account name; ring points provide placement anchors for nodes. " : ""}${visibleStars.map((star) => escape(star.repo.name)).join(", ")}.${escape(rhythmDescription(options.codingRhythmData, rhythmSettings))}${escape(historyLayer.description)} ${escape(graph.note || "")}`}</desc>
 <defs>${graph.organization || (options.nodeShape && options.nodeShape !== "circle") ? shapeDefinitions : ""}<radialGradient id="nebula"><stop stop-color="var(--sky-background)" stop-opacity=".13"/><stop offset="1" stop-color="var(--sky-background)" stop-opacity="0"/></radialGradient><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 <style>
 ${hasHistory ? historyCSS : ""}${paletteCSS}${rhythmSettings.codingRhythm ? codingRhythmCSS : ""}
@@ -593,7 +601,7 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 .bridges{fill:none;stroke:var(--sky-accent);stroke-width:1;stroke-dasharray:2 5;opacity:.35}
 .identity-ring{fill:none;stroke:var(--sky-accent);stroke-width:.65;opacity:.14;pointer-events:none}.identity-point{fill:var(--sky-accent);stroke:none}
 .star[data-kind="language"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-kind="topic"]{stroke:var(--sky-foreground);stroke-width:1;stroke-dasharray:2 2}${showcaseRoles.size ? `.star[data-role="featured"]{stroke:var(--sky-foreground);stroke-width:1.1}.star[data-role="supporting"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-role="experimental"]{opacity:.8}.star[data-role="historical"]{opacity:.65}` : ""}
-.star,.star-halo{fill:var(--node-color,var(--sky-star))}
+${semanticStudio ? `.profile-segment:focus{outline:2px solid currentColor}[data-tour-spotlight="graphic"]{stroke:#d9a94f;stroke-width:2}` : ""}.star,.star-halo{fill:var(--node-color,var(--sky-star))}
 .credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}a{text-decoration:none}
 .generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
 ${compact ? ".heading{font-size:17px}.language text{font-size:13px;letter-spacing:.5px}.caption{font-size:12px;opacity:.8}.connections{stroke-width:.9;opacity:.8}" : ""}
@@ -610,7 +618,7 @@ ${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height
 `,
   starfield: `${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent })}`,
 })}
-<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>`, nodes: `${renderAccountSun(name, options, centerY, escape)}${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
+<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${semanticRings}${semanticPoints}${geometry && !semantic ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>`, nodes: `${renderAccountSun(name, options, centerY, escape, visualScene.semantic)}${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
     visualScene,
     "overlay",
     {
@@ -620,17 +628,17 @@ ${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ""}
 `,
     },
-  )}${renderCredit(height)}
+  )}${renderCredit(height)}${legendLines.length ? `<g class="semantic-legend" fill="var(--sky-foreground)">${legendLines.map((line,i) => `<text x="32" y="${height+18+i*13}" font-size="11">${escape(line)}</text>`).join("")}</g>` : ""}
 </svg>\n`;
   return animateRingSVG(
     focusSVG(svg, selectionForScene(visualScene)),
-    ringAnimation,
+    semantic ? { ...ringAnimation, enabled: false } : ringAnimation,
     geometry,
     visibleStars,
     centerY,
     spreadY,
     escape,
-    floatingAnimation,
+    semantic ? { ...floatingAnimation, enabled: false } : floatingAnimation,
     Array.from({ length: ringPoints.length / 3 }, (_, i) => ({
       x: 450 + ((ringPoints[i * 3] - 240) * 368) / 172,
       y: centerY + ((ringPoints[i * 3 + 1] - 240) * spreadY) / 172,

@@ -13,6 +13,8 @@ export const shareParameters = {
   visualTheme: "string",
   arrangement: "string",
   accountSun: "string",
+  ringMeaning: 'string',
+  semanticLegend: 'boolean',
   profileEmphasis: "string",
   layout: "string",
   nodeMode: "string",

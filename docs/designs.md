@@ -1,5 +1,7 @@
 # Reproducible README designs
 
+Version 3.8.0 adds [Semantic Studio](semantic-studio.md): guided experimentation on the real preview, optional ring meanings, evidence-backed Profile Sun, Explain, locks and Undo. Identity remains the default. Semantic presets describe mappings before application and use loaded data.
+
 The studio configures a self-contained SVG. It needs no account system, external fonts, JavaScript inside the exported image, or hosted database. The CLI and Action use the same rendering options as the studio.
 
 ## Preview and customization
@@ -27,6 +29,7 @@ Use **Randomize selected** with independent switches:
 - **Styling** (on by default): coherent theme palettes, shapes, glow, line styling and background stars. Keeps the layout, project selection and animation settings.
 - **Animations**: shuffle motion while keeping the style, layout, repository filters and enabled data layers. Open **Animation parts** to choose the permitted layers. Perspective animates only if perspective is already enabled; activity and history animations require their existing layers.
 - **Repositories**: choose a subset from the loaded repositories eligible under your current filters and source, up to the current repository limit. Preserves the style and animation settings; no API calls.
+- **Layout / composition**, **Ring mapping**, and **Connections** vary those aspects independently. Ring mapping selects a meaning in the repository Rings view.
 - **Full random**: opt into the original broad randomizer, including layout, graph mode, filters and history. This overrides Styling and Repositories; Animations controls whether the full recipe includes motion.
 
 Unchecked categories stay unchanged. With no category selected, nothing changes. Partial results combine your current settings with a new draw, so use **Share link**, a saved preset or exported JSON to reproduce them. Their design-code field is cleared because a single recipe code cannot represent that combination. Full random generates a reproducible `v6` design code. Reduced-motion viewers always receive a static view.

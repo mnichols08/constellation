@@ -104,6 +104,8 @@ export function mountStudioLayout() {
   field("design-visualTheme", look);
   field("arrangement", look);
   section("design-accountSun", look);
+  section('design-ringMeaning', look);
+  section('design-readmePresentation', panel('projects'));
   field("profile-emphasis", look);
   look.append($("#profile-dimension-controls"));
   field("layout", look);
@@ -224,6 +226,7 @@ export function mountStudioLayout() {
     $(".intro"),
     $(".studio-header"),
     launcher,
+    $("#studio-tour"),
     $(".preview-actions"),
     $(".status-bar"),
   ])

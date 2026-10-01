@@ -1,5 +1,9 @@
 # Guided setup
 
+In v3.8.0, account loading first offers **Teach me the Studio**, **Start from a preset**, **Surprise me**, **Open a saved constellation**, and **Explore the Studio**. The tour covers the center, repositories, nodes, rings, connections, profile evidence, presets, scoped randomization, motion, saving and exports directly in the actual Studio. Try it applies editable settings; Back, Skip, Exit and rerun are always available. Named saves are untouched. Tutorial progress is a separate `constellation-studio-tour-v1` step number, never exported. See [Semantic Studio](semantic-studio.md).
+
+The **Quick guided generator** and existing **Guided setup** shortcut retain the optional questionnaire described below. They are no longer the required entry to customization.
+
 Start with **Continue with GitHub**, or **Explore a public account** using a GitHub user or organization. OAuth identifies your account automatically. Deployment owners must configure the [GitHub App and isolated exchange service](github-oauth.md); no personal token is needed in hosted onboarding.
 
 **Public exploration** is a deliberate lightweight mode. A fresh user or organization load makes two GitHub requests: profile identity and one page of up to 100 recently updated public repositories. Language filters, recommendations, Developer Topology and temporal views use the primary language and repository topics already present. No secondary languages are inferred. Add another public repository by name or URL for one metadata request (up to ten lookups per session); cached selections survive refresh. Roles, creation, customization and all exports remain available without signing in.

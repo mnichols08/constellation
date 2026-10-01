@@ -2,6 +2,8 @@
 
 Turn developer and project data into interactive maps, embedded experiences, and README graphics.
 
+**v3.8.0 — Semantic Studio: make the constellation explain itself.** Follow a tour of the real Studio, choose evidence-backed ring meanings and a Developer Profile Sun, then use **Explain this graphic** to read the result. [Semantic Studio guide](docs/semantic-studio.md).
+
 **GitHub activity tells Constellation what exists. You decide what represents you.** Mark projects Featured, Supporting, Experimental or Historical, then choose how that intent appears in your README constellation. Roles are yours; they do not infer importance from stars or recency.
 
 **Developer Topology** places selected work around Interface, Services, Data, Systems, Tooling and Automation evidence. It traces those regions to repository, language and topic evidence; it does not assign job titles or assess professional ability. See the [Developer Topology guide](docs/developer-topology.md).
@@ -15,10 +17,10 @@ Turn developer and project data into interactive maps, embedded experiences, and
 ## Make your constellation
 
 1. Open [Constellation](https://mnichols08.github.io/constellation/) and choose **Continue with GitHub** or **Explore a public account**.
-2. Choose the projects and technologies you want to showcase—use Recommended, Recently active, Most starred, Contributed to or **Pinned repositories** (both require GitHub sign-in).
-3. Choose which projects should stand out, review the Developer Topology evidence preview, then set relationships, optional activity and your universe.
-4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
-5. Choose **Use this constellation** to export it or install it in your README.
+2. Choose **Teach me the Studio**, **Start from a preset**, **Surprise me**, or **Open a saved constellation**. The quick guided generator remains available.
+3. Select projects and choose what rings mean: Identity, Capability, Showcase, repository updates or creation eras. Developer Profile rays expose evidence for six dimensions.
+4. Open **Explain this graphic**. Randomize selected parts, lock what you like, and Undo a draw in one step.
+5. Save a named design, export SVG/PNG/config, share a link, or generate a README workflow. Include an optional static explanation when useful.
 
 [Guided setup](docs/guided-setup.md) explains project curation, recommendations, team projects, activity, Temporal Universe, returning drafts and rerunning the questions. [README Showcase](docs/readme-showcase.md) explains project roles, Featured Project Gravity, presentation modes and export profiles. Shared designs and existing account drafts open as previews; customization is always opt-in. **Saved constellations** reopens your named designs from this browser. The sample Studio remains an explicit shortcut.
 

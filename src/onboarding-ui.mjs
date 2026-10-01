@@ -23,6 +23,7 @@ export function mountOnboarding(
     customize,
     useDesign,
     save,
+    enterPath,
   },
 ) {
   let intent = initial || defaultIntent(repositories()),
@@ -587,7 +588,13 @@ export function mountOnboarding(
     if (diagnostic) button(actions, "Retry activity", () => run(true));
     heading.focus();
   }
-  draw();
+  if (enterPath) {
+    heading.textContent = 'What would you like to make?';
+    progress.textContent = 'Your loaded projects are ready. Explore the real Studio at your own pace.';
+    for (const [label,path] of [['Teach me the Studio','tour'],['Start from a preset','preset'],['Surprise me','surprise'],['Open a saved constellation','saved'],['Explore the Studio','studio']]) button(actions,label,()=>enterPath(path));
+    button(actions,'Quick guided generator',draw);
+    heading.focus();
+  } else draw();
   return {
     edit() {
       step = 0;

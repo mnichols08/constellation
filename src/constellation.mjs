@@ -1,5 +1,6 @@
 import { layoutScene } from "./layout-api.mjs";
 import { accountSunMode } from "./account-sun.mjs";
+import { validateSemanticOptions, semanticActive } from './semantic-studio.mjs';
 import { createTimeline } from "./timeline.mjs";
 import { createTemporalStack } from "./temporal-stack.mjs";
 import { temporalStackOptions } from "./temporal-stack-model.mjs";
@@ -778,6 +779,7 @@ export function createScene(
   { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {},
 ) {
   accountSunMode(options.accountSun);
+  validateSemanticOptions(options);
   if (options.temporalStack !== undefined)
     temporalStackOptions(options.temporalStack);
   if (options.temporalGeometry !== undefined)
@@ -1418,7 +1420,7 @@ export function createScene(
       })
       .filter(Boolean);
   }
-  if (refinement.enabled && refinement.intensity > 0) {
+  if (refinement.enabled && refinement.intensity > 0 && !semanticActive(options)) {
     renderLabels(true);
     refineStars(stars, refinedLabels, options, {
       seed: options.seedMode ? seed : name,
@@ -1580,11 +1582,12 @@ export function createScene(
       nodes,
       edges,
       labels,
+      ...(scene.semantic ? { semantic: scene.semantic } : {}),
       ...(scene.profile
         ? {
             developerProfile: scene.profile,
             annotations:
-              profile.height <= 200
+              profile.height <= 200 || scene.semantic
                 ? []
                 : [
                     { x: 36, y: 22, text: scene.profile.signature },

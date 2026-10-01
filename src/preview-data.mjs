@@ -30,13 +30,13 @@ import {
 
 // Match the studio's render gate, not just repository metadata. A recipe that
 // needs uncached languages would leave the previous (possibly empty) SVG visible.
-export function canRenderPreview(repositories, options, access) {
+export function canRenderPreview(repositories, options, access, { allowPrimaryLanguages = false } = {}) {
   if (options.nodeMode === "commits")
     return graphNodes(repositories, options).nodes.length > 0;
   const pool = selectRepositoryPool(repositories, options);
   if (
     !pool.length ||
-    (access?.mode !== "public" &&
+    (!allowPrimaryLanguages && access?.mode !== "public" &&
       !organizationEnabled(options) &&
       pool.some((repo) => !repo.languages))
   )

@@ -6,7 +6,9 @@ import { studioPresets, presetOptions } from './studio-presets.mjs';
 import { mountOrganizationControls } from './organization/studio.mjs';
 import { mountStudioHistory } from './history/studio-history.mjs';
 import { mountRandomizeMotion } from './studio-randomize-motion.mjs';
-import { randomizeParts } from './randomize-parts.mjs';
+import { explainGraphic, ringMeanings } from './semantic-studio.mjs';
+import { mountStudioTour } from './studio-tour.mjs';
+import { randomizeParts, lockRandomParts, changedParts } from './randomize-parts.mjs';
 import { parseConfig, serializeConfig } from './config-schema.mjs';
 import { createConfigStore } from './config-store.mjs';
 import { encodeShare, decodeShare, publicShareBase } from './share-link.mjs';
@@ -16,7 +18,7 @@ import { visualThemes } from './themes.mjs';
 import { newDesignCode, randomizeDesign, randomizeMatchingDesign } from './design-randomizer.mjs';
 import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
-export const designDefaults = { accountSun: 'off', ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
+export const designDefaults = { ringMeaning: 'identity', semanticLegend: false, accountSun: 'off', ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
 export function preserveShowcaseOptions(recipe, current = {}) {
   return { ...recipe, ...(current.projectShowcase ? { projectShowcase: structuredClone(current.projectShowcase) } : {}), ...(current.readmePresentation ? { readmePresentation: current.readmePresentation } : {}), ...(current.ringOrganization ? { ringOrganization: current.ringOrganization } : {}), ...(current.featuredTreatment ? { featuredTreatment: current.featuredTreatment } : {}) };
@@ -55,8 +57,17 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
     parent.append(label, input); controls.set(key, input); return input;
   };
   const accountPanel = section('Account sun');
-  control(accountPanel, 'accountSun', 'Center of your constellation', [['off', 'Off'], ['sun', 'Sun + username'], ['avatar', 'GitHub avatar + glow']]);
+  control(accountPanel, 'accountSun', 'Center of your constellation', [['off', 'Off'], ['sun', 'Identity + username'], ['avatar', 'GitHub avatar + glow'], ['profile', 'Developer profile']]);
   const accountNote = document.createElement('p'); accountNote.className = 'export-note'; accountNote.textContent = 'Your account stays at the center while identity rings and projects move around it. Avatar images are embedded in exports; initials appear if the image is unavailable.'; accountPanel.append(accountNote);
+  const meaningPanel = section('Ring meaning');
+  const meaningControl = control(meaningPanel, 'ringMeaning', 'Ring meaning', Object.keys(ringMeanings));
+  const meaningNote = document.createElement('p'); meaningPanel.append(meaningNote);
+  meaningControl.addEventListener('change', async () => {
+    if (!current) return;
+    try { await apply({ ...current, options: {...current.options, ringMeaning: meaningControl.value, arrangement: 'rings', nodeMode: 'repositories', temporalStack: {...current.options.temporalStack, enabled:false}, layoutEngine:undefined, layoutOptions:undefined, referenceDate: current.options.referenceDate || new Date().toISOString()} }, {localOnly:true}); }
+    catch (error) { message(error.message, true); }
+  });
+  control(meaningPanel, 'semanticLegend', 'Include explanation in exported graphic', null, 'checkbox');
   const showcasePanel = section('Showcase');
   control(showcasePanel, 'readmePresentation', 'README presentation', [['full-universe', 'Full universe'], ['featured-work', 'Featured work'], ['current-focus', 'Current focus'], ['technology-identity', 'Technology identity'], ['project-journey', 'Project journey']]);
   control(showcasePanel, 'ringOrganization', 'Organize rings by', [['identity', 'Identity / automatic'], ['importance', 'Project importance'], ['activity', 'Activity'], ['manual', 'Manual']]);
@@ -84,8 +95,12 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   const seedPanel = section('Reproducibility & optional effects');
   const hero = document.createElement('div'); hero.className = 'design-launcher'; hero.setAttribute('aria-label', 'Discover a constellation design');
   document.querySelector('.studio-header').after(hero);
-  const heroTitle = document.createElement('div'); heroTitle.className = 'design-launcher-title'; heroTitle.textContent = 'Find your next universe';
-  const heroNote = document.createElement('p'); heroNote.textContent = 'One click. A new sky. Keep the code to come back.'; heroTitle.append(heroNote); hero.append(heroTitle);
+  const heroTitle = document.createElement('div'); heroTitle.className = 'design-launcher-title'; heroTitle.textContent = 'Choose the story your constellation tells';
+  const heroNote = document.createElement('p'); heroNote.textContent = 'Learn the Studio, start from a preset, or explore a new composition.'; heroTitle.append(heroNote); hero.append(heroTitle);
+  const explain = document.createElement('details'); explain.id = 'explain-graphic';
+  const explainTitle = document.createElement('summary'); explainTitle.textContent = 'Explain this graphic';
+  const explainText = document.createElement('div'); explainText.setAttribute('aria-live','polite'); explain.append(explainTitle, explainText); hero.append(explain);
+  const tour = mountStudioTour({host:hero, reveal, apply: config => apply(config, {localOnly:true}), config: () => current});
   const presetMenu = document.createElement('details'); presetMenu.className = 'builtin-preset-menu';
   const presetSummary = document.createElement('summary'); presetSummary.textContent = 'Choose a preset'; presetMenu.append(presetSummary);
   const presetBody = document.createElement('div'); presetBody.className = 'builtin-preset-body'; presetMenu.append(presetBody); hero.append(presetMenu);
@@ -93,7 +108,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   const presetSelect = document.createElement('select'); presetSelect.id = 'builtin-preset';
   for (const preset of studioPresets) { const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label; presetSelect.append(option); }
   const presetDescription = document.createElement('p'); presetDescription.id = 'builtin-preset-description'; presetSelect.setAttribute('aria-describedby', presetDescription.id);
-  const describePreset = () => { presetDescription.textContent = studioPresets.find(value => value.id === presetSelect.value)?.description || ''; };
+  const describePreset = () => { const preset = studioPresets.find(value => value.id === presetSelect.value); presetDescription.textContent = preset ? preset.description + ' ' + explainGraphic(presetOptions(preset.id, current?.options)).join(' ') : ''; };
   presetSelect.addEventListener('change', describePreset); describePreset();
   presetBody.append(presetLabel, presetSelect, presetDescription);
   const presetApply = button(presetBody, 'apply-builtin-preset', 'Apply preset', async () => {
@@ -102,7 +117,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
     if (preset.audience === 'organization' && current.options.accountData?.type !== 'Organization' && current.options.accountType !== 'organization') throw new Error('Load an organization first, then choose an organization preset.');
     presetApply.disabled = true;
     try {
-      const applied = await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { loadOrganization: preset.audience === 'organization', loadPresetData: true, requireVisibleNodes: true, fallback: current });
+      const applied = await apply({ version: 1, account: current.account, options: presetOptions(preset.id, current.options) }, { localOnly: true, loadOrganization: preset.audience === 'organization', loadPresetData: true, requireVisibleNodes: true, fallback: current });
       if (!applied) { message(`${preset.label} has no visible projects for this account. Your previous design is restored.`, true); return; }
       presetMenu.open = false; message(`${preset.label} applied. Customize it or save it as your own preset.`);
     } finally { presetApply.disabled = false; }
@@ -114,16 +129,32 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   const codeControls = document.createElement('div'); codeControls.className = 'design-code-controls'; codeControls.append(codeLabel, designCode);
   const recipeOptions = recipe => ({ ...preserveShowcaseOptions(recipe, current.options), organizationUser: current.options.organizationUser, accountType: current.options.accountType, organizationScope: current.options.organizationScope, organizationView: current.options.organizationView, organization: current.options.organization, repoSource: current.options.repoSource || 'all', codingRhythmTimezone: current.options.codingRhythmTimezone || 'UTC', starfield: recipe.starfield || { mode: 'classic' } });
   const reseed = async code => { const options = recipeOptions(randomizeDesign(code, { repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots, ringPlacements: current.options.ringPlacements })); await apply({ version: 1, account: current.account, options }); designCode.value = code; message(`Design ${code} restored. Save the config to preserve subsequent edits too.`); };
+  const compositionMenu = document.createElement('details'); compositionMenu.id = 'composition-menu'; compositionMenu.className = 'builtin-preset-menu';
+  const compositionTitle = document.createElement('summary'); compositionTitle.textContent = 'Randomize / locks'; compositionMenu.append(compositionTitle);
+  const compositionBody = document.createElement('div'); compositionBody.className = 'composition-body'; compositionMenu.append(compositionBody); hero.append(compositionMenu);
   const motionLabel = document.createElement('label'); motionLabel.className = 'randomize-motion';
   const motion = document.createElement('input'); motion.id = 'randomize-motion'; motion.type = 'checkbox'; motion.checked = false; motionLabel.append(motion, ' Animations');
   const partSwitch = (id, text, checked) => {
     const label = document.createElement('label'); label.className = 'randomize-motion';
     const input = document.createElement('input'); input.type = 'checkbox'; input.id = id; input.checked = checked;
-    label.append(input, text); hero.append(label); return input;
+    label.append(input, text); compositionBody.append(label); return input;
   };
   const styling = partSwitch('randomize-styling', 'Styling', true);
   const projects = partSwitch('randomize-repositories', 'Repositories', false);
-  const full = partSwitch('randomize-full', 'Full random', false);
+  const layoutPart = partSwitch('randomize-layout', 'Layout / composition', false);
+  const semanticPart = partSwitch('randomize-semantics', 'Ring mapping', false);
+  const connectionPart = partSwitch('randomize-connections', 'Connections', false);
+  const locks = new Map();
+  const lockMenu = document.createElement('details'); const lockTitle = document.createElement('summary'); lockTitle.textContent = 'Lock parts I like'; lockMenu.append(lockTitle); compositionBody.append(lockMenu);
+  for (const [key,label] of [['styling','Style'],['layout','Layout'],['repositories','Repository selection'],['semantics','Semantic composition'],['connections','Connections'],['animations','Animation']]) {
+    const wrapper = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.id = 'lock-' + key; wrapper.append(input, label); lockMenu.append(wrapper); locks.set(key,input);
+  }
+  const readLocks = () => Object.fromEntries([...locks].map(([key,input]) => [key,input.checked]));
+  let undoConfig;
+  const changeSummary = document.createElement('p'); changeSummary.id = 'randomize-summary'; changeSummary.setAttribute('role','status'); compositionBody.append(changeSummary);
+  const undo = button(compositionBody, 'undo-randomize', 'Undo randomization', async () => { if (!undoConfig) return; const config = undoConfig; await apply(config, {localOnly:true}); undoConfig = null; undo.disabled = true; changeSummary.textContent = 'Previous design restored.'; }); undo.disabled = true;
+  const recordDraw = before => { undoConfig = before; undo.disabled = false; const parts = changedParts(before.options,current.options); changeSummary.textContent = 'What changed: ' + (parts.join(', ') || 'no unlocked settings') + '. Save the explicit configuration to keep this combination.'; };
+  const full = partSwitch('randomize-full', 'Full design', false);
   let previousRandomParts = null;
   full.title = 'Also change layouts, filters, node types and history. Animations follow the Animations switch.';
   full.addEventListener('input', () => {
@@ -141,32 +172,35 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   });
   const randomize = button(hero, 'randomize-design', '✦ Randomize selected', async () => {
     if (!current) return;
-    if (!full.checked && !styling.checked && !motion.checked && !projects.checked) { message('Select Styling, Animations or Repositories to randomize.'); return; }
+    if (!full.checked && !styling.checked && !motion.checked && !projects.checked && !layoutPart.checked && !semanticPart.checked && !connectionPart.checked) { message('Select Styling, Animations or Repositories to randomize.'); return; }
+    const before = structuredClone(current);
     const settings = { motion: motion.checked, animations: animationParts.read(), ...historyControls.bounds(), repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots };
     if (!full.checked) {
-      const parts = { styling: styling.checked, animations: motion.checked, repositories: projects.checked };
+      const parts = { styling: styling.checked, animations: motion.checked, repositories: projects.checked, layout: layoutPart.checked, semantics: semanticPart.checked, connections: connectionPart.checked };
       const pool = projects.checked ? repositoryCandidates(current.options) : [];
       let options;
       const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => {
-        options = randomizeParts(current.options, candidate, parts, pool);
+        options = lockRandomParts(current.options, randomizeParts(current.options, candidate, parts, pool), readLocks());
         return hasMatchingNodes(options);
       }, 32);
       if (!recipe) { message('No matching design found with your current filters. Use Reset project filters to show current projects, then randomize again. Your design is unchanged.'); return; }
-      if (!await apply({ version: 1, account: current.account, options }, { requireVisibleNodes: true, fallback: current })) {
+      if (!await apply({ version: 1, account: current.account, options }, { localOnly: true, requireVisibleNodes: true, fallback: current })) {
         message('That draw rendered no projects. Your previous design is restored. Try again, or use Reset project filters.'); return;
       }
+      recordDraw(before); compositionMenu.open = true;
       message('Selected parts randomized. Other settings kept. Use Share link or save the config to keep this combination.');
       return;
     }
-    const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(recipeOptions(candidate)), 256, { repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots, ringPlacements: current.options.ringPlacements });
+    const recipe = randomizeMatchingDesign(() => newDesignCode(settings), candidate => hasMatchingNodes(lockRandomParts(current.options, recipeOptions(candidate), readLocks())), 256, { repositories: repositoryPool(), snapshots: current.options.timeline?.snapshots, ringPlacements: current.options.ringPlacements });
     if (!recipe) { message('No matching randomized design found in the loaded repositories. Your current design is unchanged.'); return; }
-    if (!await apply({ version: 1, account: current.account, options: recipeOptions(recipe) }, { requireVisibleNodes: true, fallback: current })) {
+    if (!await apply({ version: 1, account: current.account, options: lockRandomParts(current.options, recipeOptions(recipe), readLocks()) }, { localOnly: true, requireVisibleNodes: true, fallback: current })) {
       message('That draw rendered no projects. Your previous design is restored. Try again, or use Reset project filters.'); return;
     }
+    recordDraw(before);
     message(`Design ${recipe.designCode} created. Save the config to preserve subsequent edits too.`);
   }); randomize.className = 'randomize-primary';
-  hero.append(motionLabel);
-  const animationParts = mountRandomizeMotion(hero, motion, storage);
+  compositionBody.append(motionLabel);
+  const animationParts = mountRandomizeMotion(compositionBody, motion, storage);
   hero.append(codeControls);
   button(codeControls, 'reseed-design', 'Restore code', () => reseed(designCode.value.trim()));
   control(seedPanel, 'seedMode', 'Seed mode', ['account', 'custom', 'random']);
@@ -303,7 +337,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
     if ([...presets.options].some(option => option.value === selected)) presets.value = selected;
   };
   const stored = result => { if (!result) throw new Error('Local storage is unavailable or full. Download config JSON to keep this design.'); refreshPresets(); };
-  button(exports, 'save-preset', 'Save preset', () => { stored(store.savePreset(current.account, presetName.value, current.options)); presets.value = presetName.value.trim(); message('Preset saved locally.'); });
+  button(exports, 'save-preset', 'Save this as a preset', () => { stored(store.savePreset(current.account, presetName.value, current.options)); presets.value = presetName.value.trim(); message('Preset saved locally.'); });
   button(exports, 'load-preset', 'Load preset', async () => { const preset = store.presets(current.account).find(p => p.name === presets.value); if (!preset) throw new Error('Select a saved preset.'); await apply(parseConfig(preset.config)); message('Preset loaded.'); });
   button(exports, 'rename-preset', 'Rename preset', () => { if (!presets.value) throw new Error('Select a saved preset.'); stored(store.rename(current.account, presets.value, presetName.value)); message('Preset renamed.'); });
   button(exports, 'delete-preset', 'Delete preset', () => { stored(store.delete(current.account, presets.value)); message('Preset deleted.'); });
@@ -336,7 +370,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   restore({ starfield: defaultStarfield });
   return {
     config: () => structuredClone(current),
-    store, restore, flush, historyRange: historyControls.range, scene: layerControls.update,
+    store, restore, flush, tour, historyRange: historyControls.range, scene: layerControls.update,
     read: () => {
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
       const projectShowcase = { ...(current?.options.projectShowcase || {}) };
@@ -344,6 +378,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
       return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
+      if (current && current.account !== account) { undoConfig = null; undo.disabled = true; tour.close(); }
       repositoryPicker.update(account, repositoryPool(), options, selectedRepositories(options));
       const audience = options.accountData?.type === 'Organization' || options.accountType === 'organization' ? 'organization' : 'any';
       if (audience !== presetAudience) {
@@ -351,8 +386,11 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
         for (const option of presetSelect.options) option.disabled = audience !== 'organization' && studioPresets.find(preset => preset.id === option.value).audience === 'organization';
         presetAudience = audience; describePreset();
       }
-      if (pending && pending.account !== account) flush(); current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`;
+      if (pending && pending.account !== account) { flush(); undoConfig = null; undo.disabled = true; } current = { account, options }; svg = source; pending = structuredClone(current); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); refreshPresets(); size.textContent = `SVG: ${(new Blob([source]).size / 1024).toFixed(1)} KiB. No scripts or external assets.`;
       updateShowcaseList(options);
+      meaningNote.textContent = ringMeanings[options.ringMeaning || 'identity'] + ' Semantic bands stay fixed during decorative motion and refinement. Manual node positions override bands.';
+      explainText.replaceChildren(...explainGraphic(options).map(line => { const p = document.createElement('p'); p.textContent=line; return p; }));
+      tour.refresh();
     },
     shared() { try { return decodeShare(location.href); } catch (error) { message(error.message, true); return null; } },
   };

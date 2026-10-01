@@ -1,4 +1,5 @@
-import { computeScene, rustAvailable } from "./engine.mjs";
+import { computeScene, rustAvailable, semanticLayout } from "./engine.mjs";
+import { semanticActive } from './semantic-studio.mjs';
 import { artifactLayouts, artifactPositions } from "./artifact-layouts.mjs";
 import {
   organizationLayouts,
@@ -216,7 +217,7 @@ export function layoutScene(scene, options = {}, context = {}) {
     : options.nodeMode || "repositories";
   const hidden = new Set(options.hiddenNodes || []);
   const profileRepositories =
-    arrangement === "profile"
+    arrangement === "profile" || options.accountSun === 'profile' || semanticActive(options)
       ? (
           context.profileRepositories ||
           records.filter(
@@ -312,6 +313,23 @@ export function layoutScene(scene, options = {}, context = {}) {
     })),
   };
   signal?.throwIfAborted();
+  const semantic = (semanticActive(options) || options.accountSun === 'profile') ? semanticLayout({
+    mode: semanticActive(options) ? options.ringMeaning : 'identity',
+    compact,
+    reference_day: Math.max(0, Math.floor((Date.parse(options.referenceDate) || Math.max(0, ...records.map(r => Date.parse(r.pushed_at || r.updated_at) || 0))) / 86400000)),
+    rotations: options.ringRotations || Array(4).fill(options.ringRotation || 0),
+    repositories: profileRepositories.map(evidence => {
+      const repo = (context.profileRepositories || records).find(r => r.full_name === evidence.name);
+      const updated = Date.parse(repo?.pushed_at || repo?.updated_at);
+      const year = new Date(repo?.created_at).getUTCFullYear();
+      return {...evidence, updated_day: Number.isFinite(updated) && updated >= 0 ? Math.floor(updated / 86400000) : null, created_year: year >= 1970 && year <= 9999 ? year : null};
+    }),
+  }) : null;
+  if (semanticActive(options)) {
+    const byName = new Map(semantic.placements.map(p => [p.repository, p.position]));
+    for (const repo of input.repos) repo.position = options.starPositions?.[repo.name] ? [options.starPositions[repo.name].x, options.starPositions[repo.name].y] : byName.get(repo.name) || repo.position;
+    input.snapToRings = false;
+  }
   const result = computeScene(input);
   signal?.throwIfAborted();
   return {
@@ -323,6 +341,7 @@ export function layoutScene(scene, options = {}, context = {}) {
     ),
     edges: structuredClone(result.edges),
     total: result.total,
-    profile: result.profile || null,
+    profile: result.profile || semantic?.profile || null,
+    semantic,
   };
 }
