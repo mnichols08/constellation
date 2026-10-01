@@ -4,11 +4,13 @@ Turn developer and project data into interactive maps, embedded experiences, and
 
 **GitHub activity tells Constellation what exists. You decide what represents you.** Mark projects Featured, Supporting, Experimental or Historical, then choose how that intent appears in your README constellation. Roles are yours; they do not infer importance from stars or recency.
 
+**Developer Topology** places selected work around Interface, Services, Data, Systems, Tooling and Automation evidence. It traces those regions to repository, language and topic evidence; it does not assign job titles or assess professional ability. See the [Developer Topology guide](docs/developer-topology.md).
+
 ## Make your constellation
 
 1. Open [Constellation](https://mnichols08.github.io/constellation/) and choose **Continue with GitHub** or **Explore a public account**.
 2. Choose the projects and technologies you want to showcase—use Recommended, Recently active, Most starred, Contributed to or **Pinned repositories** (requires GitHub sign-in).
-3. Choose which projects should stand out, then set relationships, optional activity and your universe.
+3. Choose which projects should stand out, review the Developer Topology evidence preview, then set relationships, optional activity and your universe.
 4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
 5. Choose **Use this constellation** to export it or install it in your README.
 
@@ -49,7 +51,7 @@ name: Daily constellation
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 6 * * *'
+    - cron: "17 6 * * *"
 permissions:
   contents: write
 concurrency:
@@ -62,7 +64,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: mnichols08/constellation@v3
         with:
-          publish: 'true'
+          publish: "true"
 ```
 
 3. Open **Actions → Daily constellation → Run workflow**. Once it succeeds, copy the README snippet from the run summary into your profile README. Or use this, replacing both occurrences of `YOUR_USERNAME`:
@@ -86,15 +88,15 @@ GitHub supplies `GITHUB_TOKEN` automatically; you do not need to create a person
 
 ## Action inputs
 
-| Input | Default | Purpose |
-| --- | --- | --- |
-| `username` | Repository owner | GitHub username or profile URL to visualize. |
-| `token` | `${{ github.token }}` | Token for public API requests and profile pins; Actions supplies it automatically. |
-| `publish` | `'false'` | Set to `'true'` to commit the image to the output branch. Requires checkout and `contents: write`. |
-| `output` | `constellation.svg` | Generated SVG path in the workspace. Publishing uses its filename at the branch root. |
-| `output-branch` | `output` | Destination branch; unrelated files are preserved. |
-| `config` | Empty | Path to a JSON configuration file in the checked-out repository. |
-| `config-json` | Empty | Inline JSON settings from the studio; use instead of `config`. |
+| Input           | Default               | Purpose                                                                                            |
+| --------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| `username`      | Repository owner      | GitHub username or profile URL to visualize.                                                       |
+| `token`         | `${{ github.token }}` | Token for public API requests and profile pins; Actions supplies it automatically.                 |
+| `publish`       | `'false'`             | Set to `'true'` to commit the image to the output branch. Requires checkout and `contents: write`. |
+| `output`        | `constellation.svg`   | Generated SVG path in the workspace. Publishing uses its filename at the branch root.              |
+| `output-branch` | `output`              | Destination branch; unrelated files are preserved.                                                 |
+| `config`        | Empty                 | Path to a JSON configuration file in the checked-out repository.                                   |
+| `config-json`   | Empty                 | Inline JSON settings from the studio; use instead of `config`.                                     |
 
 The `svg` output contains the generated workspace path. Use an Ubuntu runner for the documented setup. The action installs Node.js 22 automatically.
 
@@ -164,7 +166,6 @@ Manual positions are shared across node views, and kept separately for each acco
 The studio starts in **Repositories + languages + topics** view (`nodeMode: "combined"`). Repositories connect directly to their language and topic nodes in the same chart. All membership connections are retained. Language nodes have a solid outline; topic nodes have a dashed outline. Unlock positions to place JavaScript, TypeScript and HTML together, with Rust and C++ elsewhere. Moving a node or its label keeps the pair attached, and manual placements follow the node when switching views. The combined graph retains up to 100 repositories and the most represented categories within a 256-node limit; the filter summary reports omitted nodes.
 
 Under **Visual styles → Individual nodes**, select any node to recolor it, turn off **Show label**, or turn off **Show node**. Hiding a node also hides its incident connections without rearranging the remaining nodes. Hidden nodes stay in the selector so they can be restored; **Show all nodes and labels for this account** resets visibility. The global **Show labels** setting must also be enabled. Automatic label placement may omit labels where space is tight. Category details still list their member repositories, including hidden ones. Visibility settings follow node IDs across views during the session and are included in SVG/workflow exports as `hiddenNodes` and `hiddenLabels` arrays (for example, `["language:JavaScript", "topic:agile"]`).
-
 
 For a one-time image without Actions, click **Download SVG**, commit the file to your repository, and embed it with `[![GitHub constellation](./constellation.svg)](https://github.com/mnichols08/constellation)`.
 

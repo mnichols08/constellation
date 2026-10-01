@@ -2,6 +2,7 @@ mod geometry;
 mod graph;
 mod identity;
 mod physics;
+mod profile_evidence;
 mod projection;
 mod refinement;
 mod scene;
@@ -11,7 +12,8 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn stable_positions(input: &str) -> Result<String, String> {
-    let input = serde_json::from_str(input).map_err(|error| format!("Invalid overview: {error}"))?;
+    let input =
+        serde_json::from_str(input).map_err(|error| format!("Invalid overview: {error}"))?;
     serde_json::to_string(&stable::positions(input)?).map_err(|error| error.to_string())
 }
 
@@ -33,6 +35,16 @@ pub fn project_nodes(input: &str) -> Result<String, String> {
 pub fn compute_scene(input: &str) -> Result<String, String> {
     let input = serde_json::from_str(input).map_err(|error| format!("Invalid scene: {error}"))?;
     serde_json::to_string(&scene::compute(input)?).map_err(|error| error.to_string())
+}
+
+#[wasm_bindgen]
+pub fn developer_profile(input: &str) -> Result<String, String> {
+    if input.len() > 1_000_000 {
+        return Err("Developer profile input exceeds 1 MiB".into());
+    }
+    let input = serde_json::from_str(input)
+        .map_err(|error| format!("Invalid developer profile: {error}"))?;
+    serde_json::to_string(&profile_evidence::analyze(input)?).map_err(|error| error.to_string())
 }
 
 #[wasm_bindgen]
@@ -68,4 +80,18 @@ pub fn neighbors(count: u32, pairs: &[u32], start: u32) -> Result<Vec<u32>, Stri
         }
     }
     Ok(result.into_iter().collect())
+}
+
+#[cfg(test)]
+mod profile_api_tests {
+    use super::developer_profile;
+
+    #[test]
+    fn developer_profile_rejects_malformed_and_oversized_json() {
+        assert!(developer_profile("{")
+            .unwrap_err()
+            .contains("Invalid developer profile"));
+        let oversized = " ".repeat(1_000_001);
+        assert!(developer_profile(&oversized).unwrap_err().contains("1 MiB"));
+    }
 }

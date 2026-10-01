@@ -7,16 +7,19 @@ relationship result (`edges` with input-node indices and `total`). Returned
 coordinates and edges are isolated from engine caches.
 
 ```js
-import { createScene, layoutScene } from '@constellation/core';
-const scene = createScene('example', [
-  { full_name: 'example/core', name: 'core', language: 'Rust' },
-], { referenceDate: '2026-09-01T00:00:00Z' });
-const layout = layoutScene(scene, { arrangement: 'galaxy' });
-console.log(layout.positions['example/core']);
+import { createScene, layoutScene } from "@constellation/core";
+const scene = createScene(
+  "example",
+  [{ full_name: "example/core", name: "core", language: "Rust" }],
+  { referenceDate: "2026-09-01T00:00:00Z" },
+);
+const layout = layoutScene(scene, { arrangement: "galaxy" });
+console.log(layout.positions["example/core"]);
 ```
 
-Built-ins retain field, rings, orbital, force, galaxy, solar-system and organization
-arrangements. The existing `nodeCap > 100` mode uses stable large-graph overview
+Built-ins retain field, rings, orbital, force, profile, galaxy, solar-system and organization
+arrangements. Developer Topology also returns inspectable profile evidence when
+selected. The existing `nodeCap > 100` mode uses stable large-graph overview
 coordinates. Existing artifact/organization adapters provide their coordinates to
 the same Rust relationship engine; no Rust algorithms have been replaced by JS.
 
@@ -44,21 +47,34 @@ execution hardening precede the stable 3.0 contract.
 ## Trusted registration
 
 ```js
-import { createPluginHost } from '@constellation/core';
+import { createPluginHost } from "@constellation/core";
 const host = createPluginHost().registerLayout({
-  id: 'example-grid', apiVersion: 1,
+  id: "example-grid",
+  apiVersion: 1,
   capabilities: {
-    maxNodes: 100, manualPositioning: true, ringSnapping: false,
-    deterministicSeed: true, animation: true, refinement: true,
+    maxNodes: 100,
+    manualPositioning: true,
+    ringSnapping: false,
+    deterministicSeed: true,
+    animation: true,
+    refinement: true,
   },
   layout(scene, options, context) {
     context.signal?.throwIfAborted();
-    return Object.fromEntries(scene.nodes.map((node, i) => [node.id, {
-      x: 80 + (i % 10) * 80, y: 50 + Math.floor(i / 10) * 40,
-    }]));
+    return Object.fromEntries(
+      scene.nodes.map((node, i) => [
+        node.id,
+        {
+          x: 80 + (i % 10) * 80,
+          y: 50 + Math.floor(i / 10) * 40,
+        },
+      ]),
+    );
   },
 });
-const scene = host.createScene('example', repositories, { layoutEngine: 'example-grid' });
+const scene = host.createScene("example", repositories, {
+  layoutEngine: "example-grid",
+});
 ```
 
 Configs may select a registered `layoutEngine` and supply declarative

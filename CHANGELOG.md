@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.7.0 — Developer Topology
+
+- Add a deterministic Rust/WASM developer profile engine for Interface, Services, Data, Systems, Tooling and Automation evidence from selected repositories, language proportions, topics and explicit Showcase roles.
+- Add the `profile` semantic arrangement with bounded, documented role weights, inspectable evidence, manual emphasis, spatial region labels and concise signatures; preserve real graph edges and manual positions.
+- Integrate dimension exploration and evidence inspection into offline interactive output, guided setup previews, config/share links, temporal layers and static README SVG profiles without adding GitHub requests.
+- Keep config v7 backward-compatible; document mappings, score normalization, temporal limitations, API behavior and privacy. Rebuild Rust/WASM, Core and web-component artifacts.
+
 ## 3.6.0 — GitHub Request Efficiency
 
 - Share identical concurrent GitHub REST reads across Studio, organization, contribution, activity, language and commit loaders; retain independent response bodies for each consumer.
