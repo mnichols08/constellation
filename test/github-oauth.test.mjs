@@ -191,6 +191,8 @@ test(
     await cdp("Page.navigate", {
       url: origin + "/?code=code&state=fixture-state",
     });
+    await wait(`(!!document.querySelector('#guided-repository-search')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy'))`);
+    await e(`[...document.querySelectorAll('#guided-setup button')].find(b => b.textContent === 'Quick guided generator')?.click()`);
     await wait(`!!document.querySelector('#guided-repository-search')`);
     assert.equal(await e(`document.querySelector('#username').value`), "alice");
     assert.match(

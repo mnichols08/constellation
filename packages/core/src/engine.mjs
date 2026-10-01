@@ -21,6 +21,10 @@ try {
 }
 
 export const rustAvailable = Boolean(core);
+export function semanticLayout(input) {
+  if (!core?.semantic_layout) throw new Error('Semantic Studio requires the rebuilt Rust/WASM engine.');
+  return JSON.parse(core.semantic_layout(JSON.stringify(input)));
+}
 const stableCoordinates = new Map();
 export const layoutStatistics = { computedNodes: 0, reusedNodes: 0 };
 function stableScene(input) {

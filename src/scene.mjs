@@ -45,6 +45,18 @@ function record(scene, path = '$') {
     return;
   }
   if (scene.kind !== 'scene') fail(path, 'unknown scene kind');
+  if (scene.semantic !== undefined) {
+    const semantic = scene.semantic;
+    const point = p => Array.isArray(p) && p.length === 2 && p.every(v => finite(v) && Math.abs(v) <= 10000);
+    if (!object(semantic) || !['identity','capability','showcase','activity','era'].includes(semantic.mode)
+      || !Array.isArray(semantic.radii) || semantic.radii.length > 6 || semantic.radii.some(r => !finite(r) || r < 0 || r > 1)
+      || !Array.isArray(semantic.bands) || semantic.bands.length !== semantic.radii.length || semantic.bands.some(b => typeof b !== 'string' || b.length > 100)
+      || !Array.isArray(semantic.guides) || semantic.guides.length > 12 || semantic.guides.some(g => !point(g.position) || typeof g.text !== 'string')
+      || !Array.isArray(semantic.rays) || semantic.rays.length !== 6 || semantic.rays.some(r => !['interface','services','data','systems','tooling','automation'].includes(r.dimension) || !point(r.start) || !point(r.end) || !point(r.label))
+      || !Array.isArray(semantic.placements) || semantic.placements.length > 256 || semantic.placements.some(p => typeof p.repository !== 'string' || typeof p.category !== 'string' || !Number.isInteger(p.band) || p.band < 0 || p.band >= semantic.bands.length || !point(p.position))
+      || !object(semantic.profile) || !Array.isArray(semantic.profile.dimensions) || semantic.profile.dimensions.length !== 6
+      || semantic.profile.dimensions.some(d => !finite(d.score) || d.score < 0 || d.score > 1 || !Array.isArray(d.evidence) || d.evidence.length > 256 || d.evidence.some(e => typeof e.repository !== 'string' || typeof e.reason !== 'string'))) fail(path, 'invalid semantic geometry or evidence');
+  }
   const graph = scene.presentation.graph;
   if (!object(graph) || !['repositories', 'languages', 'topics', 'combined', 'contributors', 'ecosystem', 'organization-community', 'dependencies', 'technology', 'eras', 'commits'].includes(scene.presentation.nodeMode)) fail(path, 'invalid graph presentation');
   for (const key of ['repositoryCount', 'total', 'nodeCount']) if (graph[key] !== undefined && (!Number.isInteger(graph[key]) || graph[key] < 0)) fail(path, 'invalid graph count');

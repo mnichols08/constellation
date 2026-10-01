@@ -2,7 +2,7 @@ const avatarCache = new Map();
 const avatarPattern = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
 
 export function accountSunMode(value = 'off') {
-  if (!['off', 'sun', 'avatar'].includes(value)) throw new Error('accountSun must be off, sun or avatar.');
+  if (!['off', 'sun', 'avatar', 'profile'].includes(value)) throw new Error('accountSun must be off, sun, avatar or profile.');
   return value;
 }
 
@@ -31,15 +31,21 @@ export function loadAccountAvatar(account, { fetcher = fetch } = {}) {
   return avatarCache.get(key);
 }
 
-export function renderAccountSun(account, options, centerY, escape) {
+export function renderAccountSun(account, options, centerY, escape, semantic) {
   const mode = accountSunMode(options.accountSun);
   if (mode === 'off') return '';
   const compact = options.layout === 'compact', radius = compact ? 13 : 23;
   const source = options.accountData?.avatarData;
   const avatar = mode === 'avatar' && typeof source === 'string' && source.length <= 130000 && avatarPattern.test(source) ? source : null;
   const label = account.length > 22 ? `${account.slice(0, 20)}…` : account;
-  return `<g class="account-sun" data-mode="${mode}" transform="translate(450 ${centerY})" role="img" aria-label="${escape(account)} account sun" pointer-events="none">
+  const rays = mode === 'profile' && semantic ? semantic.rays.map((ray, i) => {
+    const dimension = semantic.profile.dimensions[i];
+    const description = `${ray.dimension}: ${dimension.evidence.map(e => `${e.repository}: ${e.reason}`).join('; ') || 'no evidence in selected repositories'}`;
+    return `<g class="profile-segment" data-profile-dimension="${ray.dimension}" tabindex="0" role="button" aria-label="${escape(description)}"><title>${escape(description)}</title><path d="M${ray.start.join(' ')}L${ray.end.join(' ')}" stroke="currentColor" stroke-width="5" stroke-linecap="butt"/><text x="${ray.label[0]}" y="${ray.label[1]}" text-anchor="middle" font-size="8">${ray.dimension}</text></g>`;
+  }).join('') : '';
+  return `<g class="account-sun" data-mode="${mode}" transform="translate(450 ${centerY})" role="group" aria-label="${escape(account)} account sun">
 <title>${escape(account)} · Account sun</title>
+${rays}
 <defs><radialGradient id="account-sun-glow"><stop stop-color="#fff5bb" stop-opacity=".65"/><stop offset=".5" stop-color="#ffc65c" stop-opacity=".22"/><stop offset="1" stop-color="#ff9d36" stop-opacity="0"/></radialGradient><radialGradient id="account-sun-core" cx="35%" cy="30%"><stop stop-color="#fffbe0"/><stop offset=".55" stop-color="#ffda75"/><stop offset="1" stop-color="#ee9b38"/></radialGradient><clipPath id="account-sun-clip"><circle r="${radius}"/></clipPath></defs>
 <circle class="account-sun-corona" r="${radius * 2}" fill="url(#account-sun-glow)"/>
 <circle class="account-sun-core" r="${radius}" fill="url(#account-sun-core)" stroke="#ffe7a0" stroke-width="1"/>

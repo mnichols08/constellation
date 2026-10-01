@@ -15,6 +15,10 @@ const organization = (view, scope = 'sample', contributors = false) => ({
 });
 
 export const studioPresets = [
+  { id: 'semantic-featured', label: 'Show my featured work', audience: 'any', description: 'Authored roles determine distance: Featured first, Unassigned last. Assign roles in Showcase.', options: { arrangement: 'rings', ringMeaning: 'showcase', accountSun: 'sun' } },
+  { id: 'semantic-profile', label: 'Show my developer profile', audience: 'any', description: 'Evidence-backed capability sectors, strength bands and six labelled profile rays. Missing evidence stays explicit.', options: { arrangement: 'rings', ringMeaning: 'capability', accountSun: 'profile' } },
+  { id: 'semantic-recency', label: 'Show recent repository updates', audience: 'any', description: 'Repository update bands, not GitHub contribution activity. Current loaded metadata only.', options: { arrangement: 'rings', ringMeaning: 'activity', accountSun: 'sun', nodeSize: 'uniform' } },
+  { id: 'semantic-eras', label: 'Show project creation eras', audience: 'any', description: 'Five-year creation bands from oldest to newest, using current metadata rather than historical snapshots.', options: { arrangement: 'rings', ringMeaning: 'era', accountSun: 'sun', nodeSize: 'uniform' } },
   { id: 'development-sphere', label: 'Development Sphere', audience: 'any', description: 'Yearly identity rings form a sphere. Projects retain ring positions and trace their history along meridians.', options: { arrangement: 'temporal-stack', maxRepos: 24, snapToRings: true, temporalStack: { innerArrangement: 'rings' }, temporalGeometry: { shape: 'sphere', radius: 320, depth: 640, surface: 'wireframe' }, visualTheme: 'deep-space' } },
   { id: 'evolution-helix', label: 'Evolution Helix', audience: 'any', description: 'Stable project positions wind through yearly identity-ring sections.', options: { arrangement: 'temporal-stack', maxRepos: 24, snapToRings: true, temporalStack: { innerArrangement: 'rings' }, temporalGeometry: { shape: 'helix', radius: 280, depth: 760, twist: 240, surface: 'wireframe' }, visualTheme: 'deep-space' } },
   { id: 'developer-universe', label: 'Developer Universe', audience: 'any', description: 'Explore project history as stacked yearly solar systems, with projects connected through time. Retrospective layers use current metadata.', options: { arrangement: 'temporal-stack', maxRepos: 25, temporalStack: { enabled: true }, visualTheme: 'deep-space' } },
@@ -44,5 +48,7 @@ export function presetOptions(id, current = {}) {
   }
   if (preset.audience === 'any') options.organizationView = 'projects';
   if (current.organizationUser) options.organizationUser = current.organizationUser;
+  if (current.projectShowcase) options.projectShowcase = structuredClone(current.projectShowcase);
+  if (current.referenceDate) options.referenceDate = current.referenceDate;
   return options;
 }

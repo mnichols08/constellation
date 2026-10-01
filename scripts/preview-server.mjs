@@ -167,6 +167,8 @@ const allowed = new Map([
     "share-link",
     "studio-config-form",
     "studio-design",
+    "semantic-studio",
+    "studio-tour",
     "studio-presets",
     "studio-layout",
     "themes",

@@ -79,7 +79,9 @@ test('browser token sign-in starts guided setup, keeps credentials out of storag
   await wait(`document.querySelector('#github-auth-status').textContent.includes('rejected')`);
   assert.equal(await e(`document.querySelector('#github-token').value`), '');
   await e(`document.querySelector('#github-token').value='browser-test-secret'; document.querySelector('#github-token-form').requestSubmit()`);
-  await wait(`document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search')`);
+  await wait(`(document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy'))`);
+    await e(`[...document.querySelectorAll('#guided-setup button')].find(b => b.textContent === 'Quick guided generator')?.click()`);
+    await wait(`document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search')`);
   assert.equal(await e(`document.querySelector('#github-auth-open').textContent`), '@alice');
   assert.equal(await e(`JSON.stringify({...localStorage,...sessionStorage}).includes('browser-test-secret')`), false);
   assert.equal(await e(`apiCalls.filter(call=>call.url.includes('/users/')).every(call=>call.auth==='Bearer browser-test-secret')`), true);

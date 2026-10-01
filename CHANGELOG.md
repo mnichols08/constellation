@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.8.0 — Semantic Studio
+
+- Make the constellation explain itself with a real Studio tour, entry paths and live configuration-derived Explain panel.
+- Extend Rust Developer Topology evidence into a six-dimension Profile Sun and deterministic Capability, Showcase, repository-update and creation-era rings. Keep Identity geometry as the default.
+- Label missing evidence, authored roles, current metadata, recency and decorative motion. Include evidence in accessible SVG descriptions and optionally append a static reading guide.
+- Add story-oriented presets, composition scopes, randomization locks, What changed and Undo. Preserve roles and v1–v6 recipe behavior.
+- Apply visual presets and random draws to cached data without implicit GitHub enrichment. Keep explicit loading and public exploration budgets intact.
+- Add native Rust, WASM, configuration/export and browser coverage; regenerate WASM and package mirrors through build scripts.
+
 ## 3.7.3 — Ring alignment and account suns
 
 - Fix animated ring alignment for projects with Showcase roles. Additional repository classes no longer exclude nodes from spin/sway animation; nodes follow their assigned points alongside labels and connections.

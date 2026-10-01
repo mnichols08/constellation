@@ -584,6 +584,13 @@ export function mountInteractive(root, source, options = {}) {
   if (themeControl)
     listen(themeControl, "change", () => setTheme(themeControl.value));
   if (developerProfile) {
+    for (const segment of svg.querySelectorAll('.profile-segment')) {
+      for (const type of ['focus', 'pointerenter', 'click', 'keydown']) listen(segment, type, event => {
+        if (type === 'keydown' && !['Enter', ' '].includes(event.key)) return;
+        if (type === 'keydown') event.preventDefault();
+        setProfileDimensions([segment.dataset.profileDimension]);
+      });
+    }
     const toolbar = root.querySelector(".constellation-toolbar");
     if (toolbar) {
       const controls = document.createElement("div");

@@ -298,3 +298,22 @@ html[data-entry="landing"] #open-constellation-library { margin: 16px 0 0 12px; 
 .intro > [data-open-github-auth], #github-oauth-start { border: 1px solid var(--line); border-radius: 8px; background: var(--accent); color: var(--page); padding: 14px 20px; font: inherit; cursor: pointer; }
 #github-auth-open { max-width: 46%; }
 html[data-entry="result"] .intro { display: none; }
+
+/* The tour highlights existing controls and SVG content, including without motion. */
+#studio-tour { padding: 12px 20px; border: 1px solid currentColor; border-radius: 10px; background: var(--background, #101827); color: var(--foreground, #e6edff); }
+#studio-tour[hidden] { display: none; }
+#studio-tour h2 { margin: 0; font-size: 1rem; }
+.tour-actions { display:flex; flex-wrap:wrap; gap:8px; }
+[data-tour-spotlight="control"] { outline:3px solid #d9a94f; outline-offset:3px; }
+[data-tour-spotlight="graphic"] { stroke:#d9a94f; stroke-width:2; }
+.profile-segment:focus { outline:2px solid currentColor; }
+#explain-graphic { max-width:65ch; }
+#explain-graphic p { margin:.5em 0; }
+
+.composition-body{position:absolute;z-index:10;left:0;top:100%;width:min(360px,calc(100vw - 32px));padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 36px #0005;display:grid;gap:12px;max-height:65vh;overflow:auto}
+.composition-body>details>label{display:flex;gap:8px;margin:8px 0}
+#explain-graphic{position:relative}
+#explain-graphic>div{position:absolute;z-index:12;top:100%;left:0;width:min(560px,calc(100vw - 40px));max-height:60vh;overflow:auto;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+
+.builtin-preset-body{max-height:65vh;overflow:auto}
+@media(max-width:600px){.design-launcher{position:relative}.design-launcher>.builtin-preset-menu,#explain-graphic{position:static}.builtin-preset-body,.composition-body,#explain-graphic>div{left:10px;right:10px;width:auto}}

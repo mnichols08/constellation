@@ -11,6 +11,7 @@ import { validateThemePack } from "./theme-packs.mjs";
 import { randomizeDesign } from "./design-randomizer.mjs";
 import { validateLayoutReference } from "./layout-host.mjs";
 import { accountSunMode } from "./account-sun.mjs";
+import { validateSemanticOptions } from './semantic-studio.mjs';
 
 export const CONFIG_VERSION = 7;
 export const MAX_CONFIG_BYTES = 250000;
@@ -48,6 +49,8 @@ fields.add("temporalStack");
 fields.add("temporalGeometry");
 fields.add("ringPlacements");
 fields.add("accountSun");
+fields.add('ringMeaning');
+fields.add('semanticLegend');
 fields.add("transforms");
 fields.add("mappings");
 fields.add("layoutEngine");
@@ -84,6 +87,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     Object.entries(input).filter(([key]) => fields.has(key)),
   );
   validateLayoutReference(options);
+  validateSemanticOptions(options);
   commitHistoryOptions(options);
   if ("plugins" in options) pluginOptions(options.plugins);
   if ("accountSun" in options) accountSunMode(options.accountSun);
