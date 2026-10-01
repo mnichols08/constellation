@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.7.3 — Ring alignment and account suns
+
+- Fix animated ring alignment for projects with Showcase roles. Additional repository classes no longer exclude nodes from spin/sway animation; nodes follow their assigned points alongside labels and connections.
+- Add an optional central account sun: Off, Sun + username, or GitHub avatar + glow. The sun shares the perspective transform without taking a node slot or changing ring assignments.
+- Embed avatar images from GitHub's image CDN in Studio and CLI exports without consuming GitHub API quota. Unavailable images and offline fixtures fall back to initials. Preserve the choice in configs, share links and workflows.
+- Add coordinate and browser regressions covering node counts, rotations, hidden nodes, manual reset, snapping, output profiles, perspective, animation and export parity. Regenerate the README example and rebuild package mirrors.
+
 ## 3.7.2 — Rate-limit-safe public exploration
 
 - Public browser exploration loads account identity and one page of up to 100 recently updated public repositories. Primary languages and topics support project selection, Developer Topology, customization and exports without per-repository language requests.
