@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
@@ -60,6 +60,7 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   assert.equal(await e('apiCalls.length'),calls);
   await e(`document.querySelector('#builtin-preset').value='semantic-profile';document.querySelector('#apply-builtin-preset').click();document.querySelector('#explain-graphic').open=false;document.querySelector('#composition-menu').open=false;window.scrollTo(0,0);`);
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await mkdir('.cache',{recursive:true});
   await writeFile('.cache/semantic-studio.png',Buffer.from((await cdp('Page.captureScreenshot')).data,'base64'));
   assert.deepEqual(errors,[]);
 });
