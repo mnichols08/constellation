@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.9.0 — Recruiter README Orrery
+
+- Add a Recruiter presentation to Showcase: developer sun, fixed repository planets, broad recency bands, observed active-month size buckets, primary-language colors and a permanent visual key.
+- Reuse loaded public events, branch history and contributor scans. Label unknown evidence and lower bounds; show quarter continuity only with complete loaded branch history. Cap contributor moons at six with overflow counts.
+- Preserve developer-authored Featured hierarchy independently of size. Distinguish verified external participation from external ownership alone; add up to six explicitly curated project-family links that survive configs, shares and randomization.
+- Bound the composition to twelve projects, summarize other loaded repositories and recurring languages, respect reduced motion, and retain the other presentations and themes.
+- Add evidence, configuration, Studio and README-scale browser coverage, an offline example, and rebuild Core/web-component packages for 3.9.0.
+
 ## 3.8.0 — Semantic Studio
 
 - Make the constellation explain itself with a real Studio tour, entry paths and live configuration-derived Explain panel.

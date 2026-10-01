@@ -25,6 +25,7 @@ export function lockRandomParts(current, candidate, locks = {}) {
     for (const key of compositionFields.layout) retain(key);
   }
   retain('projectShowcase');
+  retain('projectRelationships');
   if (Object.values(locks).some(Boolean)) delete result.designCode;
   return result;
 }

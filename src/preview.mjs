@@ -935,6 +935,8 @@ function render({ requireVisibleNodes = false } = {}) {
   }
   const generatedAt = new Date().toISOString();
   const asteroids = options.activityEffect === "asteroids";
+  if (options.readmePresentation === 'recruiter' && !isSample)
+    options.commitFieldData = commitFields.snapshots;
   if (asteroids) {
     options.contributionComet = { enabled: false };
     $("#history-comet").checked = false;
@@ -1049,7 +1051,7 @@ function render({ requireVisibleNodes = false } = {}) {
     (!projected.nodes.some(
       (node) => !options.hiddenNodes.includes(node.full_name),
     ) ||
-      !svg.includes('class="star"') ||
+      !/class="[^"]*\bstar\b/.test(svg) ||
       svg.includes("No projects match these filters or historical year."))
   )
     return false;

@@ -87,6 +87,8 @@ const allowed = new Map([
     "scene-layers",
     "studio-layers",
     "renderer-svg",
+    "recruiter",
+    "recruiter-svg",
     "data-pipeline",
     "data-transforms",
     "data-mappings",

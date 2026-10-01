@@ -1,3 +1,4 @@
+import { compareRecruiterProjects, prepareRecruiterScene, validateProjectRelationships } from "./recruiter.mjs";
 import { layoutScene } from "./layout-api.mjs";
 import { accountSunMode } from "./account-sun.mjs";
 import { validateSemanticOptions, semanticActive } from './semantic-studio.mjs';
@@ -419,6 +420,9 @@ export function selectRepositoryPool(repositories, options = {}) {
       ),
     ].slice(0, options.maxRepos ?? 100);
   }
+  if (options.readmePresentation === "recruiter") return eligible
+    .filter(repo => !(options.hiddenNodes || []).includes(repo.full_name))
+    .sort((a, b) => compareRecruiterProjects(a, b, options)).slice(0, Math.min(12, maxRepos));
   const explicitRoles = Object.values(options.projectShowcase || {});
   if (
     options.readmePresentation === "featured-work" &&
@@ -778,6 +782,14 @@ export function createScene(
   options = {},
   { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {},
 ) {
+  validateProjectRelationships(options.projectRelationships);
+  if (options.readmePresentation === 'recruiter') options = {
+    ...options, arrangement: 'solar-system', nodeMode: 'repositories', accountType: 'user',
+    temporalStack: undefined, timeline: undefined, history: undefined, historicalYear: undefined, timeLapse: false,
+    ringMeaning: 'identity', ringOrganization: 'identity', layoutEngine: undefined, layoutRefinement: { enabled: false, intensity: 0 },
+    starPositions: {}, labelPositions: {}, labelOffsets: {}, perspective: { enabled: false },
+    ringAnimation: { enabled: false }, floatingAnimation: { enabled: false },
+  };
   accountSunMode(options.accountSun);
   validateSemanticOptions(options);
   if (options.temporalStack !== undefined)
@@ -1569,7 +1581,7 @@ export function createScene(
       style: { primary: backbone.has(edge) },
     }));
   signal?.throwIfAborted();
-  return JSON.parse(
+  return prepareRecruiterScene(JSON.parse(
     JSON.stringify({
       version: 1,
       kind: "scene",
@@ -1650,5 +1662,5 @@ export function createScene(
         },
       },
     }),
-  );
+  ), repositories.filter(repo => repo.private !== true).length);
 }
