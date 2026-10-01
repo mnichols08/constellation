@@ -2,7 +2,7 @@
 
 Turn developer and project data into interactive maps, embedded experiences, and README graphics.
 
-**v3.9.0 — Recruiter README Orrery.** Choose **Showcase → README presentation → Recruiter** for a standalone project map: recency bands, observed sustained activity, primary languages, contributor moons and a permanent visual key. Curate featured work and project-family links. [Reading guide and evidence limits](docs/readme-showcase.md#recruiter-project-orrery) · [Offline example](examples/recruiter.svg).
+**v3.9.1 — Simplified Recruiter README.** Choose **Showcase → README presentation → Recruiter** for a standalone project map: seven curated projects, role-based sizes, three recency bands, primary languages, recurring topics and a compact visual key. Curate featured work and project-family links. [Reading guide and evidence limits](docs/readme-showcase.md#recruiter-project-orrery) · [Offline example](examples/recruiter.svg).
 
 **GitHub activity tells Constellation what exists. You decide what represents you.** Mark projects Featured, Supporting, Experimental or Historical, then choose how that intent appears in your README constellation. Roles are yours; they do not infer importance from stars or recency.
 

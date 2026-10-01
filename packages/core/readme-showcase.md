@@ -55,20 +55,27 @@ Profiles change composition budgets, not the saved project selection. A smaller 
 
 ## Recruiter project orrery
 
-Select **Showcase → README presentation → Recruiter · project orrery**. This presentation uses a fixed 1200 × 940 canvas, scalable to README widths of 800–1200 pixels, in place of compact export geometry. Themes and animation preferences remain available. Positions, size, color and the permanent key have fixed data meanings; manual positioning, category graphs, perspective, decorative motion and profile scores do not apply to this presentation. Other presentations retain their settings.
+Select **Showcase → README presentation → Recruiter · project orrery**. The simplified 3.9.x presentation uses a fixed 1200 × 840 canvas, scalable to README widths of 800–1200 pixels. Themes and animation preferences remain available. Manual positioning, category graphs, perspective, decorative motion and profile scores do not apply here. Other presentations retain their settings.
 
-| Visual | Evidence |
+### Visual recruiter presentation
+
+The center shows display name (when available), username, up to three primary languages and up to three recurring repository topics. Topics must occur in at least two displayed projects; duplicate tags within a repository and generic tags such as `github`, `readme` and `portfolio` are excluded. Missing or noisy topics are omitted; no professional roles are inferred.
+
+| Visual | Meaning |
 | --- | --- |
-| Distance from developer | Latest non-future `pushed_at` or observed push, pull-request or release event. Bands: under 30 days, under roughly 6 months, under roughly 18 months, older. Unknown dates are explicitly labeled on the outer band. Repository recency is not necessarily the developer's own recent activity. |
-| Planet radius | Distinct calendar months with loaded commits or work events, in four buckets: 1–2, 3–8, 9–23, 24+. No stars, commit volume or repository-age sizing. `+` marks a lower bound from partial history. Hollow planets mean history unavailable, not brief work. |
-| Planet color and language counts | Primary repository language; counts cover displayed projects, not skill levels. |
-| Moons | Distinct loaded contributor logins excluding the profile owner. Up to six, with overflow. Capped scans use `+` lower bounds. Missing scans say “contributors unknown”; no moons alone does not establish solo work. |
-| Bold project name | Explicit `projectShowcase` Featured role, independent of radius. |
-| CONTRIB / EXT | An external repository with observed account participation / external ownership with participation unverified. Contributor login, commit author login or account work events establish participation; ownership alone does not. |
-| Segmented arc | Active quarters over the last three years, oldest to newest clockwise, only when complete loaded branch commit history is available, and only for featured or substantial projects. Gaps describe that branch history, not all work across all branches. |
+| Planet size | Developer-curated importance: Featured largest, Supporting medium, Experimental/Historical small; unassigned projects use a conservative default. This reflects user curation, never automated quality scoring, skill, stars or active-month counts. |
+| Distance | Latest non-future repository push or observed work event. NOW: under 30 days; RECENT: under 183 days; EARLIER: older. Unknown dates are placed outside with a caveat in the project title. Repository activity is not necessarily the developer's own activity. |
+| Color and language counts | Primary repository language; counts cover displayed projects, not skill levels. |
+| Featured labels | Up to three lines: name, primary language, and other loaded contributors when known and positive (excluding the profile owner). Partial contributor counts retain `+`. Confirmed external participation adds a secondary `contributed` marker beside the language. Other projects have name-only labels. |
 | Quiet connection | Explicitly curated pair in `projectRelationships`; never inferred from shared languages or topics. |
 
-Projects use existing selection and filters, capped at twelve, prioritized by authored roles/order then repository push recency. Other loaded public repositories are counted separately, including those outside the current filters. This is not an account-wide total when discovery is partial. Short names in labels retain full names in SVG titles. Only contributor moons and recent featured outlines animate; reduced-motion and static exports retain every signal.
+Projects respect existing selection and filters, capped at seven (or a lower `maxRepos`), prioritized by authored roles/order then repository push recency. Aim to curate 2–4 Featured, 2–3 Supporting and optionally one Experimental/Historical project. Roles are never assigned automatically. Other loaded public repositories are counted separately, including those outside current filters; this is not an account-wide total when discovery is partial. Long labels are truncated with full identity and repository names in accessible titles.
+
+Existing 3.9 configurations remain valid, but Recruiter exports now show fewer projects, use role-based size and three recency bands, and have a shorter canvas. No new settings are required. Moons, quarterly arcs, hollow unknown-history planets and per-project history rows are removed from the visual presentation. Only the slow recent Featured outline animates; reduced motion and static exports preserve all essential information.
+
+### Underlying evidence
+
+Loaded active months, complete-history quarters, partial-scan flags and verified participation remain available internally. Project titles retain active-month lower bounds, unknown history/contributors/recency, and external ownership versus confirmed participation caveats. Missing history does not alter a project's size or fill. Missing contributor scans never establish solo work. The compact key explains size, distance and color, plus a relationship line only when present.
 
 Add related pairs in Showcase, one `owner/repo ↔ owner/repo` per line, up to six. Both endpoints must be displayed for a connection to appear. Example config fields:
 
@@ -85,4 +92,4 @@ Add related pairs in Showcase, one `owner/repo ↔ owner/repo` per line, up to s
 
 The renderer reuses `historyData`, `commitHistoryData`, `commitFieldData` and `organizationData` snapshots already supplied by the application or API. Selecting the presentation performs no network enrichment. Public metadata alone cannot establish sustained history or contributor counts. Authenticated activity/commit/contributor loading remains explicit in the existing Studio controls. Config/share links preserve curation, not runtime snapshots: another device or a daily workflow must reload evidence. GitHub's recent event feed and capped commit samples cannot establish lifetime continuity; absent periods in these samples are never rendered as inactivity gaps. Counts describe observed repository work, not a measure of personal effort or quality.
 
-[Example SVG](../examples/recruiter.svg) uses explicitly synthetic offline test data. Browser regressions save normal, static and key-hidden previews under `.cache/recruiter/` at 800, 1000 and 1200 pixels. Real-user testing should check understanding of lower bounds, hollow unknown-history planets, external participation markers and the distinction between repository activity and individual work.
+[Example SVG](../examples/recruiter.svg) uses explicitly synthetic offline test data. Browser regressions save normal, static and key-hidden previews under `.cache/recruiter/` at 800, 1000 and 1200 pixels. Visual regressions check label bounds, identity, static readability and reduced motion. Repository recency remains distinct from individual work.

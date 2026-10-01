@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.9.1 — Recruiter simplification
+
+- Focus the existing Recruiter SVG on seven curated projects: role-based sizes, three faint recency bands, clearer identity, primary languages and recurring factual topics.
+- Remove moons, quarterly arcs, hollow planets and dense metadata rows from the default visual. Keep Featured contributor text and accessible evidence caveats, with quiet explicit relationships and a compact key.
+- Preserve existing configurations and evidence extraction; update Studio guidance, documentation, example and README-width regressions.
+
 ## 3.9.0 — Recruiter README Orrery
 
 - Add a Recruiter presentation to Showcase: developer sun, fixed repository planets, broad recency bands, observed active-month size buckets, primary-language colors and a permanent visual key.
