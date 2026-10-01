@@ -49,6 +49,7 @@ export function presetOptions(id, current = {}) {
   if (preset.audience === 'any') options.organizationView = 'projects';
   if (current.organizationUser) options.organizationUser = current.organizationUser;
   if (current.projectShowcase) options.projectShowcase = structuredClone(current.projectShowcase);
+  if (current.projectRelationships) options.projectRelationships = structuredClone(current.projectRelationships);
   if (current.referenceDate) options.referenceDate = current.referenceDate;
   return options;
 }

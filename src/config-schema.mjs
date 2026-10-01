@@ -1,3 +1,4 @@
+import { validateProjectRelationships } from "./recruiter.mjs";
 import { renderSceneSVG } from "./renderer-svg.mjs";
 import { commitHistoryOptions } from "./commit-constellation.mjs";
 import { rhythmDefaults, resolveRhythmTimezone } from "./coding-rhythm.mjs";
@@ -22,6 +23,7 @@ const projectShowcaseRoles = [
   "historical",
 ];
 const readmePresentations = [
+  "recruiter",
   "full-universe",
   "featured-work",
   "current-focus",
@@ -29,7 +31,7 @@ const readmePresentations = [
   "project-journey",
 ];
 const fields = new Set(
-  "theme layout maxRepos animate includeForks bridges connectionDensity connectionBasis languages topics showOther css repoSource arrangement profileEmphasis ringAnimation perspective floatingAnimation ringRotation ringRotations identityRing snapToRings nodeMode hiddenNodes hiddenLabels colorConnections nodeColors labelOffsets labelPositions starPositions selection colors title includeRepos minStars includeArchived updatedWithin repoQuery sortBy sizingMode exportProfile visualStyle customCSS seedMode seed nodeSize nodeColorMode nodeGlowMode connectionWeight nodeShape effect legend visualTheme metricDate majorMetric designCode starfield activityEffect activityWindow activityDetail activityConnections activityMetricDate projectShowcase readmePresentation ringOrganization featuredTreatment".split(
+  "theme layout maxRepos animate includeForks bridges connectionDensity connectionBasis languages topics showOther css repoSource arrangement profileEmphasis ringAnimation perspective floatingAnimation ringRotation ringRotations identityRing snapToRings nodeMode hiddenNodes hiddenLabels colorConnections nodeColors labelOffsets labelPositions starPositions selection colors title includeRepos minStars includeArchived updatedWithin repoQuery sortBy sizingMode exportProfile visualStyle customCSS seedMode seed nodeSize nodeColorMode nodeGlowMode connectionWeight nodeShape effect legend visualTheme metricDate majorMetric designCode starfield activityEffect activityWindow activityDetail activityConnections activityMetricDate projectShowcase projectRelationships readmePresentation ringOrganization featuredTreatment".split(
     " ",
   ),
 );
@@ -137,6 +139,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     )
   )
     throw new Error("Selection must contain node IDs.");
+  validateProjectRelationships(options.projectRelationships);
   if ("projectShowcase" in options) {
     if (!object(options.projectShowcase))
       throw new Error(
@@ -181,7 +184,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     !readmePresentations.includes(options.readmePresentation)
   )
     throw new Error(
-      "readmePresentation must be full-universe, featured-work, current-focus, technology-identity or project-journey.",
+      "readmePresentation must be recruiter, full-universe, featured-work, current-focus, technology-identity or project-journey.",
     );
   if (
     "ringOrganization" in options &&

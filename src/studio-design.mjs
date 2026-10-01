@@ -21,7 +21,7 @@ import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 export const designDefaults = { ringMeaning: 'identity', semanticLegend: false, accountSun: 'off', ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
 export function preserveShowcaseOptions(recipe, current = {}) {
-  return { ...recipe, ...(current.projectShowcase ? { projectShowcase: structuredClone(current.projectShowcase) } : {}), ...(current.readmePresentation ? { readmePresentation: current.readmePresentation } : {}), ...(current.ringOrganization ? { ringOrganization: current.ringOrganization } : {}), ...(current.featuredTreatment ? { featuredTreatment: current.featuredTreatment } : {}) };
+  return { ...recipe, ...(current.projectRelationships ? { projectRelationships: structuredClone(current.projectRelationships) } : {}), ...(current.projectShowcase ? { projectShowcase: structuredClone(current.projectShowcase) } : {}), ...(current.readmePresentation ? { readmePresentation: current.readmePresentation } : {}), ...(current.ringOrganization ? { ringOrganization: current.ringOrganization } : {}), ...(current.featuredTreatment ? { featuredTreatment: current.featuredTreatment } : {}) };
 }
 
 export function mountStudioDesign({ access, host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, findRepositories, reveal }) {
@@ -69,9 +69,14 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   });
   control(meaningPanel, 'semanticLegend', 'Include explanation in exported graphic', null, 'checkbox');
   const showcasePanel = section('Showcase');
-  control(showcasePanel, 'readmePresentation', 'README presentation', [['full-universe', 'Full universe'], ['featured-work', 'Featured work'], ['current-focus', 'Current focus'], ['technology-identity', 'Technology identity'], ['project-journey', 'Project journey']]);
+  control(showcasePanel, 'readmePresentation', 'README presentation', [['recruiter', 'Recruiter · project orrery'], ['full-universe', 'Full universe'], ['featured-work', 'Featured work'], ['current-focus', 'Current focus'], ['technology-identity', 'Technology identity'], ['project-journey', 'Project journey']]);
   control(showcasePanel, 'ringOrganization', 'Organize rings by', [['identity', 'Identity / automatic'], ['importance', 'Project importance'], ['activity', 'Activity'], ['manual', 'Manual']]);
   control(showcasePanel, 'featuredTreatment', 'Featured project treatment', [['star', 'Star only'], ['label', 'Star + prominent label'], ['spotlight', 'Compact spotlight']]);
+  const relationshipLabel = document.createElement('label'); relationshipLabel.textContent = 'Related projects (one owner/repo ↔ owner/repo pair per line, up to six)'; relationshipLabel.htmlFor = 'project-relationships';
+  const relationships = document.createElement('textarea'); relationships.id = relationshipLabel.htmlFor; relationships.rows = 3;
+  relationships.addEventListener('change', () => changed());
+  const recruiterNote = document.createElement('p'); recruiterNote.className = 'export-note'; recruiterNote.textContent = 'Recruiter uses a fixed readable canvas and factual encodings, up to 12 selected repositories. Existing filters and roles apply. Loaded history and contributor scans are reused; unknown evidence is labeled. Curate relationships explicitly; shared languages do not create links.';
+  showcasePanel.append(recruiterNote, relationshipLabel, relationships);
   const showcaseList = document.createElement('ol'); showcaseList.className = 'showcase-curation-list'; showcaseList.setAttribute('aria-label', 'Project roles and featured order');
   const showcaseNote = document.createElement('p'); showcaseNote.className = 'export-note'; showcaseNote.textContent = 'Roles express your presentation intent, not GitHub popularity or activity. Projects missing from the current data keep their saved role.';
   showcasePanel.append(showcaseNote, showcaseList);
@@ -360,6 +365,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
       const value = key.startsWith('sky-') ? sky[key.slice(4)] : options[key] ?? (key === 'nodeSize' ? options.sizingMode : undefined) ?? designDefaults[key] ?? 'custom';
       if (input.type === 'checkbox') input.checked = value; else input.value = value;
     }
+    relationships.value = (options.projectRelationships || []).map(pair => pair.join(' ↔ ')).join('\n');
     const refinement = layoutRefinementOptions(options.layoutRefinement);
     refinementEnabled.checked = refinement.enabled; refinementIntensity.value = refinement.intensity; syncRefinement();
     controls.get('codingRhythmStyle').value = options.codingRhythm ? options.codingRhythmStyle || 'orbit' : 'hidden';
@@ -375,7 +381,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
       const projectShowcase = { ...(current?.options.projectShowcase || {}) };
       for (const [id, entry] of roleEntries()) entry ? projectShowcase[id] = entry : delete projectShowcase[id];
-      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), projectRelationships: relationships.value.split(/\r?\n/).filter(line => line.trim()).map(line => line.split(/\s*(?:↔|<->|,)\s*/).map(id => id.trim())), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
       if (current && current.account !== account) { undoConfig = null; undo.disabled = true; tour.close(); }

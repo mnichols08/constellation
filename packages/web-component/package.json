@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -10,7 +10,7 @@
     "developer-topology.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.8.0"
+    "@constellation/core": "3.9.0"
   },
   "license": "UNLICENSED"
 }

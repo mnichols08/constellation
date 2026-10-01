@@ -1,3 +1,4 @@
+import { renderRecruiterSVG } from "./recruiter-svg.mjs";
 import { composeLayers, selectionForScene } from "./scene-layers.mjs";
 import { renderNodeIcon } from "./theme-packs.mjs";
 import { assertScene } from "./scene.mjs";
@@ -88,6 +89,7 @@ const boundedText = (value, limit) =>
 
 export function renderSceneSVG(visualScene, renderOptions) {
   assertScene(visualScene);
+  if (visualScene.presentation.options.readmePresentation === "recruiter") return renderRecruiterSVG(visualScene);
   if (visualScene.temporalStack)
     return renderTemporalStackSVG(visualScene, renderOptions);
   if (visualScene.kind === "time-lapse") {
