@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const DIMENSIONS: [&str; 6] = [
     "interface",
@@ -89,6 +89,11 @@ fn role_weight(role: &str) -> f64 {
     }
 }
 
+fn normalized_language(value: &str) -> String {
+    // Language punctuation carries meaning: C, C++ and C# are distinct.
+    normalized(&value.replace('+', "plus").replace('#', "sharp"))
+}
+
 fn language_share(repository: &Repository, candidates: &[&str]) -> f64 {
     let total: f64 = repository
         .languages
@@ -102,7 +107,7 @@ fn language_share(repository: &Repository, candidates: &[&str]) -> f64 {
             .filter(|(name, value)| {
                 candidates
                     .iter()
-                    .any(|candidate| normalized(name) == normalized(candidate))
+                    .any(|candidate| normalized_language(name) == normalized_language(candidate))
                     && value.is_finite()
                     && **value > 0.0
             })
@@ -110,33 +115,38 @@ fn language_share(repository: &Repository, candidates: &[&str]) -> f64 {
             .sum::<f64>()
             .clamp(0.0, 1.0);
     }
-    let names: Vec<_> = repository
+    let names: BTreeSet<_> = repository
         .language_names
         .iter()
-        .map(|name| normalized(name))
+        .map(|name| normalized_language(name))
+        .filter(|name| !name.is_empty())
         .collect();
-    if names.iter().any(|name| {
-        candidates
-            .iter()
-            .any(|candidate| name == &normalized(candidate))
-    }) {
-        1.0 / names.len().max(1) as f64
-    } else {
-        0.0
-    }
+    let matching = names
+        .iter()
+        .filter(|name| {
+            candidates
+                .iter()
+                .any(|candidate| **name == normalized_language(candidate))
+        })
+        .count();
+    matching as f64 / names.len().max(1) as f64
 }
 
 fn language_names_for(repository: &Repository, candidates: &[&str]) -> Vec<String> {
-    if !repository.languages.is_empty() {
+    if repository
+        .languages
+        .values()
+        .any(|value| value.is_finite() && *value > 0.0)
+    {
         return repository
             .languages
             .iter()
             .filter(|(name, value)| {
                 value.is_finite()
                     && **value > 0.0
-                    && candidates
-                        .iter()
-                        .any(|candidate| normalized(name) == normalized(candidate))
+                    && candidates.iter().any(|candidate| {
+                        normalized_language(name) == normalized_language(candidate)
+                    })
             })
             .map(|(name, _)| name.clone())
             .collect();
@@ -147,7 +157,7 @@ fn language_names_for(repository: &Repository, candidates: &[&str]) -> Vec<Strin
         .filter(|name| {
             candidates
                 .iter()
-                .any(|candidate| normalized(name) == normalized(candidate))
+                .any(|candidate| normalized_language(name) == normalized_language(candidate))
         })
         .cloned()
         .collect()
@@ -614,6 +624,43 @@ mod tests {
         assert!(systems > interface);
         let fallback = analyze(input(vec![repo("owner/html", "HTML", &[], "")])).unwrap();
         assert!(fallback.repositories[0].dimensions[0] > 0.0);
+    }
+
+    #[test]
+    fn csharp_is_service_evidence_not_c_or_cpp_systems_evidence() {
+        for language in ["C#", "csharp", "C-Sharp"] {
+            let profile = analyze(input(vec![repo("owner/service", language, &[], "")])).unwrap();
+            assert!(profile.repositories[0].dimensions[1] > 0.0, "{language}");
+            assert_eq!(profile.repositories[0].dimensions[3], 0.0, "{language}");
+        }
+        for language in ["C", "C++"] {
+            let profile = analyze(input(vec![repo("owner/native", language, &[], "")])).unwrap();
+            assert_eq!(profile.repositories[0].dimensions[1], 0.0, "{language}");
+            assert!(profile.repositories[0].dimensions[3] > 0.0, "{language}");
+        }
+    }
+
+    #[test]
+    fn fallback_counts_each_distinct_language_and_keeps_its_reasons() {
+        let mut fallback = repo("owner/web", "HTML", &[], "");
+        fallback.languages.clear();
+        fallback.language_names = vec!["HTML".into(), "CSS".into(), "Rust".into(), "html".into()];
+        let mut measured = repo("owner/web", "HTML", &[], "");
+        measured.languages = BTreeMap::from([
+            ("HTML".into(), 1.0),
+            ("CSS".into(), 1.0),
+            ("Rust".into(), 1.0),
+        ]);
+        let expected = analyze(input(vec![measured])).unwrap().repositories[0]
+            .dimensions
+            .clone();
+        let actual = analyze(input(vec![fallback.clone()])).unwrap();
+        assert_eq!(actual.repositories[0].dimensions, expected);
+        fallback.languages.insert("HTML".into(), 0.0);
+        let zero_bytes = analyze(input(vec![fallback])).unwrap();
+        assert_eq!(zero_bytes.repositories[0].dimensions, expected);
+        assert!(zero_bytes.dimensions[0].evidence[0].reason.contains("HTML"));
+        assert!(zero_bytes.dimensions[0].evidence[0].reason.contains("CSS"));
     }
 
     #[test]

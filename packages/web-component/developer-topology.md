@@ -10,8 +10,10 @@ or Historical roles. Constellation does not assign or change those roles.
 
 ## Evidence dimensions
 
-Mappings use exact normalized language and topic names. Normalization lowercases
-and removes punctuation, so `github-actions` matches `githubactions`. Unknown
+Mappings use exact normalized language and topic names. Topic normalization lowercases
+and removes punctuation, so `github-actions` matches `githubactions`. Language
+normalization preserves meaningful `+` and `#` suffixes: C, C++ and C# stay distinct,
+and C# matches the CSharp alias. Unknown
 languages and topics add no evidence. Topics are useful signals but are never the
 only source: available language proportions and primary language names also
 contribute.
@@ -19,15 +21,16 @@ contribute.
 | Dimension  | Language evidence                                                                                                           | Topic evidence                                                                                                 |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Interface  | HTML, CSS, SCSS, Sass, Vue, Svelte; JavaScript, TypeScript, JSX and TSX contribute only when paired with an interface topic | frontend, interface, UI, web-components, accessibility, design-system, React, Vue, Svelte, Angular, CSS, HTML  |
-| Services   | Go, Java, Kotlin, PHP and Ruby contribute modestly; JavaScript/TypeScript also contribute when paired with a service topic  | backend, server, API, REST, GraphQL, authentication, WebSocket, Express, Node.js, services                     |
+| Services   | Go, Java, Kotlin, PHP, Ruby and C# contribute modestly; JavaScript/TypeScript also contribute when paired with a service topic  | backend, server, API, REST, GraphQL, authentication, WebSocket, Express, Node.js, services                     |
 | Data       | SQL and PL/pgSQL                                                                                                            | database, PostgreSQL, SQLite, MySQL, MongoDB, Prisma, ORM, analytics, ETL, data-processing                     |
 | Systems    | Rust, C, C++, Assembly and Zig; Go contributes modestly                                                                     | systems-programming, native, performance, WASM, WebAssembly, embedded, operating-systems, compiler             |
 | Tooling    | Rust, Python, JavaScript and TypeScript contribute when paired with a tooling topic                                         | CLI, developer-tools, library, testing, build-tools, code-generation, linter, developer-utilities, tooling     |
 | Automation | Shell, Bash, PowerShell, Makefile and Nix                                                                                   | GitHub Actions, CI/CD, deployment, Docker, infrastructure, automation, scripting, release-automation, platform |
 
 For a repository with language byte counts, each matching language contributes
-its fraction of the total detected bytes. If proportions are missing, known
-language names contribute equally. JavaScript and TypeScript alone do not imply
+its fraction of the total detected bytes. If proportions are missing or all zero,
+distinct language names contribute equally and every matching name counts.
+JavaScript and TypeScript alone do not imply
 an interface or service focus. A matching topic signal contributes 0.7 evidence units;
 language mappings contribute the bounded weights encoded in Rust. Contributions
 from one repository are capped before showcase weighting.

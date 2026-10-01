@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.7.1 — Developer Topology review fixes
+
+- Keep C#, C and C++ distinct during language normalization so C# supplies Services evidence instead of incorrect Systems evidence.
+- Count every distinct matching language when byte proportions are unavailable, and retain readable evidence reasons when supplied byte counts are all zero.
+- Retry temporary Windows DevTools port-file locks within the existing startup deadline. Preserve fatal I/O errors and all browser assertions.
+- Add Rust and browser-harness regression coverage and rebuild WASM, Core and web-component artifacts.
+
 ## 3.7.0 — Developer Topology
 
 - Add a deterministic Rust/WASM developer profile engine for Interface, Services, Data, Systems, Tooling and Automation evidence from selected repositories, language proportions, topics and explicit Showcase roles.
