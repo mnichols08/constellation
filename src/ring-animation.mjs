@@ -59,7 +59,8 @@ export function animateRingSVG(svg, settings, geometry, stars, center, spread, e
   const animation = (name, movement, axis, offset = 0) => movement ? `<animate attributeName="${name}" values="${movement.values.map(p => (p[axis] + offset).toFixed(2)).join(';')}" dur="${movement.duration}s" repeatCount="indefinite"/>` : '';
   const byId = new Map(stars.map(star => [escape(star.repo.full_name), { ...star, motion: motion(star.x, star.y) }]));
   const coordinate = (tag, name) => Number(tag.match(new RegExp(` ${name}="([^"]+)"`))?.[1]);
-  let animated = svg.replace(/<g class="repository"[^>]*>[\s\S]*?<\/g>/g, group => {
+  // Showcase roles add class tokens; their nodes still follow the same anchors.
+  let animated = svg.replace(/<g class="repository(?: [^"]*)?"[^>]*>[\s\S]*?<\/g>/g, group => {
     const id = group.match(/data-repo="([^"]+)"/)?.[1], node = byId.get(id);
     if (!node?.motion) return group;
     return group.replace(/<svg class="activity-asteroid-field"[^>]*>/g, field => field + animation('x', node.motion, 0) + animation('y', node.motion, 1))
