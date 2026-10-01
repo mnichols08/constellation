@@ -1,3 +1,4 @@
+import { publicLimitMessage } from "./github-access.mjs";
 const VERSION = 1;
 const API_ORIGIN = "https://api.github.com";
 const DEFAULT_TTL = 15 * 60 * 1000;
@@ -83,14 +84,22 @@ export function createGitHubRequestCache({
   const cooldowns = new Map();
   const epochs = new Map();
   const authScopes = new Map();
+  const rates = new Map();
   const stats = { hit: 0, miss: 0, sharedRequest: 0, revalidation: 0 };
   let retainedBytes = 0;
   let revision = 0;
+  let publicInFlight = 0;
 
   function load() {
     try {
       const saved = JSON.parse(storage?.getItem(storageKey) || "null");
       if (saved?.version !== VERSION || !Array.isArray(saved.entries)) return;
+      if (
+        saved.publicRate &&
+        Number.isFinite(saved.publicRate.remaining) &&
+        Number.isFinite(saved.publicRate.observedAt)
+      )
+        rates.set("public", saved.publicRate);
       for (const item of saved.cooldowns || []) {
         if (
           Array.isArray(item) &&
@@ -130,6 +139,7 @@ export function createGitHubRequestCache({
           version: VERSION,
           entries: publicEntries,
           cooldowns: savedCooldowns,
+          publicRate: rates.get("public"),
         }),
       );
     } catch {
@@ -162,7 +172,11 @@ export function createGitHubRequestCache({
 
   load();
 
-  async function request(input, init = {}, { authContext } = {}) {
+  async function request(
+    input,
+    init = {},
+    { authContext, publicBudget = false } = {},
+  ) {
     const url = new URL(input instanceof Request ? input.url : input);
     const method = (
       init.method || (input instanceof Request ? input.method : "GET")
@@ -190,16 +204,37 @@ export function createGitHubRequestCache({
     const representation = headers.get("accept") || "";
     const scope = await authKey(context, authScopes);
     const key = `${method}\n${url.href}\n${representation}\n${scope}`;
+    if (pending.has(key) && (!bypass || pending.get(key).refresh)) {
+      stats.sharedRequest++;
+      return waitForConsumer(
+        pending.get(key).promise.then(cloneNetworkResponse),
+        signal,
+      );
+    }
     let cached = entries.get(key);
     const time = now();
     const cooldownUntil = cooldowns.get(scope) || 0;
-    if (cooldownUntil > time)
+    const rate = rates.get(scope);
+    const stopped =
+      cooldownUntil > time ||
+      (publicBudget &&
+        !context &&
+        rate?.remaining - publicInFlight <= 5 &&
+        (rate.reset || rate.observedAt + 60000) > time);
+    // Cached data stays useful even while GitHub refuses new requests.
+    if (stopped && cached && publicBudget && !context) {
+      stats.hit++;
+      return cloneResponse(cached, { "X-Constellation-Cache": "hit" });
+    }
+    if (stopped)
       throw new Error(
-        `GitHub rate limit is active; retry after ${new Date(cooldownUntil).toISOString()}.`,
+        publicBudget && !context
+          ? publicLimitMessage(rate?.reset)
+          : `GitHub rate limit is active; retry after ${new Date(cooldownUntil).toISOString()}.`,
       );
     if (bypass) {
       epochs.set(key, (epochs.get(key) || 0) + 1);
-      if (cached) {
+      if (cached && !(publicBudget && !context)) {
         retainedBytes -= cached.size;
         entries.delete(key);
         persist();
@@ -218,13 +253,6 @@ export function createGitHubRequestCache({
       );
     }
     const cooldownKey = scope;
-    if (pending.has(key) && (!bypass || pending.get(key).refresh)) {
-      stats.sharedRequest++;
-      return waitForConsumer(
-        pending.get(key).promise.then(cloneNetworkResponse),
-        signal,
-      );
-    }
 
     stats.miss++;
     const requestRevision = revision,
@@ -233,18 +261,36 @@ export function createGitHubRequestCache({
       const requestHeaders = new Headers(headers);
       if (!bypass && cached?.etag)
         requestHeaders.set("If-None-Match", cached.etag);
-      const response = await fetchImpl(input, {
-        ...nativeInit,
-        headers: requestHeaders,
-        signal: AbortSignal.timeout(20000),
-      });
+      let response;
+      if (publicBudget && !context) publicInFlight++;
+      try {
+        response = await fetchImpl(input, {
+          ...nativeInit,
+          headers: requestHeaders,
+          signal: AbortSignal.timeout(20000),
+        });
+      } finally {
+        if (publicBudget && !context) publicInFlight--;
+      }
       if (!response || typeof response.status !== "number") return response;
       const getHeader = (name) => response.headers?.get?.(name) || null;
       const retryAfter = getHeader("retry-after");
       const remaining = getHeader("x-ratelimit-remaining");
+      if (remaining !== null)
+        rates.set(scope, {
+          limit:
+            getHeader("x-ratelimit-limit") === null
+              ? null
+              : Number(getHeader("x-ratelimit-limit")),
+          remaining: Number(remaining),
+          reset: Number(getHeader("x-ratelimit-reset")) * 1000 || null,
+          resource: getHeader("x-ratelimit-resource") || "core",
+          observedAt: now(),
+        });
       if (
         response.status === 429 ||
-        (response.status === 403 && (retryAfter || remaining === "0"))
+        (response.status === 403 &&
+          (publicBudget || retryAfter || remaining === "0"))
       ) {
         const resetValue = Number(getHeader("x-ratelimit-reset"));
         const resetMs =
@@ -263,7 +309,11 @@ export function createGitHubRequestCache({
           Math.max(
             cooldowns.get(cooldownKey) || 0,
             time +
-              Math.max(Number.isFinite(retryMs) ? retryMs : 0, resetMs, 1000),
+              Math.max(
+                Number.isFinite(retryMs) ? retryMs : 0,
+                resetMs,
+                publicBudget && !retryMs && !resetMs ? 60000 : 1000,
+              ),
           ),
         );
         if (cooldowns.size > 64)
@@ -271,6 +321,8 @@ export function createGitHubRequestCache({
             [...cooldowns].sort((left, right) => left[1] - right[1])[0][0],
           );
         persist();
+        if (publicBudget && !context)
+          throw new Error(publicLimitMessage(rates.get(scope)?.reset));
       }
       if (response.status === 304 && cached) {
         stats.revalidation++;
@@ -342,6 +394,18 @@ export function createGitHubRequestCache({
 
   return {
     fetch: request,
+    publicRateLimit() {
+      const rate = rates.get("public");
+      return {
+        ...rate,
+        stopped:
+          (cooldowns.get("public") || 0) > now() ||
+          Boolean(
+            rate?.remaining <= 5 &&
+            (rate.reset || rate.observedAt + 60000) > now(),
+          ),
+      };
+    },
     clear() {
       revision++;
       entries.clear();

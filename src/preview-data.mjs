@@ -23,16 +23,22 @@ import {
 import { createRepositoryCommits } from "./repository-commits.mjs";
 import { commitHistoryOptions } from "./commit-constellation.mjs";
 import { createGitHubRequestCache } from "./github-request-cache.mjs";
+import {
+  createGitHubAccess,
+  requireGitHubCapability,
+} from "./github-access.mjs";
 
 // Match the studio's render gate, not just repository metadata. A recipe that
 // needs uncached languages would leave the previous (possibly empty) SVG visible.
-export function canRenderPreview(repositories, options) {
+export function canRenderPreview(repositories, options, access) {
   if (options.nodeMode === "commits")
     return graphNodes(repositories, options).nodes.length > 0;
   const pool = selectRepositoryPool(repositories, options);
   if (
     !pool.length ||
-    (!organizationEnabled(options) && pool.some((repo) => !repo.languages))
+    (access?.mode !== "public" &&
+      !organizationEnabled(options) &&
+      pool.some((repo) => !repo.languages))
   )
     return false;
   const hidden = new Set(options.hiddenNodes || []);
@@ -49,6 +55,9 @@ export function createPreviewFetch({
   localAuth = false,
   requestCache,
 } = {}) {
+  const access = createGitHubAccess({
+    authenticated: () => Boolean(session?.token || (proxyBase && localAuth)),
+  });
   const cache =
     requestCache ||
     createGitHubRequestCache({
@@ -58,7 +67,7 @@ export function createPreviewFetch({
         if (session?.token && target.origin === "https://api.github.com")
           return session.fetch(url, options);
         const destination =
-          proxyBase && target.origin === "https://api.github.com"
+          proxyBase && localAuth && target.origin === "https://api.github.com"
             ? `${proxyBase}${target.pathname}${target.search}`
             : url;
         return fetchImpl(destination, options);
@@ -66,14 +75,34 @@ export function createPreviewFetch({
     });
   const cachedFetch = (url, options = {}) => {
     const target = new URL(url);
+    if (!access.authenticated && target.origin === "https://api.github.com") {
+      const path = target.pathname;
+      const metadata = /^\/repos\/[^/]+\/[^/]+$/.test(path);
+      const profile = /^\/(users|orgs)\/[^/]+$/.test(path);
+      const listing =
+        /^\/(users|orgs)\/[^/]+\/repos$/.test(path) &&
+        Number(target.searchParams.get("page") || 1) === 1 &&
+        Number(target.searchParams.get("per_page") || 30) <= 100;
+      if (
+        (options.method && options.method !== "GET") ||
+        !(metadata || profile || listing)
+      )
+        return Promise.reject(
+          new Error("Sign in with GitHub to load this data."),
+        );
+    }
     const authContext =
       session?.token ||
       (proxyBase && localAuth && target.origin === "https://api.github.com"
         ? "local-proxy-authenticated"
         : null);
-    return cache.fetch(url, options, { authContext });
+    return cache.fetch(url, options, {
+      authContext,
+      publicBudget: !access.authenticated,
+    });
   };
   cachedFetch.requestCache = cache;
+  cachedFetch.access = access;
   return cachedFetch;
 }
 
@@ -81,6 +110,7 @@ export function createPinnedFetch({
   proxyBase,
   fetchImpl = fetch,
   session,
+  localAuth = false,
 } = {}) {
   return async (account) => {
     if (session?.token)
@@ -88,7 +118,7 @@ export function createPinnedFetch({
         token: session.token,
         fetchImpl: session.fetch,
       });
-    if (!proxyBase)
+    if (!proxyBase || !localAuth)
       throw new Error(
         "Continue with GitHub to preview pinned repositories, or use GH_TOKEN in the local studio.",
       );
@@ -110,22 +140,47 @@ export function createPreviewData({
   storage,
   fetchImpl = fetch,
   fetchPinned = createPinnedFetch(),
+  access = fetchImpl.access || createGitHubAccess(),
 } = {}) {
   const organization = createOrganizationData({ storage, fetchImpl });
-  const contributed = createContributedRepositories({ fetchImpl });
-  const commitClient = createRepositoryCommits({ fetchImpl }),
+  const contributed = createContributedRepositories({
+    fetchImpl,
+    access,
+    storage,
+  });
+  const commitClient = createRepositoryCommits({ fetchImpl, access }),
     commitSnapshots = new Map();
   const profiles = new Map(),
     organizationSnapshots = new Map();
   const key = "constellation-public-data-v1";
   let accounts = {};
+  let modes = {};
+  let manual = {};
   try {
     const saved = JSON.parse(storage?.getItem(key) || "{}");
     if (saved && typeof saved === "object" && !Array.isArray(saved))
       accounts = saved;
+    const savedModes = JSON.parse(storage?.getItem(key + "-modes") || "{}");
+    if (
+      savedModes &&
+      typeof savedModes === "object" &&
+      !Array.isArray(savedModes)
+    )
+      modes = savedModes;
+    const savedManual = JSON.parse(storage?.getItem(key + "-manual") || "{}");
+    if (
+      savedManual &&
+      typeof savedManual === "object" &&
+      !Array.isArray(savedManual)
+    )
+      manual = Object.fromEntries(
+        Object.entries(savedManual).filter(([, names]) => Array.isArray(names)),
+      );
   } catch {
     /* Storage is optional, including in private browsing. */
   }
+  for (const repositories of Object.values(accounts))
+    if (Array.isArray(repositories)) contributed.remember(repositories);
   const caches = new Map();
   const pending = new Map();
   const loadEpochs = new Map();
@@ -155,6 +210,7 @@ export function createPreviewData({
   const activityPending = new Map();
   const activityEpochs = new Map();
   async function loadActivity(name, refresh) {
+    requireGitHubCapability(access, "activity");
     if (activityPending.has(name) && !refresh) return activityPending.get(name);
     if (!refresh && Object.hasOwn(activityAccounts, name))
       return activityAccounts[name];
@@ -185,6 +241,8 @@ export function createPreviewData({
   const save = () => {
     try {
       storage?.setItem(key, JSON.stringify(accounts));
+      storage?.setItem(key + "-modes", JSON.stringify(modes));
+      storage?.setItem(key + "-manual", JSON.stringify(manual));
     } catch {}
   };
   const sourceKey = (account, options = {}) => {
@@ -201,10 +259,19 @@ export function createPreviewData({
   };
   async function load(
     account,
-    options,
-    { refresh = false, onProgress, activity = true, languages = true } = {},
+    options = {},
+    {
+      refresh = false,
+      onProgress,
+      activity = access.capabilities.activity,
+      languages = access.capabilities.languageBreakdowns,
+    } = {},
   ) {
     const name = username(account).toLowerCase();
+    if (options.repoSource === "pinned")
+      requireGitHubCapability(access, "pinnedRepositories");
+    if (options.nodeMode === "commits")
+      requireGitHubCapability(access, "commitHistory");
     const key = sourceKey(name, options);
     if (pending.has(key) && !refresh) return pending.get(key);
     const epoch = refresh
@@ -213,6 +280,74 @@ export function createPreviewData({
     if (refresh) loadEpochs.set(key, epoch);
     const isCurrent = () => (loadEpochs.get(key) || 0) === epoch;
     const request = (async () => {
+      if (!access.authenticated) {
+        // Publish atomically: a failed refresh leaves the previous snapshot usable.
+        let profile = !refresh && profiles.get(name);
+        if (!profile) {
+          const response = await fetchImpl(
+            `https://api.github.com/users/${name}`,
+            { refresh },
+          );
+          if (!response.ok)
+            throw new Error(
+              `Could not load public account (HTTP ${response.status}).`,
+            );
+          const raw = await response.json();
+          profile = {
+            login: raw.login || name,
+            name: raw.name,
+            type: raw.type || "User",
+            avatar_url: raw.avatar_url,
+            public_repos: raw.public_repos,
+          };
+        }
+        if (!isCurrent()) return snapshot(name, options);
+        let listed = !refresh && snapshot(name, options);
+        if (!listed) {
+          const kind = profile.type === "Organization" ? "orgs" : "users";
+          const response = await fetchImpl(
+            `https://api.github.com/${kind}/${name}/repos?type=${kind === "orgs" ? "public" : "owner"}&sort=updated&per_page=100&page=1`,
+            { refresh },
+          );
+          if (!response.ok)
+            throw new Error(
+              `Could not load public repositories (HTTP ${response.status}).`,
+            );
+          const raw = await response.json();
+          if (!Array.isArray(raw))
+            throw new Error("Unexpected repository response.");
+          listed = raw
+            .slice(0, 100)
+            .filter(
+              (repo) =>
+                repo.private === false &&
+                repo.full_name?.split("/")[0].toLowerCase() === name,
+            );
+          const remembered = new Set(manual[key] || []);
+          const external = (snapshot(name, options) || []).filter(
+            (repo) =>
+              repo.private === false &&
+              (remembered.has(repo.full_name.toLowerCase()) ||
+                repo.full_name?.split("/")[0].toLowerCase() !== name),
+          );
+          listed = [
+            ...new Map(
+              [...external, ...listed].map((repo) => [
+                repo.full_name.toLowerCase(),
+                repo,
+              ]),
+            ).values(),
+          ];
+        }
+        if (isCurrent()) {
+          profiles.set(name, profile);
+          accounts[key] = listed;
+          modes[key] = "public";
+          contributed.remember(listed);
+          save();
+        }
+        return snapshot(name, options);
+      }
       const profile = await organization.resolve(name, options, refresh);
       if (!isCurrent()) return snapshot(name, options);
       profiles.set(name, profile);
@@ -227,7 +362,8 @@ export function createPreviewData({
           : null;
       if (!isCurrent()) return snapshot(name, options);
       // Keep the previous snapshot available if refreshing fails.
-      let listed = !refresh && snapshot(name, options);
+      let listed =
+        !refresh && modes[key] !== "public" && snapshot(name, options);
       let discovered;
       if (profile.type === "Organization" && options.repoSource !== "pinned") {
         discovered = await organization.discover(name, options, { refresh });
@@ -263,6 +399,7 @@ export function createPreviewData({
       const cache = caches.get(name) || new Map();
       caches.set(name, cache);
       accounts[key] = listed;
+      modes[key] = "authenticated";
       if (isCurrent()) save();
       if (activity) await loadActivity(name, refresh);
       if (!isCurrent()) return snapshot(name, options);
@@ -357,6 +494,12 @@ export function createPreviewData({
   }
   function remember(account, repositories) {
     const key = sourceKey(account);
+    manual[key] = [
+      ...new Set([
+        ...(manual[key] || []),
+        ...repositories.map((repo) => repo.full_name.toLowerCase()),
+      ]),
+    ];
     if (Array.isArray(accounts[key])) {
       const merged = new Map(
         accounts[key].map((repo) => [repo.full_name.toLowerCase(), repo]),
@@ -369,6 +512,7 @@ export function createPreviewData({
     }
   }
   return {
+    access,
     snapshot,
     load,
     loadActivity: (account, refresh = false) =>

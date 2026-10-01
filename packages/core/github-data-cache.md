@@ -14,10 +14,12 @@ Only GitHub REST `GET` responses are eligible. Mutations and GraphQL `POST`s are
 
 ## Refresh and rate limits
 
-Studio's Refresh data controls and CLI `--refresh-data` bypass request and loader caches and issue fresh requests. A newer refresh supersedes older in-flight cache writes and Studio snapshot writes. Refresh does not override a live GitHub rate-limit instruction: `Retry-After` or `X-RateLimit-Reset` establishes a bounded cooldown, and subsequent requests fail locally with the retry time instead of repeatedly contacting GitHub. The cooldown survives reloads as hashed metadata only. Existing loaders keep their partial-result diagnostics; the HTTP cache does not silently present expired bodies as current during a rate-limit wait.
+Studio's Refresh data controls and CLI `--refresh-data` bypass request and loader caches and issue fresh requests. A newer refresh supersedes older in-flight cache writes and Studio snapshot writes. Refresh does not override a live GitHub rate-limit instruction: `Retry-After` or `X-RateLimit-Reset` establishes a bounded cooldown, and subsequent requests fail locally with the retry time instead of repeatedly contacting GitHub. The cooldown survives reloads as hashed metadata only. Existing loaders keep their partial-result diagnostics; cached bodies remain available during the wait, and public-mode status explains that new requests have stopped.
 
 No background polling is used. Request counts can be inspected from `requestCache.statistics()` (`hit`, `miss`, `sharedRequest`, `revalidation`, `entries`, and `retainedBytes`).
 
 ## Verification
 
 The deterministic mocked comparison runs independent contribution and commit loaders against the same repository. Without a shared request cache it makes three GitHub GETs: two identical repository-metadata requests and one commit-list request. With the shared request cache it makes two: one metadata request shared by both loaders and one commit-list request. This is a measured test fixture result, not a claim about all accounts or sessions.
+
+Public browser loads are limited to profile identity and one repository page. Public Refresh invalidates only those discovery requests; cached manually added repositories remain available. Optional enrichment is gated by the shared GitHub capability model. The browser records `X-RateLimit-Limit`, `Remaining`, `Reset` and `Resource` headers and reserves five remaining requests, accounting for in-flight calls. A 403/429 stops subsequent requests without retries. Reset times are shown only when GitHub supplies them; otherwise the message asks users to retry later or sign in. Cached responses and existing repository snapshots remain usable. `requestCache.publicRateLimit()` exposes credential-free diagnostics.

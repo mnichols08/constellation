@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { studioPresets, presetOptions } from '../src/studio-presets.mjs';
@@ -45,7 +46,7 @@ test('built-in presets round-trip, render, and replace restrictive random settin
 
 test('organization atlas loads without contributor or user contribution requests', async () => {
   const calls = [];
-  const data = createPreviewData({ fetchImpl: async url => {
+  const data = authenticatedPreviewData({ fetchImpl: async url => {
     calls.push(url);
     const path = new URL(url).pathname;
     if (path === '/orgs/collective') return Response.json({ login: 'collective', type: 'Organization', public_repos: 1 });
@@ -58,3 +59,5 @@ test('organization atlas loads without contributor or user contribution requests
   assert.equal(data.organization('collective').scanned, 0);
   assert.equal(calls.some(url => /contributors|search\/issues/.test(url)), false);
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

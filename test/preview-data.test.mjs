@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createPreviewData, canRenderPreview } from "../src/preview-data.mjs";
@@ -87,7 +88,7 @@ function fixture() {
 
 test("customization, returning to an account, and tab reloads reuse the first snapshot", async () => {
   const f = fixture();
-  let data = createPreviewData(f);
+  let data = authenticatedPreviewData(f);
   const repos = await data.load("Octocat", { maxRepos: 5 });
   assert.equal(f.calls.length, 8);
   for (const maxRepos of [1, 3, 5]) {
@@ -103,7 +104,7 @@ test("customization, returning to an account, and tab reloads reuse the first sn
     );
   }
   await data.load("OCTOCAT", { maxRepos: 5 });
-  data = createPreviewData(f);
+  data = authenticatedPreviewData(f);
   await data.load("octocat", { maxRepos: 5 });
   assert.equal(f.calls.length, 8);
   assert.equal(
@@ -137,7 +138,7 @@ test("partial successes survive a failed load and a tab reload", async () => {
     }
     return original(url);
   };
-  const data = createPreviewData(f);
+  const data = authenticatedPreviewData(f);
   await assert.rejects(data.load("octocat", { maxRepos: 5 }), /limit/);
   assert.ok(data.snapshot("octocat").some((repo) => repo.languages));
   const saved = data
@@ -145,7 +146,7 @@ test("partial successes survive a failed load and a tab reload", async () => {
     .filter((repo) => repo.languages).length;
   f.calls.length = 0;
   f.fetchImpl = original;
-  await createPreviewData(f).load("octocat", { maxRepos: 5 });
+  await authenticatedPreviewData(f).load("octocat", { maxRepos: 5 });
   assert.equal(f.calls.length, 5 - saved);
   assert.ok(f.calls.every((url) => !url.includes("/users/")));
 });
@@ -160,7 +161,7 @@ test("storage restrictions do not break in-memory caching and concurrent loads a
       throw Error("quota");
     },
   };
-  const data = createPreviewData(f);
+  const data = authenticatedPreviewData(f);
   await Promise.all([
     data.load("octocat", { maxRepos: 5 }),
     data.load("octocat", { maxRepos: 5 }),
@@ -204,7 +205,7 @@ test("a delayed earlier account load cannot overwrite an explicit refresh", asyn
     }
     throw Error(`Unexpected request ${url}`);
   };
-  const data = createPreviewData({ fetchImpl });
+  const data = authenticatedPreviewData({ fetchImpl });
   const earlier = data.load(
     "octocat",
     { maxRepos: 5 },
@@ -231,3 +232,5 @@ test("a delayed earlier account load cannot overwrite an explicit refresh", asyn
   assert.equal(data.snapshot("octocat")[0].full_name, "octocat/fresh");
   assert.equal(listCalls, 2);
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

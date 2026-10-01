@@ -1,5 +1,9 @@
 # GitHub sign-in deployment
 
+Public exploration requires no authentication: the browser directly fetches account identity and one page of up to 100 owned public repositories, using primary language, topics and basic metadata. Explicit manual repository additions are bounded to ten metadata lookups per session. GitHub sign-in enables complete discovery, language breakdowns, pins, contribution discovery, activity, contributor information and commit-backed features. Neither mode sends tokens into configuration, rendering or exports.
+
+Anonymous API calls must stay client-side/direct; do not route them through a shared unauthenticated proxy. The local preview proxy is used by the browser only when the server advertises local token authentication, without exposing the token. The OAuth exchange service remains limited to authorization exchange and is not a general GitHub API proxy.
+
 The static Studio uses GitHub App user authorization with authorization code + S256 PKCE. GitHub currently requires a client secret during exchange even with PKCE: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app
 
 The isolated `auth/github-exchange.mjs` service is a portable Fetch API handler. It can run as a Cloudflare Worker using `auth/wrangler.toml`; it has no graph dependencies or npm runtime dependencies. GitHub Pages continues serving the application.

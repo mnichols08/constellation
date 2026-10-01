@@ -133,6 +133,7 @@ const allowed = new Map([
     "github-oauth",
     "github-session",
     "github-request-cache",
+    "github-access",
     "preview",
     "preview-data",
     "constellation",

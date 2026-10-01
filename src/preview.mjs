@@ -1,3 +1,4 @@
+import { PUBLIC_MODE_MESSAGE, publicLimitMessage } from "./github-access.mjs";
 import { createGitHubOAuth } from "./github-oauth.mjs";
 import { mountOnboarding } from "./onboarding-ui.mjs";
 import { mountConstellationLibrary } from "./constellation-library.mjs";
@@ -64,6 +65,7 @@ const localAuth =
   "authenticated";
 const session = createGitHubSession({
   onChange: (profile) => {
+    queueMicrotask(() => updateAccessUI());
     document.querySelector("#github-auth-open").textContent = profile
       ? `@${profile.login}`
       : "Continue with GitHub";
@@ -87,11 +89,12 @@ const previewFetch = createPreviewFetch({
   storage,
   localAuth,
 });
+const access = previewFetch.access;
 const requestCache = previewFetch.requestCache;
 const data = createPreviewData({
   storage,
   fetchImpl: previewFetch,
-  fetchPinned: createPinnedFetch({ proxyBase, session }),
+  fetchPinned: createPinnedFetch({ proxyBase, session, localAuth }),
 });
 const commitFields = createCommitFieldData({ fetchImpl: previewFetch });
 let commitFieldLoading = false,
@@ -111,10 +114,39 @@ function enterStudio() {
 }
 let importedOptions = {};
 const $ = (selector) => document.querySelector(selector);
-if (proxyBase)
-  $(".form-note").textContent = localAuth
-    ? "Using your local GitHub token. Loaded data is retained; customization makes no additional GitHub requests."
-    : "No local GitHub token found. Add GH_TOKEN to .env and restart npm run preview to authenticate. Loaded data is retained while customizing.";
+function updateAccessUI() {
+  $(".form-note").textContent = access.authenticated
+    ? "GitHub authenticated · Full analysis is available. Customization uses loaded data."
+    : PUBLIC_MODE_MESSAGE +
+      (requestCache.publicRateLimit().stopped
+        ? " " + publicLimitMessage(requestCache.publicRateLimit().reset)
+        : "");
+  const pinned = document.querySelector('#repo-source option[value="pinned"]');
+  if (pinned) pinned.disabled = !access.capabilities.pinnedRepositories;
+  for (const button of document.querySelectorAll(
+    '[id$="find-contributed-repositories"]',
+  ))
+    button.disabled = !access.capabilities.contributionDiscovery;
+  for (const button of document.querySelectorAll("#guided-setup button")) {
+    if (["Pinned repositories", "Contributed to"].includes(button.textContent))
+      button.disabled = !access.authenticated;
+  }
+  for (const id of [
+    "load-organization",
+    "org-strategy",
+    "org-maxRepositories",
+    "org-maxContributorsPerRepo",
+  ]) {
+    const control = document.getElementById(id);
+    if (control) {
+      control.disabled = !access.capabilities.contributors;
+      control.title = access.capabilities.contributors
+        ? ""
+        : "Sign in with GitHub to load contributor data.";
+    }
+  }
+}
+updateAccessUI();
 const form = $("#account-form");
 const authDialog = $("#github-sign-in");
 const oauth = createGitHubOAuth({
@@ -641,6 +673,7 @@ $("#profile-dimension-clear").addEventListener("click", () => {
 });
 
 function render({ requireVisibleNodes = false } = {}) {
+  updateAccessUI();
   studioCommits?.update(isSample ? [] : repositories);
   placementAccounts.set(
     account.toLowerCase(),
@@ -867,7 +900,9 @@ function render({ requireVisibleNodes = false } = {}) {
   const placementKey = `${account.toLowerCase()}:${options.layout}:${options.arrangement}`;
   options.labelOffsets = labelPlacements.get(placementKey) || {};
   options.starPositions = starPlacements.get(placementKey) || {};
-  const missing = selected.filter((repo) => !repo.languages).length;
+  const missing = access.capabilities.languageBreakdowns
+    ? selected.filter((repo) => !repo.languages).length
+    : 0;
   $("#limit-value").value = options.maxRepos;
   $("#load-projects").hidden =
     isSample || !missing || options.nodeMode === "commits";
@@ -915,8 +950,15 @@ function render({ requireVisibleNodes = false } = {}) {
         ? "Load next repositories"
         : "Load commit asteroids";
     $("#load-commit-field").disabled =
-      isSample || commitFieldLoading || loaded === targets.length;
-    $("#refresh-commit-field").disabled = isSample || commitFieldLoading;
+      isSample ||
+      !access.capabilities.commitActivity ||
+      commitFieldLoading ||
+      loaded === targets.length;
+    $("#refresh-commit-field").disabled =
+      isSample || !access.capabilities.commitActivity || commitFieldLoading;
+    if (!isSample && !access.capabilities.commitActivity)
+      $("#commit-field-status").textContent =
+        "Sign in with GitHub to load commit activity.";
   }
   const activitySnapshot = isSample
     ? sampleActivity(repositories, generatedAt)
@@ -946,7 +988,9 @@ function render({ requireVisibleNodes = false } = {}) {
         ? "Demo activity, using a sample week relative to today."
         : activitySnapshot
           ? `${Object.keys(options.activityData.repositories).length} represented projects with public events in ${options.activityData.window}. Snapshot ${activitySnapshot.asOf.slice(0, 10)}. GitHub events can be delayed.`
-          : "Load an account to fetch its public activity.");
+          : access.capabilities.activity
+            ? "Load an account to fetch its public activity."
+            : "Sign in with GitHub to load activity. Public mode uses repository metadata.");
   if (
     activityStatus &&
     options.readmePresentation === "current-focus" &&
@@ -1182,6 +1226,9 @@ function render({ requireVisibleNodes = false } = {}) {
   $("#organization-status").textContent = projected.organization
     ? `${projected.note || "Project contributors"} ${options.organizationData?.diagnostic || ""}`
     : `@${account} · Developer universe`;
+  if (!isSample && !access.capabilities.contributors)
+    $("#organization-status").textContent =
+      "Public mode uses repository metadata. Sign in with GitHub to load contributor data and deep organization discovery.";
   if (labelDiagnostics.length) {
     $("#filter-summary").textContent +=
       ` ${labelDiagnostics.length} labels omitted (hover for reasons).`;
@@ -1434,7 +1481,7 @@ async function loadAccount(
   explicitConfig,
   { requireVisibleNodes = false, previewOnly = false } = {},
 ) {
-  if (refresh) requestCache.clear();
+  if (refresh && access.authenticated) requestCache.clear();
   const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
   const restoring =
     explicitConfig ||
@@ -1455,7 +1502,7 @@ async function loadAccount(
   preview.setAttribute("aria-busy", "true");
   message("Loading project data… You can keep adjusting styles.");
   try {
-    if (source === "pinned" && !session.token && (!proxyBase || !localAuth)) {
+    if (source === "pinned" && !access.capabilities.pinnedRepositories) {
       $("#token-help").open = true;
       throw new Error(
         "Sign in with your GitHub token to preview pinned repositories. Local GH_TOKEN and automatic workflow tokens also remain supported.",
@@ -1552,6 +1599,7 @@ async function loadAccount(
     ])
       button.disabled = false;
     preview.setAttribute("aria-busy", "false");
+    updateAccessUI();
   }
 }
 form.addEventListener("submit", (event) => {
@@ -1690,6 +1738,7 @@ async function startGuided(name) {
     guidedHost.setAttribute("aria-label", "Create your constellation");
     $(".observatory").before(guidedHost);
     mountOnboarding(guidedHost, {
+      access,
       account,
       profile: session.profile || data.profile(account),
       repositories: () => repositories,
@@ -1697,7 +1746,7 @@ async function startGuided(name) {
       initial: intents.read(account),
       findRepositories: findGuidedRepositories,
       loadPinned: async () => {
-        if (!session.token && !localAuth)
+        if (!access.capabilities.pinnedRepositories)
           throw Error(
             "Continue with GitHub to choose pinned repositories, or keep exploring public projects.",
           );
@@ -1755,12 +1804,13 @@ async function startGuided(name) {
           let result = generateGuidedDesign(account, repositories, intent, {
             seed,
             year,
+            activityAvailable: access.capabilities.activity,
           });
           repositories = await data.load(account, result.config.options, {
             activity: false,
           });
           let diagnostic = "";
-          if (refreshActivity) requestCache.clear();
+          if (refreshActivity && access.authenticated) requestCache.clear();
           if (result.activity !== "none") {
             try {
               if (result.activity === "asteroids") {
@@ -1833,6 +1883,7 @@ async function startGuided(name) {
     loading = false;
     guidedHost.removeAttribute("aria-busy");
     form.querySelector("button").disabled = false;
+    updateAccessUI();
   }
 }
 $("#load-projects").addEventListener("click", () => loadAccount(account));
@@ -2015,7 +2066,7 @@ const designHost = document.createElement("div");
 designHost.className = "design-controls";
 $(".stats").before(designHost);
 studioCommits = mountStudioCommits(designHost, {
-  fetchImpl: createPreviewFetch({ proxyBase, session }),
+  fetchImpl: previewFetch,
   highlightAuthor: (author) => {
     importedOptions.commitHistory = {
       ...importedOptions.commitHistory,
@@ -2108,6 +2159,7 @@ async function findGuidedRepositories({
   return result;
 }
 studio = mountStudioDesign({
+  access,
   host: designHost,
   changed: () => {
     try {
@@ -2124,12 +2176,16 @@ studio = mountStudioDesign({
     }
   },
   hasMatchingNodes: (options) =>
-    canRenderPreview(repositories, {
-      ...options,
-      accountData: data.profile(account),
-      organizationData: data.organization(account),
-      commitHistoryData: data.commitHistory(account),
-    }),
+    canRenderPreview(
+      repositories,
+      {
+        ...options,
+        accountData: data.profile(account),
+        organizationData: data.organization(account),
+        commitHistoryData: data.commitHistory(account),
+      },
+      access,
+    ),
   repositoryPool: () => repositories,
   findRepositories: findGuidedRepositories,
   selectedRepositories: (options) => selectRepositories(repositories, options),
@@ -2161,6 +2217,7 @@ studio = mountStudioDesign({
     };
     try {
       const missingPresetData =
+        access.capabilities.languageBreakdowns &&
         loadPresetData &&
         !isSample &&
         data.profile(account)?.type !== "Organization" &&
@@ -2175,7 +2232,7 @@ studio = mountStudioDesign({
             !repositories.some(
               (repo) =>
                 repo.full_name.toLowerCase() === name.toLowerCase() &&
-                repo.languages,
+                (repo.languages || !access.capabilities.languageBreakdowns),
             ),
         );
       const loadContributors =
@@ -2313,7 +2370,8 @@ mountConstellationLibrary({
 });
 const initialDraft = studio.store.draft(account);
 async function loadCommitFields(refresh = false) {
-  if (commitFieldLoading || isSample) return;
+  if (commitFieldLoading || isSample || !access.capabilities.commitActivity)
+    return;
   const targets = selectRepositories(
     repositories,
     capturedScene?.presentation.options || {},
@@ -2337,7 +2395,7 @@ async function loadCommitFields(refresh = false) {
 }
 $("#load-commit-field").addEventListener("click", () => loadCommitFields());
 $("#refresh-commit-field").addEventListener("click", () => {
-  requestCache.clear();
+  if (!access.capabilities.commitActivity) return;
   loadCommitFields(true);
 });
 if (initialDraft) applyOptions(initialDraft.options);

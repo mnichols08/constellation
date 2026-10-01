@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -425,7 +426,7 @@ test("user plus organization highlights shared work and keeps missing-user cover
 });
 test("organization preview retains a usable graph when language details are rate limited", async () => {
   const repos = repositories(3).map(({ languages, ...repo }) => repo);
-  const data = createPreviewData({
+  const data = authenticatedPreviewData({
     fetchImpl: async (url) =>
       url.includes("/contributors")
         ? Response.json([{ login: "alice", contributions: 1 }])
@@ -509,3 +510,5 @@ test("targeted lookup finds older user projects outside the organization sample 
   await api.focusRepositories("community", "alice");
   assert.equal(calls.length, before);
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

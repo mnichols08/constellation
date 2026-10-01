@@ -13,6 +13,11 @@ export function mountStudioCommits(host, { fetchImpl, showConstellation, highlig
   const find = selector => dialog.querySelector(selector), select = find('#commit-repository-select'), input = find('#commit-repository'), branch = find('#commit-branch'), status = find('#commit-status'), viewport = find('#commit-viewport');
   const constellationButton = find('#commit-constellation');
   const loadButton = find('#commit-load'), refreshButton = find('#commit-refresh'), download = find('#commit-download'), people = find('#commit-contributors');
+  function gate() {
+    const blocked = fetchImpl?.access?.capabilities.commitHistory === false;
+    constellationButton.disabled = loadButton.disabled = refreshButton.disabled = blocked;
+    if (blocked) status.textContent = 'Sign in with GitHub to load repository history.';
+  }
   let snapshot, selected = '', generation = 0, downloadURL, signature;
   function clearDownload() { if (downloadURL) URL.revokeObjectURL(downloadURL); downloadURL = undefined; download.hidden = true; download.removeAttribute('href'); }
   function draw() {
@@ -57,7 +62,7 @@ export function mountStudioCommits(host, { fetchImpl, showConstellation, highlig
   select.addEventListener('change', () => { if (select.value) { input.value = select.value; branch.value = ''; } });
   loadButton.addEventListener('click', () => load()); refreshButton.addEventListener('click', () => load(true));
   for (const field of [input, branch]) field.addEventListener('keydown', event => { if (event.key === 'Enter' && !loadButton.disabled) { event.preventDefault(); load(); } });
-  section.querySelector('button').addEventListener('click', () => { dialog.showModal(); if (snapshot) draw(); select.focus(); });
+  section.querySelector('button').addEventListener('click', () => { gate(); dialog.showModal(); if (snapshot) draw(); select.focus(); });
   find('#repository-history-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => { generation++; constellationButton.disabled = loadButton.disabled = refreshButton.disabled = false; clearDownload(); });
   return { updateConstellation(snapshot, options) {

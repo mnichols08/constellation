@@ -22,6 +22,7 @@ test(
       stargazers_count: i,
     }));
     const server = createPreviewServer({
+      token: "test-local-token",
       fetchImpl: async (url) => {
         calls.push(url);
         if (url.includes("/search/issues"))
@@ -313,6 +314,7 @@ test(
       updated_at: "2026-01-01",
     };
     const server = createPreviewServer({
+      token: "test-local-token",
       fetchImpl: async (url) => {
         calls.push(url);
         if (url.includes("/commits?"))
@@ -496,6 +498,19 @@ for (const scenario of ["pins", "empty", "failure", "anonymous"])
         errors,
       } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/`);
       await wait(`document.querySelector('#open-studio')?.disabled===false`);
+      if (scenario === "anonymous") {
+        await cdp("Page.addScriptToEvaluateOnNewDocument", { source: `{
+        const originalFetch = window.fetch;
+        window.publicCalls = [];
+        window.fetch = async (url, options) => {
+          if (!String(url).startsWith('https://api.github.com/')) return originalFetch(url, options);
+          publicCalls.push(String(url));
+          return Response.json(String(url).includes('/repos?') ? [${JSON.stringify(repo)}] : {login:'alice',type:'User'});
+        };
+      }` });
+        await cdp("Page.reload");
+        await wait(`document.querySelector('#open-studio')?.disabled===false`);
+      }
       await e(
         `document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`,
       );
@@ -507,6 +522,15 @@ for (const scenario of ["pins", "empty", "failure", "anonymous"])
           `Array.from(document.querySelectorAll('#guided-repository-picker-list input:checked'),node=>node.value)`,
         );
       const original = await selection();
+      if (scenario === "anonymous") {
+        assert.equal(await e(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Pinned repositories').disabled`), true);
+        assert.match(await e(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent==='Pinned repositories').title`), /Sign in/);
+        assert.deepEqual(await selection(), original);
+        assert.equal(await e('publicCalls.length'), 2);
+        assert.equal(calls.length, 0, 'anonymous requests never reach the local proxy');
+        assert.deepEqual(errors, []);
+        return;
+      }
       assert.equal(
         calls.some((url) => url.includes("/graphql")),
         false,
