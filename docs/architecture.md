@@ -1,5 +1,7 @@
 # Constellation architecture
 
+In v3.8 JavaScript owns bounded GitHub acquisition and host caching; Rust/WASM owns technical grouping, planet/orbit decisions, shared-moon parent assignment, stewardship masks and recurrence; Scene validation owns the import trust boundary; renderers consume precomputed attachments.
+
 Temporal Stack adds a validated Scene v1 attachment referencing Timeline frames.
 Existing artifact layouts supply shared anchors; Rust retains per-frame graph
 relationships. A shared JavaScript projection composes local XY planes along the

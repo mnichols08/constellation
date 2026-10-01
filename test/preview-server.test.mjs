@@ -26,6 +26,7 @@ test("studio serves the Rust binary and its modules with usable MIME types", asy
   assert.match(wasm.headers.get("content-type"), /^application\/wasm/);
   assert.ok(WebAssembly.validate(await wasm.arrayBuffer()));
   for (const path of [
+    "account-system.mjs",
     "engine.mjs",
     "graph-explorer.mjs",
     "wasm/constellation_core.js",

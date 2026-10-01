@@ -1,5 +1,7 @@
 # Constellation
 
+Version 3.8 adds opt-in [account systems and stewardship](docs/account-systems.md): choose a person or organization as a presentation center, keep the selected repository scope intact, and optionally show bounded contributor moons and factual maintenance evidence. A chosen center is not evidence of leadership, ownership, employment, membership, or contribution.
+
 Turn developer and project data into interactive maps, embedded experiences, and README graphics.
 
 **GitHub activity tells Constellation what exists. You decide what represents you.** Mark projects Featured, Supporting, Experimental or Historical, then choose how that intent appears in your README constellation. Roles are yours; they do not infer importance from stars or recency.

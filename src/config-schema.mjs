@@ -10,6 +10,7 @@ import { pluginOptions } from "./plugin-host.mjs";
 import { validateThemePack } from "./theme-packs.mjs";
 import { randomizeDesign } from "./design-randomizer.mjs";
 import { validateLayoutReference } from "./layout-host.mjs";
+import { accountSystemOptions, stewardshipOptions } from "./account-system.mjs";
 
 export const CONFIG_VERSION = 7;
 export const MAX_CONFIG_BYTES = 250000;
@@ -50,6 +51,8 @@ fields.add("transforms");
 fields.add("mappings");
 fields.add("layoutEngine");
 fields.add("layoutOptions");
+fields.add("accountSystem");
+fields.add("stewardship");
 export const configFields = [...fields];
 const nested = {
   layoutRefinement: "enabled intensity",
@@ -82,6 +85,8 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     Object.entries(input).filter(([key]) => fields.has(key)),
   );
   validateLayoutReference(options);
+  accountSystemOptions(options);
+  stewardshipOptions(options);
   commitHistoryOptions(options);
   if ("plugins" in options) pluginOptions(options.plugins);
   if ("themePack" in options)

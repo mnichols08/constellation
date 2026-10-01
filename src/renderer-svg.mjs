@@ -84,6 +84,41 @@ const boundedText = (value, limit) =>
     .slice(0, limit)
     .join("");
 
+function renderAccountSystem(scene, stars, height, escapeText) {
+  const system = scene.accountSystem;
+  if (!system) return { guides: "", relations: "", nodes: "", labels: "" };
+  const byId = new Map(stars.map((star) => [star.repo.full_name, star]));
+  const moonById = new Map();
+  const moonNodes = system.moons.map((moon) => {
+    const parent = byId.get(moon.parent);
+    if (!parent) return "";
+    const point = { x: parent.x + moon.offset[0], y: parent.y + moon.offset[1] };
+    moonById.set(moon.id, point);
+    const title = `${moon.login} — observed contributor moon of ${moon.parent}; actor classification ${moon.actor_type}`;
+    return `<g class="account-moon-node" role="group"><title>${escapeText(title)}</title><circle class="account-orbit" cx="${parent.x.toFixed(1)}" cy="${parent.y.toFixed(1)}" r="${Math.hypot(...moon.offset).toFixed(1)}"/><line class="account-orbit" x1="${parent.x.toFixed(1)}" y1="${parent.y.toFixed(1)}" x2="${point.x.toFixed(1)}" y2="${point.y.toFixed(1)}"/><circle class="account-moon" data-actor="${escapeText(moon.actor_type)}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4" tabindex="0"/></g>`;
+  }).join("");
+  const secondary = system.relations.filter((relation) => !relation.primary).map((relation) => {
+    const moon = moonById.get(relation.identity), planet = byId.get(relation.repository);
+    return moon && planet ? `<line class="account-secondary" x1="${moon.x.toFixed(1)}" y1="${moon.y.toFixed(1)}" x2="${planet.x.toFixed(1)}" y2="${planet.y.toFixed(1)}"><title>${escapeText(`Also observed in ${relation.repository} via ${relation.source}`)}</title></line>` : "";
+  }).join("");
+  const cx = 450, cy = height / 2;
+  const meaning = `@${system.center.login} is the chosen ${system.center.type} center. Center placement is a presentation choice, not evidence of ownership, employment, leadership, or contribution.`;
+  return { guides: "", relations: secondary, nodes: `${moonNodes}<g class="account-center" role="group"><title>${escapeText(meaning)}</title><circle class="account-sun" cx="${cx}" cy="${cy}" r="15" tabindex="0"/></g>`, labels: `<text class="account-caption" x="${cx}" y="${cy + 29}">@${escapeText(system.center.login)} · chosen center</text>` };
+}
+
+function renderStewardship(scene, stars, escapeText) {
+  if (!scene.stewardship) return "";
+  const byId = new Map(stars.map((star) => [star.repo.full_name, star]));
+  const names = ["README", "LICENSE", "CONTRIBUTING", "CODE_OF_CONDUCT", "issue templates", "pull-request template", "Discussions enabled"];
+  return scene.stewardship.repositories.map((row) => {
+    const star = byId.get(row.id); if (!star) return "";
+    const radius = star.radius + 7, circumference = 2 * Math.PI * radius, segment = circumference / 7;
+    const slots = names.map((name, index) => { const bit = 1 << index, known = Boolean(row.known_mask & bit), present = Boolean(row.present_mask & bit), inherited = Boolean(row.inherited_mask & bit), state = !known ? "unknown" : present ? "present" : "absent"; return `<circle class="steward-slot steward-${state}" cx="${star.x.toFixed(1)}" cy="${star.y.toFixed(1)}" r="${radius.toFixed(1)}" stroke-dasharray="${(segment * .72).toFixed(2)} ${(circumference - segment * .72).toFixed(2)}" transform="rotate(${(-90 + index * 360 / 7).toFixed(2)} ${star.x.toFixed(1)} ${star.y.toFixed(1)})"><title>${escapeText(`${name}: ${state}${inherited ? " (effective/inherited)" : ""}`)}</title></circle>`; }).join("");
+    const behavior = Object.values(row.behavior).reduce((sum, value) => sum + value, 0);
+    return `<g class="stewardship" aria-label="Stewardship evidence for ${escapeText(row.id)}">${slots}${behavior ? `<circle class="steward-behavior" cx="${(star.x + radius + 3).toFixed(1)}" cy="${star.y.toFixed(1)}" r="2"><title>${escapeText(`${behavior} bounded observed behavior events across loaded components`)}</title></circle>` : ""}</g>`;
+  }).join("");
+}
+
 export function renderSceneSVG(visualScene, renderOptions) {
   assertScene(visualScene);
   if (visualScene.temporalStack)
@@ -580,6 +615,8 @@ export function renderSceneSVG(visualScene, renderOptions) {
       occupied.push(owner.full_name);
     return `<circle class="identity-point" data-node="${escape(owner.full_name)}"${hidden ? ' style="display:none"' : ""} cx="${x}" cy="${y}" r="${radius}" data-snap-x="${sx}" data-snap-y="${sy}" data-occupied="${escape(JSON.stringify(occupied))}"/>`;
   }).join("");
+  const accountMarkup = renderAccountSystem(visualScene, stars, height, escape);
+  const stewardshipMarkup = renderStewardship(visualScene, stars, escape);
   const camera = perspectiveMarkup(perspective, centerY, height);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height}" viewBox="0 0 900 ${height}" role="img" aria-labelledby="title description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
 <title id="title">${escape(title ?? `${name}’s GitHub constellation`)}</title>
@@ -591,7 +628,7 @@ svg{background:transparent;border:none;outline:none;color:var(--sky-foreground);
 .star{filter:url(#glow)}.star-halo{fill:var(--sky-star);opacity:.07}.star-core{fill:var(--sky-foreground);opacity:.9;pointer-events:none}.language text{font-size:10px;letter-spacing:2px;font-weight:500}.repo-label{fill:var(--sky-foreground);opacity:.68}${roleCSS}.heading{font-size:20px;letter-spacing:-.5px}.chart-guide{fill:none;stroke:var(--sky-line);stroke-width:.5;opacity:.28}
 .bridges{fill:none;stroke:var(--sky-accent);stroke-width:1;stroke-dasharray:2 5;opacity:.35}
 .identity-ring{fill:none;stroke:var(--sky-accent);stroke-width:.65;opacity:.14;pointer-events:none}.identity-point{fill:var(--sky-accent);stroke:none}
-.star[data-kind="language"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-kind="topic"]{stroke:var(--sky-foreground);stroke-width:1;stroke-dasharray:2 2}${showcaseRoles.size ? `.star[data-role="featured"]{stroke:var(--sky-foreground);stroke-width:1.1}.star[data-role="supporting"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-role="experimental"]{opacity:.8}.star[data-role="historical"]{opacity:.65}` : ""}
+.star[data-kind="language"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-kind="topic"]{stroke:var(--sky-foreground);stroke-width:1;stroke-dasharray:2 2}${showcaseRoles.size ? `.star[data-role="featured"]{stroke:var(--sky-foreground);stroke-width:1.1}.star[data-role="supporting"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-role="experimental"]{opacity:.8}.star[data-role="historical"]{opacity:.65}` : ""}${visualScene.accountSystem ? '.account-orbit{fill:none;stroke:var(--sky-line);stroke-width:.65;stroke-dasharray:2 5;opacity:.4}.account-sun{fill:var(--sky-accent);stroke:var(--sky-foreground);stroke-width:1.3}.account-moon{fill:var(--sky-foreground);stroke:var(--sky-background);stroke-width:1}.account-moon[data-actor="Bot"]{fill:none;stroke-dasharray:2 2}.account-moon[data-actor="Unknown"]{fill:none}.account-secondary{fill:none;stroke:var(--sky-line);stroke-width:.55;stroke-dasharray:1 4;opacity:.35}.account-caption{font-size:10px;text-anchor:middle;fill:var(--sky-foreground)}' : ''}${visualScene.stewardship ? '.steward-slot{fill:none;stroke-width:1.5}.steward-present{stroke:var(--sky-accent)}.steward-absent{stroke:var(--sky-foreground);opacity:.2}.steward-unknown{stroke:var(--sky-line);stroke-dasharray:1 2;opacity:.45}.steward-behavior{fill:var(--sky-accent);opacity:.75}' : ''}
 .star,.star-halo{fill:var(--node-color,var(--sky-star))}
 .credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}a{text-decoration:none}
 .generated-at{font-size:9px;opacity:.6;fill:var(--sky-foreground);text-anchor:start}
@@ -609,7 +646,7 @@ ${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height
 `,
   starfield: `${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent })}`,
 })}
-<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>`, nodes: `${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
+<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}${accountMarkup.guides}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>${accountMarkup.relations}`, nodes: `${points}${stewardshipMarkup}${accountMarkup.nodes}`, labels: `${labels}${accountMarkup.labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
     visualScene,
     "overlay",
     {

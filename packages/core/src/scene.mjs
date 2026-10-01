@@ -69,6 +69,8 @@ function record(scene, path = '$') {
     edges.add(edge.id);
     if (!object(edge.geometry) || !finite(edge.geometry.distance) || edge.geometry.distance < 0 || typeof edge.style?.primary !== 'boolean') fail(`${path}.edges.${edge.id}`, 'invalid geometry or style');
   }
+  if (scene.accountSystem !== undefined) validateAccountSystem(scene.accountSystem, nodes, path);
+  if (scene.stewardship !== undefined) validateStewardship(scene.stewardship, nodes, path);
   const labels = new Set();
   for (const label of scene.labels) {
     if (!nodes.has(label?.id) || labels.has(label.id) || !finite(label.x) || !finite(label.y) || typeof label.text !== 'string' || typeof label.hidden !== 'boolean' || typeof label.focal !== 'boolean') fail(`${path}.labels`, 'invalid label');
@@ -102,6 +104,33 @@ function record(scene, path = '$') {
   }
   if (scene.temporalStack !== undefined) validateTemporalStack(scene, frame => record(frame, path + '.temporalStack.frame'));
   if (!object(scene.geometry) || !(scene.geometry.identity === null || Array.isArray(scene.geometry.identity) && scene.geometry.identity.length === 90 && scene.geometry.identity.every(finite)) || !Array.isArray(scene.geometry.ringPoints) || scene.geometry.ringPoints.length > 6144 || scene.geometry.ringPoints.length % 3 || !scene.geometry.ringPoints.every(finite)) fail(path, 'invalid ring geometry');
+}
+
+function validateAccountSystem(value, sceneNodes, path) {
+  if (!object(value) || value.version !== 1 || !object(value.center) || !id(value.center.id) || !id(value.center.login) || !["user", "organization"].includes(value.center.type)) fail(path, "invalid account-system attachment");
+  if (!Array.isArray(value.planets) || !Array.isArray(value.moons) || !Array.isArray(value.relations) || !object(value.coverage) || value.planets.length > 100 || value.moons.length > 120 || value.planets.length + value.moons.length + 1 > 256 || value.relations.length > 2048) fail(path, "account-system attachment exceeds bounds");
+  const planets = new Set(), moons = new Set();
+  for (const planet of value.planets) {
+    if (!id(planet?.id) || planets.has(planet.id) || !sceneNodes.has(planet.id) || !Array.isArray(planet.position) || planet.position.length !== 2 || !planet.position.every(finite) || planet.technical_region !== null && !["interface", "services", "data", "systems", "tooling", "automation"].includes(planet.technical_region)) fail(path, "invalid account-system planet");
+    planets.add(planet.id);
+  }
+  for (const moon of value.moons) {
+    if (!id(moon?.id) || moons.has(moon.id) || moon.id === value.center.id || !id(moon.login) || !["User", "Bot", "Organization", "Unknown"].includes(moon.actor_type) || !planets.has(moon.parent) || !Array.isArray(moon.offset) || moon.offset.length !== 2 || !moon.offset.every(finite) || Math.hypot(...moon.offset) > 200) fail(path, "invalid account-system moon");
+    moons.add(moon.id);
+  }
+  for (const relation of value.relations) if (!moons.has(relation?.identity) || !planets.has(relation.repository) || !["github-contributors", "authored-public-pr", "supplied"].includes(relation.source) || typeof relation.primary !== "boolean" || relation.contributions !== null && (!Number.isInteger(relation.contributions) || relation.contributions < 0) || relation.pull_requests !== null && (!Number.isInteger(relation.pull_requests) || relation.pull_requests < 0)) fail(path, "invalid account-system relation");
+  for (const moon of value.moons) if (value.relations.filter((relation) => relation.identity === moon.id && relation.primary && relation.repository === moon.parent).length !== 1) fail(path, "moon must have exactly one evidenced primary parent");
+  for (const key of ["observed_identities", "displayed_identities", "suppressed_identities"]) if (!Number.isInteger(value.coverage[key]) || value.coverage[key] < 0) fail(path, "invalid account-system coverage");
+}
+
+function validateStewardship(value, sceneNodes, path) {
+  if (!object(value) || value.version !== 1 || !Array.isArray(value.repositories) || !Array.isArray(value.recurrence) || value.repositories.length > 100 || value.recurrence.length !== 7) fail(path, "invalid stewardship attachment");
+  const seen = new Set();
+  for (const row of value.repositories) {
+    if (!id(row?.id) || seen.has(row.id) || !sceneNodes.has(row.id) || !Number.isInteger(row.known_mask) || !Number.isInteger(row.present_mask) || !Number.isInteger(row.inherited_mask) || row.known_mask < 0 || row.known_mask > 127 || (row.present_mask & ~row.known_mask) || (row.inherited_mask & ~row.present_mask) || !object(row.behavior) || Object.keys(row.behavior).length > 32 || Object.entries(row.behavior).some(([key, count]) => !id(key) || !Number.isInteger(count) || count < 0)) fail(path, "invalid stewardship repository evidence");
+    seen.add(row.id);
+  }
+  for (const recurrence of value.recurrence) if (!Number.isInteger(recurrence.slot) || recurrence.slot < 0 || recurrence.slot > 6 || !Number.isInteger(recurrence.known) || !Number.isInteger(recurrence.present) || recurrence.present > recurrence.known || !Number.isInteger(recurrence.fixed_point) || recurrence.fixed_point < 0 || recurrence.fixed_point > 1000) fail(path, "invalid stewardship recurrence");
 }
 
 export function assertScene(scene) {

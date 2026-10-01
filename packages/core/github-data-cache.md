@@ -1,5 +1,7 @@
 # GitHub request cache
 
+Account-system contributor and stewardship enrichment reuses this request path. Explicit per-load/refresh limits are 25 repositories, three concurrent workers and 100 additional requests. Contributor persistence is versioned for actor type; untyped old rows are not presumed human. Authenticated enrichment bodies are memory-only. Center switching, styling, dragging and detail toggles do not acquire data.
+
 GitHub API requests consume GitHub API quota. They do not consume LLM tokens. Constellation caches safe reads to avoid repeating API calls; rendering, styling, layout changes, randomization and navigation operate on already-loaded snapshots and do not poll GitHub.
 
 ## Layers and freshness

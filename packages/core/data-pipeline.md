@@ -1,5 +1,7 @@
 # Data pipeline
 
+Account enrichment follows the same boundary: GitHub acquisition → normalized typed evidence → deterministic Rust analysis/layout → validated optional Scene attachment → rendering. Actor type and relation source survive normalization; commit totals and authored-PR counts remain separate. Renderers never fetch or rerun evidence analysis.
+
 The pipeline is source → normalized records → transforms → graph → scene → renderer.
 Existing GitHub acquisition,
 organization scans and source API 1 still return repository-shaped objects;

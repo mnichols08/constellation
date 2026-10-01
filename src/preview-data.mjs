@@ -312,6 +312,12 @@ export function createPreviewData({
         });
         effective.organizationData = organizationSnapshots.get(name);
       }
+      if (effective.stewardship?.enabled) {
+        const targets = selectRepositoryPool(listed, effective);
+        const stewardship = await organization.stewardship(targets, effective, { refresh });
+        if (!isCurrent()) return snapshot(name, options);
+        organizationSnapshots.set(name, { ...(organizationSnapshots.get(name) || {}), stewardship, diagnostic: [organizationSnapshots.get(name)?.diagnostic, stewardship.diagnostic].filter(Boolean).join(" ") });
+      }
       try {
         if (languages && options.nodeMode !== "commits")
           await fetchRepositoryLanguages(

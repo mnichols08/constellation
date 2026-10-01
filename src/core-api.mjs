@@ -16,6 +16,7 @@ export { validateConfig } from "./validate-config.mjs";
 export { explainFilters } from "./filter-explanation.mjs";
 export { rustAvailable, engineError } from "./engine.mjs";
 export { analyzeDeveloperProfile } from "./engine.mjs";
+export { computeAccountSystem, analyzeStewardship } from "./engine.mjs";
 export { layoutStatistics } from "./engine.mjs";
 export { layoutCacheStatistics } from "./engine.mjs";
 export {

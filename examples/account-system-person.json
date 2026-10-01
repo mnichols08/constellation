@@ -1,0 +1,8 @@
+{
+  "version": 7,
+  "account": "octocat",
+  "arrangement": "account-system",
+  "exportProfile": "hero",
+  "accountSystem": { "enabled": true, "center": { "type": "user", "login": "octocat" }, "grouping": "technical", "moons": { "enabled": true, "types": ["contributors"], "maxPerPlanet": 4, "maxScanRepositories": 25 } },
+  "stewardship": { "enabled": true, "tier": "basic", "maxScanRepositories": 25 }
+}

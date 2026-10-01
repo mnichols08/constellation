@@ -32,7 +32,7 @@ export function groupingRegex(pattern) {
   try { return new RegExp(pattern); } catch { throw Error('Invalid grouping pattern.'); }
 }
 export function organizationEnabled(options = {}) { return options.accountType === 'organization' || (options.accountType !== 'user' && options.accountData?.type === 'Organization'); }
-export function needsContributorData(options = {}) { return options.nodeMode !== 'commits' && (organizationEnabled(options) || ['contributors', 'ecosystem', 'organization-community'].includes(options.nodeMode)); }
+export function needsContributorData(options = {}) { return options.nodeMode !== 'commits' && (options.arrangement === 'account-system' && options.accountSystem?.moons?.enabled || organizationEnabled(options) || ['contributors', 'ecosystem', 'organization-community'].includes(options.nodeMode)); }
 export function organizationNodeMode(options) {
   if (organizationModes.includes(options.nodeMode)) return options.nodeMode;
   return ({ community: 'contributors', collaboration: 'ecosystem', technology: 'technology', history: 'eras' })[organizationOptions(options).view] || options.nodeMode || 'repositories';

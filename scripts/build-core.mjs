@@ -50,6 +50,7 @@ const guides = [
   "readme-showcase",
   "developer-topology",
   "github-data-cache",
+  "account-systems",
 ].map((name) => name + ".md");
 await writeFile(
   resolve(target, "package.json"),

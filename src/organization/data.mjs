@@ -26,6 +26,7 @@ const repositoryMetadata = (repo) =>
       "homepage",
       "default_branch",
       "description",
+      "has_discussions",
     ].map((field) => [field, repo[field]]),
   );
 export function attachFocusEvidence(snapshot, focus, login, repos) {
@@ -71,7 +72,9 @@ export function createOrganizationData({
   token,
   storage,
 } = {}) {
-  const key = "constellation-organization-v1";
+  // v2 retains GitHub actor type. v1 records are intentionally not treated as
+  // verified humans and are not read from persistent storage.
+  const key = "constellation-organization-v2";
   let cache = {};
   try {
     cache = JSON.parse(storage?.getItem(key) || "{}");
@@ -80,7 +83,7 @@ export function createOrganizationData({
   const epochs = new Map();
   const save = () => {
     try {
-      storage?.setItem(key, JSON.stringify(cache));
+      if (!token) storage?.setItem(key, JSON.stringify(cache));
     } catch {}
   };
   const request = async (path, refresh = false) => {
@@ -315,7 +318,13 @@ export function createOrganizationData({
     options,
     { refresh = false, onProgress } = {},
   ) {
-    const settings = organizationOptions(options).contributors;
+    const accountMoons = options.arrangement === "account-system" && options.accountSystem?.moons?.enabled;
+    const settings = accountMoons ? {
+      enabled: true,
+      strategy: options.accountSystem?.moons?.strategy || "representative",
+      maxRepositories: Math.min(25, options.accountSystem?.moons?.maxScanRepositories || 25),
+      maxContributorsPerRepo: Math.min(100, options.accountSystem?.moons?.maxContributorsPerRepo || 25),
+    } : organizationOptions(options).contributors;
     if (!settings.enabled || settings.strategy === "off")
       return {
         contributors: [],
@@ -375,10 +384,11 @@ export function createOrganizationData({
               if ((epochs.get(id) || 0) === epoch) {
                 cache[id] = body
                   .slice(0, settings.maxContributorsPerRepo)
-                  .map(({ login, avatar_url, contributions }) => ({
+                  .map(({ login, avatar_url, contributions, type }) => ({
                     login,
                     avatar_url,
                     contributions,
+                    type: ["User", "Bot", "Organization"].includes(type) ? type : "Unknown",
                   }));
                 save();
               }
@@ -415,5 +425,46 @@ export function createOrganizationData({
       complete: false,
     };
   }
-  return { resolve, discover, contributors, focusRepositories };
+  async function stewardship(repos, options = {}, { refresh = false, onProgress } = {}) {
+    if (!options.stewardship?.enabled) return { repositories: [], scanned: 0, selected: 0, requests: 0, diagnostic: "Stewardship evidence is off." };
+    const max = Math.min(25, options.stewardship.maxScanRepositories || 25);
+    const selected = scopeRepositories(repos, { ...options, organizationScope: options.stewardship.scan === "showcased" ? "featured" : "active" }, max);
+    const repositories = [], diagnostics = [];
+    let cursor = 0, requests = 0, stop = false;
+    await Promise.all(Array.from({ length: Math.min(3, selected.length) }, async () => {
+      while (!stop && cursor < selected.length && requests < 100) {
+        const repo = selected[cursor++], id = `stewardship:${repo.full_name}`;
+        let profile = !refresh ? cache[id] : undefined;
+        if (!profile) {
+          try {
+            requests++;
+            const result = await request(`/repos/${repo.full_name}/community/profile`, refresh);
+            if (!result.body || typeof result.body !== "object" || Array.isArray(result.body) || !result.body.files || typeof result.body.files !== "object" || Array.isArray(result.body.files)) throw Error("Unexpected community profile response.");
+            profile = { files: result.body.files };
+            if (!token) { cache[id] = profile; save(); }
+            if (result.exhausted) stop = true;
+          } catch (error) {
+            diagnostics.push(`${repo.full_name}: ${error.message}`);
+            if (error.rateLimited) stop = true;
+          }
+        }
+        let knownMask = 0, presentMask = 0, inheritedMask = 0;
+        const names = ["readme", "license", "contributing", "code_of_conduct_file", "issue_template", "pull_request_template"];
+        if (profile) for (const [index, name] of names.entries()) {
+          const bit = 1 << index; knownMask |= bit;
+          const file = profile.files[name];
+          if (file && typeof file === "object") {
+            presentMask |= bit;
+            if (typeof file.html_url === "string" && /\/\.github\/(?:blob|tree)\//.test(file.html_url)) inheritedMask |= bit;
+          } else if (file !== null) { knownMask &= ~bit; diagnostics.push(`${repo.full_name}: unsupported ${name} field shape.`); }
+        }
+        if (typeof repo.has_discussions === "boolean") { knownMask |= 1 << 6; if (repo.has_discussions) presentMask |= 1 << 6; }
+        repositories.push({ id: repo.full_name, knownMask, presentMask, inheritedMask, behavior: {}, provenance: profile ? "github-community-profile" : "unavailable" });
+        onProgress?.(repositories.length, selected.length);
+      }
+    }));
+    repositories.sort((a, b) => a.id.localeCompare(b.id));
+    return { repositories, scanned: repositories.filter((row) => row.provenance !== "unavailable").length, selected: selected.length, requests, complete: repositories.length === selected.length && !stop, diagnostic: [...new Set(diagnostics)].join(" ") };
+  }
+  return { resolve, discover, contributors, stewardship, focusRepositories };
 }

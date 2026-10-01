@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.8.0 — Account Systems and Stewardship Topology
+
+- Add the independent `account-system` arrangement with a typed selected person/organization sun, deterministic technical planet grouping, stable manual anchors, and bounded canonical contributor moons with evidenced primary and secondary repository relations.
+- Add opt-in stewardship present/absent/unknown bezels, bounded behavior components and recurrence among known repositories, with inherited defaults kept distinct and no grades or leadership claims.
+- Retain GitHub actor type in the versioned contributor cache, share the bounded loader, validate optional Scene v1 attachments, support static/offline rendering and Studio settings, and preserve disabled-feature SVG bytes.
+
 ## 3.7.1 — Developer Topology review fixes
 
 - Keep C#, C and C++ distinct during language normalization so C# supplies Services evidence instead of incorrect Systems evidence.

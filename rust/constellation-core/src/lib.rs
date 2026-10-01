@@ -7,6 +7,8 @@ mod projection;
 mod refinement;
 mod scene;
 mod stable;
+mod account_system;
+mod stewardship;
 
 use wasm_bindgen::prelude::*;
 
@@ -45,6 +47,20 @@ pub fn developer_profile(input: &str) -> Result<String, String> {
     let input = serde_json::from_str(input)
         .map_err(|error| format!("Invalid developer profile: {error}"))?;
     serde_json::to_string(&profile_evidence::analyze(input)?).map_err(|error| error.to_string())
+}
+
+#[wasm_bindgen]
+pub fn account_system(input: &str) -> Result<String, String> {
+    if input.len() > 1_000_000 { return Err("Account system input exceeds 1 MiB".into()); }
+    let input = serde_json::from_str(input).map_err(|error| format!("Invalid account system: {error}"))?;
+    serde_json::to_string(&account_system::compute(input)?).map_err(|error| error.to_string())
+}
+
+#[wasm_bindgen]
+pub fn stewardship(input: &str) -> Result<String, String> {
+    if input.len() > 1_000_000 { return Err("Stewardship input exceeds 1 MiB".into()); }
+    let input = serde_json::from_str(input).map_err(|error| format!("Invalid stewardship: {error}"))?;
+    serde_json::to_string(&stewardship::analyze(input)?).map_err(|error| error.to_string())
 }
 
 #[wasm_bindgen]

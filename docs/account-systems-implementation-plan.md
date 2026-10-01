@@ -1,0 +1,10 @@
+# Account systems and stewardship implementation plan
+
+- Add `account-system` as a separate arrangement. `arrangement` is the activation authority; saved `accountSystem.enabled` is rejected when it contradicts that choice. Stewardship is independently enabled and never changes repository positions.
+- Keep source account, selected center, and focused user separate. Runtime evidence enters through bounded `accountSystemData` / `stewardshipData` snapshots; exported config contains settings and center identity only. The Scene v1 additions are optional version-1 attachments, absent from legacy scenes.
+- Extend the shared organization contributor loader rather than add a fetch stack: retain GitHub actor `type`, version its loader cache, scan at most 25 selected repositories with three workers and a shared 100-request enrichment budget. Old untyped records remain `unknown`, never verified human.
+- Add Rust/WASM entry points for deterministic account topology and stewardship analysis. Account topology reuses developer-profile evidence for technical angular grouping, fixes the sun at center, preserves manual planet positions, assigns one canonical contributor moon to an evidenced primary parent, and returns bounded secondary relations. Stewardship consumes tri-state masks and bounded behavior components; it does no acquisition.
+- Validate attachment versions, typed IDs, references, parent kinds, finite/bounded geometry, masks, relation provenance, node/edge budgets, self-parenting, cycles, and temporal exclusions at the Scene boundary. Renderers consume only compiled attachment data.
+- Use fixed synthetic person-, organization-, partial-coverage and near-limit fixtures. Preserve existing Scene/SVG fixtures before enabling features, add deterministic request-count tests, and benchmark 25 repositories without machine-specific pass thresholds.
+
+Initial v3.8 bounds: 25 repositories scanned, 4 visible moons per planet, 120 contributor identities, 256 total account-system entities including the sun, 2,048 relations, three concurrent requests, and 100 additional enrichment requests per explicit load or refresh.

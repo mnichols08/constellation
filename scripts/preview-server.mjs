@@ -174,6 +174,7 @@ const allowed = new Map([
     "coding-rhythm-svg",
     "activity",
     "activity-effects",
+    "account-system",
     "github-activity",
     "github-mark",
     "sample-activity",
@@ -273,6 +274,8 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
         /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/commits$/i.test(path);
       const repoMetadata =
         /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+$/i.test(path);
+      const communityProfile =
+        /^\/repos\/[a-z\d][a-z\d-]{0,38}\/[a-z\d_.-]+\/community\/profile$/i.test(path);
       const contributionSearch =
         (path === "/search/issues" &&
           /^author:[a-z\d][a-z\d-]{0,38}(?: org:[a-z\d][a-z\d-]{0,38})? is:pr is:public$/i.test(
@@ -290,6 +293,7 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
           !contributors &&
           !commits &&
           !repoMetadata &&
+          !communityProfile &&
           !contributionSearch) ||
         [...url.searchParams.keys()].some(
           (key) =>
@@ -300,7 +304,7 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
                   ? ["per_page", "page", "sha"]
                   : publicEvents || contributors
                     ? ["per_page", "page"]
-                    : accountInfo || repoMetadata
+                    : accountInfo || repoMetadata || communityProfile
                       ? []
                       : ["type", "sort", "per_page", "page"]
             ).includes(key),

@@ -44,7 +44,7 @@ export function normalizeContributors(records, repos) {
     for (const row of rows) {
       if (!/^[a-z\d][a-z\d-]{0,38}(?:\[bot\])?$/i.test(row.login || '')) continue;
       const key = row.login.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
-      if (!byId.has(key)) byId.set(key, { login: row.login, avatar_url: /^https:\/\//.test(row.avatar_url || '') ? row.avatar_url : '', html_url: `https://github.com/${encodeURIComponent(row.login)}`, repositoryCount: 0, contributionCount: 0, pullRequestCount: 0, repositories: [], firstSeen: null, lastSeen: null });
+      if (!byId.has(key)) byId.set(key, { login: row.login, actorType: ["User", "Bot", "Organization"].includes(row.type) ? row.type : "Unknown", verifiedHuman: row.type === "User", avatar_url: /^https:\/\//.test(row.avatar_url || '') ? row.avatar_url : '', html_url: `https://github.com/${encodeURIComponent(row.login)}`, repositoryCount: 0, contributionCount: 0, pullRequestCount: 0, repositories: [], firstSeen: null, lastSeen: null });
       const person = byId.get(key); person.repositories.push(fullName); person.repositoryCount++;
       person.contributionCount += Math.max(0, Number(row.contributions) || 0);
       person.pullRequestCount += Math.max(0, Number(row.pullRequestCount) || 0);

@@ -1,0 +1,10 @@
+import { performance } from "node:perf_hooks";
+import { createScene } from "../src/constellation.mjs";
+import { renderSceneSVG } from "../src/renderer-svg.mjs";
+
+const repositories = Array.from({ length: 25 }, (_, index) => ({ name: `project-${index}`, full_name: `synthetic/project-${index}`, private: false, fork: false, stargazers_count: 25 - index, language: index % 2 ? "Rust" : "TypeScript", languages: index % 2 ? { Rust: 100 } : { TypeScript: 80, CSS: 20 }, topics: index % 2 ? ["wasm"] : ["react"], updated_at: "2026-09-01T00:00:00Z" }));
+const records = Object.fromEntries(repositories.slice(0, 18).map((repository, index) => [repository.full_name, Array.from({ length: 7 }, (_, person) => ({ login: `person-${(index + person) % 40}`, type: person === 6 ? "Unknown" : "User", contributions: 20 - person }))]));
+const stewardship = repositories.slice(0, 20).map((repository, index) => { const knownMask = index % 4 ? 127 : 65; return { id: repository.full_name, knownMask, presentMask: index % 3 && knownMask === 127 ? 5 : 1, behavior: { observedClosures: index % 5 } }; });
+const options = { arrangement: "account-system", referenceDate: "2026-09-01T00:00:00.000Z", exportProfile: "hero", accountSystem: { enabled: true, center: { type: "organization", login: "synthetic" }, grouping: "technical", moons: { enabled: true, types: ["contributors"], maxPerPlanet: 4, maxScanRepositories: 25 } }, accountSystemData: { records }, stewardship: { enabled: true, maxScanRepositories: 25 }, stewardshipData: { repositories: stewardship } };
+const start = performance.now(); const scene = createScene("synthetic", repositories, options); const compiled = performance.now(); const svg = renderSceneSVG(scene); const rendered = performance.now();
+console.log(JSON.stringify({ fixture: "synthetic-25-partial", repositories: 25, scannedContributorRepositories: 18, stewardshipRepositories: 20, moons: scene.accountSystem.moons.length, relations: scene.accountSystem.relations.length, compileMs: Number((compiled - start).toFixed(2)), renderMs: Number((rendered - compiled).toFixed(2)), svgBytes: Buffer.byteLength(svg) }, null, 2));

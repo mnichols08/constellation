@@ -1,5 +1,7 @@
 # Scene pipeline
 
+Scene v1 may contain optional `accountSystem` and `stewardship` version-1 attachments. Validation covers typed center identity, repository-backed planets, unique moons, exactly one evidenced primary parent, finite local offsets, allowed provenance, tri-state masks, recurrence denominators and feature bounds. Orbit guides are presentation data, not graph edges. Existing scenes omit these fields and remain byte-compatible. See [account systems](account-systems.md).
+
 The optional version-1 `scene.temporalStack` attachment references yearly Timeline
 frames, stable local anchors and typed continuity bridges without changing Scene
 API v1. [Temporal Stack](temporal-stack.md) documents validation and limits.

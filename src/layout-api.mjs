@@ -1,4 +1,5 @@
-import { computeScene, rustAvailable } from "./engine.mjs";
+import { computeScene, computeAccountSystem, rustAvailable } from "./engine.mjs";
+import { accountSystemOptions } from "./account-system.mjs";
 import { artifactLayouts, artifactPositions } from "./artifact-layouts.mjs";
 import {
   organizationLayouts,
@@ -17,6 +18,7 @@ export const BUILTIN_LAYOUTS = Object.freeze([
   "force",
   "rings",
   "profile",
+  "account-system",
   ...artifactLayouts,
   ...organizationLayouts,
 ]);
@@ -251,6 +253,14 @@ export function layoutScene(scene, options = {}, context = {}) {
           role: showcaseRole(repo, options.projectShowcase),
         }))
       : [];
+  const accountSettings = accountSystemOptions(options, account);
+  const accountSystem = accountSettings.active ? computeAccountSystem({
+    center: { id: `github:${accountSettings.center.type}:${accountSettings.center.login.toLowerCase()}`, login: accountSettings.center.login, type: accountSettings.center.type },
+    repositories: records.filter((repo) => !repo.nodeKind || repo.nodeKind === "repository").map((repo) => ({ id: repo.full_name, languages: repo.languages || {}, language_names: repositoryLanguagesForAccount(repo), topics: repo.topics || [], role: showcaseRole(repo, options.projectShowcase), position: Object.hasOwn(options.starPositions || {}, repo.full_name) ? [options.starPositions[repo.full_name].x, options.starPositions[repo.full_name].y] : null })),
+    contributors: accountSettings.moons.enabled ? contributorRelations(options.accountSystemData, records) : [],
+    width: 900, height: outputHeight, max_per_planet: accountSettings.moons.maxPerPlanet, grouping: accountSettings.grouping, seed,
+  }) : null;
+  if (accountSystem) positions = { ...Object.fromEntries(accountSystem.planets.map((planet) => [planet.id, { x: planet.position[0], y: planet.position[1] }])), ...options.starPositions };
   const input = {
     stableOverview,
     nodeCap: scaling.nodeCap,
@@ -260,7 +270,7 @@ export function layoutScene(scene, options = {}, context = {}) {
     profile_emphasis: options.profileEmphasis || "automatic",
     profile_height: arrangement === "profile" ? outputHeight : 0,
     arrangement:
-      artifactLayouts.includes(arrangement) ||
+      arrangement === "account-system" || artifactLayouts.includes(arrangement) ||
       organizationLayouts.includes(arrangement)
         ? "field"
         : arrangement,
@@ -324,5 +334,22 @@ export function layoutScene(scene, options = {}, context = {}) {
     edges: structuredClone(result.edges),
     total: result.total,
     profile: result.profile || null,
+    accountSystem,
   };
+}
+
+function repositoryLanguagesForAccount(repo) {
+  return repo.languages ? Object.keys(repo.languages).filter((name) => repo.languages[name] > 0).sort() : repo.language ? [repo.language] : [];
+}
+function contributorRelations(snapshot, records) {
+  const visible = new Set(records.filter((repo) => !repo.nodeKind || repo.nodeKind === "repository").map((repo) => repo.full_name));
+  const result = [];
+  for (const [repository, rows] of Object.entries(snapshot?.records || {})) {
+    if (!visible.has(repository) || !Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (typeof row.login !== "string") continue;
+      result.push({ id: `github:${row.type === "Organization" ? "organization" : row.type === "Bot" ? "bot" : row.type === "User" ? "user" : "unknown"}:${row.login.toLowerCase()}`, login: row.login, actor_type: row.type || "Unknown", repository, contributions: Number.isInteger(row.contributions) ? row.contributions : null, pull_requests: Number.isInteger(row.pullRequestCount) ? row.pullRequestCount : null, source: row.pullRequestCount ? "authored-public-pr" : "github-contributors" });
+    }
+  }
+  return result;
 }

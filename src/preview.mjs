@@ -666,6 +666,8 @@ function render({ requireVisibleNodes = false } = {}) {
   };
   options.accountData = isSample ? undefined : data.profile(account);
   options.organizationData = isSample ? undefined : data.organization(account);
+  options.accountSystemData = options.organizationData;
+  options.stewardshipData = options.organizationData?.stewardship;
   options.commitHistoryData = isSample
     ? undefined
     : data.commitHistory(account);
@@ -677,6 +679,18 @@ function render({ requireVisibleNodes = false } = {}) {
   $("#max-repos").disabled = options.repoSource === "pinned";
   const selected = selectRepositoryPool(repositories, options);
   options.arrangement = $("#arrangement").value;
+  if (options.arrangement === "account-system") options.accountSystem = {
+    enabled: true,
+    center: {
+      type: $("#account-center-type")?.value || (options.accountData?.type === "Organization" ? "organization" : "user"),
+      login: $("#account-center-login")?.value.trim() || account,
+    },
+    grouping: "technical",
+    moons: { enabled: $("#account-moons")?.checked ?? false, types: ["contributors"], maxPerPlanet: 4, maxScanRepositories: 25 },
+  };
+  else if (options.accountSystem) options.accountSystem = { ...options.accountSystem, enabled: false };
+  options.stewardship = { enabled: $("#stewardship-enabled")?.checked ?? false, tier: "basic", maxScanRepositories: 25 };
+  if ($("#account-system-controls")) $("#account-system-controls").hidden = options.arrangement !== "account-system";
   options.profileEmphasis =
     $("#profile-emphasis")?.value ||
     importedOptions.profileEmphasis ||
@@ -1263,6 +1277,8 @@ for (const link of document.querySelectorAll('a[href="#token-help"]'))
   });
 for (const id of ["#arrangement", "#identity-ring", "#snap-rings"])
   $(id).addEventListener("input", render);
+for (const input of document.querySelectorAll("#account-system-controls input, #account-system-controls select"))
+  input.addEventListener("input", render);
 for (const input of document.querySelectorAll(
   "#temporal-stack-controls input:not([type=search]), #temporal-stack-controls select, #temporal-stack-controls textarea",
 ))
@@ -1979,6 +1995,7 @@ function applyOptions(options) {
 for (const [value, text] of [
   ["galaxy", "Galaxy · language clusters"],
   ["solar-system", "Solar System · major repositories"],
+  ["account-system", "Account System · chosen sun and evidenced moons"],
   ["temporal-stack", "Universe · explore dimensions in depth"],
 ]) {
   const option = document.createElement("option");

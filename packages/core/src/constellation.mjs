@@ -61,6 +61,7 @@ import {
   projectNodes,
   rustAvailable,
 } from "./engine.mjs";
+import { accountSystemOptions, stewardshipOptions, compileStewardship } from "./account-system.mjs";
 
 export function username(value = "") {
   const name = value
@@ -776,6 +777,8 @@ export function createScene(
   options = {},
   { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {},
 ) {
+  if ((options.timeline || options.arrangement === "temporal-stack" || options.temporalStack?.enabled) && (options.arrangement === "account-system" || options.stewardship?.enabled))
+    throw new Error("Current account-system and stewardship evidence cannot be compiled as historical or temporal membership.");
   if (options.temporalStack !== undefined)
     temporalStackOptions(options.temporalStack);
   if (options.temporalGeometry !== undefined)
@@ -817,6 +820,8 @@ export function createScene(
   const scaling = scalingOptions(options);
   const refinement = layoutRefinementOptions(options.layoutRefinement);
   organizationOptions(options);
+  accountSystemOptions(options, account);
+  stewardshipOptions(options);
   const sourceHasRepositories = repositories.some(
     (repo) =>
       repo.private !== true &&
@@ -1059,6 +1064,7 @@ export function createScene(
       "force",
       "rings",
       "profile",
+      "account-system",
       ...artifactLayouts,
       ...organizationLayouts,
     ].includes(arrangement)
@@ -1565,6 +1571,7 @@ export function createScene(
       style: { primary: backbone.has(edge) },
     }));
   signal?.throwIfAborted();
+  const stewardship = compileStewardship(options, nodes.filter((node) => !node.metadata.nodeKind || node.metadata.nodeKind === "repository").map((node) => node.id));
   return JSON.parse(
     JSON.stringify({
       version: 1,
@@ -1609,6 +1616,8 @@ export function createScene(
                   ],
           }
         : {}),
+      ...(scene.accountSystem ? { accountSystem: scene.accountSystem } : {}),
+      ...(stewardship ? { stewardship } : {}),
       layers,
       geometry: { identity: geometry, ringPoints: Array.from(ringPoints) },
       presentation: {

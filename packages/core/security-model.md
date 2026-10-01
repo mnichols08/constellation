@@ -1,5 +1,7 @@
 # Security model
 
+Account-system and stewardship attachments are non-executable declarative data. Validation rejects conflicting identities, dangling or self parents, invalid provenance, non-finite orbit data, impossible present/known/inherited masks and feature-specific size limits. Imported scenes cannot initiate enrichment.
+
 Configuration, scene JSON, transforms, mappings, timelines, hierarchy and stories are declarative data. No config/share value is passed to `eval`, `Function` or a dynamic module loader. Executable source, layout and renderer extensions are explicitly registered by trusted application code and have that application's privileges; registration is not a sandbox.
 
 Scene validation rejects non-JSON values, cycles, unsafe object keys, invalid IDs/endpoints/styles, malformed temporal/hierarchical/story records and bounded-size violations. Renderer text, attributes, icon descriptors and embedded JSON have separate escaping/validation boundaries. Imported component CSS rejects external URLs/imports/escapes/expressions; trusted local CLI/workflow CSS remains supported. CSS can change presentation and should come from a trusted author.

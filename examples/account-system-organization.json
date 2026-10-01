@@ -1,0 +1,9 @@
+{
+  "version": 7,
+  "account": "github",
+  "arrangement": "account-system",
+  "exportProfile": "wide",
+  "maxRepos": 25,
+  "accountSystem": { "enabled": true, "center": { "type": "organization", "login": "github" }, "grouping": "technical", "moons": { "enabled": true, "types": ["contributors"], "maxPerPlanet": 3, "maxScanRepositories": 25 } },
+  "stewardship": { "enabled": true, "tier": "basic", "maxScanRepositories": 25 }
+}

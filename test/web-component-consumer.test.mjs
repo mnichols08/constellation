@@ -45,6 +45,7 @@ test(
     assert.equal(manifest.dependencies["@constellation/core"], core.version);
     assert.deepEqual((await readdir(directory)).sort(), [
       "README.md",
+      "account-systems.md",
       "developer-topology.md",
       "index.mjs",
       "package.json",

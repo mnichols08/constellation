@@ -281,6 +281,16 @@
                 aria-live="polite"
               ></p>
             </fieldset>
+            <fieldset id="account-system-controls" hidden>
+              <legend>Account system</legend>
+              <label for="account-center-type">Chosen center type</label>
+              <select id="account-center-type"><option value="user">Person</option><option value="organization">Organization</option></select>
+              <label for="account-center-login">Chosen center login</label>
+              <input id="account-center-login" autocomplete="off" placeholder="This account" />
+              <label><input id="account-moons" type="checkbox" /> Show observed contributor moons</label>
+              <label><input id="stewardship-enabled" type="checkbox" /> Show maintenance evidence</label>
+              <p>Choosing a center changes the viewpoint, not project ownership, employment, leadership, or contribution evidence.</p>
+            </fieldset>
             <fieldset id="temporal-stack-controls" hidden>
               <legend>Universe</legend>
               <label for="temporal-axis">Stack by</label

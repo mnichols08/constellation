@@ -138,6 +138,28 @@ export function analyzeDeveloperProfile(input) {
   return JSON.parse(core.developer_profile(JSON.stringify(input)));
 }
 
+const accountSystems = new Map();
+export function computeAccountSystem(input) {
+  if (!core?.account_system) throw new Error("Account systems need the rebuilt Rust engine. Run npm run build:rust.");
+  const key = JSON.stringify(input);
+  if (!accountSystems.has(key)) {
+    if (accountSystems.size >= 16) accountSystems.delete(accountSystems.keys().next().value);
+    accountSystems.set(key, JSON.parse(core.account_system(key)));
+  }
+  return structuredClone(accountSystems.get(key));
+}
+
+const stewardshipResults = new Map();
+export function analyzeStewardship(input) {
+  if (!core?.stewardship) throw new Error("Stewardship analysis needs the rebuilt Rust engine. Run npm run build:rust.");
+  const key = JSON.stringify(input);
+  if (!stewardshipResults.has(key)) {
+    if (stewardshipResults.size >= 16) stewardshipResults.delete(stewardshipResults.keys().next().value);
+    stewardshipResults.set(key, JSON.parse(core.stewardship(key)));
+  }
+  return structuredClone(stewardshipResults.get(key));
+}
+
 export function identityGeometry(metadata, variation = 0) {
   return Array.from(core.identity_geometry(metadata, variation));
 }

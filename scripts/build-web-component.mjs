@@ -20,6 +20,7 @@ await copyFile(
   new URL("../docs/developer-topology.md", import.meta.url),
   new URL("developer-topology.md", directory),
 );
+await copyFile(new URL("../docs/account-systems.md", import.meta.url), new URL("account-systems.md", directory));
 await writeFile(
   new URL("package.json", directory),
   JSON.stringify(
@@ -33,6 +34,7 @@ await writeFile(
         "README.md",
         "temporal-stack.md",
         "developer-topology.md",
+        "account-systems.md",
       ],
       dependencies: { "@constellation/core": version },
       license: "UNLICENSED",
