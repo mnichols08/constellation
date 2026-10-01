@@ -44,6 +44,7 @@ import {
 import { createRepositoryCommits } from "./repository-commits.mjs";
 import { commitHistoryOptions } from "./commit-constellation.mjs";
 import { createCliRequestCache } from "./cli-request-cache.mjs";
+import { loadAccountAvatar } from "./account-sun.mjs";
 
 async function main() {
   const token =
@@ -398,6 +399,8 @@ async function main() {
     } else process.stdout.write(result);
     return;
   }
+  if (config.accountSun === "avatar" && !values.fixture && !values["dry-run"])
+    config.accountData = { ...config.accountData, avatarData: await loadAccountAvatar(account) };
   const scene = pluginHost.createScene(account, repos, {
     ...config,
     activityData,

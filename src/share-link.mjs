@@ -12,6 +12,7 @@ export const shareParameters = {
   theme: "string",
   visualTheme: "string",
   arrangement: "string",
+  accountSun: "string",
   profileEmphasis: "string",
   layout: "string",
   nodeMode: "string",

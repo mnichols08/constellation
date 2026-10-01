@@ -10,6 +10,7 @@ import { pluginOptions } from "./plugin-host.mjs";
 import { validateThemePack } from "./theme-packs.mjs";
 import { randomizeDesign } from "./design-randomizer.mjs";
 import { validateLayoutReference } from "./layout-host.mjs";
+import { accountSunMode } from "./account-sun.mjs";
 
 export const CONFIG_VERSION = 7;
 export const MAX_CONFIG_BYTES = 250000;
@@ -46,6 +47,7 @@ fields.add("timeline");
 fields.add("temporalStack");
 fields.add("temporalGeometry");
 fields.add("ringPlacements");
+fields.add("accountSun");
 fields.add("transforms");
 fields.add("mappings");
 fields.add("layoutEngine");
@@ -84,6 +86,7 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   validateLayoutReference(options);
   commitHistoryOptions(options);
   if ("plugins" in options) pluginOptions(options.plugins);
+  if ("accountSun" in options) accountSunMode(options.accountSun);
   if ("themePack" in options)
     validateThemePack(options.themePack, { reference: true });
   for (const key of [

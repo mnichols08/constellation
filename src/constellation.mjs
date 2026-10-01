@@ -1,4 +1,5 @@
 import { layoutScene } from "./layout-api.mjs";
+import { accountSunMode } from "./account-sun.mjs";
 import { createTimeline } from "./timeline.mjs";
 import { createTemporalStack } from "./temporal-stack.mjs";
 import { temporalStackOptions } from "./temporal-stack-model.mjs";
@@ -776,6 +777,7 @@ export function createScene(
   options = {},
   { onDiagnostic, nodeRenderer, pipeline, signal, layoutHost } = {},
 ) {
+  accountSunMode(options.accountSun);
   if (options.temporalStack !== undefined)
     temporalStackOptions(options.temporalStack);
   if (options.temporalGeometry !== undefined)

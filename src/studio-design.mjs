@@ -16,7 +16,7 @@ import { visualThemes } from './themes.mjs';
 import { newDesignCode, randomizeDesign, randomizeMatchingDesign } from './design-randomizer.mjs';
 import { defaultStarfield, starfieldOptions } from './starfield.mjs';
 
-export const designDefaults = { ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
+export const designDefaults = { accountSun: 'off', ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
 export function preserveShowcaseOptions(recipe, current = {}) {
   return { ...recipe, ...(current.projectShowcase ? { projectShowcase: structuredClone(current.projectShowcase) } : {}), ...(current.readmePresentation ? { readmePresentation: current.readmePresentation } : {}), ...(current.ringOrganization ? { ringOrganization: current.ringOrganization } : {}), ...(current.featuredTreatment ? { featuredTreatment: current.featuredTreatment } : {}) };
@@ -54,6 +54,9 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
     });
     parent.append(label, input); controls.set(key, input); return input;
   };
+  const accountPanel = section('Account sun');
+  control(accountPanel, 'accountSun', 'Center of your constellation', [['off', 'Off'], ['sun', 'Sun + username'], ['avatar', 'GitHub avatar + glow']]);
+  const accountNote = document.createElement('p'); accountNote.className = 'export-note'; accountNote.textContent = 'Your account stays at the center while identity rings and projects move around it. Avatar images are embedded in exports; initials appear if the image is unavailable.'; accountPanel.append(accountNote);
   const showcasePanel = section('Showcase');
   control(showcasePanel, 'readmePresentation', 'README presentation', [['full-universe', 'Full universe'], ['featured-work', 'Featured work'], ['current-focus', 'Current focus'], ['technology-identity', 'Technology identity'], ['project-journey', 'Project journey']]);
   control(showcasePanel, 'ringOrganization', 'Organize rings by', [['identity', 'Identity / automatic'], ['importance', 'Project importance'], ['activity', 'Activity'], ['manual', 'Manual']]);

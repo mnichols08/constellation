@@ -15,6 +15,7 @@ import {
   rhythmDescription,
 } from "./coding-rhythm-svg.mjs";
 import { renderCredit } from "./github-mark.mjs";
+import { renderAccountSun } from "./account-sun.mjs";
 import {
   starfieldOptions,
   renderStarfield,
@@ -609,7 +610,7 @@ ${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height
 `,
   starfield: `${renderStarfield(seed, sky, { height, detail: profile.dustCount / 85, animate, transparent })}`,
 })}
-<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>`, nodes: `${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
+<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${geometry ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>`, nodes: `${renderAccountSun(name, options, centerY, escape)}${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
     visualScene,
     "overlay",
     {

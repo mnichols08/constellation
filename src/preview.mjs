@@ -1,4 +1,5 @@
 import { PUBLIC_MODE_MESSAGE, publicLimitMessage } from "./github-access.mjs";
+import { loadAccountAvatar } from "./account-sun.mjs";
 import { createGitHubOAuth } from "./github-oauth.mjs";
 import { mountOnboarding } from "./onboarding-ui.mjs";
 import { mountConstellationLibrary } from "./constellation-library.mjs";
@@ -113,6 +114,7 @@ function enterStudio() {
   if (guidedHost) guidedHost.hidden = true;
 }
 let importedOptions = {};
+let accountAvatar = null;
 const $ = (selector) => document.querySelector(selector);
 function updateAccessUI() {
   $(".form-note").textContent = access.authenticated
@@ -698,6 +700,18 @@ function render({ requireVisibleNodes = false } = {}) {
     css: `${generatedCSS}\n${$("#custom-css").value}`,
   };
   options.accountData = isSample ? undefined : data.profile(account);
+  if (options.accountSun === "avatar") {
+    const key = account.toLowerCase();
+    if (accountAvatar?.account !== key) {
+      const request = accountAvatar = { account: key, data: null };
+      if (!isSample) loadAccountAvatar(account).then(source => {
+        if (accountAvatar !== request) return;
+        request.data = source;
+        render();
+      });
+    }
+    options.accountData = { ...options.accountData, avatarData: accountAvatar.data };
+  }
   options.organizationData = isSample ? undefined : data.organization(account);
   options.commitHistoryData = isSample
     ? undefined

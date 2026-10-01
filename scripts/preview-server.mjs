@@ -81,6 +81,7 @@ const allowed = new Map([
       ];
     }),
   ...[
+    "account-sun",
     "scene",
     "timeline",
     "scene-layers",

@@ -103,6 +103,7 @@ export function mountStudioLayout() {
   const look = panel("look");
   field("design-visualTheme", look);
   field("arrangement", look);
+  section("design-accountSun", look);
   field("profile-emphasis", look);
   look.append($("#profile-dimension-controls"));
   field("layout", look);
