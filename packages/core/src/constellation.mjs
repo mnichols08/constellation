@@ -1,4 +1,4 @@
-import { compareRecruiterProjects, prepareRecruiterScene, validateProjectRelationships } from "./recruiter.mjs";
+import { compareRecruiterProjects, prepareRecruiterScene, validateProjectRelationships, recruiterProjectLimit } from "./recruiter.mjs";
 import { layoutScene } from "./layout-api.mjs";
 import { accountSunMode } from "./account-sun.mjs";
 import { validateSemanticOptions, semanticActive } from './semantic-studio.mjs';
@@ -422,7 +422,7 @@ export function selectRepositoryPool(repositories, options = {}) {
   }
   if (options.readmePresentation === "recruiter") return eligible
     .filter(repo => !(options.hiddenNodes || []).includes(repo.full_name))
-    .sort((a, b) => compareRecruiterProjects(a, b, options)).slice(0, Math.min(12, maxRepos));
+    .sort((a, b) => compareRecruiterProjects(a, b, options)).slice(0, Math.min(recruiterProjectLimit, maxRepos));
   const explicitRoles = Object.values(options.projectShowcase || {});
   if (
     options.readmePresentation === "featured-work" &&
