@@ -1,157 +1,1263 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="constellation-oauth-client" content=""><meta name="constellation-oauth-exchange" content="">
-<meta name="referrer" content="no-referrer">
-<meta name="color-scheme" content="light dark"><meta name="description" content="Turn your GitHub projects into a personal constellation. Explore your sky and bring it to your README.">
-<title>GitHub Constellation — Your code, written in the stars</title>
-<script>
-(() => {
-  let visited = false;
-  try { visited = localStorage.getItem('constellation:visited') === '1'; } catch {}
-  document.documentElement.dataset.returning = String(visited);
-  document.documentElement.dataset.entry = 'landing';
-})();
-</script>
-<link rel="stylesheet" href="./src/preview.css">
-<link rel="stylesheet" href="./src/studio-layout.css">
-</head>
-<body>
-<header class="masthead"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">✧</span>constellation <span class="brand-tag">for GitHub</span></a><button id="github-auth-open" type="button" class="secondary" data-open-github-auth>Continue with GitHub</button><a class="source-link" href="https://github.com/mnichols08/constellation">View on GitHub ↗</a></header>
-<dialog id="github-sign-in" aria-labelledby="github-auth-title">
-<button id="github-auth-close" type="button" class="secondary">Close</button>
-<h2 id="github-auth-title">Sign in to GitHub</h2>
-<button id="github-oauth-start" type="button">Continue with GitHub</button>
-<p>Connect securely to load your profile and pinned repositories. Public exploration needs no login.</p>
-<details id="github-advanced-auth" hidden><summary>Advanced local development: token fallback</summary>
-<form id="github-token-form">
-<label for="github-token">Personal access token</label>
-<input id="github-token" type="password" required autocomplete="off" spellcheck="false" autocapitalize="none">
-<p>Your token is sent directly to GitHub and kept only until you reload or close this page. It is never saved in your designs or share links.</p>
-<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a fine-grained token</a> with public repository access. No write permissions are needed.</p>
-<button id="github-token-submit" type="submit">Sign in and start guided setup</button>
-</form></details>
-<p id="github-auth-status" role="status" aria-live="polite"></p>
-<button id="github-sign-out" type="button" class="secondary" hidden>Sign out</button>
-</dialog>
-<main>
-<p id="studio-loading" role="status">Opening your constellation studio…</p>
-<noscript><p class="graph-explorer">Enable JavaScript to customize and explore your graph. <a href="./dist/constellation.svg">View the sample constellation</a> or follow the <a href="https://github.com/mnichols08/constellation#quick-start">daily workflow instructions</a>.</p></noscript>
-<section class="intro">
-<p class="eyebrow"><span></span> EVERY PROJECT HAS A PLACE IN YOUR SKY</p>
-<h1>Your code, written<br>in the <em>stars.</em></h1>
-<p class="lede">Connect, curate your projects, and discover the connections across your work.</p>
-<button type="button" data-open-github-auth>Continue with GitHub</button><p>Or explore a public account—no login needed.</p>
-<form id="account-form"><label class="sr-only" for="account-mode">Constellation for</label><select id="account-mode" aria-label="Constellation for"><option value="auto">Account</option><option value="organization">Organization</option><option value="paired">User in organization</option></select><label class="sr-only" for="username">GitHub account name or URL</label><span class="input-prefix" aria-hidden="true">@</span><input id="username" name="username" placeholder="Username or organization" required autocapitalize="none" autocomplete="off" spellcheck="false"><label class="sr-only" for="organization-account">Organization to connect with this user</label><input id="organization-account" placeholder="Organization name" hidden autocapitalize="none" autocomplete="off" spellcheck="false"><button type="submit">Explore a public account <span aria-hidden="true">&#8599;</span></button></form>
-<button id="open-studio" type="button" class="secondary" disabled>Explore the sample studio</button>
-<p class="form-note">Load once, customize freely. Project data stays saved in this tab, including after a reload. Only loading or refreshing data uses GitHub API requests.</p>
-<details id="token-help" class="token-help">
-<summary>Sign in to preview pinned repositories</summary>
-<p>Continue with GitHub to load profile pins and use your authenticated API allowance. Public projects remain available without signing in.</p>
-<button type="button" class="secondary" data-open-github-auth>Continue with GitHub</button>
-<p>Local development also supports <code>GH_TOKEN</code> in <code>.env</code>. Daily workflows use GitHub’s automatic token.</p>
-</details>
-</section>
-<section class="observatory" aria-label="Constellation studio">
-<div class="studio-header"><div><span class="live-dot"></span><span id="map-title">The sample sky</span><span id="sample-badge" class="badge">DEMO</span></div></div>
-<section class="graph-filters" aria-label="Choose languages and topics">
-  <div class="filter-heading"><h2>Make your own star graph</h2><label class="visual-toggle" for="show-other">Include Other<input id="show-other" type="checkbox"></label></div>
-  <p>Choose any number of languages and topics from the project pool. Within each row, matches use “any”; across rows, projects must match both. Other means no detected language.</p>
-  <fieldset><legend>Languages</legend><div class="filter-actions"><button type="button" data-filter="languages" data-selection="all">All</button><button type="button" data-filter="languages" data-selection="none">None</button></div><div id="language-filters" class="filter-chips"></div></fieldset>
-  <fieldset><legend>Topics</legend><div class="filter-actions"><button type="button" data-filter="topics" data-selection="all">All</button><button type="button" data-filter="topics" data-selection="none">None</button></div><div id="topic-filters" class="filter-chips"></div></fieldset>
-  <p id="filter-summary" role="status"></p>
-</section>
-<div class="studio-body">
-<div class="sky-panel"><div id="preview" aria-busy="false"></div><div id="graph-explorer" class="graph-explorer" aria-label="Explore connections"></div><div class="sky-legend"><span><i class="legend-star"></i> <span id="node-legend">Project</span></span><span><i class="legend-line"></i> <span id="relationship-legend">Shared language</span></span><span><i class="legend-bridge"></i> Visual bridge</span></div></div>
-<aside class="controls" aria-label="Customize your constellation"><p class="eyebrow">MAKE IT YOURS</p><h2>Your constellation</h2><label for="layout">Format</label><select id="layout"><option value="compact">Compact README · 900 × 280</option><option value="atlas" selected>Full atlas · 900 × 560</option></select>
-<label for="arrangement">Arrangement</label><select id="arrangement"><option value="rings" selected>On identity ring points</option><option value="field">Star field</option><option value="orbital">Identity orbits</option><option value="force">Connected clusters</option></select>
-<fieldset id="temporal-stack-controls" hidden><legend>Universe</legend>
-<label for="temporal-axis">Stack by</label><select id="temporal-axis"><option value="year">Year</option><option value="language">Language</option><option value="repository">Repository</option><option value="topic">Topic</option></select>
-<label for="temporal-layerValues">Layers in order (one per line; blank selects the most represented)</label><textarea id="temporal-layerValues" rows="3" placeholder="JavaScript&#10;Rust"></textarea>
-<label for="temporal-layer-search">Find a dimension value</label><input id="temporal-layer-search" type="search" list="temporal-layer-choices"><datalist id="temporal-layer-choices"></datalist><button id="temporal-layer-add" type="button">Add layer</button>
-<label for="temporal-innerArrangement">Project placement</label><select id="temporal-innerArrangement"><option value="rings">Identity ring points</option><option value="solar-system">Solar System</option><option value="galaxy">Galaxy</option></select>
-<label for="temporal-form">Universe form</label><select id="temporal-form"><option value="stack">Stack</option><option value="cylinder">Cylinder</option><option value="cone">Cone</option><option value="sphere">Sphere</option><option value="dome">Dome</option><option value="hourglass">Hourglass</option><option value="helix">Helix</option></select>
-<div data-temporal-parameter="radius"><label for="temporal-radius">Radius</label><input id="temporal-radius" type="range" min="80" max="600" value="320"></div>
-<div data-temporal-parameter="cone"><label for="temporal-startRadius">Newest radius</label><input id="temporal-startRadius" type="range" min="40" max="600" value="320"><label for="temporal-endRadius">Oldest radius</label><input id="temporal-endRadius" type="range" min="40" max="600" value="96"></div>
-<label for="temporal-depth">Structure depth</label><input id="temporal-depth" type="range" min="80" max="1600" value="640">
-<div data-temporal-parameter="waist"><label for="temporal-waist">Waist radius</label><input id="temporal-waist" type="range" min="0.1" max="1" step="0.05" value="0.3"></div>
-<div data-temporal-parameter="twist"><label for="temporal-twist">Twist (degrees)</label><input id="temporal-twist" type="range" min="-720" max="720" step="15" value="0"></div>
-<label for="temporal-orientation">Structure orientation</label><input id="temporal-orientation" type="range" min="-60" max="60" step="5" value="0">
-<label for="temporal-surface">Geometric guides</label><select id="temporal-surface"><option value="off">Rings only</option><option value="wireframe" selected>Wireframe</option><option value="translucent">Translucent surface</option></select>
-<label for="temporal-yearStart">First year (blank: latest six)</label><input id="temporal-yearStart" type="number" min="1970" max="9998" placeholder="Automatic">
-<label for="temporal-yearEnd">Last year (blank: current)</label><input id="temporal-yearEnd" type="number" min="1970" max="9998" placeholder="Current">
-<label for="temporal-yearStep">Year interval</label><input id="temporal-yearStep" type="number" min="1" max="100" value="1">
-<label for="temporal-depthGap" hidden>Legacy year separation</label><input id="temporal-depthGap" type="range" min="20" max="240" value="120" hidden>
-<label for="temporal-tilt">Plane tilt</label><input id="temporal-tilt" type="range" min="0.15" max="0.85" step="0.05" value="0.35">
-<label for="temporal-connections">Connections across layers</label><select id="temporal-connections"><option value="same-node">Shared identity</option><option value="none">None</option></select>
-<p class="export-note">Older layers use current metadata unless snapshots are supplied. Halos mark first visibility in this window. Interactive HTML adds year focus and camera controls.</p>
-</fieldset>
-<label for="node-mode">Nodes represent</label><select id="node-mode"><option value="combined" selected>Repositories + languages + topics</option><option value="repositories">Repositories</option><option value="languages">Languages</option><option value="topics">Topics</option></select>
-<p id="node-mode-help" class="export-note">Each node is a repository. Connections show shared languages or topics.</p>
-<details class="control-section"><summary>Rings & motion</summary><div class="control-section-body"><label class="toggle-row">Animate rings <input id="animate-rings" type="checkbox" role="switch"></label><label class="toggle-row">Lock rings together <input id="link-ring-motion" type="checkbox" role="switch"></label><label for="edit-ring">Edit ring</label><select id="edit-ring"><option value="0">Ring 1 · inner</option><option value="1">Ring 2</option><option value="2">Ring 3</option><option value="3">Ring 4 · outer</option></select><div class="ring-editor" data-ring-editor="0"><label for="ring-rotation-0">Ring 1 (inner) <output id="ring-rotation-value-0" for="ring-rotation-0">0°</output></label><input id="ring-rotation-0" type="range" min="0" max="360" step="1" value="0"><label for="ring-motion-0">Motion</label><select id="ring-motion-0"><option value="spin">Spin</option><option value="sway">Sway back and forth</option></select><label for="ring-speed-0">Ring 1 speed <output id="ring-speed-value-0">1 RPM</output></label><input id="ring-speed-0" type="range" min="0" max="6" step="0.25" value="1"><label for="ring-direction-0">Ring 1 direction</label><select id="ring-direction-0"><option value="clockwise">Clockwise</option><option value="counterclockwise">Counterclockwise</option></select><label for="ring-easing-0">Timing</label><select id="ring-easing-0"><option value="linear">Steady</option><option value="smooth">Ease in and out</option></select><div id="ring-sway-controls-0" hidden><label for="ring-sway-0">Sway angle <output id="ring-sway-value-0">30°</output></label><input id="ring-sway-0" type="range" min="0" max="180" step="5" value="30"></div></div><div class="ring-editor" data-ring-editor="1" hidden><label for="ring-rotation-1">Ring 2 <output id="ring-rotation-value-1" for="ring-rotation-1">0°</output></label><input id="ring-rotation-1" type="range" min="0" max="360" step="1" value="0"><label for="ring-motion-1">Motion</label><select id="ring-motion-1"><option value="spin">Spin</option><option value="sway">Sway back and forth</option></select><label for="ring-speed-1">Ring 2 speed <output id="ring-speed-value-1">1 RPM</output></label><input id="ring-speed-1" type="range" min="0" max="6" step="0.25" value="1"><label for="ring-direction-1">Ring 2 direction</label><select id="ring-direction-1"><option value="clockwise">Clockwise</option><option value="counterclockwise">Counterclockwise</option></select><label for="ring-easing-1">Timing</label><select id="ring-easing-1"><option value="linear">Steady</option><option value="smooth">Ease in and out</option></select><div id="ring-sway-controls-1" hidden><label for="ring-sway-1">Sway angle <output id="ring-sway-value-1">30°</output></label><input id="ring-sway-1" type="range" min="0" max="180" step="5" value="30"></div></div><div class="ring-editor" data-ring-editor="2" hidden><label for="ring-rotation-2">Ring 3 <output id="ring-rotation-value-2" for="ring-rotation-2">0°</output></label><input id="ring-rotation-2" type="range" min="0" max="360" step="1" value="0"><label for="ring-motion-2">Motion</label><select id="ring-motion-2"><option value="spin">Spin</option><option value="sway">Sway back and forth</option></select><label for="ring-speed-2">Ring 3 speed <output id="ring-speed-value-2">1 RPM</output></label><input id="ring-speed-2" type="range" min="0" max="6" step="0.25" value="1"><label for="ring-direction-2">Ring 3 direction</label><select id="ring-direction-2"><option value="clockwise">Clockwise</option><option value="counterclockwise">Counterclockwise</option></select><label for="ring-easing-2">Timing</label><select id="ring-easing-2"><option value="linear">Steady</option><option value="smooth">Ease in and out</option></select><div id="ring-sway-controls-2" hidden><label for="ring-sway-2">Sway angle <output id="ring-sway-value-2">30°</output></label><input id="ring-sway-2" type="range" min="0" max="180" step="5" value="30"></div></div><div class="ring-editor" data-ring-editor="3" hidden><label for="ring-rotation-3">Ring 4 (outer) <output id="ring-rotation-value-3" for="ring-rotation-3">0°</output></label><input id="ring-rotation-3" type="range" min="0" max="360" step="1" value="0"><label for="ring-motion-3">Motion</label><select id="ring-motion-3"><option value="spin">Spin</option><option value="sway">Sway back and forth</option></select><label for="ring-speed-3">Ring 4 speed <output id="ring-speed-value-3">1 RPM</output></label><input id="ring-speed-3" type="range" min="0" max="6" step="0.25" value="1"><label for="ring-direction-3">Ring 4 direction</label><select id="ring-direction-3"><option value="clockwise">Clockwise</option><option value="counterclockwise">Counterclockwise</option></select><label for="ring-easing-3">Timing</label><select id="ring-easing-3"><option value="linear">Steady</option><option value="smooth">Ease in and out</option></select><div id="ring-sway-controls-3" hidden><label for="ring-sway-3">Sway angle <output id="ring-sway-value-3">30°</output></label><input id="ring-sway-3" type="range" min="0" max="180" step="5" value="30"></div></div><p class="export-note">Lock together shares Ring 1’s motion settings. Starting angles stay independent. Pause motion to edit positions.</p></div></details><details class="control-section"><summary>Perspective</summary><div class="control-section-body"><label for="live-tilt-mode">Follow your view</label><select id="live-tilt-mode"><option value="off">Off</option><option value="pointer">Pointer · desktop</option><option value="device">Device tilt · phone/tablet</option></select><button id="enable-device-tilt" type="button" class="secondary">Enable device tilt</button><button id="recenter-device-tilt" type="button" class="secondary" disabled>Recenter device tilt</button><p id="live-tilt-status" class="export-note" role="status">Live tilt is off. It affects this preview only.</p><label class="toggle-row">Tilt the view <input id="perspective-enabled" type="checkbox" role="switch"></label><div id="perspective-controls" hidden><label for="perspective-horizontal">Side-to-side angle <output id="perspective-horizontal-value">0°</output></label><input id="perspective-horizontal" type="range" min="-55" max="55" value="0"><label for="perspective-vertical">Viewing tilt <output id="perspective-vertical-value">25°</output></label><input id="perspective-vertical" type="range" min="0" max="65" value="25"><label for="perspective-zoom">Scale <output id="perspective-zoom-value">90%</output></label><input id="perspective-zoom" type="range" min="60" max="100" value="90"><label class="toggle-row">Animate perspective shifts <input id="perspective-animate" type="checkbox" role="switch"></label><div id="perspective-motion-controls" hidden><label for="perspective-range">Shift amount <output id="perspective-range-value">15°</output></label><input id="perspective-range" type="range" min="0" max="25" value="15"><label for="perspective-duration">Seconds per cycle <output id="perspective-duration-value">20s</output></label><input id="perspective-duration" type="range" min="4" max="60" value="20"></div></div><p class="export-note">Tilt the whole constellation, or let the view shift gently while rings and floating nodes move. Pause motion to edit positions.</p></div></details><details class="control-section"><summary>Floating nodes</summary><div class="control-section-body"><label class="toggle-row">Animate floating nodes <input id="animate-floating" type="checkbox" role="switch"></label><div id="floating-motion-controls" hidden><label for="floating-motion">Motion</label><select id="floating-motion"><option value="drift">Drift</option><option value="bob">Bob up and down</option><option value="orbit">Small orbit</option></select><label for="floating-amount">Movement <output id="floating-amount-value">10</output></label><input id="floating-amount" type="range" min="0" max="24" value="10"><label for="floating-duration">Seconds per cycle <output id="floating-duration-value">12s</output></label><input id="floating-duration" type="range" min="2" max="60" value="12"></div><p class="export-note">Applies to nodes away from ring points, including disconnected nodes. Labels and lines follow. Choose Star field or turn snapping off to place nodes freely.</p></div></details><details class="control-section"><summary>Positions & labels</summary><div class="control-section-body"><label class="toggle-row" for="snap-rings">Snap nodes to ring points <input id="snap-rings" type="checkbox" role="switch" checked></label><p class="export-note">Unlock positions to move nodes between ring points. Snapping is on by default: every move selects the nearest available point, swapping nodes when occupied. Each node has one corresponding ring point; hidden nodes hide and reserve their points.</p><label class="toggle-row" for="identity-ring">Identity rings <input id="identity-ring" type="checkbox" checked></label>
-<label class="toggle-row" for="show-labels">Show node labels<input id="show-labels" type="checkbox" checked></label>
-<label class="toggle-row" for="lock-stars">Lock positions<input id="lock-stars" type="checkbox" checked aria-describedby="position-help"></label>
-<p id="position-help" class="export-note">Each node and its label stay attached. Unlock to drag either one and move the pair, or use arrow keys. Hold Shift for larger steps.</p>
-<button type="button" id="reset-stars" class="secondary">Reset node &amp; label positions</button>
-</div></details><details class="control-section"><summary>Projects & data</summary><div class="control-section-body"><label for="repo-source">Project source</label><select id="repo-source" aria-describedby="pinned-help"><option value="all">All public repositories</option><option value="pinned">Pinned repositories · token for preview</option></select>
-<p id="pinned-help" class="export-note" hidden><strong>GitHub sign-in enables pinned previews.</strong> <a href="#token-help">Continue with GitHub</a> to load live pins here. Daily workflows use GitHub’s automatic token.</p>
-<label for="max-repos" class="range-label">Project limit <output id="limit-value" for="max-repos">45</output></label><input id="max-repos" type="range" min="5" max="100" step="5" value="45">
-<button type="button" id="load-projects" class="secondary" hidden>Load project data</button>
-<button type="button" id="refresh-data" class="secondary" hidden>Refresh data from GitHub</button>
-<label class="toggle-row" for="forks">Include forks<input id="forks" type="checkbox" checked></label>
-</div></details><details class="control-section"><summary>Connections & effects</summary><div class="control-section-body"><label for="connection-density">Connection density</label><select id="connection-density"><option value="balanced">Balanced · strongest overlaps</option><option value="all">All shared connections</option></select>
-<label for="connection-basis">Connect projects by</label><select id="connection-basis"><option value="languages">Shared languages</option><option value="topics">Shared topics</option><option value="both">Languages and topics</option></select>
-<label class="toggle-row" for="bridges">Decorative bridges<input id="bridges" type="checkbox"></label>
-<label class="toggle-row" for="animate">Light &amp; history animation<input id="animate" type="checkbox" checked></label>
-</div></details><p id="engine-status" class="export-note">Each point corresponds to a node.</p><div class="stats"><div><strong id="repo-count">—</strong><span>projects</span></div><div><strong id="language-count">—</strong><span>languages</span></div><div><strong id="star-count">—</strong><span>GitHub stars</span></div></div>
-<a class="download" download="constellation.svg">Download SVG <span aria-hidden="true">↓</span></a>
-<button type="button" id="copy-markdown" class="secondary">Copy README snippet</button><p class="export-note">Made for your README.<br>Beautiful anywhere.</p>
-</aside>
-</div>
-<section class="preview-actions" aria-label="Save and view your constellation"><label class="constellation-title-control" for="constellation-title">Constellation title<input id="constellation-title" maxlength="80" placeholder="Name your constellation"></label><div class="preview-action-buttons"><button id="save-constellation" type="button" class="secondary">Save constellation</button></div></section>
-<div class="status-bar"><p id="status" role="status" aria-live="polite">An imagined collection of projects. Enter your username to discover your own.</p><button id="reset-project-filters" type="button" class="secondary" hidden>Reset project filters</button><span aria-hidden="true">✧</span></div>
-</section>
-<section class="customization" aria-label="CSS and daily workflow">
-  <div class="editor-panel">
-    <p class="eyebrow">STYLE YOUR SKY</p><h2>Visual styles</h2>
-    <div id="style-preview" class="style-preview" aria-label="Live style preview"></div>
-<details class="control-section"><summary>Individual nodes & colors</summary>    <fieldset class="node-colors"><legend>Individual nodes</legend><p>Click a node in the chart or choose it below. A custom color applies in both light and dark mode.</p><button type="button" id="random-node-colors" class="secondary">Randomize node hues</button><label><input id="color-connections" type="checkbox" role="switch"> Color lines with nodes</label><p>Randomize gives every node in this view a different hue, including hidden nodes. Colored lines blend the colors of their two endpoints.</p><label for="color-node">Node</label><select id="color-node"></select><label for="node-color">Color <input id="node-color" type="color" value="#e3de13"></label><label><input id="node-visible" type="checkbox" checked> Show node</label><label><input id="node-label-visible" type="checkbox" checked> Show label</label><p>Hidden nodes also hide their connections. Enable Show labels in Visual styles to display individual labels.</p><button type="button" id="reset-node-visibility" class="secondary">Show all nodes and labels for this account</button><button type="button" id="reset-node-color" class="secondary">Use palette color</button><button type="button" id="reset-node-colors" class="secondary">Reset all node colors for this account</button></fieldset></details>
-<details class="control-section"><summary>Palettes & visual details</summary>    <p>Adjust both palettes and the details below. Sky gradient sets the soft background glow, which fades to transparent edges. The image follows the viewer’s preference automatically; every change is included in your daily workflow.</p>
-    <div id="palette-controls" class="palette-controls"></div>
-    <div id="style-sliders"></div>
-    <button type="button" id="reset-visual" class="secondary">Reset visual styles</button>
-</details>    <details class="css-details"><summary>CSS generated by these controls</summary><textarea id="generated-css" readonly rows="8" aria-label="Generated visual CSS" spellcheck="false"></textarea></details>
-    <details class="css-details"><summary>Advanced CSS overrides</summary>
-    <p><label for="custom-css">Added after the visual styles. Overrides take priority.</label></p>
-    <textarea id="custom-css" rows="8" spellcheck="false" aria-describedby="css-help" placeholder=".credit { opacity: .65; }&#10;.connections { stroke-dasharray: 3 4; }"></textarea>
-    <p id="css-help">Selectors: <code>.background</code>, <code>.star</code>, <code>.connections</code>, <code>.bridges</code>, <code>.repo-label</code>, <code>.credit</code>, <code>.generated-at</code>. Use <code>--sky-background</code>, <code>--sky-star</code>, <code>--sky-accent</code>, <code>--sky-line</code>, and <code>--sky-foreground</code> for colors. Keep styles self-contained.</p>
-    <button type="button" id="reset-css" class="secondary">Reset CSS overrides</button>
-    </details>
-  </div>
-  <div class="editor-panel">
-    <p class="eyebrow">KEEP IT UP TO DATE</p><h2><label for="workflow">Your daily workflow</label></h2>
-    <p>Save this as <code>.github/workflows/constellation.yml</code> in your README repository. Your settings and CSS are included—no extra config file needed.</p>
-    <label for="output-repository">Repository running this workflow</label>
-    <input id="output-repository" placeholder="owner/repository" autocomplete="off" spellcheck="false" aria-describedby="repository-help">
-    <p id="repository-help">Image links use this repository’s output branch. Save and run the workflow in that same repository.</p>
-    <a id="install-workflow" class="download" target="_blank" rel="noopener noreferrer" hidden>Add to my GitHub profile ↗</a>
-    <p><a id="create-profile" target="_blank" rel="noopener noreferrer" hidden>Create this public repository first if it doesn’t exist ↗</a></p>
-    <ol class="setup-steps">
-      <li><strong>Commit the workflow.</strong> The button opens GitHub with your settings filled in. Commit to your repository’s default branch. If the file already exists, replace its contents with the workflow below.</li>
-      <li><strong>Run it once.</strong> <a id="run-workflow" target="_blank" rel="noopener noreferrer" hidden>Open Daily constellation ↗</a> Select Run workflow and wait for it to finish. Future runs happen daily.</li>
-      <li><strong>Add the image.</strong> Click Copy README snippet and paste it into your profile README. The completed run’s summary also includes the snippet.</li>
-    </ol>
-    <textarea id="workflow" rows="14" readonly spellcheck="false" aria-label="Generated daily workflow"></textarea>
-    <div class="export-actions"><button type="button" id="copy-workflow" class="secondary">Copy workflow</button><a id="download-workflow" class="secondary" download="constellation.yml">Download workflow</a></div>
-    <p id="workflow-note">The sample uses your repository owner when the workflow runs.</p>
-    <p>After adding the file, run <strong>Daily constellation</strong> from GitHub’s Actions tab once. Future runs are scheduled daily. The workflow creates an <code>output</code> branch and saves <code>constellation.svg</code> at its root, preserving other files. The repository must allow Actions to write commits.</p>
-  </div>
-</section>
-<section class="about" aria-label="How it works"><div><span class="step">01 / DISCOVER</span><h3>Your projects become stars.</h3><p>Each public repository gets a place in the sky. More GitHub stars make it shine brighter.</p></div><div><span class="step">02 / CONNECT</span><h3>Shared languages, shared orbits.</h3><p>Connections include every detected language. A JavaScript project can connect to an HTML project through the CSS they both contain.</p></div><div><span class="step">03 / TAKE IT WITH YOU</span><h3>A universe for your README.</h3><p>Download your sky as an SVG, or <a href="https://github.com/mnichols08/constellation#set-up">keep it fresh every day ↗</a> with a GitHub Action.</p></div></section>
-<section id="snippet-panel" hidden aria-label="README snippet"><h2>Your README snippet</h2><p>Run the exported workflow in the repository selected above, then paste this into your README. The image loads directly from <code>output/constellation.svg</code> on GitHub.</p><textarea id="snippet" readonly aria-label="Markdown to copy" rows="3"></textarea></section>
-</main>
-<footer><span>Building useful things for the web.</span><a href="https://github.com/mnichols08">Hosted with <span class="footer-heart" role="img" aria-label="love">♥</span> by mnichols08</a></footer>
-<script type="module" src="./src/studio-boot.mjs"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="constellation-oauth-client" content="" />
+    <meta name="constellation-oauth-exchange" content="" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Turn your GitHub projects into a personal constellation. Explore your sky and bring it to your README."
+    />
+    <title>GitHub Constellation — Your code, written in the stars</title>
+    <script>
+      (() => {
+        let visited = false;
+        try {
+          visited = localStorage.getItem("constellation:visited") === "1";
+        } catch {}
+        document.documentElement.dataset.returning = String(visited);
+        document.documentElement.dataset.entry = "landing";
+      })();
+    </script>
+    <link rel="stylesheet" href="./src/preview.css" />
+    <link rel="stylesheet" href="./src/studio-layout.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <a class="brand" href="./"
+        ><span class="brand-mark" aria-hidden="true">✧</span>constellation
+        <span class="brand-tag">for GitHub</span></a
+      ><button
+        id="github-auth-open"
+        type="button"
+        class="secondary"
+        data-open-github-auth
+      >
+        Continue with GitHub</button
+      ><a class="source-link" href="https://github.com/mnichols08/constellation"
+        >View on GitHub ↗</a
+      >
+    </header>
+    <dialog id="github-sign-in" aria-labelledby="github-auth-title">
+      <button id="github-auth-close" type="button" class="secondary">
+        Close
+      </button>
+      <h2 id="github-auth-title">Sign in to GitHub</h2>
+      <button id="github-oauth-start" type="button">
+        Continue with GitHub
+      </button>
+      <p>
+        Connect securely to load your profile and pinned repositories. Public
+        exploration needs no login.
+      </p>
+      <details id="github-advanced-auth" hidden>
+        <summary>Advanced local development: token fallback</summary>
+        <form id="github-token-form">
+          <label for="github-token">Personal access token</label>
+          <input
+            id="github-token"
+            type="password"
+            required
+            autocomplete="off"
+            spellcheck="false"
+            autocapitalize="none"
+          />
+          <p>
+            Your token is sent directly to GitHub and kept only until you reload
+            or close this page. It is never saved in your designs or share
+            links.
+          </p>
+          <p>
+            <a
+              href="https://github.com/settings/personal-access-tokens/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Create a fine-grained token</a
+            >
+            with public repository access. No write permissions are needed.
+          </p>
+          <button id="github-token-submit" type="submit">
+            Sign in and start guided setup
+          </button>
+        </form>
+      </details>
+      <p id="github-auth-status" role="status" aria-live="polite"></p>
+      <button id="github-sign-out" type="button" class="secondary" hidden>
+        Sign out
+      </button>
+    </dialog>
+    <main>
+      <p id="studio-loading" role="status">
+        Opening your constellation studio…
+      </p>
+      <noscript
+        ><p class="graph-explorer">
+          Enable JavaScript to customize and explore your graph.
+          <a href="./dist/constellation.svg">View the sample constellation</a>
+          or follow the
+          <a href="https://github.com/mnichols08/constellation#quick-start"
+            >daily workflow instructions</a
+          >.
+        </p></noscript
+      >
+      <section class="intro">
+        <p class="eyebrow">
+          <span></span> EVERY PROJECT HAS A PLACE IN YOUR SKY
+        </p>
+        <h1>Your code, written<br />in the <em>stars.</em></h1>
+        <p class="lede">
+          Connect, curate your projects, and discover the connections across
+          your work.
+        </p>
+        <button type="button" data-open-github-auth>
+          Continue with GitHub
+        </button>
+        <p>Or explore a public account—no login needed.</p>
+        <form id="account-form">
+          <label class="sr-only" for="account-mode">Constellation for</label
+          ><select id="account-mode" aria-label="Constellation for">
+            <option value="auto">Account</option>
+            <option value="organization">Organization</option>
+            <option value="paired">User in organization</option></select
+          ><label class="sr-only" for="username"
+            >GitHub account name or URL</label
+          ><span class="input-prefix" aria-hidden="true">@</span
+          ><input
+            id="username"
+            name="username"
+            placeholder="Username or organization"
+            required
+            autocapitalize="none"
+            autocomplete="off"
+            spellcheck="false"
+          /><label class="sr-only" for="organization-account"
+            >Organization to connect with this user</label
+          ><input
+            id="organization-account"
+            placeholder="Organization name"
+            hidden
+            autocapitalize="none"
+            autocomplete="off"
+            spellcheck="false"
+          /><button type="submit">
+            Explore a public account <span aria-hidden="true">&#8599;</span>
+          </button>
+        </form>
+        <button id="open-studio" type="button" class="secondary" disabled>
+          Explore the sample studio
+        </button>
+        <p class="form-note">
+          Load once, customize freely. Project data stays saved in this tab,
+          including after a reload. Only loading or refreshing data uses GitHub
+          API requests.
+        </p>
+        <details id="token-help" class="token-help">
+          <summary>Sign in to preview pinned repositories</summary>
+          <p>
+            Continue with GitHub to load profile pins and use your authenticated
+            API allowance. Public projects remain available without signing in.
+          </p>
+          <button type="button" class="secondary" data-open-github-auth>
+            Continue with GitHub
+          </button>
+          <p>
+            Local development also supports <code>GH_TOKEN</code> in
+            <code>.env</code>. Daily workflows use GitHub’s automatic token.
+          </p>
+        </details>
+      </section>
+      <section class="observatory" aria-label="Constellation studio">
+        <div class="studio-header">
+          <div>
+            <span class="live-dot"></span
+            ><span id="map-title">The sample sky</span
+            ><span id="sample-badge" class="badge">DEMO</span>
+          </div>
+        </div>
+        <section class="graph-filters" aria-label="Choose languages and topics">
+          <div class="filter-heading">
+            <h2>Make your own star graph</h2>
+            <label class="visual-toggle" for="show-other"
+              >Include Other<input id="show-other" type="checkbox"
+            /></label>
+          </div>
+          <p>
+            Choose any number of languages and topics from the project pool.
+            Within each row, matches use “any”; across rows, projects must match
+            both. Other means no detected language.
+          </p>
+          <fieldset>
+            <legend>Languages</legend>
+            <div class="filter-actions">
+              <button
+                type="button"
+                data-filter="languages"
+                data-selection="all"
+              >
+                All</button
+              ><button
+                type="button"
+                data-filter="languages"
+                data-selection="none"
+              >
+                None
+              </button>
+            </div>
+            <div id="language-filters" class="filter-chips"></div>
+          </fieldset>
+          <fieldset>
+            <legend>Topics</legend>
+            <div class="filter-actions">
+              <button type="button" data-filter="topics" data-selection="all">
+                All</button
+              ><button type="button" data-filter="topics" data-selection="none">
+                None
+              </button>
+            </div>
+            <div id="topic-filters" class="filter-chips"></div>
+          </fieldset>
+          <p id="filter-summary" role="status"></p>
+        </section>
+        <div class="studio-body">
+          <div class="sky-panel">
+            <div id="preview" aria-busy="false"></div>
+            <div
+              id="graph-explorer"
+              class="graph-explorer"
+              aria-label="Explore connections"
+            ></div>
+            <div class="sky-legend">
+              <span
+                ><i class="legend-star"></i>
+                <span id="node-legend">Project</span></span
+              ><span
+                ><i class="legend-line"></i>
+                <span id="relationship-legend">Shared language</span></span
+              ><span><i class="legend-bridge"></i> Visual bridge</span>
+            </div>
+          </div>
+          <aside class="controls" aria-label="Customize your constellation">
+            <p class="eyebrow">MAKE IT YOURS</p>
+            <h2>Your constellation</h2>
+            <label for="layout">Format</label
+            ><select id="layout">
+              <option value="compact">Compact README · 900 × 280</option>
+              <option value="atlas" selected>Full atlas · 900 × 560</option>
+            </select>
+            <label for="arrangement">Arrangement</label
+            ><select id="arrangement">
+              <option value="rings" selected>On identity ring points</option>
+              <option value="field">Star field</option>
+              <option value="orbital">Identity orbits</option>
+              <option value="force">Connected clusters</option>
+              <option value="profile">Developer Topology</option>
+            </select>
+            <label for="profile-emphasis">Topology emphasis</label
+            ><select id="profile-emphasis">
+              <option value="automatic" selected>Automatic</option>
+              <option value="interface">Interface</option>
+              <option value="services">Services</option>
+              <option value="data">Data</option>
+              <option value="systems">Systems</option>
+              <option value="tooling">Tooling</option>
+              <option value="automation">Automation</option>
+            </select>
+            <fieldset id="profile-dimension-controls" hidden>
+              <legend>Explore developer evidence</legend>
+              <div
+                id="profile-dimension-buttons"
+                role="group"
+                aria-label="Developer evidence dimensions"
+              ></div>
+              <button id="profile-dimension-clear" type="button">
+                Clear dimensions
+              </button>
+              <p
+                id="profile-dimension-summary"
+                role="status"
+                aria-live="polite"
+              ></p>
+            </fieldset>
+            <fieldset id="temporal-stack-controls" hidden>
+              <legend>Universe</legend>
+              <label for="temporal-axis">Stack by</label
+              ><select id="temporal-axis">
+                <option value="year">Year</option>
+                <option value="language">Language</option>
+                <option value="repository">Repository</option>
+                <option value="topic">Topic</option>
+              </select>
+              <label for="temporal-layerValues"
+                >Layers in order (one per line; blank selects the most
+                represented)</label
+              ><textarea
+                id="temporal-layerValues"
+                rows="3"
+                placeholder="JavaScript&#10;Rust"
+              ></textarea>
+              <label for="temporal-layer-search">Find a dimension value</label
+              ><input
+                id="temporal-layer-search"
+                type="search"
+                list="temporal-layer-choices"
+              /><datalist id="temporal-layer-choices"></datalist
+              ><button id="temporal-layer-add" type="button">Add layer</button>
+              <label for="temporal-innerArrangement">Project placement</label
+              ><select id="temporal-innerArrangement">
+                <option value="rings">Identity ring points</option>
+                <option value="solar-system">Solar System</option>
+                <option value="galaxy">Galaxy</option>
+                <option value="profile">Developer Topology</option>
+              </select>
+              <label for="temporal-form">Universe form</label
+              ><select id="temporal-form">
+                <option value="stack">Stack</option>
+                <option value="cylinder">Cylinder</option>
+                <option value="cone">Cone</option>
+                <option value="sphere">Sphere</option>
+                <option value="dome">Dome</option>
+                <option value="hourglass">Hourglass</option>
+                <option value="helix">Helix</option>
+              </select>
+              <div data-temporal-parameter="radius">
+                <label for="temporal-radius">Radius</label
+                ><input
+                  id="temporal-radius"
+                  type="range"
+                  min="80"
+                  max="600"
+                  value="320"
+                />
+              </div>
+              <div data-temporal-parameter="cone">
+                <label for="temporal-startRadius">Newest radius</label
+                ><input
+                  id="temporal-startRadius"
+                  type="range"
+                  min="40"
+                  max="600"
+                  value="320"
+                /><label for="temporal-endRadius">Oldest radius</label
+                ><input
+                  id="temporal-endRadius"
+                  type="range"
+                  min="40"
+                  max="600"
+                  value="96"
+                />
+              </div>
+              <label for="temporal-depth">Structure depth</label
+              ><input
+                id="temporal-depth"
+                type="range"
+                min="80"
+                max="1600"
+                value="640"
+              />
+              <div data-temporal-parameter="waist">
+                <label for="temporal-waist">Waist radius</label
+                ><input
+                  id="temporal-waist"
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value="0.3"
+                />
+              </div>
+              <div data-temporal-parameter="twist">
+                <label for="temporal-twist">Twist (degrees)</label
+                ><input
+                  id="temporal-twist"
+                  type="range"
+                  min="-720"
+                  max="720"
+                  step="15"
+                  value="0"
+                />
+              </div>
+              <label for="temporal-orientation">Structure orientation</label
+              ><input
+                id="temporal-orientation"
+                type="range"
+                min="-60"
+                max="60"
+                step="5"
+                value="0"
+              />
+              <label for="temporal-surface">Geometric guides</label
+              ><select id="temporal-surface">
+                <option value="off">Rings only</option>
+                <option value="wireframe" selected>Wireframe</option>
+                <option value="translucent">Translucent surface</option>
+              </select>
+              <label for="temporal-yearStart"
+                >First year (blank: latest six)</label
+              ><input
+                id="temporal-yearStart"
+                type="number"
+                min="1970"
+                max="9998"
+                placeholder="Automatic"
+              />
+              <label for="temporal-yearEnd">Last year (blank: current)</label
+              ><input
+                id="temporal-yearEnd"
+                type="number"
+                min="1970"
+                max="9998"
+                placeholder="Current"
+              />
+              <label for="temporal-yearStep">Year interval</label
+              ><input
+                id="temporal-yearStep"
+                type="number"
+                min="1"
+                max="100"
+                value="1"
+              />
+              <label for="temporal-depthGap" hidden
+                >Legacy year separation</label
+              ><input
+                id="temporal-depthGap"
+                type="range"
+                min="20"
+                max="240"
+                value="120"
+                hidden
+              />
+              <label for="temporal-tilt">Plane tilt</label
+              ><input
+                id="temporal-tilt"
+                type="range"
+                min="0.15"
+                max="0.85"
+                step="0.05"
+                value="0.35"
+              />
+              <label for="temporal-connections">Connections across layers</label
+              ><select id="temporal-connections">
+                <option value="same-node">Shared identity</option>
+                <option value="none">None</option>
+              </select>
+              <p class="export-note">
+                Older layers use current metadata unless snapshots are supplied.
+                Halos mark first visibility in this window. Interactive HTML
+                adds year focus and camera controls.
+              </p>
+            </fieldset>
+            <label for="node-mode">Nodes represent</label
+            ><select id="node-mode">
+              <option value="combined" selected>
+                Repositories + languages + topics
+              </option>
+              <option value="repositories">Repositories</option>
+              <option value="languages">Languages</option>
+              <option value="topics">Topics</option>
+            </select>
+            <p id="node-mode-help" class="export-note">
+              Each node is a repository. Connections show shared languages or
+              topics.
+            </p>
+            <details class="control-section">
+              <summary>Rings & motion</summary>
+              <div class="control-section-body">
+                <label class="toggle-row"
+                  >Animate rings
+                  <input
+                    id="animate-rings"
+                    type="checkbox"
+                    role="switch" /></label
+                ><label class="toggle-row"
+                  >Lock rings together
+                  <input
+                    id="link-ring-motion"
+                    type="checkbox"
+                    role="switch" /></label
+                ><label for="edit-ring">Edit ring</label
+                ><select id="edit-ring">
+                  <option value="0">Ring 1 · inner</option>
+                  <option value="1">Ring 2</option>
+                  <option value="2">Ring 3</option>
+                  <option value="3">Ring 4 · outer</option>
+                </select>
+                <div class="ring-editor" data-ring-editor="0">
+                  <label for="ring-rotation-0"
+                    >Ring 1 (inner)
+                    <output id="ring-rotation-value-0" for="ring-rotation-0"
+                      >0°</output
+                    ></label
+                  ><input
+                    id="ring-rotation-0"
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="1"
+                    value="0"
+                  /><label for="ring-motion-0">Motion</label
+                  ><select id="ring-motion-0">
+                    <option value="spin">Spin</option>
+                    <option value="sway">Sway back and forth</option></select
+                  ><label for="ring-speed-0"
+                    >Ring 1 speed
+                    <output id="ring-speed-value-0">1 RPM</output></label
+                  ><input
+                    id="ring-speed-0"
+                    type="range"
+                    min="0"
+                    max="6"
+                    step="0.25"
+                    value="1"
+                  /><label for="ring-direction-0">Ring 1 direction</label
+                  ><select id="ring-direction-0">
+                    <option value="clockwise">Clockwise</option>
+                    <option value="counterclockwise">
+                      Counterclockwise
+                    </option></select
+                  ><label for="ring-easing-0">Timing</label
+                  ><select id="ring-easing-0">
+                    <option value="linear">Steady</option>
+                    <option value="smooth">Ease in and out</option>
+                  </select>
+                  <div id="ring-sway-controls-0" hidden>
+                    <label for="ring-sway-0"
+                      >Sway angle
+                      <output id="ring-sway-value-0">30°</output></label
+                    ><input
+                      id="ring-sway-0"
+                      type="range"
+                      min="0"
+                      max="180"
+                      step="5"
+                      value="30"
+                    />
+                  </div>
+                </div>
+                <div class="ring-editor" data-ring-editor="1" hidden>
+                  <label for="ring-rotation-1"
+                    >Ring 2
+                    <output id="ring-rotation-value-1" for="ring-rotation-1"
+                      >0°</output
+                    ></label
+                  ><input
+                    id="ring-rotation-1"
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="1"
+                    value="0"
+                  /><label for="ring-motion-1">Motion</label
+                  ><select id="ring-motion-1">
+                    <option value="spin">Spin</option>
+                    <option value="sway">Sway back and forth</option></select
+                  ><label for="ring-speed-1"
+                    >Ring 2 speed
+                    <output id="ring-speed-value-1">1 RPM</output></label
+                  ><input
+                    id="ring-speed-1"
+                    type="range"
+                    min="0"
+                    max="6"
+                    step="0.25"
+                    value="1"
+                  /><label for="ring-direction-1">Ring 2 direction</label
+                  ><select id="ring-direction-1">
+                    <option value="clockwise">Clockwise</option>
+                    <option value="counterclockwise">
+                      Counterclockwise
+                    </option></select
+                  ><label for="ring-easing-1">Timing</label
+                  ><select id="ring-easing-1">
+                    <option value="linear">Steady</option>
+                    <option value="smooth">Ease in and out</option>
+                  </select>
+                  <div id="ring-sway-controls-1" hidden>
+                    <label for="ring-sway-1"
+                      >Sway angle
+                      <output id="ring-sway-value-1">30°</output></label
+                    ><input
+                      id="ring-sway-1"
+                      type="range"
+                      min="0"
+                      max="180"
+                      step="5"
+                      value="30"
+                    />
+                  </div>
+                </div>
+                <div class="ring-editor" data-ring-editor="2" hidden>
+                  <label for="ring-rotation-2"
+                    >Ring 3
+                    <output id="ring-rotation-value-2" for="ring-rotation-2"
+                      >0°</output
+                    ></label
+                  ><input
+                    id="ring-rotation-2"
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="1"
+                    value="0"
+                  /><label for="ring-motion-2">Motion</label
+                  ><select id="ring-motion-2">
+                    <option value="spin">Spin</option>
+                    <option value="sway">Sway back and forth</option></select
+                  ><label for="ring-speed-2"
+                    >Ring 3 speed
+                    <output id="ring-speed-value-2">1 RPM</output></label
+                  ><input
+                    id="ring-speed-2"
+                    type="range"
+                    min="0"
+                    max="6"
+                    step="0.25"
+                    value="1"
+                  /><label for="ring-direction-2">Ring 3 direction</label
+                  ><select id="ring-direction-2">
+                    <option value="clockwise">Clockwise</option>
+                    <option value="counterclockwise">
+                      Counterclockwise
+                    </option></select
+                  ><label for="ring-easing-2">Timing</label
+                  ><select id="ring-easing-2">
+                    <option value="linear">Steady</option>
+                    <option value="smooth">Ease in and out</option>
+                  </select>
+                  <div id="ring-sway-controls-2" hidden>
+                    <label for="ring-sway-2"
+                      >Sway angle
+                      <output id="ring-sway-value-2">30°</output></label
+                    ><input
+                      id="ring-sway-2"
+                      type="range"
+                      min="0"
+                      max="180"
+                      step="5"
+                      value="30"
+                    />
+                  </div>
+                </div>
+                <div class="ring-editor" data-ring-editor="3" hidden>
+                  <label for="ring-rotation-3"
+                    >Ring 4 (outer)
+                    <output id="ring-rotation-value-3" for="ring-rotation-3"
+                      >0°</output
+                    ></label
+                  ><input
+                    id="ring-rotation-3"
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="1"
+                    value="0"
+                  /><label for="ring-motion-3">Motion</label
+                  ><select id="ring-motion-3">
+                    <option value="spin">Spin</option>
+                    <option value="sway">Sway back and forth</option></select
+                  ><label for="ring-speed-3"
+                    >Ring 4 speed
+                    <output id="ring-speed-value-3">1 RPM</output></label
+                  ><input
+                    id="ring-speed-3"
+                    type="range"
+                    min="0"
+                    max="6"
+                    step="0.25"
+                    value="1"
+                  /><label for="ring-direction-3">Ring 4 direction</label
+                  ><select id="ring-direction-3">
+                    <option value="clockwise">Clockwise</option>
+                    <option value="counterclockwise">
+                      Counterclockwise
+                    </option></select
+                  ><label for="ring-easing-3">Timing</label
+                  ><select id="ring-easing-3">
+                    <option value="linear">Steady</option>
+                    <option value="smooth">Ease in and out</option>
+                  </select>
+                  <div id="ring-sway-controls-3" hidden>
+                    <label for="ring-sway-3"
+                      >Sway angle
+                      <output id="ring-sway-value-3">30°</output></label
+                    ><input
+                      id="ring-sway-3"
+                      type="range"
+                      min="0"
+                      max="180"
+                      step="5"
+                      value="30"
+                    />
+                  </div>
+                </div>
+                <p class="export-note">
+                  Lock together shares Ring 1’s motion settings. Starting angles
+                  stay independent. Pause motion to edit positions.
+                </p>
+              </div>
+            </details>
+            <details class="control-section">
+              <summary>Perspective</summary>
+              <div class="control-section-body">
+                <label for="live-tilt-mode">Follow your view</label
+                ><select id="live-tilt-mode">
+                  <option value="off">Off</option>
+                  <option value="pointer">Pointer · desktop</option>
+                  <option value="device">
+                    Device tilt · phone/tablet
+                  </option></select
+                ><button
+                  id="enable-device-tilt"
+                  type="button"
+                  class="secondary"
+                >
+                  Enable device tilt</button
+                ><button
+                  id="recenter-device-tilt"
+                  type="button"
+                  class="secondary"
+                  disabled
+                >
+                  Recenter device tilt
+                </button>
+                <p id="live-tilt-status" class="export-note" role="status">
+                  Live tilt is off. It affects this preview only.
+                </p>
+                <label class="toggle-row"
+                  >Tilt the view
+                  <input id="perspective-enabled" type="checkbox" role="switch"
+                /></label>
+                <div id="perspective-controls" hidden>
+                  <label for="perspective-horizontal"
+                    >Side-to-side angle
+                    <output id="perspective-horizontal-value">0°</output></label
+                  ><input
+                    id="perspective-horizontal"
+                    type="range"
+                    min="-55"
+                    max="55"
+                    value="0"
+                  /><label for="perspective-vertical"
+                    >Viewing tilt
+                    <output id="perspective-vertical-value">25°</output></label
+                  ><input
+                    id="perspective-vertical"
+                    type="range"
+                    min="0"
+                    max="65"
+                    value="25"
+                  /><label for="perspective-zoom"
+                    >Scale
+                    <output id="perspective-zoom-value">90%</output></label
+                  ><input
+                    id="perspective-zoom"
+                    type="range"
+                    min="60"
+                    max="100"
+                    value="90"
+                  /><label class="toggle-row"
+                    >Animate perspective shifts
+                    <input
+                      id="perspective-animate"
+                      type="checkbox"
+                      role="switch"
+                  /></label>
+                  <div id="perspective-motion-controls" hidden>
+                    <label for="perspective-range"
+                      >Shift amount
+                      <output id="perspective-range-value">15°</output></label
+                    ><input
+                      id="perspective-range"
+                      type="range"
+                      min="0"
+                      max="25"
+                      value="15"
+                    /><label for="perspective-duration"
+                      >Seconds per cycle
+                      <output id="perspective-duration-value"
+                        >20s</output
+                      ></label
+                    ><input
+                      id="perspective-duration"
+                      type="range"
+                      min="4"
+                      max="60"
+                      value="20"
+                    />
+                  </div>
+                </div>
+                <p class="export-note">
+                  Tilt the whole constellation, or let the view shift gently
+                  while rings and floating nodes move. Pause motion to edit
+                  positions.
+                </p>
+              </div>
+            </details>
+            <details class="control-section">
+              <summary>Floating nodes</summary>
+              <div class="control-section-body">
+                <label class="toggle-row"
+                  >Animate floating nodes
+                  <input id="animate-floating" type="checkbox" role="switch"
+                /></label>
+                <div id="floating-motion-controls" hidden>
+                  <label for="floating-motion">Motion</label
+                  ><select id="floating-motion">
+                    <option value="drift">Drift</option>
+                    <option value="bob">Bob up and down</option>
+                    <option value="orbit">Small orbit</option></select
+                  ><label for="floating-amount"
+                    >Movement
+                    <output id="floating-amount-value">10</output></label
+                  ><input
+                    id="floating-amount"
+                    type="range"
+                    min="0"
+                    max="24"
+                    value="10"
+                  /><label for="floating-duration"
+                    >Seconds per cycle
+                    <output id="floating-duration-value">12s</output></label
+                  ><input
+                    id="floating-duration"
+                    type="range"
+                    min="2"
+                    max="60"
+                    value="12"
+                  />
+                </div>
+                <p class="export-note">
+                  Applies to nodes away from ring points, including disconnected
+                  nodes. Labels and lines follow. Choose Star field or turn
+                  snapping off to place nodes freely.
+                </p>
+              </div>
+            </details>
+            <details class="control-section">
+              <summary>Positions & labels</summary>
+              <div class="control-section-body">
+                <label class="toggle-row" for="snap-rings"
+                  >Snap nodes to ring points
+                  <input id="snap-rings" type="checkbox" role="switch" checked
+                /></label>
+                <p class="export-note">
+                  Unlock positions to move nodes between ring points. Snapping
+                  is on by default: every move selects the nearest available
+                  point, swapping nodes when occupied. Each node has one
+                  corresponding ring point; hidden nodes hide and reserve their
+                  points.
+                </p>
+                <label class="toggle-row" for="identity-ring"
+                  >Identity rings
+                  <input id="identity-ring" type="checkbox" checked
+                /></label>
+                <label class="toggle-row" for="show-labels"
+                  >Show node labels<input
+                    id="show-labels"
+                    type="checkbox"
+                    checked
+                /></label>
+                <label class="toggle-row" for="lock-stars"
+                  >Lock positions<input
+                    id="lock-stars"
+                    type="checkbox"
+                    checked
+                    aria-describedby="position-help"
+                /></label>
+                <p id="position-help" class="export-note">
+                  Each node and its label stay attached. Unlock to drag either
+                  one and move the pair, or use arrow keys. Hold Shift for
+                  larger steps.
+                </p>
+                <button type="button" id="reset-stars" class="secondary">
+                  Reset node &amp; label positions
+                </button>
+              </div>
+            </details>
+            <details class="control-section">
+              <summary>Projects & data</summary>
+              <div class="control-section-body">
+                <label for="repo-source">Project source</label
+                ><select id="repo-source" aria-describedby="pinned-help">
+                  <option value="all">All public repositories</option>
+                  <option value="pinned">
+                    Pinned repositories · token for preview
+                  </option>
+                </select>
+                <p id="pinned-help" class="export-note" hidden>
+                  <strong>GitHub sign-in enables pinned previews.</strong>
+                  <a href="#token-help">Continue with GitHub</a> to load live
+                  pins here. Daily workflows use GitHub’s automatic token.
+                </p>
+                <label for="max-repos" class="range-label"
+                  >Project limit
+                  <output id="limit-value" for="max-repos">45</output></label
+                ><input
+                  id="max-repos"
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value="45"
+                />
+                <button
+                  type="button"
+                  id="load-projects"
+                  class="secondary"
+                  hidden
+                >
+                  Load project data
+                </button>
+                <button
+                  type="button"
+                  id="refresh-data"
+                  class="secondary"
+                  hidden
+                >
+                  Refresh data from GitHub
+                </button>
+                <label class="toggle-row" for="forks"
+                  >Include forks<input id="forks" type="checkbox" checked
+                /></label>
+              </div>
+            </details>
+            <details class="control-section">
+              <summary>Connections & effects</summary>
+              <div class="control-section-body">
+                <label for="connection-density">Connection density</label
+                ><select id="connection-density">
+                  <option value="balanced">
+                    Balanced · strongest overlaps
+                  </option>
+                  <option value="all">All shared connections</option>
+                </select>
+                <label for="connection-basis">Connect projects by</label
+                ><select id="connection-basis">
+                  <option value="languages">Shared languages</option>
+                  <option value="topics">Shared topics</option>
+                  <option value="both">Languages and topics</option>
+                </select>
+                <label class="toggle-row" for="bridges"
+                  >Decorative bridges<input id="bridges" type="checkbox"
+                /></label>
+                <label class="toggle-row" for="animate"
+                  >Light &amp; history animation<input
+                    id="animate"
+                    type="checkbox"
+                    checked
+                /></label>
+              </div>
+            </details>
+            <p id="engine-status" class="export-note">
+              Each point corresponds to a node.
+            </p>
+            <div class="stats">
+              <div><strong id="repo-count">—</strong><span>projects</span></div>
+              <div>
+                <strong id="language-count">—</strong><span>languages</span>
+              </div>
+              <div>
+                <strong id="star-count">—</strong><span>GitHub stars</span>
+              </div>
+            </div>
+            <a class="download" download="constellation.svg"
+              >Download SVG <span aria-hidden="true">↓</span></a
+            >
+            <button type="button" id="copy-markdown" class="secondary">
+              Copy README snippet
+            </button>
+            <p class="export-note">
+              Made for your README.<br />Beautiful anywhere.
+            </p>
+          </aside>
+        </div>
+        <section
+          class="preview-actions"
+          aria-label="Save and view your constellation"
+        >
+          <label class="constellation-title-control" for="constellation-title"
+            >Constellation title<input
+              id="constellation-title"
+              maxlength="80"
+              placeholder="Name your constellation"
+          /></label>
+          <div class="preview-action-buttons">
+            <button id="save-constellation" type="button" class="secondary">
+              Save constellation
+            </button>
+          </div>
+        </section>
+        <div class="status-bar">
+          <p id="status" role="status" aria-live="polite">
+            An imagined collection of projects. Enter your username to discover
+            your own.
+          </p>
+          <button
+            id="reset-project-filters"
+            type="button"
+            class="secondary"
+            hidden
+          >
+            Reset project filters</button
+          ><span aria-hidden="true">✧</span>
+        </div>
+      </section>
+      <section class="customization" aria-label="CSS and daily workflow">
+        <div class="editor-panel">
+          <p class="eyebrow">STYLE YOUR SKY</p>
+          <h2>Visual styles</h2>
+          <div
+            id="style-preview"
+            class="style-preview"
+            aria-label="Live style preview"
+          ></div>
+          <details class="control-section">
+            <summary>Individual nodes & colors</summary>
+            <fieldset class="node-colors">
+              <legend>Individual nodes</legend>
+              <p>
+                Click a node in the chart or choose it below. A custom color
+                applies in both light and dark mode.
+              </p>
+              <button type="button" id="random-node-colors" class="secondary">
+                Randomize node hues</button
+              ><label
+                ><input id="color-connections" type="checkbox" role="switch" />
+                Color lines with nodes</label
+              >
+              <p>
+                Randomize gives every node in this view a different hue,
+                including hidden nodes. Colored lines blend the colors of their
+                two endpoints.
+              </p>
+              <label for="color-node">Node</label
+              ><select id="color-node"></select
+              ><label for="node-color"
+                >Color
+                <input id="node-color" type="color" value="#e3de13" /></label
+              ><label
+                ><input id="node-visible" type="checkbox" checked /> Show
+                node</label
+              ><label
+                ><input id="node-label-visible" type="checkbox" checked /> Show
+                label</label
+              >
+              <p>
+                Hidden nodes also hide their connections. Enable Show labels in
+                Visual styles to display individual labels.
+              </p>
+              <button
+                type="button"
+                id="reset-node-visibility"
+                class="secondary"
+              >
+                Show all nodes and labels for this account</button
+              ><button type="button" id="reset-node-color" class="secondary">
+                Use palette color</button
+              ><button type="button" id="reset-node-colors" class="secondary">
+                Reset all node colors for this account
+              </button>
+            </fieldset>
+          </details>
+          <details class="control-section">
+            <summary>Palettes & visual details</summary>
+            <p>
+              Adjust both palettes and the details below. Sky gradient sets the
+              soft background glow, which fades to transparent edges. The image
+              follows the viewer’s preference automatically; every change is
+              included in your daily workflow.
+            </p>
+            <div id="palette-controls" class="palette-controls"></div>
+            <div id="style-sliders"></div>
+            <button type="button" id="reset-visual" class="secondary">
+              Reset visual styles
+            </button>
+          </details>
+          <details class="css-details">
+            <summary>CSS generated by these controls</summary>
+            <textarea
+              id="generated-css"
+              readonly
+              rows="8"
+              aria-label="Generated visual CSS"
+              spellcheck="false"
+            ></textarea>
+          </details>
+          <details class="css-details">
+            <summary>Advanced CSS overrides</summary>
+            <p>
+              <label for="custom-css"
+                >Added after the visual styles. Overrides take priority.</label
+              >
+            </p>
+            <textarea
+              id="custom-css"
+              rows="8"
+              spellcheck="false"
+              aria-describedby="css-help"
+              placeholder=".credit { opacity: .65; }&#10;.connections { stroke-dasharray: 3 4; }"
+            ></textarea>
+            <p id="css-help">
+              Selectors: <code>.background</code>, <code>.star</code>,
+              <code>.connections</code>, <code>.bridges</code>,
+              <code>.repo-label</code>, <code>.credit</code>,
+              <code>.generated-at</code>. Use <code>--sky-background</code>,
+              <code>--sky-star</code>, <code>--sky-accent</code>,
+              <code>--sky-line</code>, and <code>--sky-foreground</code> for
+              colors. Keep styles self-contained.
+            </p>
+            <button type="button" id="reset-css" class="secondary">
+              Reset CSS overrides
+            </button>
+          </details>
+        </div>
+        <div class="editor-panel">
+          <p class="eyebrow">KEEP IT UP TO DATE</p>
+          <h2><label for="workflow">Your daily workflow</label></h2>
+          <p>
+            Save this as <code>.github/workflows/constellation.yml</code> in
+            your README repository. Your settings and CSS are included—no extra
+            config file needed.
+          </p>
+          <label for="output-repository"
+            >Repository running this workflow</label
+          >
+          <input
+            id="output-repository"
+            placeholder="owner/repository"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="repository-help"
+          />
+          <p id="repository-help">
+            Image links use this repository’s output branch. Save and run the
+            workflow in that same repository.
+          </p>
+          <a
+            id="install-workflow"
+            class="download"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+            >Add to my GitHub profile ↗</a
+          >
+          <p>
+            <a
+              id="create-profile"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+              >Create this public repository first if it doesn’t exist ↗</a
+            >
+          </p>
+          <ol class="setup-steps">
+            <li>
+              <strong>Commit the workflow.</strong> The button opens GitHub with
+              your settings filled in. Commit to your repository’s default
+              branch. If the file already exists, replace its contents with the
+              workflow below.
+            </li>
+            <li>
+              <strong>Run it once.</strong>
+              <a
+                id="run-workflow"
+                target="_blank"
+                rel="noopener noreferrer"
+                hidden
+                >Open Daily constellation ↗</a
+              >
+              Select Run workflow and wait for it to finish. Future runs happen
+              daily.
+            </li>
+            <li>
+              <strong>Add the image.</strong> Click Copy README snippet and
+              paste it into your profile README. The completed run’s summary
+              also includes the snippet.
+            </li>
+          </ol>
+          <textarea
+            id="workflow"
+            rows="14"
+            readonly
+            spellcheck="false"
+            aria-label="Generated daily workflow"
+          ></textarea>
+          <div class="export-actions">
+            <button type="button" id="copy-workflow" class="secondary">
+              Copy workflow</button
+            ><a
+              id="download-workflow"
+              class="secondary"
+              download="constellation.yml"
+              >Download workflow</a
+            >
+          </div>
+          <p id="workflow-note">
+            The sample uses your repository owner when the workflow runs.
+          </p>
+          <p>
+            After adding the file, run <strong>Daily constellation</strong> from
+            GitHub’s Actions tab once. Future runs are scheduled daily. The
+            workflow creates an <code>output</code> branch and saves
+            <code>constellation.svg</code> at its root, preserving other files.
+            The repository must allow Actions to write commits.
+          </p>
+        </div>
+      </section>
+      <section class="about" aria-label="How it works">
+        <div>
+          <span class="step">01 / DISCOVER</span>
+          <h3>Your projects become stars.</h3>
+          <p>
+            Each public repository gets a place in the sky. More GitHub stars
+            make it shine brighter.
+          </p>
+        </div>
+        <div>
+          <span class="step">02 / CONNECT</span>
+          <h3>Shared languages, shared orbits.</h3>
+          <p>
+            Connections include every detected language. A JavaScript project
+            can connect to an HTML project through the CSS they both contain.
+          </p>
+        </div>
+        <div>
+          <span class="step">03 / TAKE IT WITH YOU</span>
+          <h3>A universe for your README.</h3>
+          <p>
+            Download your sky as an SVG, or
+            <a href="https://github.com/mnichols08/constellation#set-up"
+              >keep it fresh every day ↗</a
+            >
+            with a GitHub Action.
+          </p>
+        </div>
+      </section>
+      <section id="snippet-panel" hidden aria-label="README snippet">
+        <h2>Your README snippet</h2>
+        <p>
+          Run the exported workflow in the repository selected above, then paste
+          this into your README. The image loads directly from
+          <code>output/constellation.svg</code> on GitHub.
+        </p>
+        <textarea
+          id="snippet"
+          readonly
+          aria-label="Markdown to copy"
+          rows="3"
+        ></textarea>
+      </section>
+    </main>
+    <footer>
+      <span>Building useful things for the web.</span
+      ><a href="https://github.com/mnichols08"
+        >Hosted with
+        <span class="footer-heart" role="img" aria-label="love">♥</span> by
+        mnichols08</a
+      >
+    </footer>
+    <script type="module" src="./src/studio-boot.mjs"></script>
+  </body>
 </html>

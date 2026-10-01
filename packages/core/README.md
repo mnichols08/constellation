@@ -1,14 +1,21 @@
 # Core API
 
-Constellation 3 exports stable Scene v1, Renderer v1, Layout v1, Plugin/Source v2, Theme v2 and Story v1 contracts. `CONFIG_VERSION = 7`; v6 configs and legacy recipes remain readable. See [v3 migration](migration-v3.md), [scene API](scene-api.md), [renderers](renderer-api.md), [data pipeline](data-pipeline.md), [layouts](layout-api.md) and [extension authoring](extension-authoring.md).
+Constellation 3 exports stable Scene v1, Renderer v1, Layout v1, Plugin/Source v2, Theme v2 and Story v1 contracts. `CONFIG_VERSION = 7`; v6 configs and legacy recipes remain readable. `analyzeDeveloperProfile(snapshot)` calls the shared Rust/WASM evidence engine without fetching data. See [Developer Topology](developer-topology.md), [v3 migration](migration-v3.md), [scene API](scene-api.md), [renderers](renderer-api.md), [data pipeline](data-pipeline.md), [layouts](layout-api.md) and [extension authoring](extension-authoring.md).
 
 `@constellation/core` is an ESM package for Node 22+ and browsers with WebAssembly. It includes its WASM binary and has no runtime npm dependencies. Build it with `npm run build:core`, then run `npm pack ./packages/core`. The package works without the CLI, GitHub Action, studio, or Rust toolchain. The generated package is committed so the Action needs no install step. Edit `src/`, then rebuild the package.
 
 ```js
-import { renderConstellation, validateConfig, explainFilters } from '@constellation/core';
-const result = validateConfig({ maxRepos: 45, layoutRefinement: { enabled: true, intensity: 5 } });
+import {
+  renderConstellation,
+  validateConfig,
+  explainFilters,
+} from "@constellation/core";
+const result = validateConfig({
+  maxRepos: 45,
+  layoutRefinement: { enabled: true, intensity: 5 },
+});
 if (!result.valid) throw new Error(JSON.stringify(result.errors));
-const svg = renderConstellation('octocat', repositories, result.config.options);
+const svg = renderConstellation("octocat", repositories, result.config.options);
 const explanation = explainFilters(repositories, result.config.options);
 ```
 

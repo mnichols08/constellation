@@ -48,6 +48,7 @@ const guides = [
   "scaling",
   "plugins",
   "readme-showcase",
+  "developer-topology",
   "github-data-cache",
 ].map((name) => name + ".md");
 await writeFile(

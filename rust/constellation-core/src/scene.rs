@@ -1,18 +1,25 @@
-use crate::{graph::Graph, identity};
+use crate::{graph::Graph, identity, profile_evidence};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections::BTreeSet};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+};
 
 thread_local! {
     // Manual dragging changes edge distances, not the settled base layout.
     static FORCE_LAYOUT: std::cell::RefCell<Option<(String, Vec<[f64; 2]>)>> = const { std::cell::RefCell::new(None) };
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Repository {
     name: String,
     group: String,
     languages: Vec<String>,
+    #[serde(default)]
+    language_shares: BTreeMap<String, f64>,
     topics: Vec<String>,
+    #[serde(default)]
+    role: String,
     #[serde(default)]
     members: Vec<String>,
     #[serde(default)]
@@ -22,12 +29,18 @@ pub struct Repository {
     position: Option<[f64; 2]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Input {
     account: String,
     repos: Vec<Repository>,
+    #[serde(default)]
+    profile_repositories: Vec<profile_evidence::Repository>,
     compact: bool,
     arrangement: String,
+    #[serde(default = "automatic_emphasis")]
+    profile_emphasis: String,
+    #[serde(default)]
+    profile_height: f64,
     all: bool,
     basis: String,
     #[serde(default)]
@@ -53,6 +66,8 @@ pub struct Scene {
     positions: Vec<[f64; 2]>,
     edges: Vec<Edge>,
     total: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    profile: Option<profile_evidence::Profile>,
 }
 
 // Match the existing account-seeded field, including JS's first UTF-16 unit.
@@ -65,6 +80,10 @@ fn hash(value: &str) -> u32 {
     n = (n ^ (n >> 16)).wrapping_mul(0x45d9f3b);
     n = (n ^ (n >> 16)).wrapping_mul(0x45d9f3b);
     n ^ (n >> 16)
+}
+
+fn automatic_emphasis() -> String {
+    "automatic".into()
 }
 
 fn overlap(a: &[String], b: &[String]) -> Vec<String> {
@@ -98,15 +117,33 @@ pub fn compute(input: Input) -> Result<Scene, String> {
     } {
         return Err("At most 100 repositories are supported".into());
     }
-    if !["field", "orbital", "force", "rings"].contains(&input.arrangement.as_str()) {
+    if !["field", "orbital", "force", "rings", "profile"].contains(&input.arrangement.as_str()) {
         return Err("Unknown arrangement".into());
+    }
+    if input.arrangement == "profile"
+        && input.profile_emphasis != "automatic"
+        && !profile_evidence::DIMENSIONS.contains(&input.profile_emphasis.as_str())
+    {
+        return Err("Unknown developer profile emphasis".into());
+    }
+    if input.arrangement == "profile"
+        && input.profile_height != 0.0
+        && (!input.profile_height.is_finite() || !(160.0..=2000.0).contains(&input.profile_height))
+    {
+        return Err("Developer topology height must be between 160 and 2000".into());
     }
     if !["languages", "topics", "both", "repositories", "membership"]
         .contains(&input.basis.as_str())
     {
         return Err("Unknown connection basis".into());
     }
-    let height = if input.compact { 280.0 } else { 560.0 };
+    let height = if input.arrangement == "profile" && input.profile_height > 0.0 {
+        input.profile_height
+    } else if input.compact {
+        280.0
+    } else {
+        560.0
+    };
     let center = if input.compact { 126.0 } else { 270.0 };
     let spread = if input.compact { 88.0 } else { 192.0 };
     let phase = (hash(&input.account) % 628) as f64 / 100.0;
@@ -153,6 +190,122 @@ pub fn compute(input: Input) -> Result<Scene, String> {
             ]
         })
         .collect();
+    let profile = if input.arrangement == "profile" {
+        let evidence_repositories = if input.profile_repositories.is_empty() {
+            input
+                .repos
+                .iter()
+                .filter(|repo| repo.kind == "repository")
+                .map(|repo| profile_evidence::Repository {
+                    name: repo.name.clone(),
+                    languages: repo.language_shares.clone(),
+                    language_names: repo.languages.clone(),
+                    topics: repo.topics.clone(),
+                    role: repo.role.clone(),
+                })
+                .collect()
+        } else {
+            input.profile_repositories
+        };
+        let mut analysis = profile_evidence::analyze(profile_evidence::Input {
+            repositories: evidence_repositories,
+        })?;
+        let repository_affinities: BTreeMap<_, _> = analysis
+            .repositories
+            .iter()
+            .map(|repository| (repository.repository.clone(), repository.dimensions.clone()))
+            .collect();
+        analysis.nodes = input
+            .repos
+            .iter()
+            .map(|node| {
+                let dimensions = repository_affinities
+                    .get(&node.name)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        let members: Vec<_> = node
+                            .members
+                            .iter()
+                            .filter_map(|member| repository_affinities.get(member))
+                            .collect();
+                        if members.is_empty() {
+                            return vec![0.0; profile_evidence::DIMENSIONS.len()];
+                        }
+                        (0..profile_evidence::DIMENSIONS.len())
+                            .map(|dimension| {
+                                members
+                                    .iter()
+                                    .map(|affinity| affinity[dimension])
+                                    .sum::<f64>()
+                                    / members.len() as f64
+                            })
+                            .collect()
+                    });
+                profile_evidence::NodeAffinity {
+                    node: node.name.clone(),
+                    dimensions,
+                }
+            })
+            .collect();
+        let profile_height = if input.profile_height > 0.0 {
+            input.profile_height
+        } else {
+            height
+        };
+        let profile_min_y: f64 = 28.0;
+        let profile_max_y = profile_height - 60.0;
+        let profile_center = (profile_min_y + profile_max_y) / 2.0;
+        let profile_spread = (profile_max_y - profile_min_y) / (2.0 * 0.96);
+        let anchors = [
+            [780.0, profile_center - profile_spread * 0.62],
+            [615.0, profile_center - profile_spread * 0.96],
+            [285.0, profile_center - profile_spread * 0.96],
+            [120.0, profile_center - profile_spread * 0.62],
+            [285.0, profile_center + profile_spread * 0.96],
+            [615.0, profile_center + profile_spread * 0.96],
+        ];
+        let emphasized = profile_evidence::DIMENSIONS
+            .iter()
+            .position(|dimension| *dimension == input.profile_emphasis.as_str());
+        for (index, repository) in analysis.nodes.iter().enumerate() {
+            let weights: Vec<_> = repository
+                .dimensions
+                .iter()
+                .enumerate()
+                .map(|(dimension, weight)| {
+                    if Some(dimension) == emphasized {
+                        *weight * 1.5
+                    } else {
+                        *weight
+                    }
+                })
+                .collect();
+            let total: f64 = weights.iter().sum();
+            if total <= f64::EPSILON {
+                continue;
+            }
+            let x = weights
+                .iter()
+                .enumerate()
+                .map(|(dimension, weight)| anchors[dimension][0] * weight)
+                .sum::<f64>()
+                / total;
+            let y = weights
+                .iter()
+                .enumerate()
+                .map(|(dimension, weight)| anchors[dimension][1] * weight)
+                .sum::<f64>()
+                / total;
+            let jitter = (hash(&repository.node) % 17) as f64 - 8.0;
+            positions[index] = [
+                (x + jitter).clamp(32.0, 868.0),
+                (y + jitter * 0.45).clamp(28.0, height - 60.0),
+            ];
+        }
+        Some(analysis)
+    } else {
+        None
+    };
     let mut candidates = Vec::new();
     for a in 0..n {
         for b in a + 1..n {
@@ -301,6 +454,7 @@ pub fn compute(input: Input) -> Result<Scene, String> {
         positions,
         edges,
         total,
+        profile,
     })
 }
 
@@ -312,16 +466,21 @@ mod tests {
             account: "octocat".into(),
             compact: true,
             arrangement: arrangement.into(),
+            profile_emphasis: "automatic".into(),
+            profile_height: 0.0,
             all: true,
             basis: "both".into(),
             ring_rotation: 0.0,
             ring_rotations: None,
+            profile_repositories: vec![],
             repos: (0..16)
                 .map(|i| Repository {
                     name: i.to_string(),
                     group: "Rust".into(),
                     languages: vec!["Rust".into()],
+                    language_shares: BTreeMap::new(),
                     topics: vec![],
+                    role: String::new(),
                     members: vec![],
                     kind: "repository".into(),
                     hidden: false,
@@ -332,7 +491,7 @@ mod tests {
     }
     #[test]
     fn layouts_are_deterministic_bounded_and_preserve_manual_positions() {
-        for arrangement in ["field", "orbital", "force", "rings"] {
+        for arrangement in ["field", "orbital", "force", "rings", "profile"] {
             let a = compute(input(arrangement)).unwrap();
             let b = compute(input(arrangement)).unwrap();
             assert_eq!(a.positions, b.positions);
@@ -359,5 +518,166 @@ mod tests {
             assert_eq!(result.positions.len(), count);
             assert!(result.edges.is_empty());
         }
+    }
+
+    #[test]
+    fn profile_layout_is_deterministic_bounded_and_keeps_real_edges() {
+        let mut data = input("profile");
+        data.repos[0].languages = vec!["Rust".into()];
+        data.repos[0].language_shares = BTreeMap::from([("Rust".into(), 100.0)]);
+        data.repos[1].languages = vec!["HTML".into()];
+        data.repos[1].language_shares = BTreeMap::from([("HTML".into(), 100.0)]);
+        data.repos[2].topics = vec!["api".into()];
+        let mut ordinary = data.clone();
+        ordinary.arrangement = "field".into();
+        let mut expected_edges: Vec<_> = compute(ordinary).unwrap().edges.iter().map(key).collect();
+        let first = compute(data.clone()).unwrap();
+        let second = compute(data).unwrap();
+        assert_eq!(first.positions.len(), 16);
+        let mut actual_edges: Vec<_> = first.edges.iter().map(key).collect();
+        expected_edges.sort();
+        actual_edges.sort();
+        assert_eq!(actual_edges, expected_edges);
+        assert_eq!(first.positions, second.positions);
+        assert!(first
+            .positions
+            .iter()
+            .flatten()
+            .all(|coordinate| coordinate.is_finite()));
+        assert!(first
+            .positions
+            .iter()
+            .all(|point| (32.0..=868.0).contains(&point[0]) && (28.0..=220.0).contains(&point[1])));
+        assert_ne!(first.positions[0], first.positions[1]);
+        assert!(first.profile.is_some());
+    }
+
+    #[test]
+    fn profile_regions_follow_single_and_mixed_repository_evidence() {
+        let mut data = input("profile");
+        data.repos.truncate(3);
+        data.repos[0].languages = vec!["Rust".into()];
+        data.repos[0].language_shares = BTreeMap::from([("Rust".into(), 100.0)]);
+        data.repos[1].languages = vec!["HTML".into()];
+        data.repos[1].language_shares = BTreeMap::from([("HTML".into(), 100.0)]);
+        data.repos[2].languages = vec!["TypeScript".into()];
+        data.repos[2].language_shares = BTreeMap::from([("TypeScript".into(), 100.0)]);
+        data.repos[2].topics = vec!["frontend".into(), "api".into()];
+        let scene = compute(data).unwrap();
+        assert!(scene.positions[0][0] < scene.positions[1][0]);
+        assert!(
+            scene.positions[2][0] > scene.positions[0][0]
+                && scene.positions[2][0] < scene.positions[1][0]
+        );
+        assert_eq!(scene.total, 0);
+    }
+
+    #[test]
+    fn profile_arrangement_handles_the_supported_repository_limit() {
+        let mut data = input("profile");
+        let template = data.repos[0].clone();
+        data.repos = (0..100)
+            .map(|index| {
+                let mut repository = template.clone();
+                repository.name = format!("owner/project-{index}");
+                repository
+            })
+            .collect();
+        let result = compute(data).unwrap();
+        assert_eq!(result.positions.len(), 100);
+        assert!(result
+            .positions
+            .iter()
+            .flatten()
+            .all(|coordinate| coordinate.is_finite()));
+    }
+
+    #[test]
+    fn profile_arrangement_stays_inside_static_export_heights() {
+        for height in [180.0, 320.0, 480.0, 560.0] {
+            let mut data = input("profile");
+            data.profile_height = height;
+            data.repos.truncate(6);
+            for (index, repository) in data.repos.iter_mut().enumerate() {
+                repository.languages = vec![match index % 3 {
+                    0 => "Rust",
+                    1 => "HTML",
+                    _ => "SQL",
+                }
+                .into()];
+                repository.language_shares =
+                    BTreeMap::from([(repository.languages[0].clone(), 100.0)]);
+            }
+            let result = compute(data).unwrap();
+            assert!(
+                result
+                    .positions
+                    .iter()
+                    .all(|point| point[1] >= 28.0 && point[1] <= height - 24.0),
+                "height={height}, positions={:?}",
+                result.positions
+            );
+        }
+    }
+
+    #[test]
+    fn category_nodes_inherit_only_traceable_member_evidence() {
+        let mut data = input("profile");
+        data.repos = vec![Repository {
+            name: "language:HTML".into(),
+            group: "HTML".into(),
+            languages: vec![],
+            language_shares: BTreeMap::new(),
+            topics: vec![],
+            role: String::new(),
+            members: vec!["owner/ui".into()],
+            kind: "language".into(),
+            hidden: false,
+            position: None,
+        }];
+        data.profile_repositories = vec![profile_evidence::Repository {
+            name: "owner/ui".into(),
+            languages: BTreeMap::new(),
+            language_names: vec!["HTML".into()],
+            topics: vec![],
+            role: "featured".into(),
+        }];
+        let scene = compute(data).unwrap();
+        let profile = scene.profile.unwrap();
+        assert_eq!(profile.dimensions[0].evidence[0].repository, "owner/ui");
+        assert_eq!(profile.nodes[0].node, "language:HTML");
+        assert!(profile.nodes[0].dimensions[0] > 0.0);
+        assert!(scene.positions[0][0] > 600.0);
+    }
+
+    #[test]
+    fn manual_emphasis_moves_layout_without_changing_profile_scores() {
+        let mut automatic = input("profile");
+        automatic.repos.truncate(1);
+        automatic.repos[0].languages = vec!["HTML".into(), "Rust".into()];
+        automatic.repos[0].language_shares =
+            BTreeMap::from([("HTML".into(), 50.0), ("Rust".into(), 50.0)]);
+        automatic.repos[0].topics = vec!["frontend".into()];
+        let mut systems = automatic.clone();
+        systems.profile_emphasis = "systems".into();
+        let automatic = compute(automatic).unwrap();
+        let systems = compute(systems).unwrap();
+        assert!(systems.positions[0][0] < automatic.positions[0][0]);
+        assert_eq!(
+            systems
+                .profile
+                .unwrap()
+                .dimensions
+                .iter()
+                .map(|value| value.score)
+                .collect::<Vec<_>>(),
+            automatic
+                .profile
+                .unwrap()
+                .dimensions
+                .iter()
+                .map(|value| value.score)
+                .collect::<Vec<_>>()
+        );
     }
 }

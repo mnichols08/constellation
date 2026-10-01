@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.7.1 — Developer Topology review fixes
+
+- Keep C#, C and C++ distinct during language normalization so C# supplies Services evidence instead of incorrect Systems evidence.
+- Count every distinct matching language when byte proportions are unavailable, and retain readable evidence reasons when supplied byte counts are all zero.
+- Retry temporary Windows DevTools port-file locks within the existing startup deadline. Preserve fatal I/O errors and all browser assertions.
+- Add Rust and browser-harness regression coverage and rebuild WASM, Core and web-component artifacts.
+
+## 3.7.0 — Developer Topology
+
+- Add a deterministic Rust/WASM developer profile engine for Interface, Services, Data, Systems, Tooling and Automation evidence from selected repositories, language proportions, topics and explicit Showcase roles.
+- Add the `profile` semantic arrangement with bounded, documented role weights, inspectable evidence, manual emphasis, spatial region labels and concise signatures; preserve real graph edges and manual positions.
+- Integrate dimension exploration and evidence inspection into offline interactive output, guided setup previews, config/share links, temporal layers and static README SVG profiles without adding GitHub requests.
+- Keep config v7 backward-compatible; document mappings, score normalization, temporal limitations, API behavior and privacy. Rebuild Rust/WASM, Core and web-component artifacts.
+
 ## 3.6.1 — 2026-09-30
 
 - Allow up to 60 seconds for cold Chrome startup on hosted CI runners after release-tag verification exposed starts exceeding the previous 15-second deadline.

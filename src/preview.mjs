@@ -252,6 +252,8 @@ const hiddenLabelSettings = new Map();
 let displayedNodes = [];
 const labelEditor = document.createElement("div");
 labelEditor.className = "live-tilt-surface";
+const selectedProfileDimensions = new Set();
+const profileOpacity = new WeakMap();
 let liveTilt;
 let graphSelection = {};
 function buildGraphFilters(pool) {
@@ -476,6 +478,168 @@ function message(text, error = false) {
   status.dataset.error = String(error);
 }
 
+function profileSceneForElement(element) {
+  const current =
+    capturedScene?.kind === "time-lapse" ? capturedScene.latest : capturedScene;
+  if (!current?.temporalStack) return current;
+  const layerElement = element?.closest(
+    "[data-temporal-year], [data-layer-id]",
+  );
+  const year = Number(
+    layerElement?.dataset.temporalYear || element?.dataset.year || 0,
+  );
+  const layerId = layerElement?.dataset.layerId || element?.dataset.layerId;
+  const layer = current.temporalStack.layers.find(
+    (item) => (year && item.year === year) || (layerId && item.id === layerId),
+  );
+  const frame =
+    layer &&
+    (current.temporalStack.frames || current.timeline?.frames || []).find(
+      (item) => item.id === layer.frameId,
+    );
+  return frame?.scene || current;
+}
+
+function applyProfileDimensionSelection() {
+  const svg = labelEditor.shadowRoot?.querySelector("svg");
+  const current =
+    capturedScene?.kind === "time-lapse" ? capturedScene.latest : capturedScene;
+  if (!svg || !current) return;
+  const dimensions = [...selectedProfileDimensions];
+  const relatedForProfile = new Map();
+  const relatedIds = (scene) => {
+    const profile = scene?.developerProfile;
+    if (!profile) return new Set();
+    if (!relatedForProfile.has(profile)) {
+      relatedForProfile.set(
+        profile,
+        new Set(
+          (profile.nodes || [])
+            .filter((node) =>
+              node.dimensions.some(
+                (score, index) =>
+                  score > 0 &&
+                  dimensions.includes(profile.dimensions[index]?.id),
+              ),
+            )
+            .map((node) => node.node),
+        ),
+      );
+    }
+    return relatedForProfile.get(profile);
+  };
+  const setDimmed = (element, dimmed) => {
+    if (dimmed) {
+      if (!profileOpacity.has(element)) {
+        const computed = Number.parseFloat(getComputedStyle(element).opacity);
+        profileOpacity.set(element, {
+          inline: element.style.opacity,
+          computed: Number.isFinite(computed) ? computed : 1,
+        });
+      }
+      element.style.opacity = String(
+        profileOpacity.get(element).computed * 0.16,
+      );
+    } else if (profileOpacity.has(element)) {
+      element.style.opacity = profileOpacity.get(element).inline;
+      profileOpacity.delete(element);
+    }
+  };
+  svg.toggleAttribute("data-profile-selection", dimensions.length > 0);
+  if (dimensions.length) svg.dataset.profileSelection = dimensions.join(" ");
+  else delete svg.dataset.profileSelection;
+  for (const element of svg.querySelectorAll(".repository, .repo-label")) {
+    const id = element.classList.contains("repository")
+      ? element.querySelector(".star")?.dataset.repo || element.dataset.nodeId
+      : element.dataset.repo;
+    const scene = profileSceneForElement(element);
+    const related = dimensions.length > 0 && relatedIds(scene).has(id);
+    element.toggleAttribute("data-profile-related", related);
+    setDimmed(element, dimensions.length > 0 && !related);
+  }
+  for (const edge of svg.querySelectorAll(
+    ".shared-language[data-from][data-to]",
+  )) {
+    const scene = profileSceneForElement(edge);
+    const related = relatedIds(scene);
+    const isRelated =
+      dimensions.length > 0 &&
+      (related.has(edge.dataset.from) || related.has(edge.dataset.to));
+    edge.toggleAttribute("data-profile-related", isRelated);
+    setDimmed(edge, dimensions.length > 0 && !isRelated);
+  }
+  for (const button of $("#profile-dimension-buttons").querySelectorAll(
+    "[data-profile-dimension]",
+  ))
+    button.setAttribute(
+      "aria-pressed",
+      String(selectedProfileDimensions.has(button.dataset.profileDimension)),
+    );
+  const profile = current.developerProfile;
+  const summary = $("#profile-dimension-summary");
+  if (!dimensions.length)
+    summary.textContent =
+      "Select a dimension to inspect its repository evidence.";
+  else {
+    const evidence = (profile?.dimensions || []).filter((dimension) =>
+      dimensions.includes(dimension.id),
+    );
+    const nodes = new Set(
+      evidence.flatMap((dimension) =>
+        dimension.evidence.map((item) => item.repository),
+      ),
+    );
+    summary.textContent = `${nodes.size} supporting repositories. ${evidence
+      .map(
+        (dimension) =>
+          `${dimension.id}: ${
+            dimension.evidence
+              .slice(0, 4)
+              .map((item) => `${item.repository} (${item.reason})`)
+              .join(", ") || "no repository evidence in this layer"
+          }`,
+      )
+      .join(". ")}`;
+  }
+}
+
+function updateProfileDimensionControls(scene) {
+  const current = scene?.kind === "time-lapse" ? scene.latest : scene;
+  const profile = current?.developerProfile;
+  const controls = $("#profile-dimension-controls");
+  controls.hidden = !profile;
+  if (!profile) selectedProfileDimensions.clear();
+  const container = $("#profile-dimension-buttons");
+  container.replaceChildren(
+    ...(profile?.dimensions || []).map((dimension) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.profileDimension = dimension.id;
+      button.textContent =
+        dimension.id[0].toUpperCase() + dimension.id.slice(1);
+      button.setAttribute(
+        "aria-pressed",
+        String(selectedProfileDimensions.has(dimension.id)),
+      );
+      return button;
+    }),
+  );
+}
+
+$("#profile-dimension-buttons").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-profile-dimension]");
+  if (!button) return;
+  const dimension = button.dataset.profileDimension;
+  if (selectedProfileDimensions.has(dimension))
+    selectedProfileDimensions.delete(dimension);
+  else selectedProfileDimensions.add(dimension);
+  applyProfileDimensionSelection();
+});
+$("#profile-dimension-clear").addEventListener("click", () => {
+  selectedProfileDimensions.clear();
+  applyProfileDimensionSelection();
+});
+
 function render({ requireVisibleNodes = false } = {}) {
   studioCommits?.update(isSample ? [] : repositories);
   placementAccounts.set(
@@ -513,6 +677,10 @@ function render({ requireVisibleNodes = false } = {}) {
   $("#max-repos").disabled = options.repoSource === "pinned";
   const selected = selectRepositoryPool(repositories, options);
   options.arrangement = $("#arrangement").value;
+  options.profileEmphasis =
+    $("#profile-emphasis")?.value ||
+    importedOptions.profileEmphasis ||
+    "automatic";
   $("#temporal-stack-controls").hidden =
     options.arrangement !== "temporal-stack";
   if (options.arrangement === "temporal-stack") {
@@ -808,6 +976,7 @@ function render({ requireVisibleNodes = false } = {}) {
   );
   const svg = renderSceneSVG(scene);
   capturedScene = scene;
+  updateProfileDimensionControls(scene);
   const currentScene = scene.kind === "time-lapse" ? scene.latest : scene;
   const projected = {
     ...currentScene.presentation.graph,
@@ -928,6 +1097,7 @@ function render({ requireVisibleNodes = false } = {}) {
     options.snapToRings,
   );
   preview.replaceChildren(labelEditor);
+  applyProfileDimensionSelection();
   cometLab.update(labelEditor.shadowRoot.querySelector("svg"), account);
   mountGraphExplorer(
     labelEditor,

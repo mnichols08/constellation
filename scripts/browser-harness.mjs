@@ -9,16 +9,17 @@ export const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/G
 
 // Cold Chrome starts on hosted runners can exceed 15 seconds. Browser tests
 // allow 120 seconds overall, leaving time for their assertions after startup.
-export async function waitForDevToolsPort(path, { isRunning = () => true, timeoutMs = 60000, pollIntervalMs = 100 } = {}) {
+export async function waitForDevToolsPort(path, { isRunning = () => true, timeoutMs = 60000, pollIntervalMs = 100, readPortFile = readFile } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline && isRunning()) {
     try {
       // Chrome creates this file before writing it. Require a complete, valid
       // port line so an empty or partial write cannot end the startup wait.
-      const match = /^(\d+)\r?\n/.exec(await readFile(path, 'utf8'));
+      const match = /^(\d+)\r?\n/.exec(await readPortFile(path, 'utf8'));
       if (match && Number(match[1]) > 0 && Number(match[1]) <= 65535) return match[1];
     } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
+      // Windows can temporarily deny reads while Chrome creates the file.
+      if (!['ENOENT', 'EACCES', 'EPERM', 'EBUSY'].includes(error.code)) throw error;
     }
     await delay(pollIntervalMs);
   }
