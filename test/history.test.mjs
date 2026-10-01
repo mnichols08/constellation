@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -166,7 +167,7 @@ test('history and external layers degrade without fabricated contributions', () 
 
 test('year and history customizations reuse cached events without API calls', async () => {
   let calls = 0;
-  const data = createPreviewData({ fetchImpl: async url => { calls++; if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'example', type: 'User' }); return Response.json(url.includes('/events/public') ? fixture.publicEvents : repos); } });
+  const data = authenticatedPreviewData({ fetchImpl: async url => { calls++; if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'example', type: 'User' }); return Response.json(url.includes('/events/public') ? fixture.publicEvents : repos); } });
   const loaded = await data.load('example', {});
   const count = calls;
   for (const year of [2014, 2018, 2022, 2026]) renderConstellation('example', loaded, { ...options, historyData: data.activity('example'), historicalYear: year, contributionOrbit: { enabled: true }, foreignGalaxies: { enabled: true } });
@@ -181,3 +182,5 @@ test('four showcase configs reproduce fixture galleries within the size budget',
     assert.ok(Buffer.byteLength(svg) < 150000, name);
   }
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

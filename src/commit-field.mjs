@@ -9,6 +9,9 @@ export function createCommitFieldData(options) {
   return {
     snapshots,
     async load(repositories, { refresh = false, onProgress } = {}) {
+      const access = options?.access || options?.fetchImpl?.access;
+      if (access && !access.capabilities.commitActivity)
+        return { snapshots, diagnostics: ['Sign in with GitHub to load commit activity.'] };
       const targets = repositories.filter(repo => repo.private !== true && (refresh || !snapshots[repo.full_name.toLowerCase()])).slice(0, FIELD_REPO_BATCH);
       const diagnostics = [];
       for (const [index, repo] of targets.entries()) {

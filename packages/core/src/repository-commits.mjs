@@ -49,7 +49,7 @@ export function normalizeCommits(raw) {
   });
 }
 
-export function createRepositoryCommits({ fetchImpl = fetch, token } = {}) {
+export function createRepositoryCommits({ fetchImpl = fetch, token, access = fetchImpl.access } = {}) {
   const cache = new Map(),
     pending = new Map(),
     epochs = new Map();
@@ -81,6 +81,7 @@ export function createRepositoryCommits({ fetchImpl = fetch, token } = {}) {
     value,
     { branch = "", refresh = false, limit = 300 } = {},
   ) {
+    if (access && !access.capabilities.commitHistory) throw new Error("Sign in with GitHub to load repository history and commit activity.");
     if (!Number.isInteger(limit) || limit < 1 || limit > 300)
       throw Error("Commit limit must be between 1 and 300.");
     const name = repositoryName(value),

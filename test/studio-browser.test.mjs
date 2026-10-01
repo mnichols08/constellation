@@ -18,6 +18,7 @@ test(
       failPresetLanguage = false;
     const requestedUrls = [];
     const server = createPreviewServer({
+      token: "test-local-token",
       fetchImpl: async (url) => {
         apiCalls++;
         requestedUrls.push(url);

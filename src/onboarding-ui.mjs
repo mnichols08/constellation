@@ -11,6 +11,7 @@ export function mountOnboarding(
   host,
   {
     repositories,
+    access,
     account,
     profile,
     initial,
@@ -28,6 +29,7 @@ export function mountOnboarding(
     step = 0,
     busy = false,
     picker;
+  if (access?.mode === "public") intent = { ...intent, activity: "none" };
   const heading = document.createElement("h2");
   heading.tabIndex = -1;
   const progress = document.createElement("p");
@@ -42,6 +44,15 @@ export function mountOnboarding(
     const element = document.createElement("button");
     element.type = "button";
     element.textContent = label;
+    if (
+      (label === "Contributed to" &&
+        access?.capabilities.contributionDiscovery === false) ||
+      (label === "Pinned repositories" &&
+        access?.capabilities.pinnedRepositories === false)
+    ) {
+      element.disabled = true;
+      element.title = "Sign in with GitHub to load this data.";
+    }
     element.addEventListener("click", run);
     parent.append(element);
     return element;
@@ -57,6 +68,12 @@ export function mountOnboarding(
       input.type = "radio";
       input.name = `guided-${key}`;
       input.value = value;
+      if (
+        key === "activity" &&
+        value !== "none" &&
+        access?.capabilities.activity === false
+      )
+        input.disabled = true;
       input.checked = intent[key] === value;
       input.addEventListener("change", () => {
         intent[key] = value;
@@ -327,6 +344,7 @@ export function mountOnboarding(
       picker = mountRepositoryPicker(pool, {
         prefix: "guided-",
         guided: true,
+        access,
         apply() {},
         message: (text) => {
           status.textContent = text;
@@ -408,6 +426,12 @@ export function mountOnboarding(
           : []),
         ["later", "Customize later"],
       ]);
+    }
+    if (current === "activity" && access?.mode === "public") {
+      const note = document.createElement("p");
+      note.textContent =
+        "Sign in with GitHub to load activity. You can create and export your constellation without it.";
+      body.append(note);
     }
     if (current === "activity")
       radios("Use real public activity", "activity", [

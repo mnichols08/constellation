@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchRepositories, fetchPinnedRepositories, selectRepositoryPool, renderConstellation } from '../src/constellation.mjs';
@@ -60,10 +61,10 @@ test('pin and all-repository snapshots are separate, cached, refreshable, and re
   const pinned = { name: 'pinned', full_name: 'someone/pinned', language: 'Rust', languages: { Rust: 100 }, pinned: true };
   const all = { name: 'owned', full_name: 'octocat/owned', language: 'CSS', languages: { CSS: 100 } };
   const args = { storage, fetchPinned: async () => { pinCalls++; if (fail) throw Error('Token rejected'); return [pinned]; }, fetchImpl: async url => { if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'octocat', type: 'User' }); if (url.includes('/events/public')) return Response.json([]); allCalls++; return Response.json([all]); } };
-  let data = createPreviewData(args);
+  let data = authenticatedPreviewData(args);
   await data.load('octocat', {});
   await data.load('octocat', { repoSource: 'pinned' });
-  data = createPreviewData(args);
+  data = authenticatedPreviewData(args);
   await data.load('octocat', { repoSource: 'pinned' });
   assert.equal(pinCalls, 1); assert.equal(allCalls, 1);
   assert.deepEqual(data.snapshot('octocat'), [all]);
@@ -78,8 +79,10 @@ test('pin and all-repository snapshots are separate, cached, refreshable, and re
 test('browser pin loading uses only the local endpoint and provides a setup error on static hosting', async () => {
   await assert.rejects(createPinnedFetch()('octocat'), /local studio/);
   const calls = [];
-  const fetchPins = createPinnedFetch({ proxyBase: '/api/github', fetchImpl: async (url, options) => { calls.push({ url, options }); return Response.json([]); } });
+  const fetchPins = createPinnedFetch({ localAuth: true, proxyBase: '/api/github', fetchImpl: async (url, options) => { calls.push({ url, options }); return Response.json([]); } });
   await fetchPins('octocat');
   assert.equal(calls[0].url, '/api/github/users/octocat/pinned');
   assert.equal(calls[0].options.headers, undefined);
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

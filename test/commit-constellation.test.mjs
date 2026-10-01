@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commitConstellation } from '../src/commit-constellation.mjs';
@@ -42,7 +43,7 @@ test('commit star limits and highlighting keep identities, mark partial ancestry
 
 test('fresh saved commit constellation loads branch history for a personal account without contributor scans', async () => {
   const calls = [];
-  const data = createPreviewData({ fetchImpl: async url => {
+  const data = authenticatedPreviewData({ fetchImpl: async url => {
     calls.push(url);
     const path = new URL(url).pathname;
     if (path === '/users/alice') return Response.json({ login: 'alice', type: 'User' });
@@ -65,3 +66,5 @@ test('large histories fit the constellation cap without fabricating boundary sta
   const empty = renderConstellation('alice', [], { ...options, commitHistoryData: { ...snapshot, commits: [] } });
   assert.match(empty, /has no commits/); assert.doesNotMatch(empty, /class="star"/);
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

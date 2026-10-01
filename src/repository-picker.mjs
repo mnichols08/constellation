@@ -1,4 +1,4 @@
-export function mountRepositoryPicker(host, { apply, message, findRepositories, prefix = '', guided = false }) {
+export function mountRepositoryPicker(host, { access, apply, message, findRepositories, prefix = '', guided = false }) {
   const contributed = new Set();
   let repositories = [], selected = new Set(), signature, context, busy = false, edited = false;
   const added = new Set();
@@ -22,6 +22,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
   const add = document.createElement('button'); add.type = 'button'; add.id = 'add-public-repository'; add.className = 'secondary'; add.textContent = 'Add repository';
   const feedback = document.createElement('p'); feedback.id = 'repository-discovery-status'; feedback.className = 'export-note'; feedback.setAttribute('role', 'status');
   feedback.textContent = 'Find your public pull requests and commits across any organization, including projects you do not own. Membership is not required. If a project is missing, paste its URL below.';
+  if (access?.mode === 'public') feedback.textContent = 'Sign in with GitHub to automatically discover repositories you contributed to, or add a public repository manually.';
   discovery.append(scopeLabel, scope, orgLabel, organization, find, feedback, directLabel, direct, add);
   const actions = document.createElement('div'); actions.className = 'repository-picker-actions';
   const buttons = [find, add];
@@ -32,6 +33,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
   const visible = () => repositories.filter(repo => `${repo.full_name} ${repo.description || ''} ${(repo.topics || []).join(' ')} ${repo.language || ''}`.toLowerCase().includes(search.value.trim().toLowerCase()));
   const updateCount = () => { count.textContent = `${selected.size} selected · ${visible().length} of ${repositories.length} listed`; };
   const draw = () => {
+    find.disabled = busy || access?.capabilities.contributionDiscovery === false;
     list.replaceChildren();
     for (const repo of visible()) {
       const row = document.createElement('label'), input = document.createElement('input'), name = document.createElement('span');
@@ -58,6 +60,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
   button('automatic-repositories', 'Use automatic selection', () => commit(true));
   async function discover(manual) {
     if (busy) return;
+    if (!manual && access?.capabilities.contributionDiscovery === false) { message('Sign in with GitHub to discover contributions, or add a public repository manually.'); return; }
     busy = true; buttons.forEach(button => { button.disabled = true; }); draw();
     feedback.textContent = manual ? 'Loading repository…' : 'Searching contributions…';
     try {
@@ -87,7 +90,7 @@ export function mountRepositoryPicker(host, { apply, message, findRepositories, 
   if (prefix) { for (const element of host.querySelectorAll('[id]')) element.id = prefix + element.id; for (const element of host.querySelectorAll('label[for]')) element.htmlFor = prefix + element.htmlFor; }
   if (guided) { actions.querySelector('[id$="apply-repository-selection"]').hidden = true; actions.querySelector('[id$="automatic-repositories"]').hidden = true; help.textContent = 'Choose the projects you want to showcase. Team repositories and direct additions are public GitHub data.'; }
   return {
-    contributed: async () => { await discover(false); selected = new Set(repositories.filter(repo => contributed.has(repo.full_name.toLowerCase())).map(repo => repo.full_name)); draw(); },
+    contributed: async () => { if (access?.capabilities.contributionDiscovery === false) return; await discover(false); selected = new Set(repositories.filter(repo => contributed.has(repo.full_name.toLowerCase())).map(repo => repo.full_name)); draw(); },
     selection: () => [...selected].sort(),
     busy: () => busy,
     select(names) { selected = new Set(names); edited = true; draw(); },

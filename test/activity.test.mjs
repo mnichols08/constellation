@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizePublicEvents, aggregateActivity, recencyDecay, eventWeights } from '../src/activity.mjs';
@@ -105,7 +106,7 @@ test('public event fetching is centralized, bounded, authenticated and fails wit
 
 test('failed activity stays nonfatal and cached until explicit refresh', async () => {
   let eventCalls = 0;
-  const data = createPreviewData({ fetchImpl: async url => {
+  const data = authenticatedPreviewData({ fetchImpl: async url => {
     if (/\/users\/[^/?]+$/.test(url)) return Response.json({ login: 'tester', type: 'User' });
     if (!url.includes('/events/public')) return Response.json(repos);
     eventCalls++;
@@ -117,3 +118,5 @@ test('failed activity stays nonfatal and cached until explicit refresh', async (
   await data.load('tester', {}, { refresh: true }); assert.equal(eventCalls, 2);
   assert.equal(data.activity('tester').events.length, 1);
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

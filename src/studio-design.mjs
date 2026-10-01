@@ -22,7 +22,7 @@ export function preserveShowcaseOptions(recipe, current = {}) {
   return { ...recipe, ...(current.projectShowcase ? { projectShowcase: structuredClone(current.projectShowcase) } : {}), ...(current.readmePresentation ? { readmePresentation: current.readmePresentation } : {}), ...(current.ringOrganization ? { ringOrganization: current.ringOrganization } : {}), ...(current.featuredTreatment ? { featuredTreatment: current.featuredTreatment } : {}) };
 }
 
-export function mountStudioDesign({ host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, findRepositories, reveal }) {
+export function mountStudioDesign({ access, host, changed, apply, theme, message, hasMatchingNodes, repositoryCandidates, repositoryPool, selectedRepositories, findRepositories, reveal }) {
   const layerControls = mountStudioLayers(host, changed, reveal);
   const historyControls = mountStudioHistory(host, changed);
   const organizationControls = mountOrganizationControls(host, changed);
@@ -212,7 +212,7 @@ export function mountStudioDesign({ host, changed, apply, theme, message, hasMat
   control(filters, 'repoQuery', 'Repository name contains').maxLength = 200;
   control(filters, 'sortBy', 'Select projects by', [['stars', 'Stars'], ['updated', 'Recently updated'], ['name', 'Repository name']]);
   const repositoryPicker = mountRepositoryPicker(section('Choose repositories'), {
-    message, findRepositories,
+    message, findRepositories, access,
     apply: async includeRepos => {
       if (!current) return;
       const cap = current.options.nodeCap || 100;

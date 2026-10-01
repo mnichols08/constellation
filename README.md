@@ -6,10 +6,16 @@ Turn developer and project data into interactive maps, embedded experiences, and
 
 **Developer Topology** places selected work around Interface, Services, Data, Systems, Tooling and Automation evidence. It traces those regions to repository, language and topic evidence; it does not assign job titles or assess professional ability. See the [Developer Topology guide](docs/developer-topology.md).
 
+## Browser access modes
+
+**Public exploration** needs no authentication. It uses lightweight, privacy-friendly discovery: account identity and one page of up to 100 recently updated owned public repositories, including their primary language, topics and basic metadata. Users can choose projects, assign roles, explore language/topic connections and time views, customize and export. Add an external or older public project by `owner/repository` or GitHub URL; each addition makes one metadata request, with up to ten manual lookups per session. Existing manual additions remain available after refresh.
+
+**GitHub sign-in** enables complete repository discovery, full language breakdowns, pinned projects, automatic contribution discovery, activity, contributor information and commit-backed features. Local preview with `GH_TOKEN`, CLI and GitHub Actions retain full analysis. Public mode requests go directly from each browser to GitHub. Constellation stops new requests when the public allowance is low or rate-limited, keeps existing snapshots usable, and offers sign-in or reset guidance. Customization makes no GitHub requests.
+
 ## Make your constellation
 
 1. Open [Constellation](https://mnichols08.github.io/constellation/) and choose **Continue with GitHub** or **Explore a public account**.
-2. Choose the projects and technologies you want to showcase—use Recommended, Recently active, Most starred, Contributed to or **Pinned repositories** (requires GitHub sign-in).
+2. Choose the projects and technologies you want to showcase—use Recommended, Recently active, Most starred, Contributed to or **Pinned repositories** (both require GitHub sign-in).
 3. Choose which projects should stand out, review the Developer Topology evidence preview, then set relationships, optional activity and your universe.
 4. Preview in full screen, name and **Save constellation**, **Generate another**, or open **Customize** for the full Studio.
 5. Choose **Use this constellation** to export it or install it in your README.

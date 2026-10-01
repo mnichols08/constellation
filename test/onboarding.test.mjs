@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -180,7 +181,7 @@ test("guided topology offers explicit emphasis without changing project roles", 
 });
 test("guided topology compiles from cached repository data without additional GitHub reads", async () => {
   const calls = [];
-  const data = createPreviewData({
+  const data = authenticatedPreviewData({
     fetchImpl: async (url) => {
       calls.push(url);
       return Response.json(
@@ -204,7 +205,7 @@ test("guided topology compiles from cached repository data without additional Gi
 });
 test("guided account load postpones optional activity and reuses cached repositories", async () => {
   const calls = [];
-  const data = createPreviewData({
+  const data = authenticatedPreviewData({
     fetchImpl: async (url) => {
       calls.push(url);
       return Response.json(
@@ -232,7 +233,7 @@ test("guided entry loads metadata first and hydrates only chosen projects", asyn
       ...repo,
       language: "Rust",
     }));
-  const data = createPreviewData({
+  const data = authenticatedPreviewData({
     fetchImpl: async (url) => {
       calls.push(url);
       return Response.json(
@@ -267,3 +268,5 @@ test("guided entry loads metadata first and hydrates only chosen projects", asyn
     false,
   );
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }

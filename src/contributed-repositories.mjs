@@ -1,10 +1,20 @@
 import { username } from "./constellation.mjs";
 import { repositoryName } from "./repository-commits.mjs";
+import { requireGitHubCapability } from "./github-access.mjs";
 
 export function createContributedRepositories({
   fetchImpl = fetch,
   token,
+  access = fetchImpl.access,
+  storage,
 } = {}) {
+  let manualRequests = 0;
+  const budgetKey = "constellation-public-manual-lookups-v1";
+  try {
+    const saved = Number(storage?.getItem(budgetKey));
+    if (Number.isInteger(saved) && saved >= 0)
+      manualRequests = Math.min(saved, 10);
+  } catch {}
   const metadata = new Map(),
     epochs = new Map();
   async function request(path, refresh = false) {
@@ -31,6 +41,16 @@ export function createContributedRepositories({
     const name = repositoryName(value),
       key = name.toLowerCase();
     if (!refresh && metadata.has(key)) return metadata.get(key);
+    if (access?.mode === "public") {
+      if (manualRequests >= 10)
+        throw new Error(
+          "Public mode allows 10 manual repository lookups per session. Keep exploring your loaded projects, or sign in with GitHub to add more.",
+        );
+      manualRequests++;
+      try {
+        storage?.setItem(budgetKey, String(manualRequests));
+      } catch {}
+    }
     const epoch = refresh ? (epochs.get(key) || 0) + 1 : epochs.get(key) || 0;
     if (refresh) epochs.set(key, epoch);
     const raw = await request(`/repos/${name}`, refresh);
@@ -67,6 +87,7 @@ export function createContributedRepositories({
     account,
     { organization = "", onProgress, refresh = false } = {},
   ) {
+    requireGitHubCapability(access, "contributionDiscovery");
     const author = username(account),
       org = organization.trim() ? username(organization.trim()) : "";
     const names = new Map(),
@@ -146,7 +167,18 @@ export function createContributedRepositories({
       diagnostic: [...new Set(diagnostics)].join(" "),
     };
   }
-  return { repository, discover };
+  return {
+    repository,
+    discover,
+    remember(repositories) {
+      for (const repo of repositories) {
+        if (!repo || repo.private !== false) continue;
+        try {
+          metadata.set(repositoryName(repo.full_name).toLowerCase(), repo);
+        } catch {}
+      }
+    },
+  };
 }
 
 // Full names in saved selections must work on another device and in the CLI.

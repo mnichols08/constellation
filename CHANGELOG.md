@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.7.2 — Rate-limit-safe public exploration
+
+- Public browser exploration loads account identity and one page of up to 100 recently updated public repositories. Primary languages and topics support project selection, Developer Topology, customization and exports without per-repository language requests.
+- Manually add public repositories by name or URL, with up to ten metadata lookups per session. Cached additions survive refresh. GitHub sign-in enables complete discovery, language breakdowns, pins, contribution search, activity, contributor scans and commit history; token-backed local preview, CLI and Actions retain full analysis.
+- Public requests go directly from the browser to GitHub. Rate-limit headers reserve five remaining requests, suppress further calls after limiting, and keep loaded snapshots usable with sign-in/reset guidance. Public refresh is scoped to account discovery.
+- Added request-count, capability, cache and browser onboarding regressions, including anonymous creation and SVG export with primary-language evidence.
+
 ## 3.7.1 — Developer Topology review fixes
 
 - Keep C#, C and C++ distinct during language normalization so C# supplies Services evidence instead of incorrect Systems evidence.

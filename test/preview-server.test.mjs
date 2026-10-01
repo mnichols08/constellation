@@ -58,7 +58,7 @@ test("local studio authenticates upstream only, retains data, and never serves .
   assert.ok(!html.includes(token));
   assert.equal((await fetch(`${base}/.env`)).status, 404);
   const data = createPreviewData({
-    fetchImpl: createPreviewFetch({ proxyBase: `${base}/api/github` }),
+    fetchImpl: createPreviewFetch({ proxyBase: `${base}/api/github`, localAuth: true }),
   });
   await data.load("octocat", { maxRepos: 5 });
   await data.load("octocat", { maxRepos: 5 });

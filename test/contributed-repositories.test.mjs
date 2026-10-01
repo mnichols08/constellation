@@ -1,3 +1,4 @@
+import { createGitHubAccess } from "../src/github-access.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -194,14 +195,14 @@ test("fresh preview loads and refreshes a saved team selection and retains it ac
     },
   };
   const options = { includeRepos: ["team/practicum"], maxRepos: 1 };
-  let data = createPreviewData(settings);
+  let data = authenticatedPreviewData(settings);
   const loaded = await data.load("alice", options);
   assert.deepEqual(
     loaded.find((item) => item.full_name === "team/practicum").languages,
     { JavaScript: 100 },
   );
   const count = calls.length;
-  data = createPreviewData(settings);
+  data = authenticatedPreviewData(settings);
   await data.load("alice", options);
   assert.equal(calls.length, count);
   const refreshed = await data.load("alice", options, { refresh: true });
@@ -257,7 +258,7 @@ test("personal-account contributor views load all seven selected team repositori
       return Response.json(repo(canonical));
     },
   };
-  const data = createPreviewData(settings);
+  const data = authenticatedPreviewData(settings);
   await data.load("mnichols08", { maxRepos: 7 });
   assert.equal(
     calls.filter((url) => url.includes("/contributors")).length,
@@ -306,7 +307,7 @@ test("personal-account contributor views load all seven selected team repositori
     );
   }
   assert.equal(calls.filter((url) => url.includes("/contributors")).length, 7);
-  const reloaded = createPreviewData(settings);
+  const reloaded = authenticatedPreviewData(settings);
   const loaded = await reloaded.load("mnichols08", options);
   assert.equal(calls.filter((url) => url.includes("/contributors")).length, 7);
   assert.match(
@@ -347,7 +348,7 @@ test("contributor empty states distinguish unrequested, disabled, failed and emp
     assert.match(svg, message);
     assert.doesNotMatch(svg, /No contributors in the matching repositories/);
   }
-  const data = createPreviewData({
+  const data = authenticatedPreviewData({
     fetchImpl: async (url) =>
       url.includes("/contributors")
         ? Response.json({}, { status: 429 })
@@ -372,3 +373,5 @@ test("contributor empty states distinguish unrequested, disabled, failed and emp
     /unavailable or incomplete/,
   );
 });
+
+function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }
