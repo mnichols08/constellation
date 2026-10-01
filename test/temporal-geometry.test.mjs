@@ -67,7 +67,7 @@ test('painter depth is camera-based, front and back segments differ, and guides 
   for (const mutate of [s => { s.temporalStack.geometry.points[0].x += 20; }, s => { s.temporalStack.geometry.placements['demo/project-0'] = { ring: 0, point: 500 }; }]) { const value = structuredClone(scene); mutate(value); assert.equal(validateScene(value).valid, false); }
 });
 
-test('offline form switching keeps nodes, trails, filters and reduced-motion behavior', { skip: !browser, timeout: 30000 }, async t => {
+test('offline form switching keeps nodes, trails, filters and reduced-motion behavior', { skip: !browser, timeout: 120000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-forms-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html'); await writeFile(file, renderSceneHTML(createScene('demo', records, settings)));
   const { evaluate, waitFor, errors, cdp } = await openBrowser(t, pathToFileURL(file).href);
@@ -88,7 +88,7 @@ test('offline form switching keeps nodes, trails, filters and reduced-motion beh
   assert.deepEqual(errors, []);
 });
 
-test('Studio perspective dragging snaps in the active year and keeps semantic placement after shape changes', { skip: !browser, timeout: 30000 }, async t => {
+test('Studio perspective dragging snaps in the active year and keeps semantic placement after shape changes', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { evaluate, waitFor, cdp, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);

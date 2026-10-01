@@ -28,7 +28,7 @@ test('stories compile declarative chapter state with static fallback and safe se
   assert.equal(laidOut.story.chapters[0].scene.presentation.options.arrangement, 'force');
 });
 
-test('offline stories apply chapter camera, selection, narration and controls', { skip: !browser, timeout: 30000 }, async t => {
+test('offline stories apply chapter camera, selection, narration and controls', { skip: !browser, timeout: 120000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-story-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html'); await writeFile(file, renderSceneHTML(createStory(definition)));
   const { evaluate, waitFor, errors, cdp } = await openBrowser(t, pathToFileURL(file).href);

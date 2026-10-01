@@ -65,7 +65,7 @@ test("profile export exposes accessible dimensions and evidence controls", () =>
 
 test(
   "standalone file supports selection, keyboard, camera and cleanup",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const dir = await mkdtemp(join(tmpdir(), "constellation-html-"));
     t.after(() => rm(dir, { recursive: true, force: true }));
@@ -254,7 +254,7 @@ test(
 
 test(
   "interactive Developer Topology supports combined dimension selection and evidence inspection",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const profileScene = createScene(fixture.account, fixture.repositories, {
       ...fixture.cases[0].options,

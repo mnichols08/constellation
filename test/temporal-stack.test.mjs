@@ -295,7 +295,7 @@ test("config, attachment and size boundaries reject invalid inputs; compact outp
 
 test(
   "offline camera, keyboard years, trails, filters, timeline switching and cleanup",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const dir = await mkdtemp(join(tmpdir(), "constellation-temporal-"));
     t.after(() => rm(dir, { recursive: true, force: true }));
@@ -386,7 +386,7 @@ test(
 
 test(
   "Studio contextual settings and anchor editing; packaged component temporal APIs",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const server = createPreviewServer();
     server.listen(0, "127.0.0.1");
@@ -468,7 +468,7 @@ test(
 
 test(
   "temporal scenes compose with Story and Hierarchy without collapsing occurrences",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const temporal = createScene("demo", records, options);
     const ordinary = createScene("demo", records, {

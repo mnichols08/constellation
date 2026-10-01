@@ -50,7 +50,7 @@ test('timeline distinguishes current metadata from supplied historical snapshots
   assert.throws(() => createTimeline('demo', records), /dates/);
 });
 
-test('offline timeline controls render supplied frames with evidence labels', { skip: !browser, timeout: 30000 }, async t => {
+test('offline timeline controls render supplied frames with evidence labels', { skip: !browser, timeout: 120000 }, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'constellation-timeline-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'index.html');
   await writeFile(file, renderSceneHTML(createTimeline('demo', records, options, { snapshots: [{ date: '2021-01-01', records: [records[0]] }] })));

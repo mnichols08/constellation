@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
-test('ordinary Studio has no legacy creation controls', { skip: !browser, timeout: 30000 }, async t => {
+test('ordinary Studio has no legacy creation controls', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/`);

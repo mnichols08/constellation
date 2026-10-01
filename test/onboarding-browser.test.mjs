@@ -7,7 +7,7 @@ import { createPreviewServer } from "../scripts/preview-server.mjs";
 
 test(
   "guided first visit, constraints, optional failure, exports, customize and draft return",
-  { skip: !browser, timeout: 60000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const calls = [];
     const repos = Array.from({ length: 8 }, (_, i) => ({
@@ -300,7 +300,7 @@ test(
 
 test(
   "sparse profiles skip empty questions, no-activity stays lazy, asteroids load automatically",
-  { skip: !browser, timeout: 60000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const calls = [];
     const repo = {
@@ -430,7 +430,7 @@ test(
 for (const scenario of ["pins", "empty", "failure", "anonymous"])
   test(
     `onboarding pinned quick group: ${scenario}`,
-    { skip: !browser, timeout: 30000 },
+    { skip: !browser, timeout: 120000 },
     async (t) => {
       const calls = [];
       const repo = {

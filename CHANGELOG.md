@@ -7,6 +7,12 @@
 - Integrate dimension exploration and evidence inspection into offline interactive output, guided setup previews, config/share links, temporal layers and static README SVG profiles without adding GitHub requests.
 - Keep config v7 backward-compatible; document mappings, score normalization, temporal limitations, API behavior and privacy. Rebuild Rust/WASM, Core and web-component artifacts.
 
+## 3.6.1 — 2026-09-30
+
+- Allow up to 60 seconds for cold Chrome startup on hosted CI runners after release-tag verification exposed starts exceeding the previous 15-second deadline.
+- Give browser tests 120 seconds overall so startup does not exhaust the assertion budget. Preserve bounded waits, process cleanup, serial execution and all application assertions.
+- Include the GitHub request-cache improvements from 3.6.0; update Core and web-component package versions.
+
 ## 3.6.0 — GitHub Request Efficiency
 
 - Share identical concurrent GitHub REST reads across Studio, organization, contribution, activity, language and commit loaders; retain independent response bodies for each consumer.

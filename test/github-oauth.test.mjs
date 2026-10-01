@@ -156,7 +156,7 @@ import { browser, openBrowser } from "../scripts/browser-harness.mjs";
 
 test(
   "OAuth callback loads identity, protects designs and offers saved work on return",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const server = createPreviewServer();
     server.listen(0, "127.0.0.1");

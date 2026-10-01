@@ -93,7 +93,7 @@ test('seeded temporal examples retain their complete v6 recipes', async () => {
   }
 });
 
-test('Studio Full Random produces temporal geometry and partial styling retains it', { skip: !browser, timeout: 45000 }, async t => {
+test('Studio Full Random produces temporal geometry and partial styling retains it', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);

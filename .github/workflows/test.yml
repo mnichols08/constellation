@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: "22"
           package-manager-cache: false
+      - run: npm test
       - name: Test Rust core
         run: cargo test --locked --manifest-path rust/constellation-core/Cargo.toml
       - name: Rebuild Rust engine and verify integration

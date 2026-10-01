@@ -79,7 +79,7 @@ test('legacy temporal planes retain background and world dust without opaque fil
   }
 });
 
-test('browser sky stays visible behind temporal geometry through camera and form changes', { skip: !browser, timeout: 60000 }, async t => {
+test('browser sky stays visible behind temporal geometry through camera and form changes', { skip: !browser, timeout: 120000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'temporal-sky-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   for (const mode of modes) await writeFile(join(directory, `${mode}.html`), renderSceneHTML(sceneFor(mode, 'sphere', { animate: true })));

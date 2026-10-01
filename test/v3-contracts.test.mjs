@@ -68,7 +68,7 @@ test('missing WASM fails explicitly instead of selecting a JavaScript rendering 
   assert.notEqual(result.status, 0); assert.match(result.stderr, /requires its bundled Rust\/WASM engine/);
 });
 
-test('Studio reports a blocked required WASM asset accessibly', { skip: !browser, timeout: 30000 }, async t => {
+test('Studio reports a blocked required WASM asset accessibly', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { cdp, evaluate, waitFor } = await openBrowser(t, 'about:blank');

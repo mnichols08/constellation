@@ -35,7 +35,7 @@ test('unrelated animation periods produce a bounded, seamless SVG loop instead o
   assert.doesNotMatch(renderSceneSVG(sceneFor({ ...scene.presentation.options, animate: false })), /data-temporal-motion/);
 });
 
-test('Studio temporal preview starts moving with unrelated durations and motion unlocked for editing', { skip: !browser, timeout: 45000 }, async t => {
+test('Studio temporal preview starts moving with unrelated durations and motion unlocked for editing', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { evaluate, waitFor, cdp, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
@@ -95,7 +95,7 @@ test('SVG composes twinkle, projected ring motion and observed activity without 
   assert.match(permitted, /starfield-twinkle/);
 });
 
-test('offline motion pauses for reduced motion and composes with form changes, filters and temporal playback', { skip: !browser, timeout: 45000 }, async t => {
+test('offline motion pauses for reduced motion and composes with form changes, filters and temporal playback', { skip: !browser, timeout: 120000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'temporal-motion-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const scene = sceneFor({ perspective: { enabled: true, animate: true, range: 5, duration: 30 }, history: { mode: 'time-lapse', timeLapse: { enabled: true, mode: 'grow', duration: 8, loop: true } } });
@@ -118,7 +118,7 @@ test('offline motion pauses for reduced motion and composes with form changes, f
   assert.deepEqual(errors, []);
 });
 
-test('standalone animated SVG projects moving ring nodes and offers a reduced-motion image fallback', { skip: !browser, timeout: 30000 }, async t => {
+test('standalone animated SVG projects moving ring nodes and offers a reduced-motion image fallback', { skip: !browser, timeout: 120000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'temporal-svg-motion-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   await writeFile(join(directory, 'index.svg'), renderSceneSVG(sceneFor({ perspective: { enabled: true, animate: true, duration: 31, range: 15 } })));

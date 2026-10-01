@@ -17,7 +17,7 @@ import { browser, openBrowser } from "../scripts/browser-harness.mjs";
 
 test(
   "web component package works outside the repository with bounded assets and accessible controls",
-  { skip: !browser, timeout: 30000 },
+  { skip: !browser, timeout: 120000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "constellation-consumer-"));
     t.after(() => rm(root, { recursive: true, force: true }));

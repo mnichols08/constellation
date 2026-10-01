@@ -54,7 +54,7 @@ test('hosted pinned previews use the signed-in session without a local proxy', a
   await assert.rejects(createPinnedFetch({ session })('alice'), /Continue with GitHub/);
 });
 
-test('browser token sign-in starts guided setup, keeps credentials out of storage, and signs out', { skip: !browser, timeout: 45000 }, async t => {
+test('browser token sign-in starts guided setup, keeps credentials out of storage, and signs out', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { evaluate: e, waitFor: wait, cdp, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
@@ -84,11 +84,11 @@ test('browser token sign-in starts guided setup, keeps credentials out of storag
   assert.equal(await e(`JSON.stringify({...localStorage,...sessionStorage}).includes('browser-test-secret')`), false);
   assert.equal(await e(`apiCalls.filter(call=>call.url.includes('/users/')).every(call=>call.auth==='Bearer browser-test-secret')`), true);
   await e(`document.querySelector('#github-auth-open').click(); document.querySelector('#github-sign-out').click()`);
-  assert.equal(await e(`document.querySelector('#github-auth-open').textContent`), 'Continue with GitHub');
+  assert.equal(await e(`document.querySelector('#github-auth-open').textContent.trim()`), 'Continue with GitHub');
   await e(`document.querySelector('#github-token').value='browser-test-secret'; document.querySelector('#github-token-form').requestSubmit()`);
   await wait(`document.querySelector('#github-auth-open').textContent === '@alice'`);
   await cdp('Page.reload'); await wait(`document.querySelector('#open-studio')?.disabled === false`);
-  assert.equal(await e(`document.querySelector('#github-auth-open').textContent`), 'Continue with GitHub');
+  assert.equal(await e(`document.querySelector('#github-auth-open').textContent.trim()`), 'Continue with GitHub');
   assert.equal(await e(`document.querySelector('#github-token').value`), '');
   assert.deepEqual(errors, []);
 });

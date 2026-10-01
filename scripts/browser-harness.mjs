@@ -7,7 +7,9 @@ import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 export const browser = process.env.CONSTELLATION_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => existsSync(path));
 
-export async function waitForDevToolsPort(path, { isRunning = () => true, timeoutMs = 15000, pollIntervalMs = 100 } = {}) {
+// Cold Chrome starts on hosted runners can exceed 15 seconds. Browser tests
+// allow 120 seconds overall, leaving time for their assertions after startup.
+export async function waitForDevToolsPort(path, { isRunning = () => true, timeoutMs = 60000, pollIntervalMs = 100 } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline && isRunning()) {
     try {
