@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.9.2 — Documentation refresh
+
+- Replace the long root README with a quick start, concise product overview, local setup and development notes.
+- Add a documentation landing page organized around common user, embedding and contributor tasks.
+
 ## 3.9.1 — Recruiter simplification
 
 - Focus the existing Recruiter SVG on seven curated projects: role-based sizes, three faint recency bands, clearer identity, primary languages and recurring factual topics.
