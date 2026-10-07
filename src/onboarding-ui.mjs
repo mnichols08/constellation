@@ -584,7 +584,7 @@ export function mountOnboarding(
     body.replaceChildren();
     actions.replaceChildren();
     status.textContent = diagnostic || "Your project map is ready. Choose what you want to do next.";
-    button(actions, "Explore my work", useDesign);
+    button(actions, "Use this constellation", useDesign);
     button(actions, "Show my technical focus", () => {
       applyOutcome(intent, "technical-focus");
       run();

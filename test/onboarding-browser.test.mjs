@@ -260,7 +260,7 @@ test(
       ".dist/onboarding-result-mobile.png",
       Buffer.from(resultShot.data, "base64"),
     );
-    await click("Explore my work");
+    await click("Use this constellation");
     assert.equal(await e(`document.documentElement.dataset.entry`), "install");
     assert.equal(
       await e(`document.querySelector('#panel-save').hidden`),
