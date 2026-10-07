@@ -556,7 +556,7 @@ test(
     await evaluate(
       `click('tab-layers');document.querySelector('#tab-layers').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`,
     );
-    assert.equal(await evaluate(`document.activeElement.id`), "tab-save");
+    assert.equal(await evaluate(`document.activeElement.id`), "tab-motion");
     await evaluate(
       `click('tab-layers');chooseLayer('selection');click('layer-visible');document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repository').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));`,
     );
@@ -644,6 +644,12 @@ test(
         `document.querySelector('#design-refinement-enabled').closest('.inspector-panel').id`,
       ),
       "panel-nodes",
+    );
+    await evaluate(`click('tab-layers');document.querySelector('#panel-nodes').closest('details').querySelector('summary').click();`);
+    assert.equal(
+      await evaluate(`document.querySelector('#panel-nodes').closest('details').open`),
+      true,
+      "advanced controls remain reachable through their explicit disclosure",
     );
     const originalPositions = await evaluate(
       `Array.from(document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star'),el=>[el.dataset.repo,el.getAttribute('cx'),el.getAttribute('cy')])`,
@@ -948,7 +954,7 @@ test(
     await evaluate(`input('design-codingRhythmStyle','hidden');`);
     assert.equal(
       await evaluate(
-        `document.querySelectorAll('.inspector-panel:not([hidden])').length`,
+        `document.querySelectorAll('[role=tabpanel]:not([hidden])').length`,
       ),
       1,
     );
@@ -956,7 +962,7 @@ test(
       await evaluate(
         `document.querySelector('[role=tab][aria-selected=true]').id`,
       ),
-      "tab-look",
+      "tab-layers",
     );
     assert.ok(
       await evaluate(
@@ -998,7 +1004,7 @@ test(
     await evaluate(
       `document.querySelector('#tab-motion').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`,
     );
-    assert.equal(await evaluate(`document.activeElement.id`), "tab-projects");
+    assert.equal(await evaluate(`document.activeElement.id`), "tab-save");
     await evaluate(`click('toggle-customization');`);
     assert.equal(
       await evaluate(`document.querySelector('#studio-inspector').hidden`),
@@ -1191,7 +1197,17 @@ test(
       await evaluate(
         `document.querySelector('[role=tab][aria-selected=true]').id`,
       ),
-      "tab-nodes",
+      "tab-projects",
+    );
+    assert.equal(
+      await evaluate(`document.querySelector('#graph-explorer').closest('#panel-projects') !== null`),
+      true,
+      "selection details live in the Content inspector",
+    );
+    assert.equal(
+      await evaluate(`[...document.querySelectorAll('#panel-projects details')].find(d=>d.querySelector('summary')?.textContent==='Selected project, connections & appearance').open`),
+      true,
+      "selecting a project opens its contextual inspector section",
     );
     assert.equal(
       await evaluate(

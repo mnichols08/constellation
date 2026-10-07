@@ -74,7 +74,7 @@ html[data-entry="studio"] .masthead { height: 58px; }
 .studio-ready .sky-panel { min-height: 0; overflow: hidden; }
 .studio-ready #preview { min-height: 0; overflow: hidden; }
 .studio-ready .sky-legend { padding: 9px 12px; gap: 14px; flex-wrap: wrap; font-size: 9px; }
-.studio-ready .graph-explorer { padding: 8px 16px; font-size: 11px; max-height: 105px; overflow: auto; flex-shrink: 0; }
+.studio-ready .graph-explorer { padding: 0; font-size: 11px; overflow: visible; flex-shrink: 0; }
 .studio-ready .graph-explorer .related-projects { margin: 6px 0; }
 .studio-ready .controls { min-height: 0; padding: 0; display: flex; flex-direction: column; }
 .studio-tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid var(--line); padding: 0 8px; }
@@ -135,7 +135,7 @@ html[data-entry="studio"] .masthead { height: 58px; }
   .studio-ready .studio-body.preview-only { grid-template-rows: minmax(0, 1fr); }
   .studio-ready .controls { border-left: 0; border-top: 1px solid var(--line); }
   .studio-ready .sky-legend { display: none; }
-  .studio-ready .graph-explorer { max-height: 56px; padding: 5px 10px; font-size: 10px; }
+  .studio-ready .graph-explorer { padding: 0; font-size: 10px; }
   .studio-tabs button { padding: 10px 4px; }
   .inspector-panel { padding: 12px 16px 20px; }
   .studio-ready .status-bar { min-height: 28px; }

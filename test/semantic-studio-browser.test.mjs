@@ -20,7 +20,7 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   await e(`document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`);
   await wait(`document.querySelector('#guided-setup h2')?.textContent==='What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
   const calls=await e('apiCalls.length');assert.equal(calls,2);
-  await e(`[...document.querySelectorAll('#guided-setup button')].find(b=>b.textContent==='Teach me the Studio').click()`);
+  await e(`[...document.querySelectorAll('#guided-setup button')].find(b=>b.textContent==='Take the Studio tour').click()`);
   await wait(`document.querySelector('#studio-tour')?.hidden===false`);
   await e(`document.querySelector('#tour-try').click()`);
   const svg=`document.querySelector('#preview').firstChild.shadowRoot`;

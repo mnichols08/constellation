@@ -11,6 +11,6 @@ test('ordinary Studio has no legacy creation controls', { skip: !browser, timeou
   await waitFor(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
   await evaluate(`document.querySelector('#open-studio').click()`);
   assert.equal(await evaluate(`document.querySelectorAll('#tab-story,#story-controls,#story-create').length`), 0);
-  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('[role=tab]'),node=>node.textContent)`), ['Look','Motion','Projects','Nodes','Layers','Save']);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('[role=tab]'),node=>node.textContent)`), ['Content','Design','Layout','Motion','Export']);
   assert.deepEqual(errors, []);
 });

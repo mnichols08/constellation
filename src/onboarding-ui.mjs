@@ -1,6 +1,7 @@
 import { mountRepositoryPicker } from "./repository-picker.mjs";
 import {
   defaultIntent,
+  applyOutcome,
   choicesFor,
   validateIntent,
 } from "./onboarding-model.mjs";
@@ -30,6 +31,7 @@ export function mountOnboarding(
     step = 0,
     busy = false,
     picker;
+  if (enterPath && !initial) intent.topology = "later";
   if (access?.mode === "public") intent = { ...intent, activity: "none" };
   const heading = document.createElement("h2");
   heading.tabIndex = -1;
@@ -550,7 +552,7 @@ export function mountOnboarding(
     button(actions, "Open full Studio", customize);
     heading.focus();
   }
-  async function run(refreshActivity = false) {
+  async function run(refreshActivity = false, fresh = false) {
     if (busy) return;
     busy = true;
     host.setAttribute("aria-busy", "true");
@@ -558,7 +560,11 @@ export function mountOnboarding(
       button.disabled = true;
     status.textContent = "Creating your constellation…";
     try {
-      const diagnostic = await generate(intent, refreshActivity === true);
+      const diagnostic = await generate(
+        intent,
+        refreshActivity === true,
+        fresh ? null : `smart-${account.toLowerCase()}`,
+      );
       result(diagnostic);
     } catch (error) {
       status.textContent = error.message;
@@ -571,28 +577,62 @@ export function mountOnboarding(
   }
   function result(diagnostic = "") {
     document.documentElement.dataset.entry = "result";
+    document.querySelector(".observatory")?.after(host);
+    document.querySelector(".observatory")?.scrollIntoView({ block: "start" });
     progress.textContent = `@${account}`;
     heading.textContent = "Your constellation is ready";
     body.replaceChildren();
     actions.replaceChildren();
-    status.textContent =
-      diagnostic ||
-      "Your choices are saved. Try another interpretation or make this one yours.";
-    button(actions, "Generate another", run);
+    status.textContent = diagnostic || "Your project map is ready. Choose what you want to do next.";
     button(actions, "Use this constellation", useDesign);
+    button(actions, "Show my technical focus", () => {
+      applyOutcome(intent, "technical-focus");
+      run();
+    });
+    if (available().history.eligible)
+      button(actions, "Show my project history", () => {
+        applyOutcome(intent, "project-history");
+        run();
+      });
+    button(actions, "Create a README graphic", () => {
+      applyOutcome(intent, "readme");
+      run();
+    });
     button(actions, "Customize", customize);
-    button(actions, "Edit answers", () => {
+    const more = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "More options";
+    const extra = document.createElement("div");
+    extra.className = "guided-actions";
+    button(extra, "Generate another", () => run(false, true));
+    button(extra, "Edit answers", () => {
       step = 0;
       draw();
     });
-    if (diagnostic) button(actions, "Retry activity", () => run(true));
-    heading.focus();
+    if (diagnostic) button(extra, "Retry activity", () => run(true));
+    more.append(summary, extra);
+    actions.append(more);
+    heading.focus({ preventScroll: true });
   }
   if (enterPath) {
     heading.textContent = 'What would you like to make?';
-    progress.textContent = 'Your loaded projects are ready. Explore the real Studio at your own pace.';
-    for (const [label,path] of [['Teach me the Studio','tour'],['Start from a preset','preset'],['Surprise me','surprise'],['Open a saved constellation','saved'],['Explore the Studio','studio']]) button(actions,label,()=>enterPath(path));
-    button(actions,'Quick guided generator',draw);
+    progress.textContent = `@${account} · ${repositories().length} public projects loaded`;
+    const note = document.createElement("p");
+    note.textContent = "Start with a clear project map. You can shape it or explore other views afterward.";
+    body.append(note);
+    button(actions, "Generate my project map", () => { applyOutcome(intent, "project-map"); run(); });
+    button(actions, "Show my technical focus", () => { applyOutcome(intent, "technical-focus"); run(); });
+    if (available().history.eligible)
+      button(actions, "Show my project history", () => { applyOutcome(intent, "project-history"); run(); });
+    button(actions, "Customize the design", customize);
+    const more = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "More ways to start";
+    const extra = document.createElement("div");
+    extra.className = "guided-actions";
+    for (const [label,path] of [["Choose a visual preset","preset"],["Explore the full Studio","studio"],["Open a saved constellation","saved"],["Take the Studio tour","tour"],["Quick guided generator","guided"]]) button(extra,label,()=>path === "guided" ? draw() : enterPath(path));
+    more.append(summary, extra);
+    body.append(more);
     heading.focus();
   } else draw();
   return {

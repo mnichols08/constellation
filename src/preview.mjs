@@ -4,7 +4,7 @@ import { createGitHubOAuth } from "./github-oauth.mjs";
 import { mountOnboarding } from "./onboarding-ui.mjs";
 import { mountConstellationLibrary } from "./constellation-library.mjs";
 import { parseConfig } from "./config-schema.mjs";
-import { intentStore } from "./onboarding-model.mjs";
+import { defaultIntent, intentStore } from "./onboarding-model.mjs";
 import { generateGuidedDesign } from "./onboarding-generator.mjs";
 import { newSeed } from "./seeded-random.mjs";
 import { deriveCodingRhythm } from "./coding-rhythm.mjs";
@@ -1686,7 +1686,7 @@ function showSavedPreview() {
   guidedHost ??= document.createElement("section");
   guidedHost.id = "guided-setup";
   guidedHost.hidden = false;
-  $(".observatory").before(guidedHost);
+  $(".observatory").after(guidedHost);
   const heading = document.createElement("h2");
   heading.textContent = `@${account} · Your constellation`;
   heading.tabIndex = -1;
@@ -1762,6 +1762,19 @@ async function startGuided(name, {legacy = false} = {}) {
     guidedHost.id = "guided-setup";
     guidedHost.setAttribute("aria-label", "Create your constellation");
     $(".observatory").before(guidedHost);
+    const storedIntent = intents.read(account);
+    const defaultProjects = defaultIntent(repositories);
+    const draftProjects = (previousDraft?.options?.includeRepos || []).filter(
+      (name) => repositories.some((repo) => repo.full_name === name),
+    );
+    const initialIntent = storedIntent || (previousDraft
+      ? {
+          ...defaultProjects,
+          topology: "later",
+          projects: draftProjects.length ? draftProjects : defaultProjects.projects,
+          projectShowcase: previousDraft.options.projectShowcase,
+        }
+      : null);
     mountOnboarding(guidedHost, {
       enterPath: legacy ? null : (path) => {
         metadataPreview = true;
@@ -1777,7 +1790,7 @@ async function startGuided(name, {legacy = false} = {}) {
       profile: session.profile || data.profile(account),
       repositories: () => repositories,
       year: new Date().getUTCFullYear(),
-      initial: intents.read(account),
+      initial: initialIntent,
       findRepositories: findGuidedRepositories,
       loadPinned: async () => {
         if (!access.capabilities.pinnedRepositories)
@@ -1829,11 +1842,11 @@ async function startGuided(name, {legacy = false} = {}) {
         document.documentElement.dataset.entry = "install";
         workspace.reveal($("#download-config"));
       },
-      generate: async (intent, refreshActivity = false) => {
+      generate: async (intent, refreshActivity = false, seedOverride) => {
         loading = true;
         form.querySelector("button").disabled = true;
         try {
-          const seed = newSeed(),
+          const seed = seedOverride || newSeed(),
             year = new Date().getUTCFullYear();
           let result = generateGuidedDesign(account, repositories, intent, {
             seed,
