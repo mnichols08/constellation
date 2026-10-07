@@ -116,6 +116,11 @@ test(
     await wait(`(document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy'))`);
     assert.ok(await e(`[...document.querySelectorAll('#guided-setup button')].some(b => b.textContent === 'Generate my project map')`), "the first useful result has a one-click default");
     assert.ok(await e(`[...document.querySelectorAll('#guided-setup button')].some(b => b.textContent === 'Show my technical focus')`), "plain-language outcomes are available before the questionnaire");
+    assert.equal(
+      await e(`document.querySelector('#arrangement option[value="orbital"]').textContent.trim()`),
+      "Orbit around me (Identity Orbits)",
+      "orbital copy describes its actual deterministic geometry",
+    );
     await cdp("Emulation.setDeviceMetricsOverride", {
       width: 390,
       height: 844,
@@ -450,6 +455,110 @@ test(
       "asteroids",
     );
     assert.deepEqual(errors, []);
+  },
+);
+
+test(
+  "returning intent outcomes normalize view state and preserve selected projects and roles",
+  { skip: !browser, timeout: 120000 },
+  async (t) => {
+    const repos = Array.from({ length: 8 }, (_, i) => ({
+      name: `r${i}`,
+      full_name: `alice/r${i}`,
+      description: `Project ${i}`,
+      language: "Rust",
+      created_at: `${2015 + i}-01-01`,
+      updated_at: "2026-01-01",
+      languages: { Rust: 100 },
+      topics: ["tools"],
+      stargazers_count: i,
+    }));
+    const server = createPreviewServer({
+      token: "test-local-token",
+      fetchImpl: async (url) =>
+        Response.json(
+          url.includes("/languages")
+            ? { Rust: 100 }
+            : url.includes("/repos?")
+              ? repos
+              : { login: "alice", type: "User" },
+        ),
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    t.after(
+      () =>
+        new Promise((resolve) => {
+          server.close(resolve);
+          server.closeAllConnections();
+        }),
+    );
+    const { evaluate: e, waitFor: wait } = await openBrowser(
+      t,
+      `http://127.0.0.1:${server.address().port}`,
+    );
+    await wait(`document.querySelector('#open-studio')?.disabled === false`);
+    const oldIntent = {
+      version: 1,
+      projects: Array.from({ length: 6 }, (_, i) => `alice/r${i}`),
+      projectShowcase: {
+        "alice/r0": { role: "featured", priority: 1 },
+        "alice/r1": { role: "supporting", priority: 1 },
+      },
+      languages: ["Rust"],
+      topics: ["tools"],
+      relationships: "languages",
+      dimension: "language",
+      activity: "none",
+      history: "history",
+      topology: "automatic",
+      motion: "automatic",
+      vibe: "cosmic",
+    };
+    await e(`localStorage.setItem('constellation-intent-v1:alice',${JSON.stringify(JSON.stringify(oldIntent))})`);
+    await e(
+      `document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`,
+    );
+    await wait(`document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?'`);
+    const clickOutcome = async (label) => {
+      await e(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent===${JSON.stringify(label)}).click()`);
+      await wait(`document.documentElement.dataset.entry==='result' && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
+      return e(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
+    };
+    const map = await clickOutcome("Generate my project map");
+    assert.notEqual(map.arrangement, "profile");
+    assert.notEqual(map.arrangement, "era-rings");
+    let intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(intent.topology, "later");
+    assert.equal(intent.history, "current");
+    assert.deepEqual(map.includeRepos, oldIntent.projects);
+    assert.deepEqual(map.projectShowcase, oldIntent.projectShowcase);
+
+    const focus = await clickOutcome("Show my technical focus");
+    assert.equal(focus.arrangement, "profile");
+    intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(intent.topology, "automatic");
+    assert.equal(intent.history, "current");
+    assert.deepEqual(focus.includeRepos, oldIntent.projects);
+    assert.deepEqual(focus.projectShowcase, oldIntent.projectShowcase);
+
+    const history = await clickOutcome("Show my project history");
+    assert.equal(history.arrangement, "era-rings");
+    intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(intent.topology, "later");
+    assert.equal(intent.history, "history");
+
+    const readme = await clickOutcome("Create a README graphic");
+    assert.equal(readme.layout, "compact");
+    assert.equal(readme.legend, false);
+    assert.notEqual(readme.arrangement, "era-rings");
+    intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(intent.topology, "later");
+    assert.equal(intent.history, "current");
+    assert.equal(intent.motion, "still");
+    assert.equal(intent.vibe, "clean");
+    assert.deepEqual(readme.includeRepos, oldIntent.projects);
+    assert.deepEqual(readme.projectShowcase, oldIntent.projectShowcase);
   },
 );
 

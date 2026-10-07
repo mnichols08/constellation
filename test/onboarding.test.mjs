@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   defaultIntent,
+  applyOutcome,
   recommendProjects,
   validateIntent,
   intentStore,
@@ -19,6 +20,50 @@ const repos = Array.from({ length: 12 }, (_, i) => ({
   topics: ["tools"],
   stargazers_count: i,
 }));
+test("outcome actions normalize only their promised state and preserve curated content", () => {
+  const selected = ["alice/r1", "alice/r2"],
+    roles = {
+      "alice/r1": { role: "featured", priority: 1 },
+      "alice/r2": { role: "historical", priority: 1 },
+    },
+    base = {
+      ...defaultIntent(repos),
+      projects: selected,
+      projectShowcase: roles,
+      languages: ["Rust"],
+      topics: ["tools"],
+      relationships: "languages",
+      topology: "automatic",
+      history: "history",
+    };
+  const map = applyOutcome(structuredClone(base), "project-map");
+  assert.equal(map.topology, "later");
+  assert.equal(map.history, "current");
+  const focus = applyOutcome(structuredClone(base), "technical-focus");
+  assert.equal(focus.topology, "automatic");
+  assert.equal(focus.history, "current");
+  const history = applyOutcome(structuredClone(base), "project-history");
+  assert.equal(history.topology, "later");
+  assert.equal(history.history, "history");
+  const readme = applyOutcome(structuredClone(base), "readme");
+  assert.equal(readme.topology, "later");
+  assert.equal(readme.history, "current");
+  assert.equal(readme.motion, "still");
+  assert.equal(readme.vibe, "clean");
+  for (const outcome of [map, focus, history, readme]) {
+    assert.deepEqual(outcome.projects, selected);
+    assert.deepEqual(outcome.projectShowcase, roles);
+    assert.deepEqual(outcome.languages, ["Rust"]);
+    assert.deepEqual(outcome.topics, ["tools"]);
+    assert.equal(outcome.relationships, "languages");
+  }
+  const generated = generateGuidedDesign("alice", repos, readme, {
+    seed: "readme-outcome",
+    year: 2026,
+  });
+  assert.equal(generated.config.options.layout, "compact");
+  assert.equal(generated.config.options.legend, false);
+});
 test("guided generation is deterministic and preserves explicit constraints across seeds", () => {
   for (const history of ["current", "history", "3d", "surprise"])
     for (const activity of [

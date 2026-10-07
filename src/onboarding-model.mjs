@@ -54,6 +54,33 @@ export function defaultIntent(repositories) {
     vibe: "cosmic",
   };
 }
+// Outcome buttons own only the dimensions needed to guarantee their promise.
+// Keep repository selections, authored roles, filters and relationships intact.
+export function applyOutcome(intent, outcome) {
+  switch (outcome) {
+    case "project-map":
+      intent.topology = "later";
+      intent.history = "current";
+      break;
+    case "technical-focus":
+      intent.topology = "automatic";
+      intent.history = "current";
+      break;
+    case "project-history":
+      intent.topology = "later";
+      intent.history = "history";
+      break;
+    case "readme":
+      intent.topology = "later";
+      intent.history = "current";
+      intent.motion = "still";
+      intent.vibe = "clean";
+      break;
+    default:
+      throw Error("Choose a supported constellation outcome.");
+  }
+  return intent;
+}
 export function validateIntent(value) {
   const strings = (list, max) =>
     Array.isArray(list) &&

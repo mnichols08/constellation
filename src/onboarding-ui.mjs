@@ -1,6 +1,7 @@
 import { mountRepositoryPicker } from "./repository-picker.mjs";
 import {
   defaultIntent,
+  applyOutcome,
   choicesFor,
   validateIntent,
 } from "./onboarding-model.mjs";
@@ -585,21 +586,16 @@ export function mountOnboarding(
     status.textContent = diagnostic || "Your project map is ready. Choose what you want to do next.";
     button(actions, "Explore my work", useDesign);
     button(actions, "Show my technical focus", () => {
-      intent.topology = "automatic";
-      intent.history = "current";
+      applyOutcome(intent, "technical-focus");
       run();
     });
     if (available().history.eligible)
       button(actions, "Show my project history", () => {
-        intent.topology = "later";
-        intent.history = "history";
+        applyOutcome(intent, "project-history");
         run();
       });
     button(actions, "Create a README graphic", () => {
-      intent.topology = "later";
-      intent.history = "current";
-      intent.motion = "still";
-      intent.vibe = "clean";
+      applyOutcome(intent, "readme");
       run();
     });
     button(actions, "Customize", customize);
@@ -624,10 +620,10 @@ export function mountOnboarding(
     const note = document.createElement("p");
     note.textContent = "Start with a clear project map. You can shape it or explore other views afterward.";
     body.append(note);
-    button(actions, "Generate my project map", run);
-    button(actions, "Show my technical focus", () => { intent.topology = "automatic"; run(); });
+    button(actions, "Generate my project map", () => { applyOutcome(intent, "project-map"); run(); });
+    button(actions, "Show my technical focus", () => { applyOutcome(intent, "technical-focus"); run(); });
     if (available().history.eligible)
-      button(actions, "Show my project history", () => { intent.topology = "later"; intent.history = "history"; run(); });
+      button(actions, "Show my project history", () => { applyOutcome(intent, "project-history"); run(); });
     button(actions, "Customize the design", customize);
     const more = document.createElement("details");
     const summary = document.createElement("summary");
