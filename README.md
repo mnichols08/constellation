@@ -10,8 +10,8 @@ Turn GitHub project data into an interactive map, an embeddable experience, or a
 
 ### Make a profile graphic
 
-1. Open the [Constellation Studio](https://mnichols08.github.io/constellation/) and explore a public account or sign in with GitHub.
-2. Choose projects and a visual style, then open **Save → Daily GitHub workflow**.
+1. Open the [Constellation Studio](https://mnichols08.github.io/constellation/) and explore a public account or sign in with GitHub. Generate the suggested project map, then choose **Create a README graphic** or customize it.
+2. Open **Export → Daily GitHub workflow**.
 3. Add the workflow to your profile repository (`YOUR_USERNAME/YOUR_USERNAME`) and run **Actions → Daily constellation → Run workflow**.
 4. Copy the README snippet from the workflow summary.
 

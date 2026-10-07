@@ -68,6 +68,33 @@ test("guided generation is deterministic and preserves explicit constraints acro
       }
     }
 });
+test("smart default generates a useful deterministic project map without terminology choices", () => {
+  const intent = { ...defaultIntent(repos), topology: "later" };
+  const context = { seed: "smart-alice", year: 2026 };
+  const first = generateGuidedDesign("alice", repos, intent, context);
+  const second = generateGuidedDesign("alice", repos, intent, context);
+  assert.deepEqual(first, second);
+  assert.deepEqual(first.config.options.includeRepos, intent.projects);
+  assert.equal(first.config.options.nodeMode, "repositories");
+  assert.equal(first.config.options.arrangement === "profile", false);
+  assert.equal(first.activity, "none");
+  assert.equal(first.config.options.animate, true);
+});
+test("clean guided output uses the existing compact README profile", () => {
+  const intent = {
+    ...defaultIntent(repos),
+    topology: "later",
+    vibe: "clean",
+    motion: "still",
+  };
+  const result = generateGuidedDesign("alice", repos, intent, {
+    seed: "readme-output",
+    year: 2026,
+  });
+  assert.equal(result.config.options.layout, "compact");
+  assert.equal(result.config.options.legend, false);
+  assert.equal(result.config.options.animate, false);
+});
 test("recommendation is stable, multi-signal and honors private exclusions", () => {
   const pool = [
     {

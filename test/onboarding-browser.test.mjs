@@ -114,6 +114,8 @@ test(
       `document.querySelector('#username').value='alice'; document.querySelector('#account-form').requestSubmit()`,
     );
     await wait(`(document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy'))`);
+    assert.ok(await e(`[...document.querySelectorAll('#guided-setup button')].some(b => b.textContent === 'Generate my project map')`), "the first useful result has a one-click default");
+    assert.ok(await e(`[...document.querySelectorAll('#guided-setup button')].some(b => b.textContent === 'Show my technical focus')`), "plain-language outcomes are available before the questionnaire");
     await e(`[...document.querySelectorAll('#guided-setup button')].find(b => b.textContent === 'Quick guided generator')?.click()`);
     await wait(
       `document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`,
@@ -239,7 +241,7 @@ test(
       ".dist/onboarding-result-mobile.png",
       Buffer.from(resultShot.data, "base64"),
     );
-    await click("Use this constellation");
+    await click("Explore my work");
     assert.equal(await e(`document.documentElement.dataset.entry`), "install");
     assert.equal(
       await e(`document.querySelector('#panel-save').hidden`),
@@ -249,7 +251,7 @@ test(
     assert.equal(await e(`document.documentElement.dataset.entry`), "studio");
     assert.equal(
       await e(`document.querySelectorAll('.studio-tabs [role="tab"]').length`),
-      6,
+      5,
     );
     await e(
       `[...document.querySelectorAll('.design-launcher button')].find(button => button.textContent === 'Guided setup').click()`,

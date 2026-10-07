@@ -17,8 +17,8 @@ Start here, then open the guide for the task you have. Most pages are reference 
 
 ### Publish a profile graphic
 
-1. Open the [Studio](https://mnichols08.github.io/constellation/) and select **Continue with GitHub** or **Explore a public account**.
-2. Choose projects and a design. In **Save**, open **Daily GitHub workflow** and enter the repository that will run the workflow, usually `YOUR_USERNAME/YOUR_USERNAME`.
+1. Open the [Studio](https://mnichols08.github.io/constellation/) and select **Continue with GitHub** or **Explore a public account**. Generate the suggested project map, then choose **Create a README graphic** or customize it.
+2. In **Export**, open **Daily GitHub workflow** and enter the repository that will run the workflow, usually `YOUR_USERNAME/YOUR_USERNAME`.
 3. Add the generated workflow at `.github/workflows/constellation.yml` on the repository's default branch. It needs `contents: write` permission to publish the image to the `output` branch.
 4. Run **Actions → Daily constellation → Run workflow**, then copy the README snippet from the run summary.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.10.0 — Simplify Constellation
+
+- Make the first post-load action a one-click project map generated from the deterministic guided defaults; keep the questionnaire, presets, tour, saved designs and full Studio available as optional paths.
+- After generation, offer plain-language starting points for exploring work, technical focus, project history and README output. Each maps to existing generator settings and remains editable.
+- Organize the Studio into Content, Design, Layout, Motion and Export; place fine-grained layout controls under an Advanced layout disclosure. Move project connection and appearance details into the Content inspector and put output sizing with exports.
+- Retain public exploration limits, authored Showcase roles, reduced-motion behavior and existing expert workflows.
+- Document the outcome-first path and compatibility boundaries; cover generated defaults and outcome actions in Studio browser tests.
+
 ## 3.9.2 — Documentation refresh
 
 - Replace the long root README with a quick start, concise product overview, local setup and development notes.

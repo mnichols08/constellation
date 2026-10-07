@@ -22,13 +22,18 @@ export function mountStudioLayout() {
     details.append(summary, content);
     return details;
   };
+  const advancedPanel = document.createElement("section");
+  advancedPanel.id = "panel-nodes";
+  advancedPanel.className = "inspector-panel design-controls";
+  advancedPanel.hidden = true;
+  advancedPanel.setAttribute("role", "group");
+  advancedPanel.setAttribute("aria-label", "Advanced layout controls");
   for (const [id, title] of [
-    ["look", "Look"],
+    ["projects", "Content"],
+    ["look", "Design"],
+    ["layers", "Layout"],
     ["motion", "Motion"],
-    ["projects", "Projects"],
-    ["nodes", "Nodes"],
-    ["layers", "Layers"],
-    ["save", "Save"],
+    ["save", "Export"],
   ]) {
     const tab = document.createElement("button");
     tab.type = "button";
@@ -87,7 +92,7 @@ export function mountStudioLayout() {
     entries[next][1].tab.focus();
   });
   toggle.addEventListener("click", () => visible(sidebar.hidden));
-  const panel = (id) => panels.get(id).panel;
+  const panel = (id) => id === "nodes" ? advancedPanel : panels.get(id).panel;
   const field = (id, target) => {
     const label = $(`label[for="${id}"]`),
       input = $(`#${id}`);
@@ -102,14 +107,14 @@ export function mountStudioLayout() {
 
   const look = panel("look");
   field("design-visualTheme", look);
-  field("arrangement", look);
   section("design-accountSun", look);
   section('design-ringMeaning', look);
   section('design-readmePresentation', panel('projects'));
-  field("profile-emphasis", look);
-  look.append($("#profile-dimension-controls"));
-  field("layout", look);
-  look.append($("#temporal-stack-controls"));
+  field("profile-emphasis", panel("layers"));
+  panel("layers").append($("#profile-dimension-controls"));
+  field("arrangement", panel("layers"));
+  field("layout", panel("save"));
+  panel("layers").append($("#temporal-stack-controls"));
   section("design-sky-mode", look);
   section("design-nodeSize", look).querySelector("summary").textContent =
     "Node appearance";
@@ -141,6 +146,13 @@ export function mountStudioLayout() {
   section("repository-history-open", panel("projects"));
   section("design-minStars", panel("projects"));
   panel("projects").append(
+    fold(
+      "Selected project, connections & appearance",
+      $("#graph-explorer"),
+      section("color-node", panel("nodes")),
+    ),
+  );
+  panel("projects").append(
     fold("Account & connection help", $(".form-note"), $("#token-help")),
     $(".stats"),
     $("#engine-status"),
@@ -148,7 +160,6 @@ export function mountStudioLayout() {
   field("node-mode", panel("nodes"));
   panel("nodes").append($("#node-mode-help"));
   for (const id of [
-    "color-node",
     "lock-stars",
     "design-refinement-enabled",
     "connection-density",
@@ -156,8 +167,11 @@ export function mountStudioLayout() {
     section(id, panel("nodes"));
   section("download-config", panel("save"));
   const layerControls = $("#layer-controls");
-  layerControls.open = true;
-  panel("layers").append(layerControls);
+  const advancedLayout = fold("Advanced layout controls", advancedPanel, layerControls);
+  advancedLayout.addEventListener("toggle", () => {
+    advancedPanel.hidden = !advancedLayout.open;
+  });
+  panel("layers").append(advancedLayout);
   const workflow = $("#workflow").closest(".editor-panel");
   panel("save").append(
     $("#copy-markdown"),
@@ -243,8 +257,11 @@ export function mountStudioLayout() {
       let parent = element;
       parent && parent !== sidebar;
       parent = parent.parentElement
-    )
+    ) {
       if (parent.tagName === "DETAILS") parent.open = true;
+      if (advancedPanel.contains(element) && parent === advancedLayout)
+        advancedPanel.hidden = false;
+    }
   }
   document.addEventListener("click", (event) => {
     if (!event.target.closest('a[href="#token-help"]')) return;

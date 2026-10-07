@@ -133,8 +133,11 @@ export function generateGuidedDesign(
     options.visualTheme =
       intent.vibe === "classic" ? "constellation" : preset.visualTheme;
     delete options.visualStyle;
-    if (intent.vibe === "clean")
+    if (intent.vibe === "clean") {
+      options.layout = preset.layout;
+      options.legend = preset.legend;
       options.starfield = { mode: "classic", density: 20, twinkle: false };
+    }
   }
   if (!motion) {
     options.ringAnimation.enabled = false;
