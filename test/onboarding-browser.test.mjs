@@ -520,43 +520,63 @@ test(
       `document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`,
     );
     await wait(`document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?'`);
-    const clickOutcome = async (label) => {
-      await e(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent===${JSON.stringify(label)}).click()`);
-      await wait(`document.documentElement.dataset.entry==='result' && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
-      return e(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
+    const clickOutcome = async (evaluate, waitFor, label) => {
+      await evaluate(`[...document.querySelectorAll('#guided-setup button')].find(button=>button.textContent===${JSON.stringify(label)}).click()`);
+      await waitFor(`document.documentElement.dataset.entry==='result' && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`);
+      return evaluate(`JSON.parse(localStorage.getItem('constellation-config-v1:alice')).draft`);
     };
-    const map = await clickOutcome("Generate my project map");
-    assert.notEqual(map.arrangement, "profile");
-    assert.notEqual(map.arrangement, "era-rings");
-    let intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
-    assert.equal(intent.topology, "later");
-    assert.equal(intent.history, "current");
-    assert.deepEqual(map.includeRepos, oldIntent.projects);
-    assert.deepEqual(map.projectShowcase, oldIntent.projectShowcase);
-
-    const focus = await clickOutcome("Show my technical focus");
+    assert.equal(await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice')).history`), "history");
+    const focus = await clickOutcome(e, wait, "Show my technical focus");
     assert.equal(focus.arrangement, "profile");
-    intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    const intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
     assert.equal(intent.topology, "automatic");
-    assert.equal(intent.history, "current");
+    assert.equal(intent.history, "current", "the initial technical-focus action resets saved project history");
     assert.deepEqual(focus.includeRepos, oldIntent.projects);
     assert.deepEqual(focus.projectShowcase, oldIntent.projectShowcase);
 
-    const history = await clickOutcome("Show my project history");
-    assert.equal(history.arrangement, "era-rings");
-    intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
-    assert.equal(intent.topology, "later");
-    assert.equal(intent.history, "history");
+    const { evaluate: e2, waitFor: wait2 } = await openBrowser(
+      t,
+      `http://127.0.0.1:${server.address().port}`,
+    );
+    await wait2(`document.querySelector('#open-studio')?.disabled === false`);
+    await e2(`localStorage.setItem('constellation-intent-v1:alice',${JSON.stringify(JSON.stringify(oldIntent))})`);
+    await e2(
+      `document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`,
+    );
+    await wait2(`document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?'`);
 
-    const readme = await clickOutcome("Create a README graphic");
+    const map = await clickOutcome(e2, wait2, "Generate my project map");
+    assert.notEqual(map.arrangement, "profile");
+    assert.notEqual(map.arrangement, "era-rings");
+    let returningIntent = await e2(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(returningIntent.topology, "later");
+    assert.equal(returningIntent.history, "current");
+    assert.deepEqual(map.includeRepos, oldIntent.projects);
+    assert.deepEqual(map.projectShowcase, oldIntent.projectShowcase);
+
+    const returningFocus = await clickOutcome(e2, wait2, "Show my technical focus");
+    assert.equal(returningFocus.arrangement, "profile");
+    returningIntent = await e2(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(returningIntent.topology, "automatic");
+    assert.equal(returningIntent.history, "current");
+    assert.deepEqual(returningFocus.includeRepos, oldIntent.projects);
+    assert.deepEqual(returningFocus.projectShowcase, oldIntent.projectShowcase);
+
+    const history = await clickOutcome(e2, wait2, "Show my project history");
+    assert.equal(history.arrangement, "era-rings");
+    returningIntent = await e2(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(returningIntent.topology, "later");
+    assert.equal(returningIntent.history, "history");
+
+    const readme = await clickOutcome(e2, wait2, "Create a README graphic");
     assert.equal(readme.layout, "compact");
     assert.equal(readme.legend, false);
     assert.notEqual(readme.arrangement, "era-rings");
-    intent = await e(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
-    assert.equal(intent.topology, "later");
-    assert.equal(intent.history, "current");
-    assert.equal(intent.motion, "still");
-    assert.equal(intent.vibe, "clean");
+    returningIntent = await e2(`JSON.parse(localStorage.getItem('constellation-intent-v1:alice'))`);
+    assert.equal(returningIntent.topology, "later");
+    assert.equal(returningIntent.history, "current");
+    assert.equal(returningIntent.motion, "still");
+    assert.equal(returningIntent.vibe, "clean");
     assert.deepEqual(readme.includeRepos, oldIntent.projects);
     assert.deepEqual(readme.projectShowcase, oldIntent.projectShowcase);
   },
