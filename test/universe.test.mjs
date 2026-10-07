@@ -73,7 +73,7 @@ test('Studio switches dimensions, saves ordering and fits mobile layouts', {skip
   await e(`document.querySelector('#open-studio').click();document.querySelector('#arrangement').value='temporal-stack';document.querySelector('#arrangement').dispatchEvent(new Event('input'));`);
   for(const axis of ['language','topic','repository','year']){
     await e(`document.querySelector('#temporal-axis').value=${JSON.stringify(axis)};document.querySelector('#temporal-axis').dispatchEvent(new Event('change'))`);
-    await wait(`document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('#temporal-geometry-data')`);
+    await wait(`(()=>{const data=document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('#temporal-geometry-data');return data&&JSON.parse(data.textContent).settings.axis===${JSON.stringify(axis)}})()`);
     assert.equal(await e(`JSON.parse(new DOMParser().parseFromString(document.querySelector('#preview').firstChild.shadowRoot.innerHTML,'text/html').querySelector('#temporal-geometry-data').textContent).settings.axis`),axis);
   }
   await e(`document.querySelector('#temporal-axis').value='language';document.querySelector('#temporal-axis').dispatchEvent(new Event('change'));`);

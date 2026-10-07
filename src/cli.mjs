@@ -386,7 +386,7 @@ async function main() {
             diagnostics,
             cache: pluginHost.pipelineCacheStatistics,
             ...(values.explain
-              ? { filters: explainFilters(reportingRepos, config) }
+              ? { filters: explainFilters(reportingRepos, config), evidence: scene.evidence }
               : {}),
           },
           null,
@@ -417,6 +417,7 @@ async function main() {
     console.log(
       JSON.stringify({
         ...explainFilters(reportingRepos, config),
+        evidence: scene.evidence,
         ...(config.transforms?.length || config.mappings
           ? { pipeline: sceneStatistics(scene).pipeline }
           : {}),

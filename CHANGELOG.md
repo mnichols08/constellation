@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.11.0 — Evidence Everywhere Foundation
+
+- Add optional bounded Scene Evidence v1 records distinguishing source facts, explicit user choices, and deterministic Developer Topology reasons without changing Config v7 or Scene API v1.
+- Add the Core `explainNode` and `explainVisual` APIs and a **Why is this here?** disclosure in the existing Studio Content inspector and offline interactive HTML.
+- Explain node inclusion, Developer Topology or deterministic layout position, configured visual mappings, and manual position/color choices; retain existing profile scores and role weights.
+- Include structured evidence in CLI `--explain` output; keep SVG node descriptions concise and label manual overrides accurately.
+- Document evidence provenance, bounds, privacy and reuse. No AI service or network request is required.
+
 ## 3.10.0 — Simplify Constellation
 
 - Make the first post-load action a one-click project map generated from the deterministic guided defaults; keep the questionnaire, presets, tour, saved designs and full Studio available as optional paths.

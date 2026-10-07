@@ -64,7 +64,11 @@ test('CLI validate is offline and dry-run explanations leave output files untouc
   assert.deepEqual(JSON.parse(valid.stdout), { valid: true, errors: [] });
   const dry = run(['--username', 'tester', '--fixture', fixture, '--config', config, '--output', output, '--dry-run', '--explain']);
   assert.equal(dry.status, 0, dry.stderr);
-  assert.deepEqual(JSON.parse(dry.stdout), explainFilters(repos, { languages: ['Rust'] }));
+  const report = JSON.parse(dry.stdout), evidence = report.evidence;
+  delete report.evidence;
+  assert.deepEqual(report, explainFilters(repos, { languages: ['Rust'] }));
+  assert.equal(evidence.version, 1);
+  assert.ok(evidence.facts.length > 0);
   await assert.rejects(access(output)); await assert.rejects(access(env.GITHUB_OUTPUT));
   await writeFile(config, '{"maxRepos":0}');
   const invalid = run(['validate', '--config', config]);

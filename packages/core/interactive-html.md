@@ -22,7 +22,7 @@ Scene objects use the validated Scene API v1 contract and should come from the c
 
 Run `node examples/interactive-demo.mjs` to generate a small offline example in `dist/interactive-demo.html`.
 
-Select a node to see its description, language and star count. Repository nodes also state their explicit Showcase role and featured order; language/topic nodes can list Featured repositories represented by their real membership. Source-provided HTTP(S) project links open safely in a new tab. Shift-click or Shift-Enter on a second node traces the shortest path across visible connections. Both endpoints remain visible when no path exists. Path computation uses the embedded Rust/WASM engine, with no network requests.
+Select a node to see its description, language and star count. The **Why is this here?** disclosure reads the same bounded Scene Evidence attachment as Studio and summarizes inclusion, position and source facts offline. Repository nodes also state their explicit Showcase role and featured order; language/topic nodes can list Featured repositories represented by their real membership. Source-provided HTTP(S) project links open safely in a new tab. Shift-click or Shift-Enter on a second node traces the shortest path across visible connections. Both endpoints remain visible when no path exists. Path computation uses the embedded Rust/WASM engine, with no network requests.
 
 A host runtime exposes `selectionState` as `{ start, end, path }`; `selectNode(id, { extend: true, focus: false })` extends a selection programmatically. Clear selection resets details and highlights. Selection layer visibility controls highlighting without disabling accessible details.
 

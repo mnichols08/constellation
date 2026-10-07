@@ -41,3 +41,5 @@ Source caching retains at most four JSON documents, each at most 1 MiB; larger v
 Web Component API v1 is exported as `WEB_COMPONENT_API_VERSION = 1`. Legacy v6 configuration remains accepted. Story, timeline and hierarchy methods/events are documented in their dedicated guides. Use a unique element ID when opting into URL history.
 
 Universe scenes add `focusLayer(layerId)` for semantic dimensional layers. Temporal scenes also expose `setTemporalView`, `focusYear`, `focusTemporalNode` and `resetTemporalView`. See [Temporal Stack](temporal-stack.md).
+
+Scene nodes retain the optional bounded provenance attachment through component events and offline interaction. See [Evidence and provenance](evidence-provenance.md) for the shared contract and privacy limits.

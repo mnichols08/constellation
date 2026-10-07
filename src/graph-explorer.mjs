@@ -1,7 +1,8 @@
 import { selectionCSS } from './selection.mjs';
 import { graphSelection, rustAvailable } from './engine.mjs';
+import { explainNode, explainEdge } from './evidence.mjs';
 
-export function mountGraphExplorer(host, panel, selection, onSelect, { highlight = true } = {}) {
+export function mountGraphExplorer(host, panel, selection, onSelect, { highlight = true, scene } = {}) {
   const shadow = host.shadowRoot;
   const svg = shadow.querySelector('svg');
   const nodes = [...svg.querySelectorAll('.repository')].filter(node => node.style.display !== 'none');
@@ -64,6 +65,33 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
         : `No path between ${label(start)} and ${label(end)} in the displayed connections.`
       : `${label(start)}: ${related.size - 1} connected node${related.size === 2 ? '' : 's'}.`;
     panel.append(status);
+    if (start && scene) {
+      const explanation = explainNode(scene.kind === 'time-lapse' ? scene.latest : scene, start);
+      if (explanation) {
+        const disclosure = document.createElement('details');
+        const summary = document.createElement('summary'); summary.textContent = 'Why is this here?'; disclosure.append(summary);
+        const addSection = (title, value) => { if (!value) return; const heading = document.createElement('h4'); heading.textContent = title; const text = document.createElement('p'); text.textContent = value; disclosure.append(heading, text); };
+        addSection('Included', explanation.included.summary);
+        addSection('Position', explanation.position.summary);
+        if (explanation.position.evidence?.length) addSection('Evidence', explanation.position.evidence.join(' · '));
+        for (const [channel, visual] of Object.entries(explanation.appearance || {})) {
+          const details = [visual.summary];
+          if (visual.input !== undefined) details.push(`Input: ${visual.input}.`);
+          if (visual.scale) details.push(`Scale: ${visual.scale}.`);
+          if (visual.fallback !== undefined) details.push(`Fallback: ${visual.fallback}.`);
+          if (visual.rendered !== undefined) details.push(`Rendered: ${visual.rendered}.`);
+          addSection(channel[0].toUpperCase() + channel.slice(1), details.join(' '));
+        }
+        if (selection.end && scene.kind !== 'time-lapse') {
+          const reasons = path.slice(1).flatMap((to, index) => {
+            const from = path[index], edge = scene.edges.find(item => item.from === from && item.to === to || item.to === from && item.from === to);
+            return edge ? explainEdge(scene, edge.id)?.evidence || [] : [];
+          });
+          addSection('Connection', reasons.length ? `Shared metadata: ${reasons.join(' · ')}` : 'Explanation unavailable for this connection type.');
+        }
+        panel.append(disclosure);
+      }
+    }
     if (start && svg.querySelector('[data-temporal-year]')) {
       const years = nodes.filter(node => node.querySelector('.star').dataset.repo === start).map(node => Number(node.dataset.year));
       const history = document.createElement('p'); history.textContent = `First visible: ${Math.min(...years)}. Present through: ${Math.max(...years)}. Visible in: ${years.length} yearly layers. First visibility is limited to this window.`; panel.append(history);

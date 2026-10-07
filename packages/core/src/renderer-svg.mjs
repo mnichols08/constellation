@@ -514,7 +514,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
           ? Array.isArray(repo.members)
             ? `${repo.name} · ${repo.representedCount || repo.members.length} repositories · ${repo.members.join(", ")}`
             : `${repo.name} · ${repo.nodeKind}`
-          : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? " · fork" : ""} · ${repositoryLanguages(repo).join(", ") || "No detected languages"}${role ? ` · Role: ${role}` : ""}${createdYear}`;
+          : `${repo.full_name} · ${repo.stargazers_count || 0} stars${repo.fork ? " · fork" : ""} · ${repositoryLanguages(repo).join(", ") || "No detected languages"}${role ? ` · Role: ${role}` : ""}${Object.hasOwn(options.starPositions || {}, repo.full_name) ? " · Placed manually by user" : ""}${Object.hasOwn(options.nodeColors || {}, repo.full_name) ? " · Manual color" : ""}${createdYear}`;
       let spotlightMarkup = "";
       if (spotlightIds.has(repo.full_name)) {
         const description =

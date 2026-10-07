@@ -9,6 +9,7 @@ import {
   renderConstellation,
   validateConfig,
   explainFilters,
+  explainNode,
 } from "@constellation/core";
 const result = validateConfig({
   maxRepos: 45,
@@ -25,9 +26,11 @@ const explanation = explainFilters(repositories, result.config.options);
 
 `explainFilters(repositories, options)` returns counts (`loaded`, `pool`, `included`, `rendered`, `omittedByGraphLimit`) and node ID lists (`excludedBeforeCategories`, `excludedByCategories`, `hidden`). The studio uses the same counts. Selection applies metadata filters and the project limit before language/topic filters.
 
+`explainNode(scene, nodeId)` returns a deterministic summary of scene inclusion, position, attached evidence and visual mappings, or `null` when the node is absent. `explainVisual(scene, nodeId)` returns individual mapped appearance channels. `explainEdge(scene, edgeId)` uses explicit shared language, topic or repository metadata when present and otherwise says the reason is unavailable. The existing Studio Content inspector and interactive HTML use the same Scene Evidence attachment. Scene Evidence v1 is optional and remains within Scene API v1; old scenes without it remain valid. See [Evidence and provenance](evidence-provenance.md).
+
 `graphNodes`, `selectRepositories`, and `selectRepositoryPool` expose the existing projection and filtering steps. `rustAvailable` and `engineError` remain compatibility exports; successful initialization reports true/null, while missing WASM rejects module initialization. GitHub acquisition helpers remain available separately from rendering through `fetchRepositories` and `fetchRepositoryLanguages`.
 
-CLI: `node src/cli.mjs validate --config settings.json` validates without fetching GitHub. Generation accepts `--dry-run` (compute without writing SVG, cache or Action outputs) and `--explain` (print the filter report as JSON). Use `--fixture repositories.json` for offline runs.
+CLI: `node src/cli.mjs validate --config settings.json` validates without fetching GitHub. Generation accepts `--dry-run` (compute without writing SVG, cache or Action outputs) and `--explain` (print the filter report and bounded structured Scene Evidence as JSON). Use `--fixture repositories.json` for offline runs.
 
 Run `node src/cli.mjs --help` for flags or `--version` for the wrapper version. After `npm link` in the checkout, the same entry point is available as `constellation`. Validation exits 0 on success and 1 with actionable errors on stderr. An empty config is valid, but the `validate` command requires a file or inline config to avoid accidentally validating defaults. Use either `--config` or `CONSTELLATION_CONFIG_JSON`, never both.
 

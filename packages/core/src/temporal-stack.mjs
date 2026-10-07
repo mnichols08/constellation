@@ -16,6 +16,7 @@ import { temporalGeometryMath } from "./temporal-geometry.mjs";
 import { temporalRingLayout } from "./temporal-ring-layout.mjs";
 import { temporalGeometryDrawing } from "./temporal-geometry-drawing.mjs";
 import { historyOptions } from "./history/settings.mjs";
+import { retainEvidenceSubjects } from "./evidence.mjs";
 
 export function createTemporalStack(
   account,
@@ -269,6 +270,9 @@ export function createTemporalStack(
     },
   );
   scene.temporalStack.geometry = { version: 1, profile, ...ringModel };
+  const evidenceNodeIds = new Set(scene.nodes.map(node => node.id));
+  for (const frame of frameList) for (const node of frame.scene.nodes) evidenceNodeIds.add(node.id);
+  scene.evidence = retainEvidenceSubjects(scene.evidence, evidenceNodeIds);
   const viewBox = temporalGeometryDrawing(scene).viewBox;
   scene.viewport = {
     width: 900,

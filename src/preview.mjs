@@ -1185,7 +1185,7 @@ function render({ requireVisibleNodes = false } = {}) {
       )
         workspace?.reveal($("#color-node"));
     },
-    { highlight: options.layers?.selection?.visible !== false },
+    { highlight: options.layers?.selection?.visible !== false, scene },
   );
   const eligible = repositories.filter(
     (repo) => repo.private !== true && (options.includeForks || !repo.fork),
