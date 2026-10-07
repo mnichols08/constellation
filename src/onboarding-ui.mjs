@@ -577,6 +577,7 @@ export function mountOnboarding(
   function result(diagnostic = "") {
     document.documentElement.dataset.entry = "result";
     document.querySelector(".observatory")?.after(host);
+    document.querySelector(".observatory")?.scrollIntoView({ block: "start" });
     progress.textContent = `@${account}`;
     heading.textContent = "Your constellation is ready";
     body.replaceChildren();
@@ -615,7 +616,7 @@ export function mountOnboarding(
     if (diagnostic) button(extra, "Retry activity", () => run(true));
     more.append(summary, extra);
     actions.append(more);
-    heading.focus();
+    heading.focus({ preventScroll: true });
   }
   if (enterPath) {
     heading.textContent = 'What would you like to make?';

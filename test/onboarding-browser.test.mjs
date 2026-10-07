@@ -116,7 +116,27 @@ test(
     await wait(`(document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy'))`);
     assert.ok(await e(`[...document.querySelectorAll('#guided-setup button')].some(b => b.textContent === 'Generate my project map')`), "the first useful result has a one-click default");
     assert.ok(await e(`[...document.querySelectorAll('#guided-setup button')].some(b => b.textContent === 'Show my technical focus')`), "plain-language outcomes are available before the questionnaire");
-    await e(`[...document.querySelectorAll('#guided-setup button')].find(b => b.textContent === 'Quick guided generator')?.click()`);
+    await cdp("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: true,
+    });
+    await click("Generate my project map");
+    await wait(`document.documentElement.dataset.entry === 'result'`);
+    await wait(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
+    assert.equal(
+      await e(`document.querySelector('.observatory').compareDocumentPosition(document.querySelector('#guided-setup')) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false`),
+      true,
+      "the generated constellation precedes its next-step actions",
+    );
+    await mkdir(".dist", { recursive: true });
+    const smartDefaultShot = await cdp("Page.captureScreenshot");
+    await writeFile(
+      ".dist/onboarding-smart-default-mobile.png",
+      Buffer.from(smartDefaultShot.data, "base64"),
+    );
+    await click("Edit answers");
     await wait(
       `document.documentElement.dataset.entry === 'guided' && !!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`,
     );
@@ -155,12 +175,6 @@ test(
       1,
     );
 
-    await cdp("Emulation.setDeviceMetricsOverride", {
-      width: 390,
-      height: 844,
-      deviceScaleFactor: 1,
-      mobile: true,
-    });
     assert.equal(
       await e(`document.documentElement.scrollWidth <= innerWidth`),
       true,
