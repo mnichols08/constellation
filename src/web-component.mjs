@@ -21,24 +21,25 @@ export class ConstellationView extends HTMLElement {
   #semanticFocus = null;
   #viewScene = null;
   #semanticTimer = null;
+  #semanticEpoch = 0;
+  #restoringSelection = false;
   #sourceMode = true;
   #sourceCache = new Map();
   constructor() {
     super(); this.attachShadow({ mode: 'open' });
     this.addEventListener('camera-change', this.#scheduleSemanticZoom);
-    this.addEventListener('node-select', event => {
-      const id = event.detail?.id;
-      if (!id) { this.#semanticFocus = null; return; }
-      const group = this.#semanticHierarchy?.groups.find(item => item.id === id) || this.#semanticHierarchy?.groups.find(item => item.members.includes(id));
-      if (group) this.#semanticFocus = group.id;
-    });
+    this.addEventListener('node-select', this.#semanticSelectionChanged);
   }
   get config() { return this.#config && structuredClone(this.#config); }
   set config(value) { this.setConfig(value); }
   get records() { return structuredClone(this.#records); }
   set records(value) {
     if (!Array.isArray(value)) throw new Error('records must be an array.');
-    this.#records = structuredClone(value); this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#refresh(false);
+    const records = structuredClone(value);
+    if (JSON.stringify(records) === JSON.stringify(this.#records)) return;
+    this.#records = records;
+    this.#resetSemanticNavigation();
+    this.#refresh(false);
   }
   get scene() { return this.#scene && structuredClone(this.#scene); }
   set scene(value) { this.loadScene(value); }
@@ -46,14 +47,23 @@ export class ConstellationView extends HTMLElement {
   set semanticLevel(value) {
     if (!SEMANTIC_ZOOM_MODES.includes(value)) throw new Error('semanticLevel must be auto, groups or projects.');
     const previous = this.#effectiveLevel();
+    const modeChanged = this.semanticLevel !== value;
+    if (!modeChanged) {
+      if (value === 'auto') this.#evaluateSemanticZoom({ reason: 'user', previousLevel: previous });
+      return;
+    }
     this.#semanticMode = value;
-    this.#expandedGroups.clear();
+    clearTimeout(this.#semanticTimer); this.#semanticTimer = null;
+    this.#semanticEpoch++;
     if (value === 'auto') this.#semanticState.set('groups');
-    else this.#semanticState.set(value);
+    else { this.#expandedGroups.clear(); this.#semanticState.set(value); }
     if (this.#scene) {
       this.#semanticHierarchy ||= buildSemanticHierarchy(this.#scene);
-      this.#render();
-      this.#emitSemanticChange(previous, this.#effectiveLevel(), 'user');
+      if (value === 'auto') this.#evaluateSemanticZoom({ reason: 'user', previousLevel: previous });
+      else {
+        this.#render();
+        this.#emitSemanticChange(previous, this.#effectiveLevel(), 'user');
+      }
     }
   }
   expandGroup(id) {
@@ -77,14 +87,14 @@ export class ConstellationView extends HTMLElement {
   setConfig(value) {
     try {
       const config = parseConfig(value); normalizeConfig(config.options);
-      this.#sourceMode = false; this.#config = config; this.#semanticMode = null; this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#semanticFocus = null; this.#semanticState.set('groups'); return this.#refresh(false);
+      this.#sourceMode = false; this.#config = config; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
     } catch (error) { this.#error(error); return Promise.resolve(false); }
   }
   loadScene(value) {
     try {
       const scene = parseScene(typeof value === 'string' ? value : serializeScene(value));
       this.#request?.abort(); const previous = this.#scene;
-      this.#sourceMode = false; this.#scene = scene; this.#config = null; this.#semanticMode = null; this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#semanticFocus = null; this.#semanticState.set('groups');
+      this.#sourceMode = false; this.#scene = scene; this.#config = null; this.#semanticMode = null; this.#resetSemanticNavigation();
       const rendered = this.#render();
       if (!rendered && this.isConnected && this.#visible) this.#scene = previous;
       return rendered;
@@ -115,46 +125,83 @@ export class ConstellationView extends HTMLElement {
   get selection() { return this.#runtime?.selectionState || { start: null, end: null, path: [] }; }
   #effectiveLevel() { return this.semanticLevel === 'auto' ? this.#semanticState.level : this.semanticLevel; }
   #groupForSelection(id) { return this.#semanticHierarchy?.groups.find(group => group.id === id) || this.#semanticHierarchy?.groups.find(group => group.members.includes(id)) || null; }
+  #resetSemanticNavigation() {
+    clearTimeout(this.#semanticTimer); this.#semanticTimer = null; this.#semanticEpoch++;
+    this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#semanticFocus = null; this.#viewScene = null;
+    const mode = this.semanticLevel;
+    this.#semanticState.set(mode === 'auto' ? 'groups' : mode);
+  }
   #emitSemanticChange(previous, current, reason) {
     if (previous === current && !['group-expand', 'group-collapse'].includes(reason)) return;
     this.dispatchEvent(new CustomEvent('semantic-level-change', { detail: { previous, current, reason }, bubbles: true, composed: true }));
   }
+  #semanticSelectionChanged = event => {
+    if (this.#restoringSelection) return;
+    const id = event.detail?.id;
+    if (!id) {
+      const hadFocus = this.#semanticFocus !== null;
+      this.#semanticFocus = null;
+      if (hadFocus && this.semanticLevel === 'auto' && this.#semanticState.level === 'projects') this.#evaluateSemanticZoom({ reason: 'focus' });
+      return;
+    }
+    const group = this.#groupForSelection(id);
+    if (!group) {
+      const hadFocus = this.#semanticFocus !== null;
+      this.#semanticFocus = null;
+      if (hadFocus && this.semanticLevel === 'auto' && this.#semanticState.level === 'projects') this.#evaluateSemanticZoom({ reason: 'focus' });
+      return;
+    }
+    const focusChanged = this.#semanticFocus !== group.id;
+    this.#semanticFocus = group.id;
+    if (focusChanged && this.semanticLevel === 'auto' && this.#semanticState.level === 'projects') {
+      this.#evaluateSemanticZoom({ reason: 'focus' });
+    }
+  };
   #scheduleSemanticZoom = () => {
     if (this.semanticLevel !== 'auto' || !this.#runtime || !this.#scene) return;
     clearTimeout(this.#semanticTimer);
+    const epoch = this.#semanticEpoch;
     this.#semanticTimer = setTimeout(() => {
-      if (this.semanticLevel !== 'auto' || !this.#runtime || !this.#scene) return;
-      this.#semanticHierarchy ||= buildSemanticHierarchy(this.#scene);
-      const camera = this.#runtime.camera, base = this.#scene.viewport.viewBox;
-      const scale = base[2] / camera[2], selection = this.#runtime.selectionState.start;
-      const selectedGroup = this.#groupForSelection(selection);
-      const canExpand = selectedGroup
-        ? selectedGroup.members.length <= 128
-        : this.#scene.nodes.length <= 256;
-      const transition = this.#semanticState.update(scale, { allowProjects: canExpand });
-      if (!transition.changed) return;
-      const previous = transition.previous, current = transition.current;
-      if (previous !== 'projects' && current !== 'projects') {
-        this.#runtime.announceSemanticLevel(current);
-        this.#emitSemanticChange(previous, current, 'camera');
-        return;
-      }
-      if (current === 'projects') {
-        if (selectedGroup) {
-          this.#semanticFocus = selectedGroup.id;
-          this.#expandedGroups = new Set([selectedGroup.id]);
-        } else this.#expandedGroups.clear();
-      } else {
-        this.#expandedGroups.clear();
-        const selected = this.#runtime.selectionState.start;
-        const parent = selected && this.#groupForSelection(selected);
-        if (parent) this.#semanticFocus = parent.id;
-      }
-      this.#render();
-      this.#runtime?.announceSemanticLevel(current);
-      this.#emitSemanticChange(previous, current, 'camera');
+      this.#semanticTimer = null;
+      if (epoch !== this.#semanticEpoch) return;
+      this.#evaluateSemanticZoom({ reason: 'camera' });
     }, 140);
   };
+  #evaluateSemanticZoom({ reason = 'camera', previousLevel = this.#effectiveLevel() } = {}) {
+    if (this.semanticLevel !== 'auto' || !this.#runtime || !this.#scene) return false;
+    this.#semanticHierarchy ||= buildSemanticHierarchy(this.#scene);
+    const camera = this.#runtime.camera, base = this.#scene.viewport.viewBox;
+    const scale = base[2] / camera[2];
+    const selected = this.#runtime.selectionState.start;
+    const selectedGroup = this.#groupForSelection(selected)
+      || this.#semanticHierarchy.groups.find(group => group.id === this.#semanticFocus)
+      || null;
+    const canExpand = selectedGroup
+      ? selectedGroup.members.length <= 128
+      : this.#scene.nodes.length <= 256;
+    this.#semanticState.update(scale, { allowProjects: canExpand });
+    let current = this.#semanticState.level;
+    if (current === 'projects' && !canExpand) {
+      this.#semanticState.set('groups');
+      current = 'groups';
+    }
+
+    const nextExpanded = current === 'projects' && selectedGroup && canExpand
+      ? new Set([selectedGroup.id])
+      : new Set();
+    const expandedChanged = nextExpanded.size !== this.#expandedGroups.size
+      || [...nextExpanded].some(id => !this.#expandedGroups.has(id));
+    this.#expandedGroups = nextExpanded;
+    this.#semanticFocus = selectedGroup?.id || null;
+
+    const projectionChanged = (previousLevel === 'projects') !== (current === 'projects');
+    if (projectionChanged || expandedChanged) this.#render();
+    if (previousLevel !== current) {
+      this.#runtime?.announceSemanticLevel(current);
+      this.#emitSemanticChange(previousLevel, current, reason);
+    }
+    return projectionChanged || expandedChanged || previousLevel !== current;
+  }
   connectedCallback() { this.#observe(); }
   disconnectedCallback() {
     clearTimeout(this.#semanticTimer);
@@ -172,14 +219,14 @@ export class ConstellationView extends HTMLElement {
     }, { rootMargin: '200px' });
     this.#intersection.observe(this);
   }
-  reload() { this.#sourceCache.clear(); this.#sourceMode = true; return this.#refresh(); }
+  reload() { this.#sourceCache.clear(); this.#sourceMode = true; this.#resetSemanticNavigation(); return this.#refresh(); }
   get cacheStatistics() { return { sources: this.#sourceCache.size, sourceLimit: 4, pipeline: this.#pipeline.cacheStatistics, layout: this.#layouts.cacheStatistics }; }
   attributeChangedCallback(name, previous, value) {
     if (previous === value) return;
-    if (name === 'src') { this.#sourceMode = true; this.#request?.abort(); }
+    if (name === 'src') { this.#sourceMode = true; this.#request?.abort(); this.#resetSemanticNavigation(); }
     if (name === 'loading') { if (this.isConnected) this.#observe(); return; }
     if (name === 'config') {
-      try { this.#config = value === null ? null : parseConfig(value); this.#sourceMode = false; }
+      try { this.#config = value === null ? null : parseConfig(value); this.#sourceMode = false; this.#semanticMode = null; this.#resetSemanticNavigation(); }
       catch (error) { this.#error(error); return; }
     }
     if (this.isConnected) this.#refresh();
@@ -250,7 +297,9 @@ export class ConstellationView extends HTMLElement {
           const parent = this.#groupForSelection(selection);
           selection = parent && viewScene.nodes.some(node => node.id === parent.id) ? parent.id : null;
         }
-        if (selection) { try { this.#runtime.selectNode(selection, { focus: false }); if (previousSelection.end && viewScene.nodes.some(node => node.id === previousSelection.end)) this.#runtime.selectNode(previousSelection.end, { focus: false, extend: true }); } catch {} }
+        this.#restoringSelection = true;
+        try { if (selection) { this.#runtime.selectNode(selection, { focus: false }); if (previousSelection.end && viewScene.nodes.some(node => node.id === previousSelection.end)) this.#runtime.selectNode(previousSelection.end, { focus: false, extend: true }); } }
+        catch {} finally { this.#restoringSelection = false; }
       }
       const focusGroup = this.#semanticFocus && this.#semanticHierarchy?.groups.find(group => group.id === this.#semanticFocus);
       if (focusGroup && viewScene.semanticGroups) this.#runtime.showSemanticContext?.(focusGroup, { expanded: viewScene.semanticGroups.expanded.includes(focusGroup.id) });

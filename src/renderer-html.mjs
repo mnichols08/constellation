@@ -40,18 +40,26 @@ if (semanticArtifacts.some(item => item.id)) {
   const root = document.getElementById('constellation');
   const baseSVG = JSON.parse(document.getElementById('constellation-semantic-base').textContent);
   const byId = new Map(semanticArtifacts.map(item => [item.id, item]));
+  let showing = false;
   const show = (nextScene, svg, context, expanded = false) => {
-    const camera = experience.camera, filter = experience.filter, theme = experience.theme;
-    experience.destroy?.();
-    root.querySelector('[data-canvas]').innerHTML = svg;
-    experience = mountExperience(root, nextScene, { ...runtimeOptions, emitReady: false, history: false });
-    if (camera) experience.setCamera?.(camera);
-    if (filter) experience.setFilter?.(filter);
-    if (theme) experience.setTheme?.(theme);
-    if (context) {
-      if (nextScene.nodes.some(node => node.id === context.id)) { try { experience.selectNode(context.id, { focus: false }); } catch {} }
-      experience.showSemanticContext?.(context, { expanded });
-    }
+    showing = true;
+    try {
+      const previousSelection = experience.selectionState?.start;
+      const camera = experience.camera, filter = experience.filter, theme = experience.theme;
+      experience.destroy?.();
+      root.querySelector('[data-canvas]').innerHTML = svg;
+      experience = mountExperience(root, nextScene, { ...runtimeOptions, emitReady: false, history: false });
+      if (camera) experience.setCamera?.(camera);
+      if (filter) experience.setFilter?.(filter);
+      if (theme) experience.setTheme?.(theme);
+      if (previousSelection && nextScene.nodes.some(node => node.id === previousSelection)) {
+        try { experience.selectNode(previousSelection, { focus: false }); } catch {}
+      }
+      if (context) {
+        if (!experience.selectionState?.start && nextScene.nodes.some(node => node.id === context.id)) { try { experience.selectNode(context.id, { focus: false }); } catch {} }
+        experience.showSemanticContext?.(context, { expanded });
+      }
+    } finally { showing = false; }
   };
   root.addEventListener('semantic-group-expand', event => {
     const artifact = byId.get(event.detail.id);
@@ -97,6 +105,26 @@ if (semanticArtifacts.some(item => item.id)) {
         }
         announceChange(previous, current, 'camera');
       }, 140);
+    });
+    root.addEventListener('node-select', event => {
+      if (showing || state.level !== 'projects') return;
+      const id = event.detail?.id;
+      if (!id) { focus = null; return; }
+      const group = groups.find(item => item.id === id) || groups.find(item => item.members.includes(id));
+      if (!group || group.id === focus) return;
+      if (group.members.length <= 128) {
+        const artifact = byId.get(group.id);
+        if (!artifact) return;
+        focus = group;
+        show(artifact.scene, artifact.svg, group, true);
+        return;
+      }
+      // Return to grouped detail instead of retaining unrelated local detail.
+      const previous = state.level;
+      state.set('groups');
+      focus = group;
+      show(scene, baseSVG, group);
+      announceChange(previous, 'groups', 'focus');
     });
   } else if (semanticMode === 'auto') {
     const status = root.querySelector('[data-status]');
