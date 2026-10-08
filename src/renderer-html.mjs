@@ -12,7 +12,7 @@ import { createTemporalGeometryMath } from './temporal-geometry.mjs';
 import { temporalGeometryDrawing } from './temporal-geometry-drawing.mjs';
 import { applyTemporalGeometryDrawing } from './temporal-geometry-runtime.mjs';
 import { temporalMotion } from './temporal-motion.mjs';
-import { createExplanationHelpers, EVIDENCE_VERSION, dimensionName, layoutSummary } from './evidence.mjs';
+import { createExplanationHelpers, EVIDENCE_VERSION, dimensionName, layoutSummary, safeEvidenceText } from './evidence.mjs';
 import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
 import { createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_POLICY } from './semantic-zoom.mjs';
 
@@ -153,6 +153,7 @@ export function interactiveMarkup(svg) {
 
 export function renderSceneHTML(scene, { title = 'Constellation', initialChapter = 0, semanticLevel } = {}) {
   serializeScene(scene); // Validate before embedding either data or SVG.
+  scene = sanitizeEvidenceMetadata(scene);
   const mode = semanticLevel || (scene.presentation?.options?.semanticZoom === undefined ? 'projects' : resolveSemanticZoomMode(scene.presentation.options.semanticZoom, 'projects'));
   const level = mode === 'auto' ? 'groups' : mode;
   const canProject = scene.kind === 'scene' && !scene.timeline && !scene.temporalStack;
@@ -186,6 +187,27 @@ ${interactiveMarkup(svg)}
 <script type="application/json" id="constellation-initial">${scriptJSON(initialChapter)}</script>
 <script type="module">${runtimeScript}</script>
 </body></html>\n`;
+}
+
+function sanitizeEvidenceMetadata(scene) {
+  const copy = structuredClone(scene);
+  const visit = value => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { for (const item of value) visit(item); return; }
+    const metadata = value.metadata;
+    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+      if (typeof metadata.language === 'string' && !safeEvidenceText(metadata.language)) delete metadata.language;
+      if (metadata.languages && typeof metadata.languages === 'object' && !Array.isArray(metadata.languages)) {
+        for (const language of Object.keys(metadata.languages)) if (!safeEvidenceText(language)) delete metadata.languages[language];
+      }
+      for (const field of ['topics', 'sharedLanguages', 'sharedTopics', 'sharedRepositories', 'shared']) {
+        if (Array.isArray(metadata[field])) metadata[field] = metadata[field].filter(item => safeEvidenceText(item));
+      }
+    }
+    for (const child of Object.values(value)) visit(child);
+  };
+  visit(copy);
+  return copy;
 }
 
 export function hierarchyArtifacts(scene) {

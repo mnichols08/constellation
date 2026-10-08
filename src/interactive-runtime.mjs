@@ -170,13 +170,30 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     details.append(heading, description, summary);
     const expandedGroup = semantic?.groups?.find(item => item.members.includes(id) && semantic.expanded.includes(item.id));
     if (group) {
+      const groupExplanation = group.explanation || semanticContext?.explanation || null;
       const whyGrouped = document.createElement('details');
       const whySummary = document.createElement('summary'); whySummary.textContent = 'Why grouped?'; whyGrouped.append(whySummary);
-      const provenance = document.createElement('p'); provenance.textContent = group.provenance === 'user' ? 'Defined by you.' : 'Derived group.'; whyGrouped.append(provenance);
-      if (group.basis.length) { const list = document.createElement('ul'); for (const basis of group.basis) { const item = document.createElement('li'); item.textContent = basis.startsWith('repository-owner:') ? `Same repository owner: ${basis.slice('repository-owner:'.length)}` : basis; list.append(item); } whyGrouped.append(list); }
+      const reasonHeading = document.createElement('h3'); reasonHeading.textContent = 'Grouping reason';
+      const provenance = document.createElement('p'); provenance.textContent = groupExplanation?.groupingReason?.summary || (group.provenance === 'user' ? 'Defined by you.' : 'Shared repository owner');
+      whyGrouped.append(reasonHeading, provenance);
+      if (groupExplanation?.memberSummary) { const memberSummary = document.createElement('p'); memberSummary.textContent = groupExplanation.memberSummary; whyGrouped.append(memberSummary); }
+      if (group.kind === 'repository-owner') { const owner = document.createElement('p'); owner.textContent = `${group.label} · ${group.members.length} / ${group.members.length}`; whyGrouped.append(owner); }
+      if (groupExplanation?.limitation) { const limitation = document.createElement('p'); limitation.textContent = groupExplanation.limitation; whyGrouped.append(limitation); }
+      if (groupExplanation?.characteristics?.length) {
+        const characteristicsHeading = document.createElement('h3'); characteristicsHeading.textContent = 'Common characteristics';
+        whyGrouped.append(characteristicsHeading);
+        for (const [kind, label] of [['language', 'Languages'], ['topic', 'Topics']]) {
+          const entries = groupExplanation.characteristics.filter(entry => entry.kind === kind);
+          if (!entries.length) continue;
+          const kindHeading = document.createElement('h4'); kindHeading.textContent = label;
+          const list = document.createElement('ul');
+          for (const entry of entries) { const item = document.createElement('li'); item.textContent = `${entry.value} — ${entry.count} / ${entry.total}`; list.append(item); }
+          whyGrouped.append(kindHeading, list);
+        }
+      }
       const members = document.createElement('ul');
-      for (const member of group.members.slice(0, 12)) { const item = document.createElement('li'); item.textContent = member.split('/').at(-1); members.append(item); }
-      if (group.members.length > 12) { const item = document.createElement('li'); item.textContent = `+${group.members.length - 12} more`; members.append(item); }
+      for (const member of (groupExplanation?.members || group.members.slice(0, 8).map(id => ({ id })))) { const item = document.createElement('li'); item.textContent = member.name || member.id.split('/').at(-1); members.append(item); }
+      if (groupExplanation?.memberExamplesTruncated) { const item = document.createElement('li'); item.textContent = `+${groupExplanation.memberCount - groupExplanation.members.length} more`; members.append(item); }
       const memberHeading = document.createElement('h3'); memberHeading.textContent = 'Members'; whyGrouped.append(memberHeading, members); details.append(whyGrouped);
       if (options.semanticGroupActions !== false) {
         const expanded = semantic?.expanded?.includes(group.id) || semanticContext?.expanded === true;
@@ -220,7 +237,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
         const detail = explanations.explainEdge(scene, edge.id);
         return detail ? [detail] : [];
       });
-      addWhy("Connection", reasons.length ? reasons.map(detail => `${detail.summary}${detail.evidence.length ? ` ${detail.evidence.join(" · ")}` : ""}`).join(" ") : "Explanation unavailable for this connection type.");
+      addWhy("Connection", reasons.length ? reasons.map(detail => `${detail.summary}${detail.universal?.length ? ` Shared across all: ${detail.universal.map(item => `${item.value} ${item.count} / ${item.total}`).join(" · ")}` : detail.evidence.length ? ` Shared across all: ${detail.evidence.join(" · ")}` : ""}${detail.partial?.length ? ` Common evidence: ${detail.partial.map(item => `${item.value} ${item.count} / ${item.total}`).join(" · ")}` : ""}${detail.examples?.length ? ` Examples: ${detail.examples.map(item => `${item.from} ↔ ${item.to}`).join(" · ")} (${detail.examplesShown} of ${detail.relationshipCount} shown)` : ""}${detail.truncated ? ` ${detail.retainedEdgeCount} of ${detail.relationshipCount} edge references retained.` : ""}`).join(" ") : "Explanation unavailable for this connection type.");
     }
     if (why.childNodes.length > 1) details.append(why);
     const projectShowcase = scene.presentation?.options?.projectShowcase || {};

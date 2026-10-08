@@ -2,9 +2,8 @@
 // are interned once and referenced by subjects to avoid repeating metadata.
 export const EVIDENCE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
-const text = (value, max = 160) => typeof value === 'string' && value.length > 0 && value.length <= max;
-const secretLike = value => /(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|bearer\s+\S{16,})/i.test(value);
-const safeText = (value, max) => text(value, max) && !secretLike(value);
+export const safeEvidenceText = (value, max = 160) => typeof value === 'string' && value.length > 0 && value.length <= max && !/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|bearer\s+\S{16,})/i.test(value);
+const safeText = safeEvidenceText;
 const exactKeys = (value, expected) => object(value) && Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
 export const dimensionName = value => ({ interface: 'Interface', services: 'Services', data: 'Data', systems: 'Systems', tooling: 'Tooling', automation: 'Automation' })[value] || value;
 
@@ -19,7 +18,7 @@ export function createSceneEvidence(nodes, profile, options = {}) {
   const facts = [], subjects = [], factIds = new Map();
   const add = (subjectId, kind, value, provenance, source) => {
     const safe = safeValue(value);
-    if (safe === null || !safeText(subjectId, 4096)) return;
+    if (safe === null || !safeText(subjectId, 4096) || !safeText(kind, 80) || (source !== undefined && !safeText(source, 80))) return;
     const key = JSON.stringify([kind, safe, provenance, source]);
     let factId = factIds.get(key);
     if (!factId) {
@@ -152,9 +151,12 @@ const explainEdge = (scene, edgeId) => {
   if (!edge) return null;
   const metadata = edge.metadata || {};
   if (metadata.aggregated === true && Number.isInteger(metadata.relationshipCount) && Array.isArray(metadata.memberEdges)) {
-    const evidence = [...(metadata.sharedLanguages || []).slice(0, 16).map(value => `language: ${value}`), ...(metadata.sharedTopics || []).slice(0, 16).map(value => `topic: ${value}`)];
+    const coverage = Array.isArray(metadata.relationshipEvidence) ? metadata.relationshipEvidence.slice(0, 13).map(item => ({ ...item })) : [];
+    const universal = coverage.filter(item => item.count === item.total);
+    const partial = coverage.filter(item => item.count < item.total);
+    const evidence = [...universal.map(item => `${item.kind}: ${item.value}`)];
     const memberEdges = metadata.memberEdges.slice(0, 256);
-    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, memberEdges, relationshipCount: metadata.relationshipCount, retainedEdgeCount: memberEdges.length, truncated: metadata.relationshipCount > memberEdges.length };
+    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, universal, partial, examples: Array.isArray(metadata.examples) ? metadata.examples.slice(0, 5).map(item => ({ edgeId: item.edgeId, from: item.from, to: item.to })) : [], memberEdges, relationshipCount: metadata.relationshipCount, retainedEdgeCount: memberEdges.length, truncated: metadata.relationshipCount > memberEdges.length, examplesShown: Math.min(Array.isArray(metadata.examples) ? metadata.examples.length : 0, 5) };
   }
   const shared = [...(Array.isArray(metadata.sharedLanguages) ? metadata.sharedLanguages.slice(0, 16).map(value => `language: ${value}`) : []), ...(Array.isArray(metadata.sharedTopics) ? metadata.sharedTopics.slice(0, 16).map(value => `topic: ${value}`) : []), ...(Array.isArray(metadata.sharedRepositories) ? metadata.sharedRepositories.slice(0, 16).map(value => `repository: ${value}`) : [])];
   return shared.length ? { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Connection reflects shared project metadata.', evidence: shared } : { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Explanation unavailable for this connection type.', evidence: [] };
