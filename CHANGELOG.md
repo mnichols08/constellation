@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.12.2 — Group Evidence
+
+- Explain user and repository-owner grouping reasons separately from bounded language/topic characteristics, with exact visible-member coverage and up to eight member examples.
+- Preserve complete aggregate relationship counts, compute universal and partial evidence coverage across every represented source edge, and retain up to five deterministic real-edge examples.
+- Use the shared group explanation in semantic projections and inspectors; add concise group wording to SVG accessibility descriptions. Preserve Config v7, Scene API v1 and Scene Evidence v1.
+
 ## 3.12.1 — Semantic Zoom
 
 - Add Automatic, Groups and Projects semantic detail modes. Automatic follows camera scale through centralized enter/exit thresholds with hysteresis; explicit modes lock the projection.

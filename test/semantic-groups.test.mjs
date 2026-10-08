@@ -56,7 +56,19 @@ test('project families are stable, persisted in config and explain user provenan
   assert.match(html, /Open Tooling/);
   assert.match(html, /Content-Security-Policy/);
   assert.doesNotMatch(html, /<script[^>]+src=/i);
-  assert.match(renderSceneSVG(scene, { semanticLevel: 'groups' }), /Open Tooling · project family · 3 projects/);
+  assert.match(html, /"groupingReason":\{"kind":"project-family","summary":"Defined by you\."/);
+  assert.match(html, /"memberExamplesTruncated":false/);
+  assert.match(renderSceneSVG(scene, { semanticLevel: 'groups' }), /Open Tooling · user-defined project family · 3 projects/);
+  assert.match(renderSceneSVG(scene, { semanticLevel: 'groups' }), /user-defined project family/);
+  const explanation = explainGroup(hierarchy, group.id);
+  assert.deepEqual(explanation.groupingReason, { kind: 'project-family', summary: 'Defined by you.', provenance: 'user', count: 3, total: 3, evidence: [] });
+  assert.equal(explanation.memberSummary, 'This project family contains 3 visible projects.');
+  assert.equal(explanation.memberCount, 3);
+  assert.equal(explanation.members.length, 3);
+  assert.ok(explanation.characteristics.every(item => item.provenance === 'derived' && item.total === 3));
+  assert.ok(explanation.characteristics.some(item => item.kind === 'language' && item.value === 'Rust' && item.count === 3));
+  assert.ok(explanation.characteristics.some(item => item.kind === 'topic' && item.value === 'tools' && item.count === 3));
+  assert.equal(projectSemanticLevel(scene, 'groups', { hierarchy }).semanticGroups.groups[0].explanation.groupingReason.provenance, 'user');
 });
 
 test('repository-owner grouping has stable identity, truthful evidence, and remains conservative', () => {
@@ -77,8 +89,13 @@ test('repository-owner grouping has stable identity, truthful evidence, and rema
   const explanation = explainGroup(hierarchy, group.id);
   assert.match(explanation.basis[0], /^repository-owner:/);
   assert.doesNotMatch(explanation.basis.join(' '), /organization/i);
+  assert.equal(explanation.groupingReason.provenance, 'derived');
+  assert.deepEqual(explanation.groupingReason.evidence[0], { kind: 'repository-owner', value: 'journey', count: 3, total: 3 });
+  assert.match(explanation.limitation, /does not imply that the projects have the same purpose/);
+  assert.equal(explanation.memberSummary, 'All 3 visible projects share the repository owner: journey.');
   const ownerSvg = renderSceneSVG(scene, { semanticLevel: 'groups' });
-  assert.match(ownerSvg, /journey · repository-owner group · 3 projects/);
+  assert.match(ownerSvg, /journey · grouped by shared repository owner · 3 projects/);
+  assert.match(ownerSvg, /journey, 3 projects, grouped by shared repository owner/);
   assert.doesNotMatch(ownerSvg, /same organization|organization group/i);
   assert.equal(buildSemanticHierarchy(createScene('journey', repositories.slice(0, 2).concat(filtered.slice(2)), {})).groups[0].id, group.id);
   assert.equal(buildSemanticHierarchy(scene, { projectFamilies: { family: { label: 'Family', members: repositories.slice(0, 3).map(repo => repo.full_name) } } }).groups.length, 1);
@@ -117,7 +134,7 @@ test('aggregate edge references cap at 256 while counts and truncation stay trut
   const source = createScene('benchmark', repos, { projectFamilies: families });
   const cases = [12, 256, 900];
   for (const total of cases) {
-    const edges = Array.from({ length: total }, (_, i) => ({ id: `real-edge:${i}`, from: repos[i % 18].full_name, to: repos[18 + (Math.floor(i / 18) % 18)].full_name, metadata: {}, geometry: { distance: 1 }, style: { primary: false } }));
+    const edges = Array.from({ length: total }, (_, i) => ({ id: `real-edge:${i}`, from: repos[i % 18].full_name, to: repos[18 + (Math.floor(i / 18) % 18)].full_name, metadata: { sharedLanguages: ['Rust'], sharedTopics: i % 2 ? ['webassembly'] : [] }, geometry: { distance: 1 }, style: { primary: false } }));
     const scene = { ...source, edges };
     const hierarchy = buildSemanticHierarchy(scene, { derive: false });
     const grouped = projectSemanticLevel(scene, 'groups', { hierarchy });
@@ -129,8 +146,49 @@ test('aggregate edge references cap at 256 while counts and truncation stay trut
     assert.equal(explanation.relationshipCount, total);
     assert.equal(explanation.retainedEdgeCount, Math.min(total, 256));
     assert.equal(explanation.truncated, total > 256);
+    assert.equal(explanation.examples.length, Math.min(total, 5));
+    assert.ok(explanation.examples.every(example => edges.some(sourceEdge => sourceEdge.id === example.edgeId && sourceEdge.from === example.from && sourceEdge.to === example.to)));
+    assert.deepEqual(explanation.universal.map(item => [item.kind, item.count, item.total]), [['language', total, total]]);
+    assert.deepEqual(explanation.partial.map(item => [item.kind, item.value, item.count, item.total]), [['topic', 'webassembly', Math.floor(total / 2), total]]);
     assert.equal(validateScene(grouped).valid, true);
   }
+});
+
+test('group characteristics are unique per project, exact, sorted, bounded and input-order independent', () => {
+  const manyTopics = Array.from({ length: 10 }, (_, i) => `topic-${i}`);
+  const records = Array.from({ length: 10 }, (_, i) => ({ full_name: `owner/p${i}`, name: `p${i}`, language: i === 9 ? undefined : i < 8 ? 'Rust' : 'JavaScript', languages: i === 9 ? undefined : { Rust: 20, ...(i === 0 ? { rust: 10 } : {}) }, topics: i === 9 ? undefined : [...manyTopics.slice(0, i < 7 ? 8 : 6), ...(i === 0 ? ['Rust'] : [])] }));
+  const options = { projectFamilies: { family: { label: 'Family', members: records.map(item => item.full_name) } } };
+  const first = buildSemanticHierarchy(createScene('x', records, options));
+  const second = buildSemanticHierarchy(createScene('x', [...records].reverse(), options));
+  const a = explainGroup(first, first.groups[0].id), b = explainGroup(second, second.groups[0].id);
+  assert.deepEqual(a, b);
+  assert.equal(a.characteristics.filter(item => item.kind === 'language').length, 2);
+  assert.equal(a.characteristics.filter(item => item.kind === 'topic').length, 8);
+  assert.equal(a.characteristics.find(item => item.value === 'Rust' && item.kind === 'language').count, 9);
+  assert.equal(a.characteristics.find(item => item.value === 'topic-0').count, 9);
+  assert.ok(a.characteristics.every(item => item.total === a.memberCount));
+  assert.deepEqual(a.characteristics.filter(item => item.kind === 'language').map(item => item.count), [9, 1]);
+  assert.equal(a.memberCount, 9);
+  assert.equal(a.members.length, 8);
+  assert.equal(a.memberExamplesTruncated, true);
+});
+
+test('aggregate relationship evidence separates universal from partial exact coverage', () => {
+  const repos = [...Array.from({ length: 3 }, (_, i) => ({ full_name: `journey/a${i}`, name: `a${i}`, language: 'Rust', topics: ['webassembly'] })), ...Array.from({ length: 3 }, (_, i) => ({ full_name: `journey/b${i}`, name: `b${i}`, language: 'Rust', topics: ['webassembly'] }))];
+  const source = createScene('journey', repos, {});
+  const ids = source.nodes.map(item => item.id);
+  const edges = Array.from({ length: 12 }, (_, i) => ({ id: `edge:${String(i).padStart(2, '0')}`, from: ids[i % 3], to: ids[3 + (i % 3)], metadata: { sharedLanguages: ['Rust'], sharedTopics: i < 8 ? ['webassembly'] : [] }, geometry: { distance: 1 }, style: { primary: false } }));
+  const sceneWithEdges = { ...source, edges };
+  const hierarchy = buildSemanticHierarchy(sceneWithEdges, { derive: false, projectFamilies: { left: { label: 'Left', members: ids.slice(0, 3) }, right: { label: 'Right', members: ids.slice(3) } } });
+  const grouped = projectSemanticLevel(sceneWithEdges, 'groups', { hierarchy });
+  const edge = grouped.edges[0], detail = explainEdge(grouped, edge.id);
+  assert.equal(detail.relationshipCount, 12);
+  assert.deepEqual(detail.universal.map(item => [item.kind, item.value, item.count, item.total]), [['language', 'Rust', 12, 12]]);
+  assert.deepEqual(detail.partial.map(item => [item.kind, item.value, item.count, item.total]), [['topic', 'webassembly', 8, 12]]);
+  assert.deepEqual(detail.examples.map(item => item.edgeId), edges.slice(0, 5).map(item => item.id));
+  const reversedScene = { ...source, edges: [...edges].reverse() };
+  const reordered = projectSemanticLevel(reversedScene, 'groups', { hierarchy: buildSemanticHierarchy(reversedScene, { derive: false, projectFamilies: { left: { label: 'Left', members: ids.slice(0, 3) }, right: { label: 'Right', members: ids.slice(3) } } }) });
+  assert.deepEqual(explainEdge(reordered, reordered.edges[0].id), detail);
 });
 
 function parseSceneRoundTrip(scene) { return JSON.parse(serializeScene(scene)); }

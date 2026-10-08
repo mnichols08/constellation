@@ -1,6 +1,6 @@
 {
   "name": "@constellation/core",
-  "version": "3.12.1",
+  "version": "3.12.2",
   "type": "module",
   "description": "Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.",
   "engines": {

@@ -152,9 +152,12 @@ const explainEdge = (scene, edgeId) => {
   if (!edge) return null;
   const metadata = edge.metadata || {};
   if (metadata.aggregated === true && Number.isInteger(metadata.relationshipCount) && Array.isArray(metadata.memberEdges)) {
-    const evidence = [...(metadata.sharedLanguages || []).slice(0, 16).map(value => `language: ${value}`), ...(metadata.sharedTopics || []).slice(0, 16).map(value => `topic: ${value}`)];
+    const coverage = Array.isArray(metadata.relationshipEvidence) ? metadata.relationshipEvidence.slice(0, 13).map(item => ({ ...item })) : [];
+    const universal = coverage.filter(item => item.count === item.total);
+    const partial = coverage.filter(item => item.count < item.total);
+    const evidence = [...universal.map(item => `${item.kind}: ${item.value}`)];
     const memberEdges = metadata.memberEdges.slice(0, 256);
-    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, memberEdges, relationshipCount: metadata.relationshipCount, retainedEdgeCount: memberEdges.length, truncated: metadata.relationshipCount > memberEdges.length };
+    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, universal, partial, examples: Array.isArray(metadata.examples) ? metadata.examples.slice(0, 5).map(item => ({ edgeId: item.edgeId, from: item.from, to: item.to })) : [], memberEdges, relationshipCount: metadata.relationshipCount, retainedEdgeCount: memberEdges.length, truncated: metadata.relationshipCount > memberEdges.length, examplesShown: Math.min(Array.isArray(metadata.examples) ? metadata.examples.length : 0, 5) };
   }
   const shared = [...(Array.isArray(metadata.sharedLanguages) ? metadata.sharedLanguages.slice(0, 16).map(value => `language: ${value}`) : []), ...(Array.isArray(metadata.sharedTopics) ? metadata.sharedTopics.slice(0, 16).map(value => `topic: ${value}`) : []), ...(Array.isArray(metadata.sharedRepositories) ? metadata.sharedRepositories.slice(0, 16).map(value => `repository: ${value}`) : [])];
   return shared.length ? { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Connection reflects shared project metadata.', evidence: shared } : { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Explanation unavailable for this connection type.', evidence: [] };

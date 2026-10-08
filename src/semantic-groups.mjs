@@ -102,10 +102,27 @@ export function projectSemanticLevel(scene, level = 'groups', { hierarchy = null
     bucket.members.sort();
     const from = projectedNodes.get(bucket.from), to = projectedNodes.get(bucket.to);
     const sharedLanguages = common(bucket.source, 'sharedLanguages'), sharedTopics = common(bucket.source, 'sharedTopics'), sharedRepositories = common(bucket.source, 'sharedRepositories');
-    return { id: `group-edge:${stableHash(key)}`, from: bucket.from, to: bucket.to, metadata: { key, shared: [...sharedLanguages, ...sharedTopics.map(value => `#${value}`)], strength: bucket.members.length, aggregated: true, memberEdges: bucket.members.slice(0, 256), relationshipCount: bucket.members.length, sharedLanguages, sharedTopics, sharedRepositories }, geometry: { distance: Math.hypot(from.geometry.x - to.geometry.x, from.geometry.y - to.geometry.y) }, style: { primary: bucket.source.some(edge => edge.style.primary) } };
+    const relationshipEvidence = ['sharedLanguages', 'sharedTopics'].flatMap(field => {
+      const counts = new Map();
+      for (const edge of bucket.source) {
+        const unique = new Map();
+        for (const value of (Array.isArray(edge.metadata?.[field]) ? edge.metadata[field] : []).filter(value => typeof value === 'string' && value.trim()).map(value => value.trim()).sort((a, b) => a.localeCompare(b))) {
+          const normalized = value.toLocaleLowerCase('en-US');
+          if (!unique.has(normalized)) unique.set(normalized, value);
+        }
+        for (const [normalized, value] of unique) {
+          if (!counts.has(normalized)) counts.set(normalized, { value, count: 0 });
+          else if (value.localeCompare(counts.get(normalized).value) < 0) counts.get(normalized).value = value;
+          counts.get(normalized).count++;
+        }
+      }
+      return [...counts.entries()].sort(([a, x], [b, y]) => y.count - x.count || a.localeCompare(b)).slice(0, field === 'sharedLanguages' ? 5 : 8).map(([normalized, item]) => ({ kind: field === 'sharedLanguages' ? 'language' : 'topic', value: item.value, normalized, count: item.count, total: bucket.source.length }));
+    });
+    const examples = [...bucket.source].sort((a, b) => a.id.localeCompare(b.id)).slice(0, 5).map(edge => ({ edgeId: edge.id, from: edge.from, to: edge.to }));
+    return { id: `group-edge:${stableHash(key)}`, from: bucket.from, to: bucket.to, metadata: { key, shared: [...sharedLanguages, ...sharedTopics.map(value => `#${value}`)], strength: bucket.members.length, aggregated: true, memberEdges: bucket.members.slice(0, 256), relationshipCount: bucket.members.length, sharedLanguages, sharedTopics, sharedRepositories, relationshipEvidence, examples }, geometry: { distance: Math.hypot(from.geometry.x - to.geometry.x, from.geometry.y - to.geometry.y) }, style: { primary: bucket.source.some(edge => edge.style.primary) } };
   });
   const labels = nodes.map(node => ({ id: node.id, x: node.geometry.x, y: node.geometry.y + node.geometry.radius + 8, text: displayName(node), hidden: false, focal: false }));
-  const groupRecords = hierarchy.groups.map(group => ({ ...group, members: [...group.members] }));
+  const groupRecords = hierarchy.groups.map(group => ({ ...group, members: [...group.members], explanation: explainGroup(hierarchy, group.id) }));
   const collapsedGroups = groupRecords.filter(group => !expandedIds.has(group.id));
   return { ...structuredClone(scene), nodes, edges, labels, evidence: attachGroupEvidence(scene.evidence, collapsedGroups), semanticGroups: { version: 1, level, expanded: [...expandedIds], groups: groupRecords, sourceNodeIds: scene.nodes.map(node => node.id) } };
 }
@@ -133,5 +150,33 @@ export function explainGroup(hierarchy, groupId) {
   const group = hierarchy?.groups?.find(item => item.id === groupId);
   if (!group) return null;
   const projects = new Map(hierarchy.source.nodes.map(node => [node.id, node]));
-  return { version: 1, groupId, provenance: group.provenance, summary: group.provenance === 'user' ? 'Defined by you.' : 'Derived group.', basis: [...group.basis], ...(group.manualPosition ? { position: { provenance: 'user', summary: 'Placed manually by you.' } } : {}), members: group.members.map(id => ({ id, name: projects.get(id)?.metadata.name || id })).slice(0, MAX_GROUP_MEMBERS) };
+  const total = group.members.length;
+  const counts = new Map();
+  for (const id of group.members) {
+    const metadata = projects.get(id)?.metadata || {};
+    const values = [
+      ['language', [metadata.language, ...Object.keys(metadata.languages || {}).sort((a, b) => a.localeCompare(b))]],
+      ['topic', Array.isArray(metadata.topics) ? metadata.topics : []],
+    ];
+    for (const [kind, entries] of values) for (const [normalized, value] of new Map(entries.filter(value => typeof value === 'string' && value.trim()).map(value => value.trim()).sort((a, b) => a.localeCompare(b)).map(value => [value.toLocaleLowerCase('en-US'), value]))) {
+      const key = `${kind}:${normalized}`;
+      if (!counts.has(key)) counts.set(key, { kind, value, normalized, count: 0 });
+      counts.get(key).count++;
+    }
+  }
+  const all = [...counts.values()].sort((a, b) => b.count - a.count || a.kind.localeCompare(b.kind) || a.normalized.localeCompare(b.normalized));
+  const characteristics = ['language', 'topic'].flatMap(kind => all.filter(item => item.kind === kind).slice(0, kind === 'language' ? 5 : 8).map(({ kind: itemKind, value, count }) => ({ kind: itemKind, value, count, total, provenance: 'derived' })));
+  const reason = group.provenance === 'user'
+    ? { kind: group.kind, summary: 'Defined by you.', provenance: 'user', count: total, total, evidence: [] }
+    : { kind: group.kind, summary: 'Shared repository owner', provenance: 'derived', basis: [...group.basis], count: total, total, evidence: [{ kind: 'repository-owner', value: group.label, count: total, total }] };
+  return {
+    version: 1, groupId, provenance: group.provenance, summary: reason.summary, basis: [...group.basis],
+    groupingReason: reason,
+    memberSummary: group.kind === 'repository-owner' ? `All ${total} visible projects share the repository owner: ${group.label}.` : `This project family contains ${total} visible projects.`,
+    characteristics,
+    ...(group.kind === 'repository-owner' ? { limitation: 'This grouping describes repository ownership. It does not imply that the projects have the same purpose.' } : {}),
+    ...(group.manualPosition ? { position: { provenance: 'user', summary: 'Placed manually by you.' } } : {}),
+    members: group.members.slice(0, 8).map(id => ({ id, name: projects.get(id)?.metadata.name || id })),
+    memberCount: total, memberExamplesTruncated: total > 8,
+  };
 }

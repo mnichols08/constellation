@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { createScene, buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGroup, renderSceneHTML } from '../src/core-api.mjs';
+import { createScene, buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGroup, explainGroup, explainEdge, renderSceneHTML } from '../src/core-api.mjs';
 import { createSemanticZoomState, SEMANTIC_ZOOM_POLICY } from '../src/semantic-zoom.mjs';
 
 function fixture(count) {
@@ -30,6 +30,16 @@ for (const count of [45, 256, 2048]) {
   const grouped = projectSemanticLevel(scene, 'groups', { hierarchy });
   const projectionMs = performance.now() - startProjection;
   const group = hierarchy.groups[0];
+  const startGroupExplanation = performance.now();
+  const groupExplanation = explainGroup(hierarchy, group.id);
+  const groupExplanationMs = performance.now() - startGroupExplanation;
+  const startGroupRepeat = performance.now();
+  explainGroup(hierarchy, group.id);
+  const groupRepeatMs = performance.now() - startGroupRepeat;
+  const aggregate = grouped.edges.find(edge => edge.metadata.aggregated);
+  const startAggregateExplanation = performance.now();
+  const aggregateExplanation = aggregate ? explainEdge(grouped, aggregate.id) : null;
+  const aggregateExplanationMs = performance.now() - startAggregateExplanation;
   const startExpand = performance.now();
   const expanded = expandGroup(grouped, hierarchy, group.id);
   const expansionMs = performance.now() - startExpand;
@@ -42,5 +52,5 @@ for (const count of [45, 256, 2048]) {
   const semanticZoomMs = performance.now() - startZoom;
   const htmlBytes = Buffer.byteLength(renderSceneHTML(scene, { semanticLevel: 'groups' }));
   const autoHtmlBytes = Buffer.byteLength(renderSceneHTML(scene, { semanticLevel: 'auto' }));
-  console.log(JSON.stringify({ projects: count, groups: hierarchy.groups.length, visibleNodes: grouped.nodes.length, expandedVisibleNodes: expanded.nodes.length, edges: scene.edges.length, aggregateEdges: grouped.edges.length, semanticZoomTransition: transition.current, semanticZoomMs: +semanticZoomMs.toFixed(3), hierarchyMs: +hierarchyMs.toFixed(2), projectionMs: +projectionMs.toFixed(2), expansionMs: +expansionMs.toFixed(2), collapseMs: +collapseMs.toFixed(2), sourceSceneBytes: Buffer.byteLength(JSON.stringify(scene)), groupedSceneBytes: Buffer.byteLength(JSON.stringify(grouped)), groupedHtmlBytes: htmlBytes, autoHtmlBytes }));
+  console.log(JSON.stringify({ projects: count, groups: hierarchy.groups.length, visibleNodes: grouped.nodes.length, expandedVisibleNodes: expanded.nodes.length, edges: scene.edges.length, aggregateEdges: grouped.edges.length, semanticZoomTransition: transition.current, semanticZoomMs: +semanticZoomMs.toFixed(3), hierarchyMs: +hierarchyMs.toFixed(2), groupExplanationMs: +groupExplanationMs.toFixed(2), repeatGroupExplanationMs: +groupRepeatMs.toFixed(2), groupExplanationBytes: Buffer.byteLength(JSON.stringify(groupExplanation)), aggregateExplanationMs: +aggregateExplanationMs.toFixed(2), aggregateExplanationBytes: Buffer.byteLength(JSON.stringify(aggregateExplanation)), projectionMs: +projectionMs.toFixed(2), expansionMs: +expansionMs.toFixed(2), collapseMs: +collapseMs.toFixed(2), sourceSceneBytes: Buffer.byteLength(JSON.stringify(scene)), groupedSceneBytes: Buffer.byteLength(JSON.stringify(grouped)), groupedHtmlBytes: htmlBytes, autoHtmlBytes }));
 }
