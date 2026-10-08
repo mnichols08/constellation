@@ -75,6 +75,7 @@ test("grouped offline HTML expands and collapses from real projects with group e
   await writeFile(file, renderSceneHTML(grouped, { semanticLevel: "groups" }));
   const { evaluate, waitFor, errors, cdp } = await openBrowser(t, pathToFileURL(file).href);
   await waitFor(`Boolean(document.querySelector('.star[data-repo="group:user:offline-family"]'))`);
+  await waitFor(`Boolean(document.querySelector('main').constellation)`);
   assert.equal(await evaluate("document.querySelectorAll('script[src]').length"), 0);
   await evaluate(`document.querySelector('.repository').focus(); document.querySelector('.repository').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`);
   await waitFor(`[...document.querySelectorAll('[data-details] summary')].some(item=>item.textContent==='Why grouped?')`);
