@@ -140,6 +140,7 @@ const allowed = new Map([
     "github-request-cache",
     "github-access",
     "preview",
+    "export-density",
     "preview-data",
     "constellation",
     "export",

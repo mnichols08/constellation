@@ -6,6 +6,8 @@ The Studio tour focuses its heading on step changes, reveals the relevant real c
 
 Static SVG exports include descriptive text and retain existing reduced-motion alternatives. Interactive exports and components provide labelled native controls, live status updates, keyboard-selectable nodes and visible focus. Tab reaches the canvas and current node target; arrows/Home/End navigate nodes; Enter/Space selects, Shift-select traces a path, Escape clears selection, and +/- zooms.
 
+Dense grouped README SVGs distinguish groups from projects by shape and description, and explain that aggregate line weight reports represented relationship counts. When a low-priority label is hidden for space, its node remains named in the SVG accessible title; interactive HTML retains all available semantic detail.
+
 Showcase roles are stated in SVG accessible descriptions and node details, not conveyed by color alone. Studio role selects and numeric featured order fields have project-specific labels; onboarding and Studio provide keyboard-operable Move up/Move down buttons instead of requiring drag-and-drop. Featured category nodes list the Featured projects that contribute their real membership.
 
 Timelines expose a native date range with actual date/evidence text. Then/Now comparison includes text counts, not color alone. Hierarchy uses breadcrumb buttons with the current scene identified; focus follows navigation. Story chapters use a labelled selector, Previous/Next controls, narration and heading focus. Autoplay is never required.

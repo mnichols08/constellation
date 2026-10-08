@@ -44,6 +44,7 @@ import { rustAvailable } from "./engine.mjs";
 import { renderTemporalStackSVG } from "./temporal-stack-svg.mjs";
 import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
 import { resolveSemanticZoomMode } from './semantic-zoom.mjs';
+import { aggregateEdgeStyle, applyStaticExportDensity, exportDensityPolicy, README_GROUP_THRESHOLD } from './export-density.mjs';
 
 import { repositoryLanguages } from "./constellation.mjs";
 const hash = (value) => {
@@ -95,10 +96,24 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const requestedLevel = renderOptions?.semanticLevel || configuredMode;
   // Static SVG has no camera events. Keep full project detail for Automatic;
   // interactive hosts apply the camera policy in their browser runtime.
-  const semanticLevel = requestedLevel === 'auto' ? 'projects' : requestedLevel;
+  const staticReadme = visualScene.presentation.options.exportProfile === 'readme' && !renderOptions?.interactive;
+  const projectScene = visualScene.kind === 'scene' && !visualScene.timeline && !visualScene.temporalStack;
+  const explicitProjects = renderOptions?.semanticLevel === 'projects' || configuredMode === 'projects';
+  let semanticLevel = requestedLevel === 'auto' ? 'projects' : requestedLevel;
+  if (staticReadme && projectScene && !explicitProjects && (requestedLevel === null || requestedLevel === 'auto') && visualScene.nodes.filter(node => !node.interaction.hidden).length >= README_GROUP_THRESHOLD) {
+    const hierarchy = buildSemanticHierarchy(visualScene, { projectFamilies: visualScene.presentation.options.projectFamilies });
+    if (hierarchy.groups.length) semanticLevel = 'groups';
+  }
+  if (staticReadme && projectScene && visualScene.semanticGroups?.level === 'groups' && visualScene.nodes.some(node => node.metadata.nodeKind === 'semantic-group') && !renderOptions?.staticDensityApplied) {
+    const visibleNodes = visualScene.nodes.filter(node => !node.interaction.hidden);
+    const groupCount = visibleNodes.filter(node => node.metadata.nodeKind === 'semantic-group').length;
+    const policy = exportDensityPolicy({ profile: 'readme', width: visualScene.viewport.width, nodeCount: visibleNodes.length, groupCount });
+    return renderSceneSVG(applyStaticExportDensity(visualScene, policy), { ...renderOptions, staticDensityApplied: true });
+  }
   if ((semanticLevel === 'groups' || semanticLevel === 'overview') && visualScene.kind === 'scene' && !visualScene.timeline && !visualScene.temporalStack) {
     const hierarchy = buildSemanticHierarchy(visualScene, { projectFamilies: visualScene.presentation.options.projectFamilies });
-    return renderSceneSVG(projectSemanticLevel(visualScene, 'groups', { hierarchy }), { ...renderOptions, semanticLevel: 'projects' });
+    const projected = projectSemanticLevel(visualScene, 'groups', { hierarchy });
+    return renderSceneSVG(projected, { ...renderOptions, semanticLevel: 'projects' });
   }
   if (visualScene.presentation.options.readmePresentation === "recruiter") return renderRecruiterSVG(visualScene);
   if (visualScene.temporalStack)
@@ -151,6 +166,8 @@ export function renderSceneSVG(visualScene, renderOptions) {
     width: visualScene.viewport.width,
     height: visualScene.viewport.height,
   };
+  const readmeDensity = !renderOptions?.interactive && options.exportProfile === 'readme' && visualScene.semanticGroups?.level === 'groups' && visualScene.nodes.some(node => node.metadata.nodeKind === 'semantic-group');
+  const densityPolicy = readmeDensity ? exportDensityPolicy({ profile: 'readme', width: profile.width, nodeCount: visualScene.nodes.filter(node => !node.interaction.hidden).length, groupCount: visualScene.nodes.filter(node => node.metadata.nodeKind === 'semantic-group' && !node.interaction.hidden).length }) : null;
   const centerY = compact ? 126 : 270,
     spreadY = compact ? 88 : 192;
   const clock = Date.parse(visualScene.metadata.referenceDate),
@@ -376,6 +393,9 @@ export function renderSceneSVG(visualScene, renderOptions) {
         weight.width = Math.max(weight.width || 0, 1.6);
         weight.opacity = Math.max(weight.opacity || 0, 0.78);
       }
+      const densityEdge = readmeDensity && edge.aggregated
+        ? aggregateEdgeStyle(edge.relationshipCount, densityPolicy.edgeWidthRange, densityPolicy.edgeOpacityRange)
+        : null;
       const activeWeight = activitySettings.activityConnections
         ? Math.max(
             recent(from.repo.full_name)?.score || 0,
@@ -387,7 +407,8 @@ export function renderSceneSVG(visualScene, renderOptions) {
         weight
           ? `stroke-width:${weight.width.toFixed(2)};opacity:${weight.opacity.toFixed(2)}`
           : "",
-        activeWeight
+        densityEdge ? `stroke-width:${densityEdge.width.toFixed(2)};opacity:${densityEdge.opacity.toFixed(2)}` : "",
+        activeWeight && !densityEdge
           ? `opacity:${Math.min(0.85, (weight?.opacity ?? (backbone.has(edge) ? 0.62 : 0.13)) + activeWeight * 0.2).toFixed(3)}`
           : "",
       ]
@@ -456,7 +477,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
         : "";
       const radius = node.geometry.radius;
       const glow = node.style.glow;
-      const shape = node.style.shape;
+      const shape = readmeDensity ? (repo.nodeKind === 'semantic-group' ? 'hexagon' : 'circle') : node.style.shape;
       const role = showcase?.role || "";
       const profileAttributes = profileDimensionAttributes(repo.full_name);
       const priority = showcase?.priority ?? 0;
@@ -505,7 +526,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
       const roleOverlay = role
         ? ` data-role="${escape(role)}" data-showcase-priority="${priority}"`
         : "";
-      const starStyle = `${customIcon ? "fill:transparent;stroke:none;" : ""}${repo.organizationFocus ? "stroke:var(--sky-accent);stroke-width:1.5;" : ""}${shape !== "circle" ? `clip-path:url(#shape-${shape});` : ""}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ""}`;
+      const starStyle = `${customIcon ? "fill:transparent;stroke:none;" : ""}${repo.organizationFocus ? "stroke:var(--sky-accent);stroke-width:1.5;" : ""}${readmeDensity && repo.nodeKind === 'semantic-group' ? "clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);" : shape !== "circle" ? `clip-path:url(#shape-${shape});` : ""}${readmeDensity && repo.nodeKind === 'semantic-group' ? "stroke:var(--sky-foreground);stroke-width:1.2;" : ""}${glow !== null ? `filter:drop-shadow(0 0 ${(glow * 4).toFixed(2)}px var(--node-color,var(--sky-star)));` : ""}`;
       const groupStyle =
         (Object.hasOwn(nodeColors, repo.full_name)
           ? `--node-color:${nodeColors[repo.full_name]}`
@@ -604,10 +625,20 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const semanticRings = semantic ? '<g class="semantic-rings" fill="none" stroke="currentColor" opacity=".2">' + semantic.radii.map((r,i) => `<ellipse cx="450" cy="${centerY}" rx="${368*r}" ry="${spreadY*r}"><title>${escape(semantic.bands[i])}</title></ellipse>`).join('') + '</g><g class="semantic-labels" fill="var(--sky-foreground)" font-size="9">' + semantic.guides.map(g => `<text x="${g.position[0]}" y="${g.position[1]}">${escape(g.text)}</text>`).join('') + '</g>' : '';
   const semanticPoints = semantic ? '<g class="semantic-points" fill="var(--sky-accent)">' + semantic.placements.map(p => `<circle class="identity-point" data-node="${escape(p.repository)}" cx="${p.position[0]}" cy="${p.position[1]}" r="1.5" data-snap-x="${p.position[0]}" data-snap-y="${p.position[1]}" data-occupied="${escape(JSON.stringify(stars.filter(s => Math.hypot(s.x-p.position[0],s.y-p.position[1])<1).map(s=>s.repo.full_name)))}"><title>${escape(p.category)}, band ${p.band+1}</title></circle>`).join('') + '</g>' : '';
   const legendLines = options.semanticLegend ? meaning.flatMap(line => line.match(/.{1,112}(?:\s|$)|.{1,112}/g) || []) : [];
-  const extraHeight = legendLines.length ? 18 + legendLines.length * 13 : 0;
+  const collapsedGroups = visualScene.nodes.filter(node => node.metadata.nodeKind === 'semantic-group');
+  const visibleGroups = collapsedGroups.filter(node => !node.interaction.hidden);
+  const representedProjects = visibleGroups.reduce((sum, node) => sum + (node.metadata.memberCount || 0), 0) + visualScene.nodes.filter(node => node.metadata.nodeKind !== 'semantic-group' && !node.interaction.hidden).length;
+  const representedRelationships = [...selectedEdges].reduce((sum, edge) => sum + (edge.aggregated ? edge.relationshipCount : 1), 0);
+  const denseDescription = readmeDensity
+    ? `${visibleGroups.length} semantic groups and ${representedProjects} represented projects. ${selectedEdges.size} aggregate edges represent ${representedRelationships} source relationships. Group size reflects member count within a bounded visual range. Aggregate edge visual weight reflects the number of represented source relationships, not dependency strength or project importance. Group labels and user-curated labels take priority; hidden labels remain represented by accessible node titles. `
+    : '';
+  const densityLegend = readmeDensity
+    ? `<g class="static-export-legend" role="group" aria-label="Group and project shapes; line weight reflects represented relationships" transform="translate(26 ${height + 19})"><path d="M0 -7L6 -4L6 4L0 7L-6 4L-6 -4Z"/><text x="11" y="4">group</text><circle cx="60" cy="0" r="4"/><text x="68" y="4">project</text><path d="M126 0H151" class="legend-edge"/><text x="157" y="4">weight = represented relationships</text></g>`
+    : '';
+  const extraHeight = (legendLines.length ? 18 + legendLines.length * 13 : 0) + (readmeDensity ? 28 : 0);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height + extraHeight * profile.height / height}" viewBox="0 0 900 ${height + extraHeight}" role="img" aria-labelledby="title${semanticStudio ? " meaning-description" : ""} description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
 <title id="title">${escape(title ?? `${name}’s GitHub constellation`)}</title>
-${semanticStudio ? `<desc id="meaning-description">${escape(meaning.join(" "))}${semantic ? escape(" Bands: " + semantic.bands.join("; ") + ". " + semantic.placements.map(p => `${p.repository}: ${p.category}, band ${p.band+1}`).join("; ")) : ""}</desc>` : ""}${showcaseDescriptionMarkup}<desc id="description">${(visualScene.semanticGroups?.groups || []).filter(group => !visualScene.semanticGroups.expanded.includes(group.id)).map(group => escape(`${group.label}, ${group.members.length} projects, ${group.provenance === 'user' ? 'user-defined project family' : 'grouped by shared repository owner'}. `)).join("")}${graph.commits ? escape(graph.note || "Commit constellation") : graph.organization ? escape(`Organization universe. ${visibleStars.length} nodes, ${selectedEdges.size} bounded connections. Contributor diamonds connect through shared projects; project and technology views show repository relationships. Contributor size reflects represented repository count. ${graph.note}`) : `${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : "public repositories"} arranged in a deterministic ${semantic ? options.ringMeaning + " semantic ring layout" : arrangement === "rings" ? "identity ring point layout" : arrangement === "field" ? "star field" : arrangement === "orbital" ? "orbital layout" : "force layout"}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === "both" ? "languages and topics" : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${selectedEdges.size} of ${visualScene.presentation.totalConnections} shared connections shown. Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps. Star size reflects ${semanticStudio ? escape(options.nodeSize || options.sizingMode || (categoryMode ? "repository membership" : "classic GitHub stars")) : combinedMode ? "GitHub stars for repositories and repository count for categories" : categoryMode ? "repository count" : "GitHub stars"}. ${geometry && !semantic ? "Identity rings are seeded by the account name; ring points provide placement anchors for nodes. " : ""}${visibleStars.map((star) => escape(star.repo.name)).join(", ")}.${escape(rhythmDescription(options.codingRhythmData, rhythmSettings))}${escape(historyLayer.description)} ${escape(graph.note || "")}`}</desc>
+${semanticStudio ? `<desc id="meaning-description">${escape(meaning.join(" "))}${semantic ? escape(" Bands: " + semantic.bands.join("; ") + ". " + semantic.placements.map(p => `${p.repository}: ${p.category}, band ${p.band+1}`).join("; ")) : ""}</desc>` : ""}${showcaseDescriptionMarkup}<desc id="description">${denseDescription}${(visualScene.semanticGroups?.groups || []).filter(group => !visualScene.semanticGroups.expanded.includes(group.id)).slice(0, readmeDensity ? 8 : Infinity).map(group => escape(`${group.label}, ${group.members.length} projects, ${group.provenance === 'user' ? 'user-defined project family' : 'grouped by shared repository owner'}. `)).join("")}${graph.commits ? escape(graph.note || "Commit constellation") : graph.organization ? escape(`Organization universe. ${visibleStars.length} nodes, ${selectedEdges.size} bounded connections. Contributor diamonds connect through shared projects; project and technology views show repository relationships. Contributor size reflects represented repository count. ${graph.note}`) : `${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : readmeDensity ? "visible constellation nodes" : "public repositories"} arranged in a deterministic ${semantic ? options.ringMeaning + " semantic ring layout" : arrangement === "rings" ? "identity ring point layout" : arrangement === "field" ? "star field" : arrangement === "orbital" ? "orbital layout" : "force layout"}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === "both" ? "languages and topics" : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${readmeDensity ? `${selectedEdges.size} aggregate connections shown.` : `${selectedEdges.size} of ${visualScene.presentation.totalConnections} shared connections shown.`} ${readmeDensity ? "Edge width and opacity reflect represented relationship counts." : "Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps."} ${readmeDensity ? "Node size reflects group member count; project markers use a compact fixed range." : `Star size reflects ${semanticStudio ? escape(options.nodeSize || options.sizingMode || (categoryMode ? "repository membership" : "classic GitHub stars")) : combinedMode ? "GitHub stars for repositories and repository count for categories" : categoryMode ? "repository count" : "GitHub stars"}.`} ${geometry && !semantic ? "Identity rings are seeded by the account name; ring points provide placement anchors for nodes. " : ""}${readmeDensity ? "" : visibleStars.map((star) => escape(star.repo.name)).join(", ")}.${escape(rhythmDescription(options.codingRhythmData, rhythmSettings))}${escape(historyLayer.description)} ${escape(graph.note || "")}`}</desc>
 <defs>${graph.organization || (options.nodeShape && options.nodeShape !== "circle") ? shapeDefinitions : ""}<radialGradient id="nebula"><stop stop-color="var(--sky-background)" stop-opacity=".13"/><stop offset="1" stop-color="var(--sky-background)" stop-opacity="0"/></radialGradient><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 <style>
 ${hasHistory ? historyCSS : ""}${paletteCSS}${rhythmSettings.codingRhythm ? codingRhythmCSS : ""}
@@ -623,7 +654,7 @@ ${compact ? ".heading{font-size:17px}.language text{font-size:13px;letter-spacin
 ${options.visualStyle ? escape(visualCSS(options.visualStyle)) : ""}${escape(css)}${activitySettings.activityEffect === "asteroids" ? asteroidFieldCSS : activitySettings.activityEffect !== "off" ? activityCSS : ""}
 ${["space", "milky-way"].includes(sky.mode) ? starfieldCSS : ""}
 ${transparent ? "svg{background:transparent!important}.background{fill:none!important}" : ""}
-</style>
+${readmeDensity ? ".star[data-kind=\"semantic-group\"]{clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);stroke:var(--sky-foreground);stroke-width:1.2}.static-export-legend{font-size:10px;fill:var(--sky-foreground);opacity:.78}.static-export-legend path{fill:var(--sky-accent)}.static-export-legend circle{fill:var(--sky-star)}.static-export-legend .legend-edge{fill:none;stroke:var(--sky-line);stroke-width:2;opacity:.7}" : ""}</style>
 ${composeLayers(visualScene, "backdrop", {
   background: `<rect class="background" width="900" height="${height}" rx="${compact ? 12 : 18}"/>
 ${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * 0.43}" fill="url(#nebula)"/>`}
@@ -637,7 +668,7 @@ ${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height
     visualScene,
     "overlay",
     {
-      annotations: `${(visualScene.annotations || []).map((annotation) => `<text class="scene-annotation" x="${annotation.x}" y="${annotation.y}">${escape(annotation.text)}</text>`).join("")}${historyLayer.note}${options.organizationUser && graph.organization ? `<g class="organization-focus-caption"><text x="450" y="26" text-anchor="middle" font-size="16" font-weight="600">@${escape(options.organizationUser)} → ${escape(name)}</text><text x="450" y="43" text-anchor="middle" font-size="10">${graph.focus ? `${graph.focusProjects.length} connected projects · bright lines show direct participation` : "No verified connection in the loaded results; expand or refresh the scan"}</text></g>` : ""}${graph.organization ? `<text class="organization-coverage" x="450" y="${height - 34}" text-anchor="middle" font-size="9">${escape(`${graph.nodeCount} nodes · ${graph.repositoryCount} selected projects · ${options.organizationData?.scanned || 0} repositories scanned for contributors`)}<title>${escape(graph.note)}</title></text>` : ""}
+      annotations: `${(visualScene.annotations || []).map((annotation) => `<text class="scene-annotation" x="${annotation.x}" y="${annotation.y}">${escape(annotation.text)}</text>`).join("")}${densityLegend}${historyLayer.note}${options.organizationUser && graph.organization ? `<g class="organization-focus-caption"><text x="450" y="26" text-anchor="middle" font-size="16" font-weight="600">@${escape(options.organizationUser)} → ${escape(name)}</text><text x="450" y="43" text-anchor="middle" font-size="10">${graph.focus ? `${graph.focusProjects.length} connected projects · bright lines show direct participation` : "No verified connection in the loaded results; expand or refresh the scan"}</text></g>` : ""}${graph.organization ? `<text class="organization-coverage" x="450" y="${height - 34}" text-anchor="middle" font-size="9">${escape(`${graph.nodeCount} nodes · ${graph.repositoryCount} selected projects · ${options.organizationData?.scanned || 0} repositories scanned for contributors`)}<title>${escape(graph.note)}</title></text>` : ""}
 ${visibleStars.length ? "" : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? "All nodes are hidden. Restore visibility in Individual nodes." : graph.emptyMessage ? escape(graph.emptyMessage) : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : sourceHasRepositories ? "No projects match these filters or historical year." : options.repoSource === "pinned" ? "No public pinned repositories match this selection." : "No public repositories to show yet."}</text>`}
 ${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || "legacy"} · Glow: ${options.nodeGlowMode || "uniform"} · Color: ${options.nodeColorMode || "custom"} · Links: ${options.connectionWeight || "uniform"}${activitySettings.activityEffect === "asteroids" ? " · Asteroids: latest 24 loaded commits per repository" : activitySettings.activityEffect !== "off" ? ` · ${activitySettings.activityEffect}: public activity / ${["1d", "7d", "30d"].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ""}`)}</text>` : ""}
 ${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ""}
