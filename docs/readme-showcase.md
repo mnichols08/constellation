@@ -53,6 +53,10 @@ Choose a presentation in **Showcase**. These modes derive a view from the same s
 
 Profiles change composition budgets, not the saved project selection. A smaller export can omit lower-priority labels without removing roles or repositories from your config. Reduced motion and current SVG/HTML accessibility behavior continue to apply.
 
+### Dense grouped exports
+
+Use the existing **README** export profile with grouped semantic detail for compact maps of larger project sets. Static README output with at least 30 visible projects chooses Groups when groups exist; an explicit Projects export remains respected. Group size reflects member count within a bounded visual range. Aggregate edge visual weight reflects the number of represented source relationships, not dependency strength or project importance. Dense static exports prioritize semantic group and user-curated labels; hidden visual labels remain represented in accessible scene descriptions. SVG is the canonical static image, and PNG export rasterizes that same SVG. Offline HTML and Web Component views retain interactive Semantic Zoom and the full group evidence inspector.
+
 ## Recruiter project orrery
 
 Select **Showcase → README presentation → Recruiter · project orrery**. The simplified 3.9.x presentation uses a fixed 1200 × 840 canvas, scalable to README widths of 800–1200 pixels. Themes and animation preferences remain available. Manual positioning, category graphs, perspective, decorative motion and profile scores do not apply here. Other presentations retain their settings.

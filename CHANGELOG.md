@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.12.3 — Dense Export Polish
+
+- Add a centralized, deterministic README density policy for static grouped SVG exports, with width-aware label budgets, bounded group/project sizing and bounded aggregate-edge weight.
+- Separate crowded group labels in export geometry, retain group and user-curated labels before ordinary project labels, and keep suppressed labels accessible from SVG node titles.
+- Add a compact shape/relationship legend and concise grouped-export accessibility summary. PNG inherits the same static SVG; offline HTML and Web Component interaction remain unchanged.
+- Prefer grouped detail for dense README exports when groups exist, while honoring explicit Projects output. Preserve Config v7, Scene API v1, Evidence v1 and Web Component API v1.
+
 ## 3.12.2 — Group Evidence
 
 - Explain user and repository-owner grouping reasons separately from bounded language/topic characteristics, with exact visible-member coverage and up to eight member examples.
