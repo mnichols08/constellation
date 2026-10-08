@@ -64,6 +64,7 @@ import {
   projectNodes,
   rustAvailable,
 } from "./engine.mjs";
+import { createSceneEvidence } from "./evidence.mjs";
 
 export function username(value = "") {
   const name = value
@@ -1593,6 +1594,7 @@ export function createScene(
       },
       nodes,
       edges,
+      evidence: createSceneEvidence(nodes, scene.profile, options),
       labels,
       ...(scene.semantic ? { semantic: scene.semantic } : {}),
       ...(scene.profile

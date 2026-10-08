@@ -61,6 +61,7 @@ test("profile export exposes accessible dimensions and evidence controls", () =>
   assert.match(html, /Clear dimensions/);
   assert.match(html, /developer-profile-description/);
   assert.match(html, /Developer evidence:/);
+  assert.match(html, /Why is this here\?/);
 });
 
 test(
@@ -107,6 +108,7 @@ test(
     assert.ok(
       await evaluate('document.querySelector("main").constellation.selection'),
     );
+    assert.equal(await evaluate('document.querySelector("[data-details] details summary")?.textContent'), "Why is this here?");
     await evaluate(
       'document.querySelector(".repository[role=button]").focus()',
     );

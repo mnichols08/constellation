@@ -34,7 +34,7 @@ Pass `--config settings.json` to use a saved configuration. See the [CLI and con
 
 ## What the map means
 
-Constellation visualizes repository metadata such as languages, topics, stars, and dates. You choose which projects to include and what they represent. A visual arrangement or score is not an assessment of skill or professional ability. Read about the evidence and limits of each view in the [README Showcase guide](docs/readme-showcase.md) and [Developer Topology guide](docs/developer-topology.md).
+Constellation visualizes repository metadata such as languages, topics, stars, and dates. You choose which projects to include and what they represent. The Studio's **Why is this here?** inspector traces a project's position and appearance to source facts, your choices, or deterministic calculations. A visual arrangement or score is not an assessment of skill or professional ability. Read about [evidence and provenance](docs/evidence-provenance.md), the [README Showcase](docs/readme-showcase.md), and [Developer Topology](docs/developer-topology.md).
 
 Public exploration works without signing in and uses limited public GitHub data. Sign-in enables additional account data such as pins and full language breakdowns. See [GitHub data and privacy](docs/README.md#github-data-and-privacy).
 

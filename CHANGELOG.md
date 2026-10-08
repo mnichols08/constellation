@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.11.0 — Evidence Everywhere Foundation
+
+- Add optional bounded Scene Evidence v1 with source, user and derived provenance, without changing Config v7 or Scene API v1.
+- Add Core explanation APIs and the **Why is this here?** disclosure in Studio and offline interactive HTML. Explain inclusion, position, visual mappings, manual overrides and evidence-backed connections; include structured evidence in CLI `--explain` output.
+- Distinguish Identity Rings from Identity Orbits, use neutral wording for other deterministic layouts, and explain temporal layouts with their existing evidence.
+- Record explicit repository selection as user intent and ordinary scene/filter inclusion as derived. Keep source provenance for provider facts and explain Showcase roles separately from inclusion.
+- Use one shared pure explanation implementation across Studio, Core and offline interactive HTML. Preserve existing Developer Topology scores and role weights.
+- Document evidence bounds, privacy and reuse. No AI service or network request is required.
+
 ## 3.10.0 — Simplify Constellation
 
 - Make the first post-load action a one-click project map generated from the deterministic guided defaults; keep the questionnaire, presets, tour, saved designs and full Studio available as optional paths.

@@ -135,6 +135,191 @@
       "to": "fixture/project-1"
     }
   ],
+  "evidence": {
+    "facts": [
+      {
+        "id": "fact:0",
+        "kind": "primary-language",
+        "provenance": "source",
+        "source": "github",
+        "value": "Rust"
+      },
+      {
+        "id": "fact:1",
+        "kind": "language-bytes:HTML",
+        "provenance": "source",
+        "source": "github",
+        "value": 20
+      },
+      {
+        "id": "fact:2",
+        "kind": "language-bytes:Rust",
+        "provenance": "source",
+        "source": "github",
+        "value": 100
+      },
+      {
+        "id": "fact:3",
+        "kind": "topic",
+        "provenance": "source",
+        "source": "github",
+        "value": "stars"
+      },
+      {
+        "id": "fact:4",
+        "kind": "topic",
+        "provenance": "source",
+        "source": "github",
+        "value": "art"
+      },
+      {
+        "id": "fact:5",
+        "kind": "stars",
+        "provenance": "source",
+        "source": "github",
+        "value": 0
+      },
+      {
+        "id": "fact:6",
+        "kind": "created-date",
+        "provenance": "source",
+        "source": "github",
+        "value": "2019-01-01"
+      },
+      {
+        "id": "fact:7",
+        "kind": "primary-language",
+        "provenance": "source",
+        "source": "github",
+        "value": "Python"
+      },
+      {
+        "id": "fact:8",
+        "kind": "language-bytes:Python",
+        "provenance": "source",
+        "source": "github",
+        "value": 100
+      },
+      {
+        "id": "fact:9",
+        "kind": "topic",
+        "provenance": "source",
+        "source": "github",
+        "value": "tools"
+      },
+      {
+        "id": "fact:a",
+        "kind": "stars",
+        "provenance": "source",
+        "source": "github",
+        "value": 51
+      },
+      {
+        "id": "fact:b",
+        "kind": "created-date",
+        "provenance": "source",
+        "source": "github",
+        "value": "2022-01-01"
+      },
+      {
+        "id": "fact:c",
+        "kind": "stars",
+        "provenance": "source",
+        "source": "github",
+        "value": 34
+      },
+      {
+        "id": "fact:d",
+        "kind": "created-date",
+        "provenance": "source",
+        "source": "github",
+        "value": "2021-01-01"
+      },
+      {
+        "id": "fact:e",
+        "kind": "primary-language",
+        "provenance": "source",
+        "source": "github",
+        "value": "JavaScript"
+      },
+      {
+        "id": "fact:f",
+        "kind": "language-bytes:JavaScript",
+        "provenance": "source",
+        "source": "github",
+        "value": 100
+      },
+      {
+        "id": "fact:g",
+        "kind": "stars",
+        "provenance": "source",
+        "source": "github",
+        "value": 17
+      },
+      {
+        "id": "fact:h",
+        "kind": "created-date",
+        "provenance": "source",
+        "source": "github",
+        "value": "2020-01-01"
+      }
+    ],
+    "subjects": [
+      {
+        "facts": [
+          "fact:0",
+          "fact:1",
+          "fact:2",
+          "fact:3",
+          "fact:4",
+          "fact:5",
+          "fact:6"
+        ],
+        "id": "fixture/project-0",
+        "kind": "node"
+      },
+      {
+        "facts": [
+          "fact:7",
+          "fact:1",
+          "fact:8",
+          "fact:3",
+          "fact:9",
+          "fact:a",
+          "fact:b"
+        ],
+        "id": "fixture/project-3",
+        "kind": "node"
+      },
+      {
+        "facts": [
+          "fact:0",
+          "fact:1",
+          "fact:2",
+          "fact:3",
+          "fact:4",
+          "fact:c",
+          "fact:d"
+        ],
+        "id": "fixture/project-2",
+        "kind": "node"
+      },
+      {
+        "facts": [
+          "fact:e",
+          "fact:1",
+          "fact:f",
+          "fact:3",
+          "fact:9",
+          "fact:g",
+          "fact:h"
+        ],
+        "id": "fixture/project-1",
+        "kind": "node"
+      }
+    ],
+    "version": 1
+  },
   "geometry": {
     "identity": [
       1,

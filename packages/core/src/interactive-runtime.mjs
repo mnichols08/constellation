@@ -1,7 +1,9 @@
 import { mountTemporalStack } from "./temporal-stack-runtime.mjs";
+import { createExplanationHelpers, EVIDENCE_VERSION, dimensionName, layoutSummary } from "./evidence.mjs";
 // This function is also embedded verbatim into standalone HTML. Keep dependencies
 // explicit in its arguments and use DOM text APIs for all scene-provided content.
-export function mountInteractive(root, source, options = {}) {
+const canonicalExplanations = createExplanationHelpers(EVIDENCE_VERSION, dimensionName, layoutSummary);
+export function mountInteractive(root, source, options = {}, explanations = canonicalExplanations) {
   const scene = source.kind === "time-lapse" ? source.latest : source;
   const svg = root.querySelector("[data-canvas] > svg");
   if (!svg) throw new Error("Interactive view requires a rendered scene.");
@@ -163,6 +165,39 @@ export function mountInteractive(root, source, options = {}) {
       .filter(Boolean)
       .join(" · ");
     details.append(heading, description, summary);
+    const explanation = explanations.explainNode(frame?.scene || scene, id);
+    const why = document.createElement("details");
+    const whySummary = document.createElement("summary");
+    whySummary.textContent = "Why is this here?";
+    why.append(whySummary);
+    const addWhy = (label, text) => {
+      const title = document.createElement("h3");
+      title.textContent = label;
+      const value = document.createElement("p");
+      value.textContent = text;
+      why.append(title, value);
+    };
+    if (explanation) {
+      addWhy("Included", explanation.included.summary);
+      addWhy("Position", explanation.position.summary);
+      if (explanation.role) addWhy("Showcase role", explanation.role.summary);
+      for (const [channel, detail] of Object.entries(explanation.appearance)) addWhy(channel[0].toUpperCase() + channel.slice(1), detail.summary);
+    }
+    const profileFacts = explanation?.position?.evidence || [];
+    if (profileFacts.length) addWhy("Evidence", profileFacts.join(" · "));
+    const sourceFacts = (explanation?.evidence || []).filter(item => item.provenance === "source" && ["primary-language", "topic"].includes(item.claim?.kind)).map(item => item.claim.value);
+    if (sourceFacts.length) addWhy("Source evidence", [...new Set(sourceFacts)].join(" · "));
+    if (endpoint) {
+      const reasons = path.slice(1).flatMap((to, index) => {
+        const from = path[index];
+        const edge = edges.find(item => item.dataset.from === from && item.dataset.to === to || item.dataset.to === from && item.dataset.from === to);
+        if (!edge) return [];
+        const detail = explanations.explainEdge(scene, edge.id);
+        return detail ? [detail] : [];
+      });
+      addWhy("Connection", reasons.length ? reasons.map(detail => `${detail.summary}${detail.evidence.length ? ` ${detail.evidence.join(" · ")}` : ""}`).join(" ") : "Explanation unavailable for this connection type.");
+    }
+    if (why.childNodes.length > 1) details.append(why);
     const projectShowcase = scene.presentation?.options?.projectShowcase || {};
     const lookup = (project) =>
       projectShowcase[project] ||

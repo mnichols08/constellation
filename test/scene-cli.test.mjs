@@ -45,6 +45,8 @@ test("offline CLI scene inspection preserves output boundaries and fixed-date re
   assert.equal(stats.filters.loaded, 4);
   assert.equal(stats.pipeline.loaded, 4);
   assert.equal(stats.pipeline.graphNodes, 4);
+  assert.equal(stats.evidence.version, 1);
+  assert.ok(stats.evidence.facts.length > 0);
   assert.ok(stats.cache.entries > 0);
   const first = run(["--scene-json"]);
   assert.equal(first.status, 0, first.stderr);

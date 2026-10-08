@@ -3,6 +3,7 @@ import { historyOptions } from './history/settings.mjs';
 import { validateHierarchy } from './hierarchy-model.mjs';
 import { validateStory } from './story-model.mjs';
 import { validateTemporalStack } from './temporal-stack-model.mjs';
+import { validateEvidence } from './evidence.mjs';
 // Stable Scene API v1; independently versioned from package/config releases.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -75,6 +76,16 @@ function record(scene, path = '$') {
     if (!object(node.style) || !(node.style.color === null || /^#[a-f\d]{6}$/i.test(node.style.color)) || !(node.style.glow === null || finite(node.style.glow)) || !['circle', 'diamond', 'square', 'hexagon', 'star'].includes(node.style.shape)) fail(`${path}.nodes.${node.id}`, 'invalid style');
     if (!object(node.interaction) || typeof node.interaction.hidden !== 'boolean' || typeof node.interaction.labelHidden !== 'boolean') fail(`${path}.nodes.${node.id}`, 'invalid interaction metadata');
     if (node.style.opacity !== undefined && (!finite(node.style.opacity) || node.style.opacity < 0 || node.style.opacity > 1)) fail(`${path}.nodes.${node.id}`, 'invalid opacity');
+  }
+  if (scene.evidence !== undefined) {
+    const evidenceNodeIds = new Set(nodes);
+    for (const frame of [...(scene.timeline?.frames || []), ...(scene.temporalStack?.frames || [])]) {
+      for (const node of frame.scene?.nodes || []) {
+        if (evidenceNodeIds.size >= 16384) break;
+        evidenceNodeIds.add(node.id);
+      }
+    }
+    if (!validateEvidence(scene.evidence, evidenceNodeIds)) fail(`${path}.evidence`, 'invalid or out-of-bounds evidence attachment');
   }
   for (const edge of scene.edges) {
     if (!id(edge?.id) || edges.has(edge.id) || !nodes.has(edge.from) || !nodes.has(edge.to) || edge.from === edge.to) fail(`${path}.edges`, 'invalid ID or endpoints');

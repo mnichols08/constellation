@@ -1,16 +1,17 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.10.0",
+  "version": "3.11.0",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
     "index.mjs",
     "README.md",
     "temporal-stack.md",
-    "developer-topology.md"
+    "developer-topology.md",
+    "evidence-provenance.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.10.0"
+    "@constellation/core": "3.11.0"
   },
   "license": "UNLICENSED"
 }

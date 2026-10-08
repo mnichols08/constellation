@@ -46,6 +46,7 @@ test(
     assert.deepEqual((await readdir(directory)).sort(), [
       "README.md",
       "developer-topology.md",
+      "evidence-provenance.md",
       "index.mjs",
       "package.json",
       "temporal-stack.md",

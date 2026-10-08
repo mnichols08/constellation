@@ -33,6 +33,11 @@ test(
     await waitFor(
       '!document.querySelector("#profile-dimension-controls").hidden && document.querySelectorAll("#profile-dimension-buttons button").length === 6',
     );
+    await evaluate('document.querySelector("#preview").firstChild.shadowRoot.querySelector(".repository")?.dispatchEvent(new MouseEvent("click",{bubbles:true}))');
+    assert.equal(await evaluate('document.querySelector("#graph-explorer details summary")?.textContent'), "Why is this here?");
+    await evaluate('document.querySelector("#graph-explorer details summary")?.click()');
+    assert.match(await evaluate('document.querySelector("#graph-explorer details")?.textContent'), /Included|Position/);
+    assert.equal(await evaluate('document.querySelector("#graph-explorer details").open'), true);
     const before = await evaluate(
       'document.querySelector("#preview").firstChild.shadowRoot.querySelectorAll(".shared-language").length',
     );

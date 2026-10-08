@@ -12,7 +12,7 @@ node src/cli.mjs --username example --fixture repos.json --scene-json --referenc
 ```
 
 `--scene` reports counts, layer IDs, omitted-label diagnostics and, with
-`--explain`, filter counts. `--scene-json` emits canonical scene JSON. Both default
+`--explain`, filter counts and bounded structured evidence. `--scene-json` emits canonical scene JSON. Both default
 to stdout; explicit `--output` writes JSON, and `--dry-run` forces stdout. Neither
 writes SVG, organization cache files or Action outputs. Fixture mode stays offline
 unless configuration explicitly includes network source plugins. `--reference-date`
@@ -47,6 +47,11 @@ temporal decoration data required by the compatible SVG renderer. This is a
 required opaque block in Scene API v1: preserve it when round-tripping scenes.
 Use the compiler to construct it rather than depending on undocumented fields.
 Layer records drive phased composition; see [Scene layers](layers.md).
+
+An optional `evidence` attachment uses Scene Evidence v1. It carries bounded
+source, user-intent and derived node claims and does not change the Scene API
+version. Older scenes without evidence remain valid. See
+[Evidence and provenance](evidence-provenance.md).
 Config v7 (and compatible v6) layer controls provide visibility, opacity and constrained ordering.
 
 Time-lapse scenes contain a latest scene and historical frames for crossfade.

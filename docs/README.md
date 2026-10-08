@@ -11,6 +11,7 @@ Start here, then open the guide for the task you have. Most pages are reference 
 | Understand what a README map communicates | [README Showcase](readme-showcase.md) |
 | Explore an organization | [Organization maps](organizations.md) |
 | Explore projects over time or by language/topic | [Universe dimensions](temporal-stack.md) |
+| Explain a project's evidence, position, or appearance | [Evidence and provenance](evidence-provenance.md) |
 | See commit history or recent activity | [History and activity](history.md) |
 | Find settings, presets, exports, or share links | [Designs and configuration](designs.md) |
 | Make the map accessible | [Accessibility](accessibility.md) |
@@ -40,7 +41,7 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | Topic | Read |
 | --- | --- |
 | System overview and ownership boundaries | [Architecture](architecture.md) · [Rust/WASM boundary](architecture/RUST-WASM-BOUNDARY.md) |
-| Evidence, security, and privacy | [Security model](security-model.md) · [Security and trust](engineering/SECURITY-AND-TRUST.md) |
+| Evidence, security, and privacy | [Evidence and provenance](evidence-provenance.md) · [Security model](security-model.md) · [Security and trust](engineering/SECURITY-AND-TRUST.md) |
 | Tests and quality checks | [Testing and quality](engineering/TESTING-AND-QUALITY.md) |
 | Performance limits | [Performance budgets](engineering/PERFORMANCE-BUDGETS.md) |
 | AI-assisted interpretation | [AI specification](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
