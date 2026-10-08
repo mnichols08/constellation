@@ -1,0 +1,13 @@
+# Portable Semantic Graph v1
+
+Semantic Graph v1 is a bounded JSON description of entities, factual relationships, evidence references, provenance, and completeness. It is an optional canonical layer; existing generation continues to produce Scene v1 directly. Scene owns layout and rendering state. A graph contains no coordinates, styles, camera, viewport, animation, DOM state, or renderer markup.
+
+The Core API exports `semanticGraphFromScene(scene)`, `semanticGraphFromProjectConstellation(model)`, `validateSemanticGraph(graph)`, `serializeSemanticGraph(graph)`, `parseSemanticGraph(json)`, `semanticGraphFingerprint(graph)`, and `projectSemanticGraphToScene(graph, options?)`.
+
+Developer graphs retain project metadata, Scene Evidence v1, project families, derived repository-owner groups, and explicit owner/group membership edges. Visual bridge edges and any other Scene edges without a declared factual relationship kind are omitted. Project graphs map structural nodes and `contains`, `workspace-member`, `entry-of`, and `imports` edges directly, keeping path, project ID, ref, commit, source evidence, and structural scan statistics. Source contents are never copied.
+
+Node kinds are `developer`, `project`, `semantic-group`, `language`, `topic`, `project-root`, `package`, `directory`, `module`, and `entry-point`. Edge kinds are `member-of`, `repository-owner`, `uses-language`, `has-topic`, `project-relationship`, `contains`, `workspace-member`, `entry-of`, and `imports`. Provenance uses the explicit `source`, `user`, and `derived` categories. Scene Evidence v1 remains the evidence contract.
+
+Limits: 4,096 nodes; 16,384 edges; 256 groups; 32,768 group memberships/evidence facts; 4,096 characters per string; 16 MiB serialized JSON. Parsing validates the bounded graph after JSON parsing; it does not execute input. Canonical serialization sorts object keys and entity/edge IDs are identity-derived. The fingerprint is a deterministic non-cryptographic change identifier, not a security digest.
+
+Project graphs report source truncation and limitations inherited from Project Constellation. Developer graph truncation reflects source pipeline metadata when available. Private repository visibility is retained only as Project Constellation provenance; credentials and source text are excluded. The graph-to-Scene adapter uses the existing Scene v1 constructor and project renderer adapter. Existing CLI, Web Component, and direct Scene workflows still bypass Semantic Graph. Import workflows and Semantic Markdown remain deferred to v3.14.1/v3.14.2.

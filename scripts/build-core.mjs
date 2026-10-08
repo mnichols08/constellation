@@ -52,6 +52,7 @@ const guides = [
   "evidence-provenance",
   "semantic-groups",
   "project-constellations",
+  "semantic-graph",
   "semantic-studio",
   "github-data-cache",
 ].map((name) => name + ".md");
