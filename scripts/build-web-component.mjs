@@ -28,6 +28,10 @@ await copyFile(
   new URL("../docs/semantic-groups.md", import.meta.url),
   new URL("semantic-groups.md", directory),
 );
+await copyFile(
+  new URL("../docs/project-constellations.md", import.meta.url),
+  new URL("project-constellations.md", directory),
+);
 await writeFile(
   new URL("package.json", directory),
   JSON.stringify(
@@ -43,6 +47,7 @@ await writeFile(
         "developer-topology.md",
         "evidence-provenance.md",
         "semantic-groups.md",
+        "project-constellations.md",
       ],
       dependencies: { "@constellation/core": version },
       license: "UNLICENSED",

@@ -1209,6 +1209,13 @@ test(
       true,
       "selecting a project opens its contextual inspector section",
     );
+    assert.equal(await evaluate(`!document.querySelector('#project-constellation-dialog').open`), true, "selecting a project does not start or open a structure scan");
+    await evaluate(`[...document.querySelectorAll('#graph-explorer button')].find(button=>button.textContent==='Explore internal structure').click()`);
+    assert.equal(await evaluate(`document.querySelector('#project-constellation-dialog').open`), true);
+    assert.match(await evaluate(`document.querySelector('#project-constellation-scope').textContent`), /scan/);
+    assert.equal(await evaluate(`document.querySelector('#project-constellation-frame').hidden`), true, "repository acquisition waits for the explicit Start bounded scan action");
+    await evaluate(`document.querySelector('#project-constellation-close').click()`);
+    assert.equal(await evaluate(`!document.querySelector('#project-constellation-dialog').open`), true);
     assert.equal(
       await evaluate(
         `(async()=>{const {svgToPNG}=await import('/src/export-image.mjs');const source=await(await fetch(document.querySelector('.download').href)).text();const blob=await svgToPNG(source);return blob.type==='image/png'&&blob.size>1000;})()`,

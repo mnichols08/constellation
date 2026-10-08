@@ -10,6 +10,9 @@ import { newSeed } from "./seeded-random.mjs";
 import { deriveCodingRhythm } from "./coding-rhythm.mjs";
 import { createScene } from "./constellation.mjs";
 import { renderSceneSVG } from "./renderer-svg.mjs";
+import { renderSceneHTML } from "./renderer-html.mjs";
+import { fetchGitHubProjectConstellation } from "./github-project-structure.mjs";
+import { createProjectConstellationHierarchy } from "./project-constellation-scene.mjs";
 import { createDataPipeline } from "./pipeline-cache.mjs";
 const dataPipeline = createDataPipeline();
 import { presetOptions } from "./studio-presets.mjs";
@@ -92,6 +95,64 @@ const previewFetch = createPreviewFetch({
 });
 const access = previewFetch.access;
 const requestCache = previewFetch.requestCache;
+let projectStructureRequest = null;
+const projectDialog = document.querySelector('#project-constellation-dialog');
+const projectDialogStatus = document.querySelector('#project-constellation-status');
+const projectDialogScope = document.querySelector('#project-constellation-scope');
+const projectDialogStart = document.querySelector('#project-constellation-start');
+const projectDialogFrame = document.querySelector('#project-constellation-frame');
+document.querySelector('#project-constellation-close')?.addEventListener('click', () => projectDialog?.close());
+projectDialog?.addEventListener('close', () => {
+  projectStructureRequest?.abort(); projectStructureRequest = null;
+  if (projectDialogFrame) { projectDialogFrame.srcdoc = ''; projectDialogFrame.hidden = true; }
+});
+function openProjectStructure({ projectId, label, parentScene }) {
+  if (!projectDialog || !projectDialogStart || !projectDialogFrame) return;
+  projectStructureRequest?.abort();
+  document.querySelector('#project-constellation-title').textContent = `Explore ${label}`;
+  projectDialogScope.textContent = access.authenticated
+    ? 'This deliberate scan reads the repository tree, up to 24 package manifests, and up to 16 manifest-declared entry files. Source text is discarded after bounded import parsing.'
+    : 'Public scan: reads the repository tree and up to 8 package manifests. It does not fetch source files. Sign in to enable bounded entry-file import evidence.';
+  projectDialogStatus.textContent = 'Review the scan scope, then start the bounded scan.';
+  projectDialogFrame.srcdoc = ''; projectDialogFrame.hidden = true;
+  projectDialogStart.hidden = false; projectDialogStart.disabled = false; projectDialogStart.textContent = 'Start bounded scan';
+  projectDialogStart.onclick = async () => {
+    const controller = new AbortController(); projectStructureRequest = controller;
+    projectDialogStart.disabled = true; projectDialogStatus.textContent = 'Loading repository ref and bounded structure…';
+    try {
+      const model = await fetchGitHubProjectConstellation({ projectId, fetchImpl: previewFetch, signal: controller.signal, authenticated: access.authenticated });
+      if (controller.signal.aborted) return;
+      const useful = model.nodes.filter(node => node.kind !== 'project-root');
+      if (!useful.length) {
+        projectDialogStatus.textContent = 'No supported package, source, or directory structure was found for this ref. The developer constellation is unchanged.';
+        projectDialogStart.disabled = false; return;
+      }
+      const hasSupportedFiles = model.nodes.some(node => ['package','module','entry-point'].includes(node.kind));
+      const hierarchy = createProjectConstellationHierarchy(parentScene, projectId, model);
+      projectDialogFrame.title = `Project constellation for ${projectId}`;
+      projectDialogFrame.addEventListener('load', () => {
+        let attempts = 0;
+        const openChild = () => {
+          if (controller.signal.aborted || !projectDialog.open) return;
+          const api = projectDialogFrame.contentDocument?.querySelector('main')?.constellation;
+          if (api) { try { api.openChild(`project:${projectId}`); } catch {} return; }
+          if (++attempts < 50) setTimeout(openChild, 100);
+        };
+        openChild();
+      }, { once: true });
+      projectDialogFrame.srcdoc = renderSceneHTML(hierarchy);
+      projectDialogFrame.hidden = false; projectDialogStart.hidden = true;
+      const note = model.statistics.truncated ? model.statistics.limitation : `${model.nodes.length} structural nodes and ${model.edges.length} evidence-backed relationships loaded from ${model.provenance.ref}${model.provenance.commit ? ` (${model.provenance.commit})` : ''}.`;
+      projectDialogStatus.textContent = `${hasSupportedFiles ? '' : 'No supported manifests or source modules were found; showing repository directories only. '}${note}`;
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        projectDialogStatus.textContent = `${error.message} The developer constellation is unchanged.`;
+        projectDialogStart.disabled = false;
+      }
+    }
+  };
+  projectDialog.showModal(); projectDialogStart.focus();
+}
 const data = createPreviewData({
   storage,
   fetchImpl: previewFetch,
@@ -1185,7 +1246,7 @@ function render({ requireVisibleNodes = false } = {}) {
       )
         workspace?.reveal($("#color-node"));
     },
-    { highlight: options.layers?.selection?.visible !== false, scene },
+    { highlight: options.layers?.selection?.visible !== false, scene, onExploreProject: project => openProjectStructure({ ...project, parentScene: scene }) },
   );
   const eligible = repositories.filter(
     (repo) => repo.private !== true && (options.includeForks || !repo.fork),

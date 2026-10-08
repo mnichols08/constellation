@@ -414,7 +414,16 @@ export function renderSceneSVG(visualScene, renderOptions) {
       ]
         .filter(Boolean)
         .join(";");
-      return `${gradient}<path class="shared-language"${edgeStyle ? ` style="${edgeStyle}"` : ""}${featuredEdge ? ' data-showcase="featured"' : ""} data-from="${escape(from.repo.full_name)}" data-to="${escape(to.repo.full_name)}" data-languages="${escape(sharedLanguages.join(", "))}" data-topics="${escape(sharedTopics.join(", "))}" data-repositories="${escape(sharedRepositories.join(", "))}" data-emphasis="${backbone.has(edge) ? "primary" : "secondary"}" d="M${from.x.toFixed(1)} ${from.y.toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}"><title>${escape(from.repo.name)} ↔ ${escape(to.repo.name)} · ${escape(shared.join(", "))}</title></path>`;
+      const evidence=edge.evidence, structuralTitle=edge.structuralKind==='imports'
+        ? `${from.repo.name} imports ${boundedText(evidence?.specifier,512)} from ${boundedText(evidence?.path,512)}.`
+        : edge.structuralKind==='workspace-member'
+          ? `${to.repo.name} is declared as a workspace member in ${boundedText(evidence?.path,512)}.`
+          : edge.structuralKind==='entry-of'
+            ? `${to.repo.name} is declared as entry point ${boundedText(evidence?.declaration,512)} in ${boundedText(evidence?.path,512)}.`
+            : edge.structuralKind==='contains'
+              ? `${to.repo.name} is included by repository path ${boundedText(evidence?.path,512)}.`
+              : null;
+      return `${gradient}<path class="shared-language"${edgeStyle ? ` style="${edgeStyle}"` : ""}${edge.structuralKind ? ` data-structural-kind="${escape(edge.structuralKind)}"` : ""}${featuredEdge ? ' data-showcase="featured"' : ""} data-from="${escape(from.repo.full_name)}" data-to="${escape(to.repo.full_name)}" data-languages="${escape(sharedLanguages.join(", "))}" data-topics="${escape(sharedTopics.join(", "))}" data-repositories="${escape(sharedRepositories.join(", "))}" data-emphasis="${backbone.has(edge) ? "primary" : "secondary"}" d="M${from.x.toFixed(1)} ${from.y.toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}"><title>${escape(structuralTitle || `${from.repo.name} ↔ ${to.repo.name} · ${shared.join(", ")}`)}</title></path>`;
     })
     .join("");
   // Join language regions with the shortest available visual bridges. These are
@@ -540,7 +549,9 @@ export function renderSceneSVG(visualScene, renderOptions) {
         Number.isFinite(Date.parse(repo.created_at))
           ? ` · Created ${new Date(repo.created_at).getUTCFullYear()}`
           : "";
-      const tooltip = repo.nodeKind === 'semantic-group'
+      const tooltip = repo.projectStructureKind
+        ? `${repo.name} · ${repo.projectStructureKind}${repo.structuralPath ? ` · ${boundedText(repo.structuralPath, 512)}` : ''}`
+        : repo.nodeKind === 'semantic-group'
         ? `${repo.name} · ${repo.groupKind === 'project-family' ? 'user-defined project family' : repo.groupKind === 'repository-owner' ? 'grouped by shared repository owner' : 'derived group'} · ${repo.memberCount} projects`
         : repo.commit
         ? `${repo.commit.author} · ${repo.commit.date || "Date unknown"} · ${repo.commit.subject} · ${repo.commit.sha}${repo.commit.parents > 1 ? " · merge commit" : ""}`

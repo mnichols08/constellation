@@ -26,6 +26,16 @@
     <link rel="stylesheet" href="./src/studio-layout.css" />
   </head>
   <body>
+    <dialog id="project-constellation-dialog" aria-labelledby="project-constellation-title">
+      <div class="project-constellation-dialog-header">
+        <div><p class="eyebrow">PROJECT STRUCTURE</p><h2 id="project-constellation-title">Explore internal structure</h2></div>
+        <button id="project-constellation-close" class="secondary" type="button">Close</button>
+      </div>
+      <p id="project-constellation-scope"></p>
+      <p id="project-constellation-status" role="status" aria-live="polite"></p>
+      <button id="project-constellation-start" type="button">Start bounded scan</button>
+      <iframe id="project-constellation-frame" title="Project constellation" hidden></iframe>
+    </dialog>
     <header class="masthead">
       <a class="brand" href="./"
         ><span class="brand-mark" aria-hidden="true">✧</span>constellation

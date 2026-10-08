@@ -179,7 +179,7 @@ test(
       source: `
     const originalQuery = document.querySelector.bind(document);
     document.querySelector = selector => selector === 'meta[name="constellation-oauth-client"]' ? {content:'client'} : selector === 'meta[name="constellation-oauth-exchange"]' ? {content:'https://auth.example/'} : originalQuery(selector);
-    sessionStorage.setItem('constellation-oauth-transaction', JSON.stringify({state:'fixture-state',verifier:'a'.repeat(43),created:Date.now(),redirectUri:location.origin+'/'}));
+    sessionStorage.setItem('constellation-oauth-transaction', JSON.stringify({state:'fixture-state',verifier:'a'.repeat(43),created:Date.now(),redirectUri:${JSON.stringify(origin + '/')}}));
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (url,options={}) => {
       if(String(url)==='https://auth.example/') return Response.json({access_token:'oauth-browser-secret'});
