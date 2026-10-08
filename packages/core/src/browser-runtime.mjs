@@ -1,4 +1,5 @@
 export { mountInteractive, interactiveStyles } from './interactive-runtime.mjs';
+export { createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_MODES, SEMANTIC_ZOOM_POLICY } from './semantic-zoom.mjs';
 export { mountTimeline } from './timeline-runtime.mjs';
 export { replaceInteractiveSVG, transitionCamera } from './scene-transition.mjs';
 export { mountHierarchy } from './hierarchy-runtime.mjs';

@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { createScene, buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGroup, renderSceneHTML } from '../src/core-api.mjs';
+import { createSemanticZoomState, SEMANTIC_ZOOM_POLICY } from '../src/semantic-zoom.mjs';
 
 function fixture(count) {
   const base = createScene('benchmark', [{ full_name: 'owner/project-0', name: 'project-0', language: 'Rust', topics: ['tools'] }, { full_name: 'other/project', name: 'project', language: 'Rust', topics: ['tools'] }], { bridges: true });
@@ -11,7 +12,8 @@ function fixture(count) {
   base.labels = base.nodes.map(node => ({ id: node.id, x: node.geometry.x, y: node.geometry.y + 18, text: node.metadata.name, hidden: false, focal: false }));
   base.edges = Array.from({ length: count }, (_, index) => {
     const from = base.nodes[index], to = base.nodes[(index + 1) % count];
-    return { id: JSON.stringify([from.id, to.id]), from: from.id, to: to.id, metadata: { sharedLanguages: ['Rust'], sharedTopics: ['tools'] }, geometry: { distance: 16 }, style: { primary: false } };
+    const key = JSON.stringify([from.id, to.id]);
+    return { id: key, from: from.id, to: to.id, metadata: { key, shared: ['Rust'], sharedLanguages: ['Rust'], sharedTopics: ['tools'] }, geometry: { distance: 16 }, style: { primary: false } };
   });
   delete base.evidence;
   base.presentation.graph.nodeCount = count; base.presentation.graph.repositoryCount = count; base.presentation.graph.total = count;
@@ -34,6 +36,11 @@ for (const count of [45, 256, 2048]) {
   const startCollapse = performance.now();
   collapseGroup(expanded, hierarchy, group.id);
   const collapseMs = performance.now() - startCollapse;
+  const zoom = createSemanticZoomState('groups');
+  const startZoom = performance.now();
+  const transition = zoom.update(SEMANTIC_ZOOM_POLICY.groupsToProjects + 0.01, { allowProjects: true });
+  const semanticZoomMs = performance.now() - startZoom;
   const htmlBytes = Buffer.byteLength(renderSceneHTML(scene, { semanticLevel: 'groups' }));
-  console.log(JSON.stringify({ projects: count, groups: hierarchy.groups.length, visibleNodes: grouped.nodes.length, edges: scene.edges.length, aggregateEdges: grouped.edges.length, hierarchyMs: +hierarchyMs.toFixed(2), projectionMs: +projectionMs.toFixed(2), expansionMs: +expansionMs.toFixed(2), collapseMs: +collapseMs.toFixed(2), sourceSceneBytes: Buffer.byteLength(JSON.stringify(scene)), groupedSceneBytes: Buffer.byteLength(JSON.stringify(grouped)), interactiveHtmlBytes: htmlBytes }));
+  const autoHtmlBytes = Buffer.byteLength(renderSceneHTML(scene, { semanticLevel: 'auto' }));
+  console.log(JSON.stringify({ projects: count, groups: hierarchy.groups.length, visibleNodes: grouped.nodes.length, expandedVisibleNodes: expanded.nodes.length, edges: scene.edges.length, aggregateEdges: grouped.edges.length, semanticZoomTransition: transition.current, semanticZoomMs: +semanticZoomMs.toFixed(3), hierarchyMs: +hierarchyMs.toFixed(2), projectionMs: +projectionMs.toFixed(2), expansionMs: +expansionMs.toFixed(2), collapseMs: +collapseMs.toFixed(2), sourceSceneBytes: Buffer.byteLength(JSON.stringify(scene)), groupedSceneBytes: Buffer.byteLength(JSON.stringify(grouped)), groupedHtmlBytes: htmlBytes, autoHtmlBytes }));
 }

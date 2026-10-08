@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.12.1 — Semantic Zoom
+
+- Add Automatic, Groups and Projects semantic detail modes. Automatic follows camera scale through centralized enter/exit thresholds with hysteresis; explicit modes lock the projection.
+- Expand the selected project's group first, keep unrelated groups collapsed, preserve the camera viewBox and group inspector context, and map collapsed project selection to its stable group ID.
+- Debounce camera decisions, announce actual semantic transitions accessibly, and honor existing reduced-motion behavior.
+- Support bounded automatic transitions in offline HTML and the Web Component. Preserve Config v7 and normalize legacy `enabled`/`level` options deterministically.
+- Document focus behavior, limits, API and offline degradation; add state-machine regressions and transition benchmark output.
+
 ## 3.12.0 — Semantic Groups
 
 - Add reversible semantic projections with stable user project-family IDs, conservative repository-owner suggestions, collapsed group nodes and aggregation of real cross-group edges.

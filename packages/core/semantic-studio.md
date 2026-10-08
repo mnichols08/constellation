@@ -2,6 +2,8 @@
 
 Version 3.8.0 adds optional meanings to the existing Studio. After loading an account, choose **Teach me the Studio**, **Start from a preset**, **Surprise me**, or **Open a saved constellation**. The quick guided generator remains available. Nothing requires completing a tour.
 
+The Content section's Detail control selects Automatic, Groups or Projects. Automatic follows camera scale with hysteresis; Groups and Projects lock the semantic projection. Studio stores this as `semanticZoom: { "mode": "auto" | "groups" | "projects" }` in Config v7. See [Semantic Groups](semantic-groups.md) for thresholds and legacy-config normalization.
+
 The eleven-step tour highlights real controls and the real SVG preview. **Try it** applies ordinary editable settings. Back, Skip step, Exit and Escape remain available. **Teach me the Studio** restarts; **Resume tour** recalls the last step in this browser. Only the step number is stored separately from the design. Named designs are never overwritten by a tutorial step; save explicitly to retain a new named design.
 
 ## Reading a constellation

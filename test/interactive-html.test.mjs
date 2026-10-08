@@ -88,6 +88,39 @@ test("grouped offline HTML expands and collapses from real projects with group e
   assert.ok(await evaluate("Boolean(document.querySelector('[data-semantic-collapse]'))"));
   await evaluate("document.querySelector('[data-semantic-collapse]').click()");
   await waitFor(`Boolean(document.querySelector('.star[data-repo="group:user:offline-family"]'))`);
+  const automatic = join(dir, "automatic.html");
+  await writeFile(automatic, renderSceneHTML(grouped, { semanticLevel: "auto" }));
+  assert.match(await readFile(automatic, "utf8"), /constellation-semantic-mode/);
+  await cdp("Page.navigate", { url: pathToFileURL(automatic).href });
+  await waitFor(`Boolean(document.querySelector('main')?.constellation)`);
+  await evaluate(`window.semanticChanges = []; document.querySelector('main').addEventListener('semantic-level-change', event => semanticChanges.push(event.detail)); document.querySelector('main').constellation.selectNode('group:user:offline-family',{focus:false}); const base = document.querySelector('main').constellation.camera; document.querySelector('main').constellation.setCamera([base[0],base[1],base[2]/2,base[3]/2]);`);
+  await waitFor(`document.querySelectorAll('.star[data-repo^="fixture/"]').length === ${fixture.repositories.length}`);
+  assert.equal(await evaluate(`semanticChanges.at(-1)?.current`), "projects");
+  assert.ok(await evaluate(`document.querySelector('[data-details]').textContent.includes('Offline Family')`));
+  const handoff = join(dir, "handoff.html");
+  const handoffScene = createScene(fixture.account, fixture.repositories, {
+    ...fixture.cases[0].options,
+    projectFamilies: {
+      "offline-a": { label: "Offline A", members: fixture.repositories.slice(0, 2).map(repo => repo.full_name) },
+      "offline-b": { label: "Offline B", members: fixture.repositories.slice(2).map(repo => repo.full_name) },
+    },
+  });
+  await writeFile(handoff, renderSceneHTML(handoffScene, { semanticLevel: "auto" }));
+  assert.equal(await evaluate("document.querySelectorAll('script[src]').length"), 0);
+  assert.match(await readFile(handoff, "utf8"), /Content-Security-Policy/);
+  await cdp("Page.navigate", { url: pathToFileURL(handoff).href });
+  await waitFor(`Boolean(document.querySelector('.star[data-repo="group:user:offline-a"]'))`);
+  await waitFor(`Boolean(document.querySelector('main')?.constellation)`);
+  await evaluate(`window.handoffChanges=[]; document.querySelector('main').addEventListener('semantic-level-change',e=>handoffChanges.push(e.detail)); const exp=document.querySelector('main').constellation; exp.selectNode('group:user:offline-a',{focus:false}); const view=exp.camera; exp.setCamera([view[0],view[1],view[2]/2,view[3]/2]);`);
+  await waitFor(`document.querySelectorAll('.star[data-repo^="fixture/"]').length===2`);
+  const handoffCamera = await evaluate(`document.querySelector('main').constellation.camera`);
+  const changesBefore = await evaluate(`handoffChanges.length`);
+  await evaluate(`document.querySelector('main').constellation.selectNode('group:user:offline-b',{focus:false})`);
+  await waitFor(`document.querySelectorAll('.star[data-repo^="fixture/"]').length===2 && document.querySelector('[data-details]').textContent.includes('Offline B')`);
+  assert.equal(await evaluate(`document.querySelectorAll('.star[data-repo^="fixture/"]').length`), 2);
+  assert.ok(await evaluate(`Boolean(document.querySelector('.star[data-repo="group:user:offline-a"]'))`), "previous group is collapsed");
+  assert.deepEqual(await evaluate(`document.querySelector('main').constellation.camera`), handoffCamera);
+  assert.equal(await evaluate(`handoffChanges.length`), changesBefore, "local handoff does not emit a false level transition");
   assert.deepEqual(errors, []);
 });
 

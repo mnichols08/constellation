@@ -49,6 +49,7 @@ const allowed = new Map([
     "story",
     "renderer-html",
     "interactive-runtime",
+    "semantic-zoom",
     "timeline-runtime",
     "hierarchy-runtime",
     "story-runtime",

@@ -4,6 +4,31 @@ import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
+test('semantic zoom resets on canonical records replacement and evaluates Auto immediately', { skip: !browser, timeout: 120000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  await waitFor(`Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('main')?.constellation)`);
+  await evaluate(`window.continuity = document.createElement('constellation-view'); document.body.append(continuity);`);
+  assert.equal(await evaluate(`(async()=>{const records=Array.from({length:40},(_,i)=>({name:'old-'+i,full_name:'old/project-'+i,language:'Rust',languages:{Rust:1},topics:['continuity'],stargazers_count:i})); const future=Array.from({length:257},(_,i)=>'new/project-'+i); const ok=await continuity.setConfig({version:7,account:'old',maxRepos:2048,nodeCap:2048,projectFamilies:{'old-family':{label:'Old Family',members:records.map(r=>r.full_name)},'future-family':{label:'Future Family',members:future}}}); continuity.records=records; continuity.semanticLevel='groups'; return ok;})()`), true);
+  await waitFor(`Boolean(continuity.shadowRoot.querySelector('.star[data-repo^="group:"]'))`);
+  await evaluate(`window.oldGroup=continuity.shadowRoot.querySelector('.star[data-repo^="group:"]').dataset.repo; window.levelEvents=[]; continuity.addEventListener('semantic-level-change',e=>levelEvents.push(e.detail)); const base=continuity.scene.viewport.viewBox; continuity.shadowRoot.querySelector('main').constellation.setCamera([base[0],base[1],base[2]/2,base[3]/2]); continuity.semanticLevel='auto';`);
+  await waitFor(`continuity.shadowRoot.querySelectorAll('.star[data-repo^="old/"]').length===40`);
+  assert.equal(await evaluate(`levelEvents.at(-1)?.current`), 'projects');
+  const cameraBefore = await evaluate(`continuity.shadowRoot.querySelector('main').constellation.camera`);
+  await evaluate(`continuity.selectNode('old/project-0',{focus:false}); continuity.shadowRoot.querySelector('main').constellation.setCamera([continuity.scene.viewport.viewBox[0],continuity.scene.viewport.viewBox[1],continuity.scene.viewport.viewBox[2]/2,continuity.scene.viewport.viewBox[3]/2]); continuity.records=Array.from({length:257},(_,i)=>({name:'new-'+i,full_name:'new/project-'+i,language:'Rust',languages:{Rust:1},topics:[],stargazers_count:i}));`);
+  await waitFor(`continuity.scene.nodes.length===257 && Boolean(continuity.shadowRoot.querySelector('.star[data-repo="group:user:future-family"]'))`);
+  await new Promise(resolve => setTimeout(resolve, 220));
+  assert.equal(await evaluate(`continuity.shadowRoot.querySelectorAll('.star[data-repo^="new/"]').length`), 0, 'large replacement remains at grouped detail');
+  assert.ok(await evaluate(`continuity.shadowRoot.querySelector('.star[data-repo^="group:"]')`));
+  assert.equal(await evaluate(`continuity.selection.start`), null, 'removed selection is not retained');
+  assert.ok(await evaluate(`!continuity.shadowRoot.querySelector('.star[data-repo="'+oldGroup+'"]')`), 'old group is removed');
+  assert.deepEqual(await evaluate(`continuity.shadowRoot.querySelector('main').constellation.camera`), cameraBefore);
+  await evaluate(`continuity.semanticLevel='projects'; continuity.shadowRoot.querySelector('main').constellation.setCamera([continuity.scene.viewport.viewBox[0],continuity.scene.viewport.viewBox[1],continuity.scene.viewport.viewBox[2]*4,continuity.scene.viewport.viewBox[3]*4]); continuity.semanticLevel='auto';`);
+  await waitFor(`continuity.shadowRoot.querySelectorAll('.star[data-repo^="new/"]').length===0`);
+  assert.deepEqual(errors, []);
+});
+
 test('component renders isolated config and scene properties with accessible controls', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
@@ -42,6 +67,25 @@ test('component renders isolated config and scene properties with accessible con
   assert.ok(await evaluate(`Boolean(groupedView.shadowRoot.querySelector('[data-semantic-collapse]'))`));
   await evaluate(`groupedView.shadowRoot.querySelector('[data-semantic-collapse]').click()`);
   await waitFor(`Boolean(groupedView.shadowRoot.querySelector('.star[data-repo="group:user:sample-family"]'))`);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await evaluate(`window.semanticEvents = []; groupedView.addEventListener('semantic-level-change', event => semanticEvents.push(event.detail)); groupedView.semanticLevel = 'auto'; groupedView.selectNode('group:user:sample-family', {focus:false}); const base = groupedView.scene.viewport.viewBox; groupedView.shadowRoot.querySelector('main').constellation.setCamera([base[0],base[1],base[2]/2,base[3]/2]);`);
+  await waitFor(`groupedView.shadowRoot.querySelectorAll('.star[data-repo^="example/"]').length === 3`);
+  assert.equal(await evaluate(`groupedView.semanticLevel`), 'auto');
+  assert.equal(await evaluate(`semanticEvents.at(-1)?.current`), 'projects');
+  assert.equal(await evaluate(`groupedView.shadowRoot.querySelector('svg').animationsPaused()`), true);
+  assert.ok(await evaluate(`groupedView.shadowRoot.querySelector('[data-details]').textContent.includes('Sample Family')`));
+  await evaluate(`groupedView.selectNode('example/compiler',{focus:false}); groupedView.shadowRoot.querySelector('main').constellation.setCamera([base[0],base[1],base[2],base[3]]); window.expectedCamera = groupedView.shadowRoot.querySelector('main').constellation.camera;`);
+  await waitFor(`Boolean(groupedView.shadowRoot.querySelector('.star[data-repo="group:user:sample-family"]'))`);
+  assert.equal(await evaluate(`groupedView.selection.start`), 'group:user:sample-family');
+  assert.equal(await evaluate(`semanticEvents.at(-1)?.current`), 'groups');
+  assert.deepEqual(await evaluate(`groupedView.shadowRoot.querySelector('main').constellation.camera`), await evaluate(`expectedCamera`));
+  await evaluate(`groupedView.semanticLevel = 'groups'; groupedView.shadowRoot.querySelector('main').constellation.setCamera([base[0],base[1],base[2]/2,base[3]/2]);`);
+  await new Promise(resolve => setTimeout(resolve, 220));
+  assert.ok(await evaluate(`groupedView.shadowRoot.querySelector('.star[data-repo="group:user:sample-family"]')`), 'explicit Groups mode ignores camera scale');
+  await evaluate(`groupedView.semanticLevel = 'projects'; groupedView.shadowRoot.querySelector('main').constellation.setCamera([base[0],base[1],base[2]*2,base[3]*2]);`);
+  await new Promise(resolve => setTimeout(resolve, 220));
+  assert.ok(await evaluate(`groupedView.shadowRoot.querySelector('.star[data-repo="example/compiler"]')`), 'explicit Projects mode ignores camera scale');
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await evaluate(`window.lazyView = document.createElement('constellation-view'); lazyView.setAttribute('loading','lazy'); lazyView.style.display='none'; lazyView.scene=document.querySelector('#view').scene; document.body.append(lazyView);`);
   assert.equal(await evaluate(`lazyView.shadowRoot.querySelector('main')`), null);
   await evaluate(`lazyView.style.display='block'; lazyView.scrollIntoView()`);

@@ -44,6 +44,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     path = [],
     dragging = null,
     moved = false;
+  let semanticContext = null;
   let occurrenceYear = null,
     occurrenceLayer = null;
   function frameForOccurrence(
@@ -148,9 +149,11 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     details.replaceChildren();
     if (!id) return;
     const frame = frameForOccurrence();
-    const record =
-        frame?.scene.nodes.find((node) => node.id === id) || records.get(id),
-      metadata = record.metadata;
+    const semantic = scene.semanticGroups;
+    const group = semantic?.groups?.find(item => item.id === id) || (semanticContext?.group.id === id ? semanticContext.group : null);
+    const record = frame?.scene.nodes.find((node) => node.id === id) || records.get(id);
+    const metadata = record?.metadata || (group ? { name: group.label, description: `${group.members.length} projects · ${group.provenance === 'user' ? 'project family' : 'derived group'}` } : null);
+    if (!metadata) return;
     const heading = document.createElement("h2");
     heading.textContent = metadata.name || id;
     const description = document.createElement("p");
@@ -165,8 +168,6 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       .filter(Boolean)
       .join(" · ");
     details.append(heading, description, summary);
-    const semantic = scene.semanticGroups;
-    const group = semantic?.groups?.find(item => item.id === id);
     const expandedGroup = semantic?.groups?.find(item => item.members.includes(id) && semantic.expanded.includes(item.id));
     if (group) {
       const whyGrouped = document.createElement('details');
@@ -177,11 +178,19 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       for (const member of group.members.slice(0, 12)) { const item = document.createElement('li'); item.textContent = member.split('/').at(-1); members.append(item); }
       if (group.members.length > 12) { const item = document.createElement('li'); item.textContent = `+${group.members.length - 12} more`; members.append(item); }
       const memberHeading = document.createElement('h3'); memberHeading.textContent = 'Members'; whyGrouped.append(memberHeading, members); details.append(whyGrouped);
-      if (options.semanticGroupActions !== false) { const expand = document.createElement('button'); expand.type = 'button'; expand.dataset.semanticExpand = group.id; expand.textContent = 'Expand group'; details.append(expand); }
+      if (options.semanticGroupActions !== false) {
+        const expanded = semantic?.expanded?.includes(group.id) || semanticContext?.expanded === true;
+        const action = document.createElement('button'); action.type = 'button';
+        if (expanded) { action.dataset.semanticCollapse = group.id; action.textContent = 'Collapse group'; }
+        else { action.dataset.semanticExpand = group.id; action.textContent = 'Expand group'; }
+        details.append(action);
+      }
     } else if (expandedGroup && options.semanticGroupActions !== false) {
       const collapse = document.createElement('button'); collapse.type = 'button'; collapse.dataset.semanticCollapse = expandedGroup.id; collapse.textContent = `Collapse ${expandedGroup.label}`; details.append(collapse);
     }
-    const explanation = explanations.explainNode(frame?.scene || scene, id);
+    // A retained semantic parent can be shown in the inspector while its
+    // projects are visible, but it is not a node in that expanded scene.
+    const explanation = record ? explanations.explainNode(frame?.scene || scene, id) : null;
     const why = document.createElement("details");
     const whySummary = document.createElement("summary");
     whySummary.textContent = "Why is this here?";
@@ -271,7 +280,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
         : "Latest available metadata for this project.";
       details.append(evidence);
     }
-    if (record.interaction.childScene) {
+    if (record?.interaction?.childScene) {
       const open = document.createElement("button");
       open.type = "button";
       open.textContent = "Explore this node";
@@ -353,6 +362,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       throw new Error(`Unknown or hidden node: ${id}`);
     occurrenceYear = year;
     occurrenceLayer = layerId;
+    semanticContext = null;
     if (extend && selected) endpoint = id;
     else {
       selected = id;
@@ -382,6 +392,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     endpoint = null;
     occurrenceYear = null;
     occurrenceLayer = null;
+    semanticContext = null;
     svg.removeAttribute("data-exploring");
     highlight();
     showDetails(null);
@@ -866,6 +877,14 @@ export function mountInteractive(root, source, options = {}, explanations = cano
   const api = {
     selectNode,
     clearSelection,
+    showSemanticContext(group, { expanded = false } = {}) {
+      if (!group || typeof group.id !== 'string' || typeof group.label !== 'string' || !Array.isArray(group.members)) throw new Error('Invalid semantic context.');
+      semanticContext = { group: structuredClone(group), expanded };
+      showDetails(group.id);
+    },
+    announceSemanticLevel(level) {
+      announce(level === 'projects' ? 'Project detail shown.' : level === 'overview' ? 'Grouped overview shown.' : 'Group detail shown.');
+    },
     fit,
     reset,
     setCamera,

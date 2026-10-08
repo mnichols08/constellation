@@ -57,6 +57,9 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   assert.match(await e(`document.querySelector('#tour-heading').textContent`),/11 of 11/);
   await e(`document.querySelector('#tour-back').click();document.querySelector('#tour-skip').click();document.querySelector('#tour-exit').click()`);
   assert.ok(await e(`[...document.querySelector('#saved-presets').options].some(o=>o.value==='Semantic saved')`));
+  assert.deepEqual(await e(`Array.from(document.querySelector('#semantic-detail').options, option => option.textContent)`), ['Automatic','Groups','Projects']);
+  await e(`{const control=document.querySelector('#semantic-detail');control.value='projects';control.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#copy-config').click();}`);
+  assert.equal(JSON.parse(await e(`document.querySelector('#config-json').value`)).semanticZoom.mode, 'projects');
   assert.equal(await e('apiCalls.length'),calls);
   await e(`document.querySelector('#builtin-preset').value='semantic-profile';document.querySelector('#apply-builtin-preset').click();document.querySelector('#explain-graphic').open=false;document.querySelector('#composition-menu').open=false;window.scrollTo(0,0);`);
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});

@@ -4,15 +4,19 @@ Semantic Groups adds a reversible project-level overview. A group is a view over
 
 ## Levels and exports
 
-The independent levels are `overview`, `groups`, and `projects`. `overview` and `groups` currently use the same grouped projection. They do not depend on camera scale, and v3.12.0 does not automatically change levels while zooming.
+The semantic levels are `overview`, `groups`, and `projects`. `overview` and `groups` currently use the same grouped projection. In v3.12.1, Automatic detail uses camera scale to move through these levels without changing the underlying semantic hierarchy.
 
-Set `semanticZoom` in Config v7 to choose a grouped static render:
+Set `semanticZoom` in Config v7 to choose automatic or fixed detail:
 
 ```json
 {
-  "semanticZoom": { "enabled": true, "level": "groups" }
+  "semanticZoom": { "mode": "auto" }
 }
 ```
+
+`auto` starts in Groups detail, enters Projects above scale 1.8, and returns to Groups below 1.45. It enters the equivalent Overview projection below 0.68 and returns to Groups above 0.82. Scale is the initial viewBox width divided by current camera width. The gaps are hysteresis: small wheel or keyboard zoom changes near a boundary do not flicker between levels. These deterministic policy values are centralized in the browser runtime and are not Studio controls.
+
+`{ "mode": "groups" }` locks grouped detail and `{ "mode": "projects" }` locks project detail; camera movement does not override either. Config v7 remains unchanged. Legacy `{ "enabled": true, "level": "groups" }` and `level: "overview"` normalize to Groups; legacy `enabled: true, level: "projects"` and any `enabled: false` normalize to Projects, matching the prior render behavior. Studio saves the new `mode` form.
 
 Pass `{ semanticLevel: 'groups' }` to `renderSceneSVG` or `renderSceneHTML` for an explicit grouped export. Use `projects` for full project detail. A grouped SVG shows a distinct hexagon, its family/derived type and project count. Its accessible title identifies the compressed members.
 
@@ -49,9 +53,11 @@ The Core computations are deterministic JavaScript domain logic; they need no DO
 
 Scene Evidence v1 accepts group subjects while keeping existing node attachments valid. The projected group has a user fact or bounded derived basis fact. `explainEdge` reports aggregate counts and underlying edge references. Group SVG labels do not rely on color to indicate their type.
 
-The Web Component exposes `semanticLevel`, `expandGroup(id)`, and `collapseGroup(id)`. Group selection provides a keyboard reachable inspector with “Why grouped?”, provenance, basis, member names and an expand/collapse button. The component keeps its canonical source scene while it rebuilds a projection.
+The Web Component exposes `semanticLevel = 'auto' | 'groups' | 'projects'`, `expandGroup(id)`, and `collapseGroup(id)`. Switching to Auto evaluates the current camera immediately. When the canonical scene/data changes, semantic navigation resets to a safe grouped state and cancels pending camera decisions. Auto expansion opens the selected project's containing group first; without a selection, automatic project detail is limited to scenes of at most 256 projects. A selected group expands only when it has at most 128 members. Other groups remain collapsed. While already in Projects detail, selecting another eligible group or one of its projects hands local expansion to that group without changing semantic level. When detail collapses, a selected project maps to its containing group. When a group expands, its inspector context remains available without selecting an arbitrary child. Rebuilding a projection keeps the camera viewBox and logical focus; it never fits all nodes again.
 
-Grouped `renderSceneHTML` is a self-contained offline artifact with inline runtime/WASM and the existing CSP. It supports individual group expand/collapse when the source scene has at most 256 projects, is at most 256 KiB, has at most 32 groups, and the precomputed SVG states fit within a 4 MiB bound. Larger exports keep the selected grouped view and explanations but omit expansion controls to bound artifact growth. Manual wheel zoom does not switch semantic level.
+Camera decisions run after a 140 ms quiet period, rather than rebuilding projections on every wheel event. Each actual transition emits `semantic-level-change` with `previous`, `current`, and `reason` (`camera`, `user`, `group-expand`, or `group-collapse`) when the level changes or a manual group action occurs. The live status announces actual level changes. Existing reduced-motion handling suppresses animation while retaining the same semantic transitions.
+
+Grouped `renderSceneHTML` is a self-contained offline artifact with inline runtime/WASM and the existing CSP. It supports individual group expand/collapse when the source scene has at most 256 projects, is at most 256 KiB, has at most 32 groups, and the precomputed SVG states fit within a 4 MiB bound. Automatic mode also precomputes the project-level artifact within that same bound. Larger exports keep the grouped view and explanations, omit automatic project expansion, announce that the deeper offline artifact is unavailable, and make no network requests. Manual expansion and collapse remain available when their artifacts fit. Camera state and semantic parent context are preserved across replacements.
 
 ## Bounds and compatibility
 
