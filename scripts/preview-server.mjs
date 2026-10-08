@@ -148,6 +148,7 @@ const allowed = new Map([
     "label-editor",
     "engine",
     "graph-explorer",
+    "hierarchy",
     "project-constellation",
     "project-constellation-scene",
     "github-project-structure",
