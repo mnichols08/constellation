@@ -7,7 +7,7 @@ import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 test('component renders isolated config and scene properties with accessible controls', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  const { cdp, evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
   await waitFor(`Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('main')?.constellation)`);
   assert.equal(await evaluate(`document.querySelector('constellation-view').shadowRoot.querySelectorAll('.star').length`), 3);
   assert.equal(await evaluate(`document.querySelectorAll('.star').length`), 0);
@@ -29,6 +29,19 @@ test('component renders isolated config and scene properties with accessible con
   assert.ok(await evaluate(`window.componentEvents.some(event => event.type === 'error')`));
   await evaluate(`window.detached = document.querySelector('#second'); detached.remove(); document.body.append(detached);`);
   await waitFor(`Boolean(document.querySelector('#second').shadowRoot.querySelector('main').constellation)`);
+  await evaluate(`(async()=>{ window.groupedView = document.querySelector('#view'); await groupedView.setConfig({version:7,account:'example',projectFamilies:{'sample-family':{label:'Sample Family',members:['example/compiler','example/runtime','example/studio']}}}); groupedView.semanticLevel='groups'; })()`);
+  await waitFor(`Boolean(groupedView.shadowRoot.querySelector('.star[data-repo="group:user:sample-family"]'))`);
+  await evaluate(`groupedView.selectNode('group:user:sample-family',{focus:false})`);
+  assert.ok(await evaluate(`groupedView.shadowRoot.querySelector('[data-details]').textContent.includes('Why grouped?')`));
+  await evaluate(`groupedView.shadowRoot.querySelector('[data-semantic-expand]').focus()`);
+  await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter" });
+  await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter" });
+  await waitFor(`groupedView.shadowRoot.querySelectorAll('.star').length === 3`);
+  assert.equal(await evaluate(`groupedView.scene.nodes.length`), 3, 'canonical scene remains at project level');
+  await evaluate(`groupedView.selectNode('example/compiler',{focus:false})`);
+  assert.ok(await evaluate(`Boolean(groupedView.shadowRoot.querySelector('[data-semantic-collapse]'))`));
+  await evaluate(`groupedView.shadowRoot.querySelector('[data-semantic-collapse]').click()`);
+  await waitFor(`Boolean(groupedView.shadowRoot.querySelector('.star[data-repo="group:user:sample-family"]'))`);
   await evaluate(`window.lazyView = document.createElement('constellation-view'); lazyView.setAttribute('loading','lazy'); lazyView.style.display='none'; lazyView.scene=document.querySelector('#view').scene; document.body.append(lazyView);`);
   assert.equal(await evaluate(`lazyView.shadowRoot.querySelector('main')`), null);
   await evaluate(`lazyView.style.display='block'; lazyView.scrollIntoView()`);

@@ -50,6 +50,7 @@ const guides = [
   "readme-showcase",
   "developer-topology",
   "evidence-provenance",
+  "semantic-groups",
   "semantic-studio",
   "github-data-cache",
 ].map((name) => name + ".md");

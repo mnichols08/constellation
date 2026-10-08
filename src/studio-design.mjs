@@ -30,7 +30,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   const organizationControls = mountOrganizationControls(host, changed);
   let storage; try { storage = window.localStorage; } catch {}
   const store = createConfigStore(storage);
-  let current, svg = '', saveTimer, pending, presetAudience;
+  let current, svg = '', saveTimer, pending, presetAudience, projectFamilies = {};
   const controls = new Map();
   let syncSky = () => {};
   const section = title => {
@@ -38,6 +38,51 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
     const summary = document.createElement('summary'); summary.textContent = title;
     const body = document.createElement('div'); body.className = 'control-section-body'; details.append(summary, body); host.append(details); return body;
   };
+  const familySection = document.createElement('details'); familySection.id = 'project-families'; familySection.className = 'control-section';
+  const familyTitle = document.createElement('summary'); familyTitle.textContent = 'Project families';
+  const familyBody = document.createElement('div'); familyBody.className = 'control-section-body'; familySection.append(familyTitle, familyBody); host.append(familySection);
+  const detailLabel = document.createElement('label'); detailLabel.htmlFor = 'semantic-detail'; detailLabel.textContent = 'Semantic detail';
+  const detailSelect = document.createElement('select'); detailSelect.id = detailLabel.htmlFor;
+  for (const [value, label] of [['groups', 'Groups'], ['projects', 'Projects']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; detailSelect.append(option); }
+  detailSelect.addEventListener('change', changed);
+  familyBody.append(detailLabel, detailSelect);
+  const familyList = document.createElement('div'); familyList.setAttribute('aria-label', 'Saved project families');
+  const familyLabel = document.createElement('label'); familyLabel.htmlFor = 'project-family-label'; familyLabel.textContent = 'Family name';
+  const familyName = document.createElement('input'); familyName.id = familyLabel.htmlFor; familyName.maxLength = 120;
+  const familyIdLabel = document.createElement('label'); familyIdLabel.htmlFor = 'project-family-id'; familyIdLabel.textContent = 'Stable family ID';
+  const familyId = document.createElement('input'); familyId.id = familyIdLabel.htmlFor; familyId.maxLength = 80; familyId.pattern = '[A-Za-z0-9][A-Za-z0-9._-]{0,79}';
+  const familyMembersLabel = document.createElement('label'); familyMembersLabel.htmlFor = 'project-family-members'; familyMembersLabel.textContent = 'Projects (select two or more)';
+  const familyMembers = document.createElement('select'); familyMembers.id = familyMembersLabel.htmlFor; familyMembers.multiple = true; familyMembers.size = 6;
+  const familyHelp = document.createElement('p'); familyHelp.className = 'export-note'; familyHelp.textContent = 'Families are saved in this config. They do not change repository data.';
+  const familySave = document.createElement('button'); familySave.type = 'button'; familySave.className = 'secondary'; familySave.textContent = 'Save project family';
+  familyBody.append(familyList, familyLabel, familyName, familyIdLabel, familyId, familyMembersLabel, familyMembers, familySave, familyHelp);
+  const renderFamilyList = () => {
+    familyList.replaceChildren();
+    for (const [id, family] of Object.entries(projectFamilies).sort(([a], [b]) => a.localeCompare(b))) {
+      const row = document.createElement('div'); row.className = 'project-family-row';
+      const label = document.createElement('span'); label.textContent = `${family.label} · ${family.members.length} projects`;
+      const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = `Edit ${family.label}`; edit.className = 'secondary';
+      edit.addEventListener('click', () => { familyId.value = id; familyName.value = family.label; for (const option of familyMembers.options) option.selected = family.members.includes(option.value); familyName.focus(); });
+      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = `Remove ${family.label}`; remove.className = 'secondary';
+      remove.addEventListener('click', () => { delete projectFamilies[id]; renderFamilyList(); changed(); });
+      row.append(label, edit, remove); familyList.append(row);
+    }
+  };
+  const syncFamilyEditor = options => {
+    projectFamilies = structuredClone(options.projectFamilies || {});
+    const candidates = new Map((repositoryPool() || []).map(repo => [repo.full_name, repo.name || repo.full_name]));
+    for (const family of Object.values(projectFamilies)) for (const id of family.members) if (!candidates.has(id)) candidates.set(id, id);
+    familyMembers.replaceChildren(...[...candidates].sort(([a], [b]) => a.localeCompare(b)).map(([id, name]) => { const option = document.createElement('option'); option.value = id; option.textContent = `${name} · ${id}`; return option; }));
+    renderFamilyList();
+  };
+  familySave.addEventListener('click', () => {
+    const label = familyName.value.trim(), id = familyId.value.trim() || label.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^[^a-z0-9]+/, '').slice(0, 80);
+    const members = [...familyMembers.selectedOptions].map(option => option.value).sort();
+    if (!label || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(id) || members.length < 2) { message('Enter a family name and select at least two projects.', true); return; }
+    const duplicate = Object.entries(projectFamilies).find(([otherId, value]) => otherId !== id && value.members.some(member => members.includes(member)));
+    if (duplicate) { message(`A project already belongs to ${duplicate[1].label}.`, true); return; }
+    projectFamilies[id] = { label, members }; renderFamilyList(); familyId.value = id; message(`${label} saved as a project family.`); changed();
+  });
   const button = (parent, id, label, callback) => {
     const element = document.createElement('button'); element.type = 'button'; element.id = id; element.textContent = label; element.className = 'secondary';
     element.addEventListener('click', async () => { try { await callback(); } catch (error) { message(error.message, true); } }); parent.append(element); return element;
@@ -354,6 +399,8 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   };
   window.addEventListener('pagehide', flush);
   function restore(options) {
+    syncFamilyEditor(options);
+    detailSelect.value = ['groups', 'projects'].includes(options.semanticZoom?.level) ? options.semanticZoom.level : 'projects';
     layerControls.restore(options);
     organizationControls.restore(options);
     historyControls.restore(options);
@@ -381,9 +428,10 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
       const projectShowcase = { ...(current?.options.projectShowcase || {}) };
       for (const [id, entry] of roleEntries()) entry ? projectShowcase[id] = entry : delete projectShowcase[id];
-      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), projectRelationships: relationships.value.split(/\r?\n/).filter(line => line.trim()).map(line => line.split(/\s*(?:↔|<->|,)\s*/).map(id => id.trim())), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), semanticZoom: { enabled: detailSelect.value === 'groups', level: detailSelect.value }, ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), ...(Object.keys(projectFamilies).length ? { projectFamilies: structuredClone(projectFamilies) } : {}), projectRelationships: relationships.value.split(/\r?\n/).filter(line => line.trim()).map(line => line.split(/\s*(?:↔|<->|,)\s*/).map(id => id.trim())), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
+      if (JSON.stringify(options.projectFamilies || {}) !== JSON.stringify(projectFamilies)) syncFamilyEditor(options);
       if (current && current.account !== account) { undoConfig = null; undo.disabled = true; tour.close(); }
       repositoryPicker.update(account, repositoryPool(), options, selectedRepositories(options));
       const audience = options.accountData?.type === 'Organization' || options.accountType === 'organization' ? 'organization' : 'any';

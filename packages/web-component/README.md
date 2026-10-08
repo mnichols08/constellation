@@ -26,6 +26,8 @@ The enclosing page should provide a descriptive heading and size the host with o
 
 After `scene-ready`, call `selectNode(id, { focus, extend })`, `clearSelection()`, `fit()`, `reset()`, `setFilter({ query, language })`, or `setTheme(name)`. The `selection` getter returns an isolated `{ start, end, path }` value. Unknown/hidden node IDs throw; camera methods called before readiness throw a descriptive error.
 
+For Semantic Groups, set `view.semanticLevel = 'groups'` or `'projects'`, then call `view.expandGroup(id)` and `view.collapseGroup(id)`. Groups can be selected and explained in the component inspector. The canonical scene remains available from `view.scene` while a group projection is displayed. See [Semantic Groups](semantic-groups.md).
+
 `await setConfig(config)` returns whether a connected view was rendered successfully. `loadScene(sceneOrJSON)` validates and renders synchronously, returning the same boolean. Assigning data while disconnected stages it for connection. These update methods report errors through the event rather than an unhandled promise rejection.
 
 Listen on the element for `scene-ready` (first render per connection), `scene-change` (subsequent renders), `node-select`, `node-hover`, and `error`. Events bubble and cross the Shadow DOM boundary. Scene events include an isolated scene in `detail.scene`; selection includes `id`, node metadata, start/end and path; hover includes `id`; errors include `message`. Handlers may immediately use the imperative API. Programmatic selection uses the same event path as keyboard and pointer interaction.

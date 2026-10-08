@@ -49,6 +49,7 @@ test(
       "evidence-provenance.md",
       "index.mjs",
       "package.json",
+      "semantic-groups.md",
       "temporal-stack.md",
     ]);
     assert.ok((await stat(join(directory, "index.mjs"))).size < 24 * 1024);
@@ -68,7 +69,7 @@ test(
       join(root, "index.html"),
       `<!doctype html><html lang="en"><title>Consumer</title>
 <script type="importmap">{"imports":{"@constellation/core":"/node_modules/@constellation/core/src/core-api.mjs","@constellation/core/browser-runtime":"/node_modules/@constellation/core/src/browser-runtime.mjs","@constellation/web-component":"/node_modules/@constellation/web-component/index.mjs"}}</script>
-<constellation-view></constellation-view><script type="module">import '@constellation/web-component'; const view=document.querySelector('constellation-view'); view.records=[{name:'compiler',full_name:'demo/compiler',language:'Rust'}]; view.config={version:6,account:'demo',options:{animate:false}};</script></html>`,
+<constellation-view></constellation-view><script type="module">import '@constellation/web-component'; import {createScene,buildSemanticHierarchy,projectSemanticLevel} from '@constellation/core'; const view=document.querySelector('constellation-view'); const records=['compiler','runtime','studio'].map(name=>({name,full_name:'demo/'+name,language:'Rust'})); const options={projectFamilies:{'consumer-family':{label:'Consumer Family',members:records.map(record=>record.full_name)}}}; const source=createScene('demo',records,options); const hierarchy=buildSemanticHierarchy(source); window.semanticPackageCheck={groupId:hierarchy.groups[0].id,visible:projectSemanticLevel(source,'groups',{hierarchy}).nodes.length}; view.records=records; view.config={version:7,account:'demo',...options,options:{animate:false,...options}};</script></html>`,
     );
     const server = createServer(async (req, res) => {
       try {
@@ -114,6 +115,7 @@ test(
     await waitFor(
       `Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('.star'))`,
     );
+    assert.deepEqual(await evaluate("window.semanticPackageCheck"), { groupId: "group:user:consumer-family", visible: 1 });
     const accessibility = await cdp("Accessibility.getFullAXTree");
     assert.ok(
       accessibility.nodes.some(

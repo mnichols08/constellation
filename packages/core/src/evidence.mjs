@@ -68,8 +68,8 @@ export function validateEvidence(value, nodeIds = null) {
   }
   const subjects = new Set(); let links = 0;
   for (const subject of value.subjects) {
-    if (!exactKeys(subject, ['kind', 'id', 'facts']) || subject.kind !== 'node' || !safeText(subject.id, 4096) || subjects.has(subject.id) || !Array.isArray(subject.facts) || subject.facts.length > 64 || subject.facts.some(id => !factIds.has(id)) || (nodeIds && !nodeIds.has(subject.id))) return false;
-    subjects.add(subject.id); links += subject.facts.length;
+    if (!exactKeys(subject, ['kind', 'id', 'facts']) || !['node', 'group'].includes(subject.kind) || !safeText(subject.id, 4096) || subjects.has(`${subject.kind}:${subject.id}`) || !Array.isArray(subject.facts) || subject.facts.length > 64 || subject.facts.some(id => !factIds.has(id)) || (subject.kind === 'node' && nodeIds && !nodeIds.has(subject.id))) return false;
+    subjects.add(`${subject.kind}:${subject.id}`); links += subject.facts.length;
     if (links > 32768) return false;
   }
   return true;
@@ -85,10 +85,34 @@ export function retainEvidenceSubjects(attachment, nodeIds) {
 export function evidenceForNode(scene, nodeId) {
   const attachment = scene?.evidence;
   if (!attachment || !validateEvidence(attachment)) return [];
-  const subject = attachment.subjects.find(item => item.id === nodeId);
+  const subject = attachment.subjects.find(item => item.id === nodeId && (item.kind === 'node' || item.kind === 'group'));
   if (!subject) return [];
   const facts = new Map(attachment.facts.map(item => [item.id, item]));
-  return subject.facts.map(id => facts.get(id)).filter(Boolean).map(fact => ({ id: `evidence:${encodeURIComponent(nodeId).slice(0, 160)}:${fact.id}`, subject: { kind: 'node', id: nodeId }, claim: { kind: fact.kind, value: fact.value }, provenance: fact.provenance, ...(fact.source ? { source: fact.source } : {}) }));
+  return subject.facts.map(id => facts.get(id)).filter(Boolean).map(fact => ({ id: `evidence:${encodeURIComponent(nodeId).slice(0, 160)}:${fact.id}`, subject: { kind: subject.kind, id: nodeId }, claim: { kind: fact.kind, value: fact.value }, provenance: fact.provenance, ...(fact.source ? { source: fact.source } : {}) }));
+}
+
+export function attachGroupEvidence(attachment, groups) {
+  const value = attachment && validateEvidence(attachment) ? structuredClone(attachment) : { version: EVIDENCE_VERSION, facts: [], subjects: [] };
+  const groupedMembers = new Set(groups.flatMap(group => group.members));
+  value.subjects = value.subjects.filter(subject => subject.kind !== 'node' || !groupedMembers.has(subject.id));
+  const ids = new Set(value.facts.map(fact => fact.id));
+  let sequence = 0;
+  for (const group of groups.slice(0, 256)) {
+    const facts = group.provenance === 'user'
+      ? [{ kind: 'group-provenance', value: 'Defined by you.', provenance: 'user' }]
+      : group.basis.slice(0, 16).map(basis => ({ kind: 'group-basis', value: basis, provenance: 'derived', source: 'constellation' }));
+    if (group.manualPosition) facts.push({ kind: 'manual-position', value: true, provenance: 'user' });
+    const references = [];
+    for (const fact of facts) {
+      if (value.facts.length >= 32768) break;
+      let id;
+      do { id = `fact:${(sequence++).toString(36)}`; } while (ids.has(id));
+      ids.add(id); value.facts.push({ id, ...fact }); references.push(id);
+    }
+    value.subjects = value.subjects.filter(item => !(item.kind === 'group' && item.id === group.id));
+    value.subjects.push({ kind: 'group', id: group.id, facts: references });
+  }
+  return value;
 }
 
 export function createExplanationHelpers(EVIDENCE_VERSION, dimensionName, layoutSummary) {
@@ -127,6 +151,10 @@ const explainEdge = (scene, edgeId) => {
   const edge = scene?.edges?.find(item => item.id === edgeId);
   if (!edge) return null;
   const metadata = edge.metadata || {};
+  if (metadata.aggregated === true && Number.isInteger(metadata.relationshipCount) && Array.isArray(metadata.memberEdges)) {
+    const evidence = [...(metadata.sharedLanguages || []).slice(0, 16).map(value => `language: ${value}`), ...(metadata.sharedTopics || []).slice(0, 16).map(value => `topic: ${value}`)];
+    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, memberEdges: metadata.memberEdges.slice(0, 256), truncated: metadata.memberEdges.length > 256 };
+  }
   const shared = [...(Array.isArray(metadata.sharedLanguages) ? metadata.sharedLanguages.slice(0, 16).map(value => `language: ${value}`) : []), ...(Array.isArray(metadata.sharedTopics) ? metadata.sharedTopics.slice(0, 16).map(value => `topic: ${value}`) : []), ...(Array.isArray(metadata.sharedRepositories) ? metadata.sharedRepositories.slice(0, 16).map(value => `repository: ${value}`) : [])];
   return shared.length ? { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Connection reflects shared project metadata.', evidence: shared } : { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Explanation unavailable for this connection type.', evidence: [] };
 };
