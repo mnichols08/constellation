@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.13.0 — Project Constellations
+
+- Add a bounded, deterministic project-structure model with stable path IDs, package/directory/module/entry-point nodes, evidence-backed containment, workspace and static import relationships, commit provenance, and explicit truncation statistics.
+- Add opt-in bounded GitHub tree acquisition and an adapter to Scene API v1, including a child hierarchy API that reuses existing breadcrumb and Back navigation.
+- Preserve source text outside normalized models and scenes. Keep Core normalization offline and independent of GitHub networking.
+
 ## 3.12.3 — Dense Export Polish
 
 - Add a centralized, deterministic README density policy for static grouped SVG exports, with width-aware label budgets, bounded group/project sizing and bounded aggregate-edge weight.

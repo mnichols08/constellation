@@ -2,7 +2,7 @@ import { selectionCSS } from './selection.mjs';
 import { graphSelection, rustAvailable } from './engine.mjs';
 import { explainNode, explainEdge } from './evidence.mjs';
 
-export function mountGraphExplorer(host, panel, selection, onSelect, { highlight = true, scene } = {}) {
+export function mountGraphExplorer(host, panel, selection, onSelect, { highlight = true, scene, onExploreProject } = {}) {
   const shadow = host.shadowRoot;
   const svg = shadow.querySelector('svg');
   const nodes = [...svg.querySelectorAll('.repository')].filter(node => node.style.display !== 'none');
@@ -92,6 +92,13 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
         }
         panel.append(disclosure);
       }
+    }
+    if (start && metadata.get(start)?.kind === 'repository' && typeof onExploreProject === 'function' && /^[\w.-]{1,100}\/[\w.-]{1,100}$/.test(start)) {
+      const action = document.createElement('div'); action.className = 'project-structure-action';
+      const note = document.createElement('p'); note.textContent = 'Load a bounded repository structure scan only when you choose to explore it.';
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Explore internal structure';
+      button.addEventListener('click', () => onExploreProject({ projectId: start, label: label(start) }));
+      action.append(note, button); panel.append(action);
     }
     if (start && svg.querySelector('[data-temporal-year]')) {
       const years = nodes.filter(node => node.querySelector('.star').dataset.repo === start).map(node => Number(node.dataset.year));

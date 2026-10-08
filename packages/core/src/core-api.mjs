@@ -30,6 +30,8 @@ export { validateThemePack, THEME_API_VERSION } from "./theme-packs.mjs";
 export { migrateConfig, migrateWorkflow } from "./migrate.mjs";
 export { CONFIG_VERSION } from "./config-schema.mjs";
 export { createScene } from "./constellation.mjs";
+export { createProjectConstellation, validateProjectConstellation, explainProjectStructuralNode, explainProjectStructuralEdge, PROJECT_CONSTELLATION_VERSION, PROJECT_STRUCTURE_LIMITS } from "./project-constellation.mjs";
+export { createProjectConstellationScene, createProjectConstellationHierarchy } from "./project-constellation-scene.mjs";
 export {
   createTimeline,
   temporalMetadata,
