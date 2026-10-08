@@ -56,6 +56,9 @@ test('repository-owner grouping has stable identity, truthful evidence, and rema
   const explanation = explainGroup(hierarchy, group.id);
   assert.match(explanation.basis[0], /^repository-owner:/);
   assert.doesNotMatch(explanation.basis.join(' '), /organization/i);
+  const ownerSvg = renderSceneSVG(scene, { semanticLevel: 'groups' });
+  assert.match(ownerSvg, /journey · repository-owner group · 3 projects/);
+  assert.doesNotMatch(ownerSvg, /same organization|organization group/i);
   assert.equal(buildSemanticHierarchy(createScene('journey', repositories.slice(0, 2).concat(filtered.slice(2)), {})).groups[0].id, group.id);
   assert.equal(buildSemanticHierarchy(scene, { projectFamilies: { family: { label: 'Family', members: repositories.slice(0, 3).map(repo => repo.full_name) } } }).groups.length, 1);
 });
@@ -91,7 +94,7 @@ test('aggregate edge references cap at 256 while counts and truncation stay trut
   const repos = [...Array.from({ length: 18 }, (_, i) => ({ full_name: `left/project-${i}`, name: `left-${i}`, language: 'Rust' })), ...Array.from({ length: 18 }, (_, i) => ({ full_name: `right/project-${i}`, name: `right-${i}`, language: 'Rust' }))];
   const families = { left: { label: 'Left', members: repos.slice(0, 18).map(repo => repo.full_name) }, right: { label: 'Right', members: repos.slice(18).map(repo => repo.full_name) } };
   const source = createScene('benchmark', repos, { projectFamilies: families });
-  const cases = [12, 256, 324];
+  const cases = [12, 256, 900];
   for (const total of cases) {
     const edges = Array.from({ length: total }, (_, i) => ({ id: `real-edge:${i}`, from: repos[i % 18].full_name, to: repos[18 + (Math.floor(i / 18) % 18)].full_name, metadata: {}, geometry: { distance: 1 }, style: { primary: false } }));
     const scene = { ...source, edges };

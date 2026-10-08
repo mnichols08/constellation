@@ -35,7 +35,7 @@ Core emits `group:user:open-tooling`. Members absent from a filtered scene are i
 
 ## Derived groups and trust
 
-The v3.12.0 derived rule groups repositories with the same repository owner; an `owner/repo` identifier does not prove that the owner is a GitHub Organization. It requires at least two selected projects, must cover no more than 75% of the scene, and runs only through 256 projects. Derived repository-owner group identity depends on the normalized owner, not the currently visible member set. Its basis is `repository-owner:<owner>`; names, language similarity, topics and contributor overlap do not independently create groups. Scenes above 256 projects use authored families only. Weak metadata similarity stays ungrouped.
+The v3.12.0 derived rule groups repositories with the same repository owner. Repository-owner grouping means repositories share the same owner namespace. It does not assert that the owner is a GitHub Organization. It requires at least two selected projects, must cover no more than 75% of the scene, and runs only through 256 projects. Derived repository-owner group identity is based on normalized owner identity, not the currently visible project membership. Its basis is `repository-owner:<owner>`; names, language similarity, topics and contributor overlap do not independently create groups. Scenes above 256 projects use authored families only. Weak metadata similarity stays ungrouped.
 
 ## Core API
 

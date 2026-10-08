@@ -53,6 +53,7 @@ export function buildSemanticHierarchy(scene, { projectFamilies = scene?.present
     for (const [owner, members] of [...owners].sort(([a], [b]) => a.localeCompare(b))) {
       if (members.length < 2 || members.length > MAX_GROUP_MEMBERS || members.length > scene.nodes.length * .75 || groups.length >= MAX_GROUPS_PER_SCENE) continue;
       const sorted = members.sort();
+      // Group identity belongs to the normalized owner namespace, not the current filtered membership.
       groups.push({ version: 1, id: `group:owner:${stableHash(owner)}`, kind: 'repository-owner', label: owner, provenance: 'derived', basis: [`repository-owner:${owner}`], members: sorted });
     }
   }
