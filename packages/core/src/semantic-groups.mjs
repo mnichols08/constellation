@@ -51,9 +51,9 @@ export function buildSemanticHierarchy(scene, { projectFamilies = scene?.present
       owners.get(owner).push(node.id);
     }
     for (const [owner, members] of [...owners].sort(([a], [b]) => a.localeCompare(b))) {
-      if (members.length < 3 || members.length > MAX_GROUP_MEMBERS || members.length > scene.nodes.length * .75 || groups.length >= MAX_GROUPS_PER_SCENE) continue;
+      if (members.length < 2 || members.length > MAX_GROUP_MEMBERS || members.length > scene.nodes.length * .75 || groups.length >= MAX_GROUPS_PER_SCENE) continue;
       const sorted = members.sort();
-      groups.push({ version: 1, id: `group:organization:${stableHash(JSON.stringify([owner, sorted]))}`, kind: 'organization', label: owner, provenance: 'derived', basis: [`organization:${owner}`], members: sorted });
+      groups.push({ version: 1, id: `group:owner:${stableHash(owner)}`, kind: 'repository-owner', label: owner, provenance: 'derived', basis: [`repository-owner:${owner}`], members: sorted });
     }
   }
   const manualPositions = scene.presentation.options.starPositions || {};

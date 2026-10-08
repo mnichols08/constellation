@@ -153,7 +153,8 @@ const explainEdge = (scene, edgeId) => {
   const metadata = edge.metadata || {};
   if (metadata.aggregated === true && Number.isInteger(metadata.relationshipCount) && Array.isArray(metadata.memberEdges)) {
     const evidence = [...(metadata.sharedLanguages || []).slice(0, 16).map(value => `language: ${value}`), ...(metadata.sharedTopics || []).slice(0, 16).map(value => `topic: ${value}`)];
-    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, memberEdges: metadata.memberEdges.slice(0, 256), truncated: metadata.memberEdges.length > 256 };
+    const memberEdges = metadata.memberEdges.slice(0, 256);
+    return { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: `${metadata.relationshipCount} underlying relationships.`, evidence, memberEdges, relationshipCount: metadata.relationshipCount, retainedEdgeCount: memberEdges.length, truncated: metadata.relationshipCount > memberEdges.length };
   }
   const shared = [...(Array.isArray(metadata.sharedLanguages) ? metadata.sharedLanguages.slice(0, 16).map(value => `language: ${value}`) : []), ...(Array.isArray(metadata.sharedTopics) ? metadata.sharedTopics.slice(0, 16).map(value => `topic: ${value}`) : []), ...(Array.isArray(metadata.sharedRepositories) ? metadata.sharedRepositories.slice(0, 16).map(value => `repository: ${value}`) : [])];
   return shared.length ? { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Connection reflects shared project metadata.', evidence: shared } : { version: EVIDENCE_VERSION, edgeId, provenance: 'derived', summary: 'Explanation unavailable for this connection type.', evidence: [] };

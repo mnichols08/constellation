@@ -102,10 +102,11 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     for (const [id, family] of Object.entries(families)) {
       if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(id) || !object(family) || Object.keys(family).some(key => !["label", "members"].includes(key)) || typeof family.label !== "string" || !family.label.trim() || family.label.length > 120 || !Array.isArray(family.members) || family.members.length < 2 || family.members.length > 2048 || family.members.some(member => typeof member !== "string" || member.length > 4096)) throw new Error(`Invalid project family: ${id}`);
       totalMembers += family.members.length;
-      if (totalMembers > 32768 || new Set(family.members).size !== family.members.length) throw new Error("Project family members must be unique and remain within 32768 total entries.");
+      if (totalMembers > 32768 || new Set(family.members.map(member => member.toLowerCase())).size !== family.members.length) throw new Error("Project family members must be unique and remain within 32768 total entries.");
       for (const member of family.members) {
-        if (familyMemberIds.has(member)) throw new Error(`Project ${member} cannot belong to multiple project families.`);
-        familyMemberIds.add(member);
+        const canonical = member.toLowerCase();
+        if (familyMemberIds.has(canonical)) throw new Error(`Project ${member} cannot belong to multiple project families.`);
+        familyMemberIds.add(canonical);
       }
     }
   }

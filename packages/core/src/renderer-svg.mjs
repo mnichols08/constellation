@@ -515,7 +515,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
           ? ` · Created ${new Date(repo.created_at).getUTCFullYear()}`
           : "";
       const tooltip = repo.nodeKind === 'semantic-group'
-        ? `${repo.name} · ${repo.groupKind === 'project-family' ? 'project family' : 'derived group'} · ${repo.memberCount} projects`
+        ? `${repo.name} · ${repo.groupKind === 'project-family' ? 'project family' : repo.groupKind === 'repository-owner' ? 'repository-owner group' : 'derived group'} · ${repo.memberCount} projects`
         : repo.commit
         ? `${repo.commit.author} · ${repo.commit.date || "Date unknown"} · ${repo.commit.subject} · ${repo.commit.sha}${repo.commit.parents > 1 ? " · merge commit" : ""}`
         : repo.nodeKind && repo.nodeKind !== "repository"

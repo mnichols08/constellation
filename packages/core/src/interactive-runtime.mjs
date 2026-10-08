@@ -172,7 +172,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       const whyGrouped = document.createElement('details');
       const whySummary = document.createElement('summary'); whySummary.textContent = 'Why grouped?'; whyGrouped.append(whySummary);
       const provenance = document.createElement('p'); provenance.textContent = group.provenance === 'user' ? 'Defined by you.' : 'Derived group.'; whyGrouped.append(provenance);
-      if (group.basis.length) { const list = document.createElement('ul'); for (const basis of group.basis) { const item = document.createElement('li'); item.textContent = basis.startsWith('organization:') ? `Same organization: ${basis.slice(13)}` : basis; list.append(item); } whyGrouped.append(list); }
+      if (group.basis.length) { const list = document.createElement('ul'); for (const basis of group.basis) { const item = document.createElement('li'); item.textContent = basis.startsWith('repository-owner:') ? `Same repository owner: ${basis.slice('repository-owner:'.length)}` : basis; list.append(item); } whyGrouped.append(list); }
       const members = document.createElement('ul');
       for (const member of group.members.slice(0, 12)) { const item = document.createElement('li'); item.textContent = member.split('/').at(-1); members.append(item); }
       if (group.members.length > 12) { const item = document.createElement('li'); item.textContent = `+${group.members.length - 12} more`; members.append(item); }

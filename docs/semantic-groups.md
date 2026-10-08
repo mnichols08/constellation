@@ -35,13 +35,13 @@ Core emits `group:user:open-tooling`. Members absent from a filtered scene are i
 
 ## Derived groups and trust
 
-The v3.12.0 derived rule uses explicit repository owner identity as organization membership. It requires at least three selected projects, must cover no more than 75% of the scene, and runs only through 256 projects. A derived ID hashes the lowercase organization and sorted member IDs. Its basis is `organization:<owner>`; names, language similarity, topics and contributor overlap do not independently create groups. Scenes above 256 projects use authored families only. Weak metadata similarity stays ungrouped.
+The v3.12.0 derived rule groups repositories with the same repository owner; an `owner/repo` identifier does not prove that the owner is a GitHub Organization. It requires at least two selected projects, must cover no more than 75% of the scene, and runs only through 256 projects. Derived repository-owner group identity depends on the normalized owner, not the currently visible member set. Its basis is `repository-owner:<owner>`; names, language similarity, topics and contributor overlap do not independently create groups. Scenes above 256 projects use authored families only. Weak metadata similarity stays ungrouped.
 
 ## Core API
 
 `buildSemanticHierarchy(scene, options?)` returns the source scene, stable group records and project IDs. `projectSemanticLevel(scene, level, { hierarchy, expanded })` returns a separate scene projection. `expandGroup(scene, hierarchy, groupId)` and `collapseGroup(...)` return a new projection while retaining original project IDs and geometry. `explainGroup(hierarchy, groupId)` returns provenance, basis and bounded member summaries.
 
-Inter-group edges are created only from real scene edges whose endpoints project to different visible nodes. Aggregate metadata stores up to 256 underlying edge IDs and the complete relationship count. Shared language/topic reasons are included only when every represented edge carries that reason. Internal relationships are not drawn as self-loops.
+Inter-group edges are created only from real scene edges whose endpoints project to different visible nodes. Aggregate edges retain up to 256 source edge IDs while preserving the complete underlying relationship count. Explanations report truncation from the total relationship count versus retained IDs. Shared language/topic reasons are included only when every represented edge carries that reason. Internal relationships are not drawn as self-loops.
 
 The Core computations are deterministic JavaScript domain logic; they need no DOM, network, AI, or Rust computation. Existing WASM remains responsible for graph layout and traversal. Manual project geometry remains on the canonical scene; group positions use the member centroid and expanded members recover their original coordinates. No generated project record is written to source data.
 
@@ -58,7 +58,7 @@ Grouped `renderSceneHTML` is a self-contained offline artifact with inline runti
 - 2,048 source projects per scene (existing Scene API v1 bound).
 - 256 family definitions and 256 total projected groups.
 - 2,048 members per family and 32,768 configured member references in total.
-- Derived organization grouping disabled above 256 projects.
+- Derived repository-owner grouping disabled above 256 projects.
 - 256 edge references per aggregate; full relationship count retained.
 - Config remains v7; Scene API, Evidence and Web Component APIs remain version 1.
 
@@ -70,8 +70,8 @@ No repository file tree, dependency parsing, source nodes, AI grouping, or proje
 
 | Projects | Groups | Hierarchy | Projection | Expand | Collapse | Source JSON | Grouped JSON | Offline HTML |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 45 | 8 | 6.01 ms | 5.95 ms | 1.97 ms | 1.31 ms | 31,997 B | 19,750 B | 1,139,835 B |
-| 256 | 8 | 2.54 ms | 7.09 ms | 9.17 ms | 8.16 ms | 173,491 B | 41,239 B | 1,852,969 B |
-| 2,048 | 1 authored | 15.38 ms | 61.32 ms | 60.93 ms | 48.93 ms | 1,390,886 B | 1,438,516 B | 4,180,633 B |
+| 45 | 8 | 4.30 ms | 4.28 ms | 1.86 ms | 1.16 ms | 31,997 B | 19,284 B | 1,131,945 B |
+| 256 | 8 | 1.56 ms | 4.73 ms | 5.47 ms | 4.32 ms | 173,491 B | 40,789 B | 1,838,356 B |
+| 2,048 | 1 authored | 14.01 ms | 47.13 ms | 54.49 ms | 44.79 ms | 1,390,886 B | 1,438,516 B | 4,180,789 B |
 
 The 2,048 project case deliberately disables derived grouping; the benchmark uses one authored family. Timings are a single local run and are diagnostic, not performance guarantees. At that maximum scene size a single partial family does not reduce serialized size, so grouped export should be chosen when the family meaningfully compresses the visible graph.
