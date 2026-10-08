@@ -3,13 +3,96 @@ import { historyOptions } from './history/settings.mjs';
 import { validateHierarchy } from './hierarchy-model.mjs';
 import { validateStory } from './story-model.mjs';
 import { validateTemporalStack } from './temporal-stack-model.mjs';
-import { validateEvidence } from './evidence.mjs';
+import { safeEvidenceText, validateEvidence } from './evidence.mjs';
 // Stable Scene API v1; independently versioned from package/config releases.
 export const SCENE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const id = value => typeof value === 'string' && value.length > 0 && value.length <= 4096;
 const fail = (path, message) => { throw new Error(`Scene ${path}: ${message}`); };
+const exactKeys = (value, expected) => object(value) && Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
+const safeList = (value, max, maxText = 160) => Array.isArray(value) && value.length <= max && value.every(item => safeEvidenceText(item, maxText));
+const nonNegativeInteger = value => Number.isInteger(value) && value >= 0;
+
+function validGroupExplanation(explanation, group, sourceNodeIds) {
+  const optional = ['limitation', 'position'];
+  if (!object(explanation) || Object.keys(explanation).some(key => !['version', 'groupId', 'provenance', 'summary', 'basis', 'groupingReason', 'memberSummary', 'characteristics', 'members', 'memberCount', 'memberExamplesTruncated', ...optional].includes(key))
+    || explanation.version !== 1 || explanation.groupId !== group.id || explanation.provenance !== group.provenance
+    || !safeEvidenceText(explanation.summary) || !safeList(explanation.basis, 16)
+    || !safeEvidenceText(explanation.memberSummary) || !Array.isArray(explanation.characteristics)
+    || explanation.characteristics.length > 13 || !Array.isArray(explanation.members) || explanation.members.length > 8
+    || explanation.memberCount !== group.members.length || explanation.memberExamplesTruncated !== (explanation.memberCount > explanation.members.length)
+    || explanation.members.length !== Math.min(explanation.memberCount, 8)) return false;
+  if ((group.kind === 'project-family' && group.provenance !== 'user') || (group.kind === 'repository-owner' && group.provenance !== 'derived')) return false;
+  const reason = explanation.groupingReason;
+  const reasonKeys = group.kind === 'repository-owner' && reason?.basis !== undefined
+    ? ['kind', 'summary', 'provenance', 'basis', 'count', 'total', 'evidence']
+    : ['kind', 'summary', 'provenance', 'count', 'total', 'evidence'];
+  if (!exactKeys(reason, reasonKeys) || reason.kind !== group.kind || reason.provenance !== group.provenance
+    || !safeEvidenceText(reason.summary) || reason.summary !== explanation.summary
+    || !nonNegativeInteger(reason.count) || !nonNegativeInteger(reason.total) || reason.count > reason.total
+    || reason.count !== group.members.length || reason.total !== group.members.length || !Array.isArray(reason.evidence) || reason.evidence.length > 1) return false;
+  if (group.kind === 'project-family') {
+    if (reason.summary !== 'Defined by you.' || reason.evidence.length || reason.basis !== undefined) return false;
+  } else {
+    if (reason.summary !== 'Shared repository owner' || JSON.stringify(explanation.basis) !== JSON.stringify(group.basis.filter(value => safeEvidenceText(value)))) return false;
+    if (reason.basis !== undefined && JSON.stringify(reason.basis) !== JSON.stringify(explanation.basis)) return false;
+    const ownerSafe = safeEvidenceText(group.label);
+    if (ownerSafe !== (reason.evidence.length === 1)) return false;
+    if (ownerSafe) {
+      const item = reason.evidence[0];
+      if (!exactKeys(item, ['kind', 'value', 'count', 'total']) || item.kind !== 'repository-owner' || item.value !== group.label || item.count !== group.members.length || item.total !== group.members.length) return false;
+    }
+    if (!safeEvidenceText(explanation.limitation) || explanation.limitation !== 'This grouping describes repository ownership. It does not imply that the projects have the same purpose.') return false;
+  }
+  if (explanation.limitation !== undefined && group.kind !== 'repository-owner') return false;
+  if (explanation.position !== undefined && (!exactKeys(explanation.position, ['provenance', 'summary']) || explanation.position.provenance !== 'user' || !safeEvidenceText(explanation.position.summary))) return false;
+  const memberIds = new Set();
+  for (const member of explanation.members) {
+    if (!exactKeys(member, ['id', 'name']) || !id(member.id) || !group.members.includes(member.id) || !sourceNodeIds.has(member.id) || memberIds.has(member.id) || !safeEvidenceText(member.name)) return false;
+    memberIds.add(member.id);
+  }
+  const characteristics = new Set(); let languages = 0, topics = 0, previous = null;
+  for (const item of explanation.characteristics) {
+    if (!exactKeys(item, ['kind', 'value', 'count', 'total', 'provenance']) || !['language', 'topic'].includes(item.kind) || !safeEvidenceText(item.value)
+      || !nonNegativeInteger(item.count) || !Number.isInteger(item.total) || item.total < 1 || item.count > item.total || item.total !== group.members.length || item.provenance !== 'derived') return false;
+    if (item.kind === 'language') languages++; else topics++;
+    const normalized = item.value.toLocaleLowerCase('en-US'), key = `${item.kind}:${normalized}`;
+    if (characteristics.has(key)) return false;
+    characteristics.add(key);
+    if (previous && (previous.count < item.count || previous.count === item.count && (previous.kind > item.kind || previous.kind === item.kind && previous.normalized > normalized))) return false;
+    previous = { count: item.count, kind: item.kind, normalized };
+  }
+  return languages <= 5 && topics <= 8;
+}
+
+function validAggregateEvidence(edge) {
+  const metadata = edge.metadata;
+  if (!object(metadata) || !Number.isInteger(metadata.relationshipCount) || metadata.relationshipCount < 1
+    || !Array.isArray(metadata.memberEdges) || metadata.memberEdges.length > 256 || metadata.memberEdges.length > metadata.relationshipCount
+    || metadata.memberEdges.some(value => !id(value)) || new Set(metadata.memberEdges).size !== metadata.memberEdges.length) return false;
+  const hasEvidence = Object.hasOwn(metadata, 'relationshipEvidence'), hasExamples = Object.hasOwn(metadata, 'examples');
+  if (!hasEvidence && !hasExamples) return true;
+  if (!hasEvidence || !hasExamples || !Array.isArray(metadata.relationshipEvidence) || metadata.relationshipEvidence.length > 13
+    || !Array.isArray(metadata.examples) || metadata.examples.length > 5 || metadata.examples.length > metadata.relationshipCount) return false;
+  let languages = 0, topics = 0; const seen = new Set();
+  for (const item of metadata.relationshipEvidence) {
+    if (!exactKeys(item, ['kind', 'value', 'normalized', 'count', 'total']) || !['language', 'topic'].includes(item.kind)
+      || !safeEvidenceText(item.value) || !safeEvidenceText(item.normalized) || item.normalized !== item.value.toLocaleLowerCase('en-US')
+      || !nonNegativeInteger(item.count) || item.count < 1 || item.count > item.total || item.total !== metadata.relationshipCount) return false;
+    if (item.kind === 'language') languages++; else topics++;
+    const key = `${item.kind}:${item.normalized}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+  }
+  if (languages > 5 || topics > 8) return false;
+  const examples = new Set();
+  for (const item of metadata.examples) {
+    if (!exactKeys(item, ['edgeId', 'from', 'to']) || !id(item.edgeId) || !id(item.from) || !id(item.to) || item.from === item.to || examples.has(item.edgeId)) return false;
+    examples.add(item.edgeId);
+  }
+  return true;
+}
 
 function inspect(value, path, seen, depth = 0) {
   if (depth > 32) fail(path, 'nesting exceeds 32 levels');
@@ -91,9 +174,10 @@ function record(scene, path = '$') {
   if (scene.semanticGroups !== undefined) {
     const semantic = scene.semanticGroups;
     if (!object(semantic) || semantic.version !== 1 || !['overview', 'groups', 'projects'].includes(semantic.level) || !Array.isArray(semantic.groups) || semantic.groups.length > 256 || !Array.isArray(semantic.sourceNodeIds) || semantic.sourceNodeIds.length > 2048 || semantic.sourceNodeIds.some(value => !id(value)) || new Set(semantic.sourceNodeIds).size !== semantic.sourceNodeIds.length || !Array.isArray(semantic.expanded) || semantic.expanded.length > 256 || new Set(semantic.expanded).size !== semantic.expanded.length) fail(`${path}.semanticGroups`, 'invalid hierarchy projection');
-    const groupIds = new Set(); let members = 0;
+    const groupIds = new Set(), sourceNodeIds = new Set(semantic.sourceNodeIds); let members = 0;
     for (const group of semantic.groups) {
-      if (!object(group) || group.version !== 1 || !id(group.id) || groupIds.has(group.id) || !['project-family', 'repository-owner'].includes(group.kind) || !['user', 'derived'].includes(group.provenance) || (group.kind === 'project-family') !== (group.provenance === 'user') || !id(group.label) || !Array.isArray(group.members) || group.members.length < 2 || group.members.length > 2048 || new Set(group.members).size !== group.members.length || !Array.isArray(group.basis) || group.basis.length > 16 || group.basis.some(value => typeof value !== 'string' || value.length > 160) || group.members.some(value => !semantic.sourceNodeIds.includes(value))) fail(`${path}.semanticGroups`, 'invalid group');
+      if (!object(group) || group.version !== 1 || !id(group.id) || groupIds.has(group.id) || !['project-family', 'repository-owner'].includes(group.kind) || !['user', 'derived'].includes(group.provenance) || (group.kind === 'project-family') !== (group.provenance === 'user') || !id(group.label) || !Array.isArray(group.members) || group.members.length < 2 || group.members.length > 2048 || new Set(group.members).size !== group.members.length || !Array.isArray(group.basis) || group.basis.length > 16 || group.basis.some(value => typeof value !== 'string' || value.length > 160) || group.members.some(value => !sourceNodeIds.has(value))) fail(`${path}.semanticGroups`, 'invalid group');
+      if (Object.hasOwn(group, 'explanation') && !validGroupExplanation(group.explanation, group, sourceNodeIds)) fail(`${path}.semanticGroups.${group.id}.explanation`, 'invalid group explanation');
       members += group.members.length; groupIds.add(group.id);
     }
     if (members > 32768 || semantic.expanded.some(value => !groupIds.has(value))) fail(`${path}.semanticGroups`, 'hierarchy exceeds bounds or has unknown expanded groups');
@@ -102,6 +186,7 @@ function record(scene, path = '$') {
     if (!id(edge?.id) || edges.has(edge.id) || !nodes.has(edge.from) || !nodes.has(edge.to) || edge.from === edge.to) fail(`${path}.edges`, 'invalid ID or endpoints');
     edges.add(edge.id);
     if (!object(edge.geometry) || !finite(edge.geometry.distance) || edge.geometry.distance < 0 || typeof edge.style?.primary !== 'boolean') fail(`${path}.edges.${edge.id}`, 'invalid geometry or style');
+    if (edge.metadata?.aggregated === true && !validAggregateEvidence(edge)) fail(`${path}.edges.${edge.id}.metadata`, 'invalid aggregate evidence');
   }
   const labels = new Set();
   for (const label of scene.labels) {

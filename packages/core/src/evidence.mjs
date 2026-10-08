@@ -2,9 +2,8 @@
 // are interned once and referenced by subjects to avoid repeating metadata.
 export const EVIDENCE_VERSION = 1;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
-const text = (value, max = 160) => typeof value === 'string' && value.length > 0 && value.length <= max;
-const secretLike = value => /(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|bearer\s+\S{16,})/i.test(value);
-const safeText = (value, max) => text(value, max) && !secretLike(value);
+export const safeEvidenceText = (value, max = 160) => typeof value === 'string' && value.length > 0 && value.length <= max && !/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|bearer\s+\S{16,})/i.test(value);
+const safeText = safeEvidenceText;
 const exactKeys = (value, expected) => object(value) && Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
 export const dimensionName = value => ({ interface: 'Interface', services: 'Services', data: 'Data', systems: 'Systems', tooling: 'Tooling', automation: 'Automation' })[value] || value;
 
@@ -19,7 +18,7 @@ export function createSceneEvidence(nodes, profile, options = {}) {
   const facts = [], subjects = [], factIds = new Map();
   const add = (subjectId, kind, value, provenance, source) => {
     const safe = safeValue(value);
-    if (safe === null || !safeText(subjectId, 4096)) return;
+    if (safe === null || !safeText(subjectId, 4096) || !safeText(kind, 80) || (source !== undefined && !safeText(source, 80))) return;
     const key = JSON.stringify([kind, safe, provenance, source]);
     let factId = factIds.get(key);
     if (!factId) {

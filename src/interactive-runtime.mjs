@@ -181,9 +181,15 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       if (groupExplanation?.limitation) { const limitation = document.createElement('p'); limitation.textContent = groupExplanation.limitation; whyGrouped.append(limitation); }
       if (groupExplanation?.characteristics?.length) {
         const characteristicsHeading = document.createElement('h3'); characteristicsHeading.textContent = 'Common characteristics';
-        const characteristics = document.createElement('ul');
-        for (const entry of groupExplanation.characteristics) { const item = document.createElement('li'); item.textContent = `${entry.value} — ${entry.count} / ${entry.total}`; characteristics.append(item); }
-        whyGrouped.append(characteristicsHeading, characteristics);
+        whyGrouped.append(characteristicsHeading);
+        for (const [kind, label] of [['language', 'Languages'], ['topic', 'Topics']]) {
+          const entries = groupExplanation.characteristics.filter(entry => entry.kind === kind);
+          if (!entries.length) continue;
+          const kindHeading = document.createElement('h4'); kindHeading.textContent = label;
+          const list = document.createElement('ul');
+          for (const entry of entries) { const item = document.createElement('li'); item.textContent = `${entry.value} — ${entry.count} / ${entry.total}`; list.append(item); }
+          whyGrouped.append(kindHeading, list);
+        }
       }
       const members = document.createElement('ul');
       for (const member of (groupExplanation?.members || group.members.slice(0, 8).map(id => ({ id })))) { const item = document.createElement('li'); item.textContent = member.name || member.id.split('/').at(-1); members.append(item); }

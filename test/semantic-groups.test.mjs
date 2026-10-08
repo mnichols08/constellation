@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGroup, explainGroup, createScene, explainEdge, parseConfig, serializeConfig } from '../src/core-api.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
 import { renderSceneHTML } from '../src/renderer-html.mjs';
-import { validateScene, serializeScene } from '../src/scene.mjs';
+import { validateScene, serializeScene, parseScene } from '../src/scene.mjs';
 import { createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_POLICY } from '../src/semantic-zoom.mjs';
 
 test('semantic zoom uses hysteresis, stable thresholds and bounded explicit modes', () => {
@@ -68,7 +68,18 @@ test('project families are stable, persisted in config and explain user provenan
   assert.ok(explanation.characteristics.every(item => item.provenance === 'derived' && item.total === 3));
   assert.ok(explanation.characteristics.some(item => item.kind === 'language' && item.value === 'Rust' && item.count === 3));
   assert.ok(explanation.characteristics.some(item => item.kind === 'topic' && item.value === 'tools' && item.count === 3));
-  assert.equal(projectSemanticLevel(scene, 'groups', { hierarchy }).semanticGroups.groups[0].explanation.groupingReason.provenance, 'user');
+  const grouped = projectSemanticLevel(scene, 'groups', { hierarchy });
+  assert.equal(grouped.semanticGroups.groups[0].explanation.groupingReason.provenance, 'user');
+  assert.equal(parseScene(serializeScene(grouped)).semanticGroups.groups[0].explanation.memberCount, 3);
+  const forgedCount = structuredClone(grouped); forgedCount.semanticGroups.groups[0].explanation.groupingReason.count = 999; forgedCount.semanticGroups.groups[0].explanation.groupingReason.total = 1;
+  assert.equal(validateScene(forgedCount).valid, false);
+  assert.throws(() => parseScene(JSON.stringify(forgedCount)), /explanation/);
+  const forgedProvenance = structuredClone(grouped); forgedProvenance.semanticGroups.groups[0].explanation.groupingReason.provenance = 'source';
+  assert.equal(validateScene(forgedProvenance).valid, false);
+  const forgedMember = structuredClone(grouped); forgedMember.semanticGroups.groups[0].explanation.members[0].id = 'not-a-member';
+  assert.equal(validateScene(forgedMember).valid, false);
+  const forgedCharacteristics = structuredClone(grouped); forgedCharacteristics.semanticGroups.groups[0].explanation.characteristics.push(...Array.from({ length: 14 }, (_, i) => ({ kind: 'topic', value: `forged-${i}`, count: 1, total: 3, provenance: 'derived' })));
+  assert.equal(validateScene(forgedCharacteristics).valid, false);
 });
 
 test('repository-owner grouping has stable identity, truthful evidence, and remains conservative', () => {
@@ -93,6 +104,10 @@ test('repository-owner grouping has stable identity, truthful evidence, and rema
   assert.deepEqual(explanation.groupingReason.evidence[0], { kind: 'repository-owner', value: 'journey', count: 3, total: 3 });
   assert.match(explanation.limitation, /does not imply that the projects have the same purpose/);
   assert.equal(explanation.memberSummary, 'All 3 visible projects share the repository owner: journey.');
+  const ownerProjection = projectSemanticLevel(scene, 'groups', { hierarchy });
+  const forgedOwner = structuredClone(ownerProjection);
+  forgedOwner.semanticGroups.groups[0].explanation.groupingReason.provenance = 'user';
+  assert.equal(validateScene(forgedOwner).valid, false);
   const ownerSvg = renderSceneSVG(scene, { semanticLevel: 'groups' });
   assert.match(ownerSvg, /journey · grouped by shared repository owner · 3 projects/);
   assert.match(ownerSvg, /journey, 3 projects, grouped by shared repository owner/);
@@ -151,6 +166,19 @@ test('aggregate edge references cap at 256 while counts and truncation stay trut
     assert.deepEqual(explanation.universal.map(item => [item.kind, item.count, item.total]), [['language', total, total]]);
     assert.deepEqual(explanation.partial.map(item => [item.kind, item.value, item.count, item.total]), [['topic', 'webassembly', Math.floor(total / 2), total]]);
     assert.equal(validateScene(grouped).valid, true);
+    if (total === 900) {
+      assert.equal(parseScene(serializeScene(grouped)).edges[0].metadata.relationshipCount, 900);
+      const mutate = fn => { const invalid = structuredClone(grouped); fn(invalid.edges.find(item => item.metadata.aggregated).metadata); return invalid; };
+      const badCount = mutate(metadata => { metadata.relationshipEvidence[0].count = metadata.relationshipCount + 1; });
+      const badRelationshipCount = mutate(metadata => { metadata.relationshipCount = -1; });
+      const badMemberRefs = mutate(metadata => { metadata.memberEdges = Array.from({ length: 257 }, (_, i) => `forged:${i}`); });
+      const badBound = mutate(metadata => { metadata.relationshipEvidence = Array.from({ length: 14 }, (_, i) => ({ kind: 'language', value: `Language ${i}`, normalized: `language ${i}`, count: 1, total: metadata.relationshipCount })); });
+      const badExamples = mutate(metadata => { metadata.examples.push({ edgeId: 'extra-edge', from: 'left/project', to: 'right/project' }); });
+      const badKind = mutate(metadata => { metadata.relationshipEvidence[0].kind = 'contributor'; });
+      const badSecret = mutate(metadata => { metadata.relationshipEvidence[0].value = `ghp_${'A'.repeat(24)}`; metadata.relationshipEvidence[0].normalized = metadata.relationshipEvidence[0].value.toLowerCase(); });
+      const badLong = mutate(metadata => { metadata.relationshipEvidence[0].value = 'x'.repeat(161); metadata.relationshipEvidence[0].normalized = metadata.relationshipEvidence[0].value.toLowerCase(); });
+      for (const invalid of [badCount, badRelationshipCount, badMemberRefs, badBound, badExamples, badKind, badSecret, badLong]) assert.equal(validateScene(invalid).valid, false);
+    }
   }
 });
 
@@ -164,13 +192,40 @@ test('group characteristics are unique per project, exact, sorted, bounded and i
   assert.deepEqual(a, b);
   assert.equal(a.characteristics.filter(item => item.kind === 'language').length, 2);
   assert.equal(a.characteristics.filter(item => item.kind === 'topic').length, 8);
-  assert.equal(a.characteristics.find(item => item.value === 'Rust' && item.kind === 'language').count, 9);
+  assert.equal(a.characteristics.find(item => item.value.toLowerCase() === 'rust' && item.kind === 'language').count, 9);
   assert.equal(a.characteristics.find(item => item.value === 'topic-0').count, 9);
   assert.ok(a.characteristics.every(item => item.total === a.memberCount));
   assert.deepEqual(a.characteristics.filter(item => item.kind === 'language').map(item => item.count), [9, 1]);
+  const order = [...a.characteristics].sort((left, right) => right.count - left.count || left.kind.localeCompare(right.kind) || left.value.toLocaleLowerCase('en-US').localeCompare(right.value.toLocaleLowerCase('en-US')));
+  assert.deepEqual(a.characteristics, order);
   assert.equal(a.memberCount, 9);
   assert.equal(a.members.length, 8);
   assert.equal(a.memberExamplesTruncated, true);
+});
+
+test('unsafe and oversized language/topic values are excluded from group and aggregate evidence', () => {
+  const source = createScene('journey', repositories, {});
+  const unsafe = structuredClone(source);
+  const gh = `ghp_${'A'.repeat(24)}`, pat = `github_pat_${'B'.repeat(24)}`, bearer = `Bearer ${'C'.repeat(20)}`, long = 'L'.repeat(161);
+  unsafe.nodes[0].metadata.language = gh;
+  unsafe.nodes[0].metadata.languages = { [pat]: 12, Rust: 10, [long]: 4 };
+  unsafe.nodes[0].metadata.topics = [bearer, long, 'safe-topic'];
+  const ids = unsafe.nodes.map(item => item.id);
+  unsafe.edges = [{ id: 'privacy-edge', from: ids[0], to: ids[2], metadata: { sharedLanguages: [gh, 'Rust'], sharedTopics: [bearer, long, 'safe-topic'] }, geometry: { distance: 1 }, style: { primary: false } }];
+  const options = { projectFamilies: { first: { label: 'First', members: ids.slice(0, 2) }, second: { label: 'Second', members: ids.slice(2) } } };
+  const hierarchy = buildSemanticHierarchy(unsafe, options);
+  const grouped = projectSemanticLevel(unsafe, 'groups', { hierarchy });
+  const groupEvidence = grouped.semanticGroups.groups.map(item => item.explanation);
+  const aggregate = grouped.edges.find(item => item.metadata.aggregated);
+  const evidenceText = JSON.stringify({ groupEvidence, relationshipEvidence: aggregate.metadata.relationshipEvidence, evidence: grouped.evidence });
+  for (const value of [gh, pat, bearer, long]) assert.equal(evidenceText.includes(value), false);
+  const projectedJson = serializeScene(grouped);
+  for (const value of [gh, pat, bearer, long]) assert.equal(projectedJson.includes(value), false);
+  assert.ok(groupEvidence.some(item => item.characteristics.some(value => value.value === 'Rust')));
+  assert.ok(groupEvidence.some(item => item.characteristics.some(value => value.value === 'safe-topic')));
+  assert.deepEqual(aggregate.metadata.relationshipEvidence.map(item => item.value), ['Rust', 'safe-topic']);
+  const html = renderSceneHTML(unsafe, { semanticLevel: 'groups' });
+  for (const value of [gh, pat, bearer, long]) assert.equal(html.includes(value), false);
 });
 
 test('aggregate relationship evidence separates universal from partial exact coverage', () => {
