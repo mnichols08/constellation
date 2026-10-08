@@ -66,28 +66,31 @@ export async function fetchGitHubProjectConstellation({ projectId, ref = null, f
   if (!Array.isArray(tree.tree) || tree.tree.length > MAX_TREE_ITEMS) throw new Error('GitHub repository tree exceeded the acquisition item limit.');
   if (tree.truncated) throw new Error('GitHub truncated the repository tree; project structure cannot be represented as complete.');
   const items = tree.tree.filter(item => (item.type === 'blob' || item.type === 'tree') && safeRepoPath(item.path));
-  const fileLimit=Number.isSafeInteger(limits?.files)&&limits.files>0?Math.min(limits.files,PROJECT_STRUCTURE_LIMITS.files):PROJECT_STRUCTURE_LIMITS.files;
   const byteLimit=Number.isSafeInteger(limits?.bytes)&&limits.bytes>0?Math.min(limits.bytes,PROJECT_STRUCTURE_LIMITS.bytes):PROJECT_STRUCTURE_LIMITS.bytes;
   const manifestLimit=Number.isSafeInteger(limits?.manifests)&&limits.manifests>0?Math.min(limits.manifests,authenticated?24:8):authenticated?24:8;
-  const treeFiles = items.filter(item => item.type === 'blob').map(item => item.path).sort().slice(0, fileLimit);
-  const manifestPaths = treeFiles.filter(path => /(^|\/)(package\.json|Cargo\.toml|pyproject\.toml|go\.mod)$/.test(path)).slice(0, manifestLimit);
+  const availableFiles = items.filter(item => item.type === 'blob').sort((a, b) => a.path.localeCompare(b.path));
+  const availablePaths = new Set(availableFiles.map(item => item.path));
+  const manifestPaths = availableFiles.filter(item => /(^|\/)(package\.json|Cargo\.toml|pyproject\.toml|go\.mod)$/.test(item.path)).slice(0, manifestLimit);
   const contents = {};
   let totalBytes = 0, manifestCount = 0;
-  const fetchContent = async (path, manifest) => {
+  const fetchContent = async (path, manifest, knownSize = null) => {
     signal?.throwIfAborted();
+    const contentLimit = manifest ? PROJECT_STRUCTURE_LIMITS.manifestBytes : PROJECT_STRUCTURE_LIMITS.sourceFileBytes;
+    if (totalBytes >= byteLimit || Number.isSafeInteger(knownSize) && (knownSize > contentLimit || knownSize > byteLimit - totalBytes)) return;
     const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(commitSha)}`);
-    const item = await readBoundedJSON(response, manifest ? PROJECT_STRUCTURE_LIMITS.manifestBytes * 2 : 128 * 1024);
+    const responseLimit = Math.min(Math.ceil(contentLimit * 4 / 3) + 4096, Math.ceil((byteLimit - totalBytes) * 4 / 3) + 4096);
+    const item = await readBoundedJSON(response, responseLimit);
     if (item.encoding !== 'base64' || typeof item.content !== 'string') return;
     const decoded = atob(item.content.replace(/\s/g, ''));
     const bytes = Uint8Array.from(decoded, char => char.charCodeAt(0));
-    if (totalBytes + bytes.byteLength > byteLimit) return;
+    if (bytes.byteLength > contentLimit || totalBytes + bytes.byteLength > byteLimit) return;
     totalBytes += bytes.byteLength;
     if (manifest) manifestCount++;
     contents[path] = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
   };
-  for (const path of manifestPaths) {
+  for (const item of manifestPaths) {
     if (manifestCount >= manifestLimit) break;
-    await fetchContent(path, true);
+    await fetchContent(item.path, true, item.size);
   }
   if (authenticated) {
     const entryPaths = new Set();
@@ -97,7 +100,10 @@ export async function fetchGitHubProjectConstellation({ projectId, ref = null, f
       const base = manifestPath.includes('/') ? manifestPath.slice(0,manifestPath.lastIndexOf('/')+1) : '';
       for (const value of declaredPackageEntries(manifest)) entryPaths.add(`${base}${value.replace(/^\.\//,'')}`);
     }
-    for (const path of [...entryPaths].filter(path=>safeRepoPath(path)&&treeFiles.includes(path)).sort().slice(0,16)) await fetchContent(path, false);
+    for (const path of [...entryPaths].filter(path=>safeRepoPath(path)&&availablePaths.has(path)).sort().slice(0,16)) {
+      const item = availableFiles.find(file => file.path === path);
+      await fetchContent(path, false, item?.size);
+    }
   }
   return createProjectConstellation({ projectId, ref: resolvedRef, commit: commitSha, scannedAt, visibility: repository.private === true ? 'private' : 'public', tree: items, contents }, limits);
 }

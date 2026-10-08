@@ -63,8 +63,78 @@ test('very large trees expose truncation and remain within graph bounds', () => 
   assert.ok(model.nodes.length <= 100);
   assert.ok(model.edges.length <= 1024);
   assert.equal(model.statistics.filesInspected, 500);
+  assert.equal(model.statistics.sourceFilesAvailable, 1000, 'source availability comes from the full supplied tree');
+  assert.equal(model.statistics.sourceFilesSelected, 500);
+  assert.equal(model.statistics.sourceFilesRead, 0);
   assert.equal(model.statistics.truncated, true);
   assert.match(model.statistics.limitation, /500 of 1000 files/);
+});
+
+test('repository-wide manifest and source availability stays truthful beyond the inspection window', () => {
+  const ordinary = Array.from({ length: 501 }, (_, i) => ({ path: `a-files/file-${String(i).padStart(4, '0')}.txt`, type: 'blob', size: 1 }));
+  const manifests = Array.from({ length: 501 }, (_, i) => ({ path: `z-packages/pkg-${String(i).padStart(4, '0')}/package.json`, type: 'blob', size: 2 }));
+  const contents = Object.fromEntries(manifests.map(item => [item.path, '{}']));
+  const model = createProjectConstellation({ projectId: 'owner/repository-wide', tree: [...ordinary, ...manifests], contents });
+  const stats = model.statistics;
+  assert.equal(stats.filesAvailable, 1002);
+  assert.equal(stats.filesInspected, 500);
+  assert.equal(stats.manifestsAvailable, 501);
+  assert.equal(stats.manifestsSelected, 500, 'manifest priority moves manifests ahead of lexically earlier ordinary files');
+  assert.equal(stats.manifestsRead, 32);
+  assert.equal(stats.manifestsOmitted, 469);
+  assert.equal(stats.sourceFilesAvailable, 0);
+  assert.equal(stats.truncated, true);
+  assert.match(stats.limitation, /501 manifests exist, 500 were selected and 32 read/);
+  assert.equal(validateProjectConstellation(model).valid, true);
+});
+
+test('package nodes reference observed manifest paths, including unread manifests', () => {
+  const packageTree = [
+    { path: 'packages/foo/package.json', type: 'blob' },
+    { path: 'packages/bar/pyproject.toml', type: 'blob' },
+    { path: 'rust/core/Cargo.toml', type: 'blob' },
+    { path: 'packages/unread/go.mod', type: 'blob' },
+  ];
+  const model = createProjectConstellation({ projectId: 'owner/manifests', tree: packageTree, contents: {
+    'packages/foo/package.json': '{"main":"index.js"}',
+  } });
+  const manifests = Object.fromEntries(model.nodes.filter(node => node.kind === 'package').map(node => [node.path, node.metadata.manifest]));
+  assert.equal(manifests['packages/foo'], 'packages/foo/package.json');
+  assert.equal(manifests['packages/bar'], 'packages/bar/pyproject.toml');
+  assert.equal(manifests['rust/core'], 'rust/core/Cargo.toml');
+  assert.equal(manifests['packages/unread'], 'packages/unread/go.mod');
+  assert.ok(Object.values(manifests).every(path => packageTree.some(item => item.path === path)));
+  assert.equal(validateProjectConstellation(model).valid, true);
+  const forged = structuredClone(model);
+  forged.nodes.find(node => node.path === 'packages/foo').metadata.manifest = 'packages/foo/Cargo.toml';
+  assert.equal(validateProjectConstellation(forged).valid, false, 'validator rejects inconsistent package manifest paths');
+});
+
+test('manifest and source file byte limits are separate and the global byte cap still applies', () => {
+  const sourceUnderLimit = 'x'.repeat(70 * 1024);
+  const sourceOverLimit = 'x'.repeat(129 * 1024);
+  const tooLargeManifest = ' '.repeat(65 * 1024);
+  const treeWithLimits = [
+    { path: 'package.json', type: 'blob' },
+    { path: 'src/normal.js', type: 'blob' },
+    { path: 'src/large.js', type: 'blob' },
+  ];
+  const model = createProjectConstellation({ projectId: 'owner/content-limits', tree: treeWithLimits, contents: {
+    'package.json': tooLargeManifest,
+    'src/normal.js': sourceUnderLimit,
+    'src/large.js': sourceOverLimit,
+  } });
+  assert.equal(model.statistics.manifestsRead, 0, 'oversized manifest is excluded');
+  assert.equal(model.statistics.sourceFilesRead, 1, '70 KiB source is read even though it exceeds the manifest cap');
+  assert.equal(model.statistics.bytesRead, new TextEncoder().encode(sourceUnderLimit).length);
+  assert.equal(model.statistics.truncated, true);
+
+  const capped = createProjectConstellation({ projectId: 'owner/global-content-limit', tree: [
+    { path: 'package.json', type: 'blob' }, { path: 'src/index.js', type: 'blob' },
+  ], contents: { 'package.json': ' '.repeat(30 * 1024), 'src/index.js': 'x'.repeat(80 * 1024) } }, { bytes: 100 * 1024 });
+  assert.equal(capped.statistics.bytesRead, 30 * 1024);
+  assert.equal(capped.statistics.sourceFilesRead, 0, 'combined cap prevents the next source read');
+  assert.equal(capped.statistics.bytesRead <= 100 * 1024, true);
 });
 
 test('structural model adapts to Scene v1 and existing hierarchy navigation', () => {
@@ -103,6 +173,22 @@ test('GitHub acquisition keeps request count bounded and retains commit provenan
   assert.equal(model.provenance.visibility, 'public');
   assert.ok(Number.isFinite(Date.parse(model.provenance.scannedAt)));
   assert.ok(calls.length <= 11);
+  assert.equal(model.statistics.filesAvailable, 5, 'the model receives the complete tree file count');
+  assert.equal(model.statistics.manifestsAvailable, 2);
+  assert.equal(model.statistics.manifestsSelected, 2);
+  assert.equal(model.statistics.manifestsRead, 2);
+  assert.equal(model.statistics.sourceFilesAvailable, 2);
+  assert.equal(model.statistics.sourceFilesSelected, 2);
+  assert.equal(model.statistics.sourceFilesRead, 0, 'anonymous acquisition does not fetch source text');
   assert.equal(model.statistics.truncated, true);
   assert.equal(model.statistics.sourceFilesOmitted, 2);
+
+  calls.length = 0;
+  const authenticated = await fetchGitHubProjectConstellation({ projectId: 'owner/repo', fetchImpl, authenticated: true });
+  assert.ok(calls.length <= 3 + 24 + 16, 'authenticated acquisition stays within its request budget');
+  assert.equal(authenticated.statistics.filesAvailable, 5);
+  assert.equal(authenticated.statistics.manifestsAvailable, 2);
+  assert.equal(authenticated.statistics.sourceFilesSelected, 2);
+  assert.equal(authenticated.statistics.sourceFilesRead, 1, 'authenticated acquisition fetches only a declared existing entry');
+  assert.equal(authenticated.statistics.truncated, true, 'unread source paths remain explicit');
 });
