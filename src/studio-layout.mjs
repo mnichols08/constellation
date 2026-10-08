@@ -139,6 +139,7 @@ export function mountStudioLayout() {
     section(id, panel("motion"));
   field("animate", panel("motion"));
   section("repo-source", panel("projects"));
+  section("project-families", panel("projects"));
   panel("projects").append($("#organization-controls"));
   section("history-mode", panel("projects"));
   panel("projects").append(fold("Languages & topics", $(".graph-filters")));

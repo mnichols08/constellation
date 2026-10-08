@@ -165,6 +165,22 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       .filter(Boolean)
       .join(" · ");
     details.append(heading, description, summary);
+    const semantic = scene.semanticGroups;
+    const group = semantic?.groups?.find(item => item.id === id);
+    const expandedGroup = semantic?.groups?.find(item => item.members.includes(id) && semantic.expanded.includes(item.id));
+    if (group) {
+      const whyGrouped = document.createElement('details');
+      const whySummary = document.createElement('summary'); whySummary.textContent = 'Why grouped?'; whyGrouped.append(whySummary);
+      const provenance = document.createElement('p'); provenance.textContent = group.provenance === 'user' ? 'Defined by you.' : 'Derived group.'; whyGrouped.append(provenance);
+      if (group.basis.length) { const list = document.createElement('ul'); for (const basis of group.basis) { const item = document.createElement('li'); item.textContent = basis.startsWith('repository-owner:') ? `Same repository owner: ${basis.slice('repository-owner:'.length)}` : basis; list.append(item); } whyGrouped.append(list); }
+      const members = document.createElement('ul');
+      for (const member of group.members.slice(0, 12)) { const item = document.createElement('li'); item.textContent = member.split('/').at(-1); members.append(item); }
+      if (group.members.length > 12) { const item = document.createElement('li'); item.textContent = `+${group.members.length - 12} more`; members.append(item); }
+      const memberHeading = document.createElement('h3'); memberHeading.textContent = 'Members'; whyGrouped.append(memberHeading, members); details.append(whyGrouped);
+      if (options.semanticGroupActions !== false) { const expand = document.createElement('button'); expand.type = 'button'; expand.dataset.semanticExpand = group.id; expand.textContent = 'Expand group'; details.append(expand); }
+    } else if (expandedGroup && options.semanticGroupActions !== false) {
+      const collapse = document.createElement('button'); collapse.type = 'button'; collapse.dataset.semanticCollapse = expandedGroup.id; collapse.textContent = `Collapse ${expandedGroup.label}`; details.append(collapse);
+    }
     const explanation = explanations.explainNode(frame?.scene || scene, id);
     const why = document.createElement("details");
     const whySummary = document.createElement("summary");
@@ -662,7 +678,17 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     listen(details, "click", (event) => {
       const button = event.target.closest("[data-open-child]");
       if (button) emit("scene-open-request", { id: button.dataset.openChild });
+      const expand = event.target.closest('[data-semantic-expand]');
+      if (expand) emit('semantic-group-expand', { id: expand.dataset.semanticExpand });
+      const collapse = event.target.closest('[data-semantic-collapse]');
+      if (collapse) emit('semantic-group-collapse', { id: collapse.dataset.semanticCollapse });
     });
+  if (details) listen(details, 'keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const button = event.target.closest('[data-semantic-expand], [data-semantic-collapse]');
+    if (!button) return;
+    event.preventDefault(); button.click();
+  });
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const updateMotion = () => {
     root.toggleAttribute("data-reduced-motion", motion.matches);

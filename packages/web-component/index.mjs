@@ -1,4 +1,4 @@
-import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost } from '@constellation/core';
+import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost, SEMANTIC_LEVELS, buildSemanticHierarchy, projectSemanticLevel } from '@constellation/core';
 import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, shortest_path, neighbors } from '@constellation/core/browser-runtime';
 
 export const WEB_COMPONENT_API_VERSION = 1;
@@ -14,6 +14,9 @@ export class ConstellationView extends HTMLElement {
   #initialized = false;
   #intersection = null;
   #visible = true;
+  #semanticLevel = null;
+  #semanticHierarchy = null;
+  #expandedGroups = new Set();
   #sourceMode = true;
   #sourceCache = new Map();
   constructor() { super(); this.attachShadow({ mode: 'open' }); }
@@ -22,21 +25,36 @@ export class ConstellationView extends HTMLElement {
   get records() { return structuredClone(this.#records); }
   set records(value) {
     if (!Array.isArray(value)) throw new Error('records must be an array.');
-    this.#records = structuredClone(value); this.#refresh(false);
+    this.#records = structuredClone(value); this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#refresh(false);
   }
   get scene() { return this.#scene && structuredClone(this.#scene); }
   set scene(value) { this.loadScene(value); }
+  get semanticLevel() { return this.#semanticLevel || this.#config?.options?.semanticZoom?.level || 'projects'; }
+  set semanticLevel(value) {
+    if (!SEMANTIC_LEVELS.includes(value)) throw new Error('semanticLevel must be overview, groups or projects.');
+    this.#semanticLevel = value; if (this.#scene) { this.#semanticHierarchy = value === 'groups' || value === 'overview' ? buildSemanticHierarchy(this.#scene) : null; this.#expandedGroups.clear(); this.#render(); }
+  }
+  expandGroup(id) {
+    if (!this.#semanticHierarchy) throw new Error('Set semanticLevel to groups before expanding a group.');
+    if (!this.#semanticHierarchy.groups.some(group => group.id === id)) throw new Error(`Unknown semantic group: ${id}`);
+    this.#expandedGroups.add(id); return this.#render();
+  }
+  collapseGroup(id) {
+    if (!this.#semanticHierarchy) throw new Error('Set semanticLevel to groups before collapsing a group.');
+    if (!this.#semanticHierarchy.groups.some(group => group.id === id)) throw new Error(`Unknown semantic group: ${id}`);
+    this.#expandedGroups.delete(id); return this.#render();
+  }
   setConfig(value) {
     try {
       const config = parseConfig(value); normalizeConfig(config.options);
-      this.#sourceMode = false; this.#config = config; return this.#refresh(false);
+      this.#sourceMode = false; this.#config = config; this.#semanticLevel = null; this.#semanticHierarchy = null; this.#expandedGroups.clear(); return this.#refresh(false);
     } catch (error) { this.#error(error); return Promise.resolve(false); }
   }
   loadScene(value) {
     try {
       const scene = parseScene(typeof value === 'string' ? value : serializeScene(value));
       this.#request?.abort(); const previous = this.#scene;
-      this.#sourceMode = false; this.#scene = scene; this.#config = null;
+      this.#sourceMode = false; this.#scene = scene; this.#config = null; this.#semanticLevel = null; this.#semanticHierarchy = null; this.#expandedGroups.clear();
       const rendered = this.#render();
       if (!rendered && this.isConnected && this.#visible) this.#scene = previous;
       return rendered;
@@ -125,7 +143,7 @@ export class ConstellationView extends HTMLElement {
         const config = this.#config || parseConfig({ account: this.getAttribute('account') || 'your-universe', options: {}, version: 7 });
         // Browser embedding uses the strict imported-CSS boundary, including v6 inputs.
         const options = normalizeConfig(config.options);
-        this.#scene = createScene(config.account, this.#records, options, { pipeline: this.#pipeline, layoutHost: this.#layouts, signal: request.signal });
+        this.#scene = createScene(config.account, this.#records, options, { pipeline: this.#pipeline, layoutHost: this.#layouts, signal: request.signal }); this.#semanticHierarchy = null; this.#expandedGroups.clear();
       }
       request.signal.throwIfAborted(); return this.#render();
     } catch (error) { if (!request.signal.aborted) this.#error(error); return false; }
@@ -133,6 +151,11 @@ export class ConstellationView extends HTMLElement {
   #render() {
     if (!this.isConnected || !this.#visible || !this.#scene) return false;
     try {
+      const previousSelection = this.#runtime?.selectionState, previousCamera = this.#runtime?.camera;
+      if ((this.semanticLevel === 'groups' || this.semanticLevel === 'overview') && !this.#semanticHierarchy) this.#semanticHierarchy = buildSemanticHierarchy(this.#scene);
+      const viewScene = (this.semanticLevel === 'groups' || this.semanticLevel === 'overview') && this.#semanticHierarchy
+        ? projectSemanticLevel(this.#scene, 'groups', { hierarchy: this.#semanticHierarchy, expanded: [...this.#expandedGroups] })
+        : this.#scene;
       // Validate custom styling before inserting renderer-owned SVG markup.
       const chapterScenes = [this.#scene, ...this.#scene.story?.chapters.map(chapter => chapter.scene) || []];
       const roots = chapterScenes.flatMap(scene => [scene, ...scene.hierarchy?.scenes.map(entry => entry.scene) || []]);
@@ -141,10 +164,15 @@ export class ConstellationView extends HTMLElement {
         const css = scene.presentation.options[key];
         if (css && /(?:@import|url\s*\(|expression\s*\(|\\)/i.test(css.replace(/\/\*[\s\S]*?\*\//g, ''))) throw new Error('Embedded scene CSS must be self-contained.');
       }
-      const markup = interactiveMarkup(renderSceneSVG(this.#scene));
+      const markup = interactiveMarkup(renderSceneSVG(viewScene));
       this.#runtime?.destroy();
       this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
-      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), this.#scene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(this.#scene), storyArtifacts: storyArtifacts(this.#scene), frameSVGs: this.#scene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
+      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), viewScene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(viewScene), storyArtifacts: storyArtifacts(viewScene), frameSVGs: viewScene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
+      if (previousCamera) this.#runtime.setCamera?.(previousCamera);
+      if (previousSelection?.start) { try { this.#runtime.selectNode(previousSelection.start, { focus: false }); if (previousSelection.end) this.#runtime.selectNode(previousSelection.end, { focus: false, extend: true }); } catch { /* A collapsed member is not selectable at the current semantic level. */ } }
+      const main = this.shadowRoot.querySelector('main');
+      main.addEventListener('semantic-group-expand', event => this.expandGroup(event.detail.id));
+      main.addEventListener('semantic-group-collapse', event => this.collapseGroup(event.detail.id));
       const first = !this.#initialized; this.#initialized = true;
       this.dispatchEvent(new CustomEvent(first ? 'scene-ready' : 'scene-change', { detail: { scene: this.scene }, bubbles: true, composed: true }));
       return true;

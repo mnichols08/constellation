@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -8,10 +8,11 @@
     "README.md",
     "temporal-stack.md",
     "developer-topology.md",
-    "evidence-provenance.md"
+    "evidence-provenance.md",
+    "semantic-groups.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.11.0"
+    "@constellation/core": "3.12.0"
   },
   "license": "UNLICENSED"
 }

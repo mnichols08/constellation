@@ -79,6 +79,7 @@ function record(scene, path = '$') {
   }
   if (scene.evidence !== undefined) {
     const evidenceNodeIds = new Set(nodes);
+    for (const sourceId of scene.semanticGroups?.sourceNodeIds || []) evidenceNodeIds.add(sourceId);
     for (const frame of [...(scene.timeline?.frames || []), ...(scene.temporalStack?.frames || [])]) {
       for (const node of frame.scene?.nodes || []) {
         if (evidenceNodeIds.size >= 16384) break;
@@ -86,6 +87,16 @@ function record(scene, path = '$') {
       }
     }
     if (!validateEvidence(scene.evidence, evidenceNodeIds)) fail(`${path}.evidence`, 'invalid or out-of-bounds evidence attachment');
+  }
+  if (scene.semanticGroups !== undefined) {
+    const semantic = scene.semanticGroups;
+    if (!object(semantic) || semantic.version !== 1 || !['overview', 'groups', 'projects'].includes(semantic.level) || !Array.isArray(semantic.groups) || semantic.groups.length > 256 || !Array.isArray(semantic.sourceNodeIds) || semantic.sourceNodeIds.length > 2048 || semantic.sourceNodeIds.some(value => !id(value)) || new Set(semantic.sourceNodeIds).size !== semantic.sourceNodeIds.length || !Array.isArray(semantic.expanded) || semantic.expanded.length > 256 || new Set(semantic.expanded).size !== semantic.expanded.length) fail(`${path}.semanticGroups`, 'invalid hierarchy projection');
+    const groupIds = new Set(); let members = 0;
+    for (const group of semantic.groups) {
+      if (!object(group) || group.version !== 1 || !id(group.id) || groupIds.has(group.id) || !['project-family', 'repository-owner'].includes(group.kind) || !['user', 'derived'].includes(group.provenance) || (group.kind === 'project-family') !== (group.provenance === 'user') || !id(group.label) || !Array.isArray(group.members) || group.members.length < 2 || group.members.length > 2048 || new Set(group.members).size !== group.members.length || !Array.isArray(group.basis) || group.basis.length > 16 || group.basis.some(value => typeof value !== 'string' || value.length > 160) || group.members.some(value => !semantic.sourceNodeIds.includes(value))) fail(`${path}.semanticGroups`, 'invalid group');
+      members += group.members.length; groupIds.add(group.id);
+    }
+    if (members > 32768 || semantic.expanded.some(value => !groupIds.has(value))) fail(`${path}.semanticGroups`, 'hierarchy exceeds bounds or has unknown expanded groups');
   }
   for (const edge of scene.edges) {
     if (!id(edge?.id) || edges.has(edge.id) || !nodes.has(edge.from) || !nodes.has(edge.to) || edge.from === edge.to) fail(`${path}.edges`, 'invalid ID or endpoints');

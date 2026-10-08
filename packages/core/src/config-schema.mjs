@@ -35,6 +35,8 @@ const fields = new Set(
     " ",
   ),
 );
+fields.add("projectFamilies");
+fields.add("semanticZoom");
 for (const key of Object.keys(rhythmDefaults)) fields.add(key);
 for (const key of historyFields) fields.add(key);
 for (const key of organizationFields) fields.add(key);
@@ -59,6 +61,7 @@ fields.add("layoutEngine");
 fields.add("layoutOptions");
 export const configFields = [...fields];
 const nested = {
+  semanticZoom: "enabled level",
   layoutRefinement: "enabled intensity",
   ringAnimation: "enabled linked speeds directions modes easing amplitudes",
   perspective: "enabled animate horizontal vertical zoom range duration",
@@ -90,6 +93,23 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   );
   validateLayoutReference(options);
   validateSemanticOptions(options);
+  if (options.semanticZoom !== undefined && (!object(options.semanticZoom) || Object.keys(options.semanticZoom).some(key => !['enabled', 'level'].includes(key)) || typeof options.semanticZoom.enabled !== 'boolean' || !['overview', 'groups', 'projects'].includes(options.semanticZoom.level))) throw new Error("semanticZoom must contain enabled and a valid overview, groups or projects level.");
+  if (options.projectFamilies !== undefined) {
+    const families = options.projectFamilies;
+    if (!object(families) || Object.keys(families).length > 256) throw new Error("projectFamilies must contain at most 256 families.");
+    let totalMembers = 0;
+    const familyMemberIds = new Set();
+    for (const [id, family] of Object.entries(families)) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(id) || !object(family) || Object.keys(family).some(key => !["label", "members"].includes(key)) || typeof family.label !== "string" || !family.label.trim() || family.label.length > 120 || !Array.isArray(family.members) || family.members.length < 2 || family.members.length > 2048 || family.members.some(member => typeof member !== "string" || member.length > 4096)) throw new Error(`Invalid project family: ${id}`);
+      totalMembers += family.members.length;
+      if (totalMembers > 32768 || new Set(family.members.map(member => member.toLowerCase())).size !== family.members.length) throw new Error("Project family members must be unique and remain within 32768 total entries.");
+      for (const member of family.members) {
+        const canonical = member.toLowerCase();
+        if (familyMemberIds.has(canonical)) throw new Error(`Project ${member} cannot belong to multiple project families.`);
+        familyMemberIds.add(canonical);
+      }
+    }
+  }
   commitHistoryOptions(options);
   if ("plugins" in options) pluginOptions(options.plugins);
   if ("accountSun" in options) accountSunMode(options.accountSun);

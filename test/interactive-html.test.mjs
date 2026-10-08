@@ -64,6 +64,33 @@ test("profile export exposes accessible dimensions and evidence controls", () =>
   assert.match(html, /Why is this here\?/);
 });
 
+test("grouped offline HTML expands and collapses from real projects with group evidence", { skip: !browser, timeout: 120000 }, async t => {
+  const dir = await mkdtemp(join(tmpdir(), "constellation-groups-html-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "index.html");
+  const grouped = createScene(fixture.account, fixture.repositories, {
+    ...fixture.cases[0].options,
+    projectFamilies: { "offline-family": { label: "Offline Family", members: fixture.repositories.map(repo => repo.full_name) } },
+  });
+  await writeFile(file, renderSceneHTML(grouped, { semanticLevel: "groups" }));
+  const { evaluate, waitFor, errors, cdp } = await openBrowser(t, pathToFileURL(file).href);
+  await waitFor(`Boolean(document.querySelector('.star[data-repo="group:user:offline-family"]'))`);
+  await waitFor(`Boolean(document.querySelector('main').constellation)`);
+  assert.equal(await evaluate("document.querySelectorAll('script[src]').length"), 0);
+  await evaluate(`document.querySelector('.repository').focus(); document.querySelector('.repository').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`);
+  await waitFor(`[...document.querySelectorAll('[data-details] summary')].some(item=>item.textContent==='Why grouped?')`);
+  assert.equal(await evaluate("[...document.querySelectorAll('[data-details] summary')].find(item=>item.textContent==='Why grouped?')?.textContent"), "Why grouped?");
+  await evaluate("document.querySelector('[data-semantic-expand]').focus()");
+  await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter" });
+  await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter" });
+  const expandedState = await evaluate(`({count:document.querySelectorAll('.star').length, selection:document.querySelector('main').constellation?.selection, actions:[...document.querySelectorAll('[data-semantic-expand]')].map(button=>button.dataset.semanticExpand), status:document.querySelector('[data-status]')?.textContent})`);
+  assert.equal(expandedState.count, fixture.repositories.length, JSON.stringify(expandedState));
+  assert.ok(await evaluate("Boolean(document.querySelector('[data-semantic-collapse]'))"));
+  await evaluate("document.querySelector('[data-semantic-collapse]').click()");
+  await waitFor(`Boolean(document.querySelector('.star[data-repo="group:user:offline-family"]'))`);
+  assert.deepEqual(errors, []);
+});
+
 test(
   "standalone file supports selection, keyboard, camera and cleanup",
   { skip: !browser, timeout: 120000 },

@@ -12,6 +12,7 @@ Start here, then open the guide for the task you have. Most pages are reference 
 | Explore an organization | [Organization maps](organizations.md) |
 | Explore projects over time or by language/topic | [Universe dimensions](temporal-stack.md) |
 | Explain a project's evidence, position, or appearance | [Evidence and provenance](evidence-provenance.md) |
+| Compress a project map into explainable groups | [Semantic Groups](semantic-groups.md) |
 | See commit history or recent activity | [History and activity](history.md) |
 | Find settings, presets, exports, or share links | [Designs and configuration](designs.md) |
 | Make the map accessible | [Accessibility](accessibility.md) |

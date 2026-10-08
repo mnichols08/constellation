@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.12.0 — Semantic Groups
+
+- Add reversible semantic projections with stable user project-family IDs, conservative repository-owner suggestions, collapsed group nodes and aggregation of real cross-group edges.
+- Extend Scene Evidence v1 to group subjects, explain user and derived grouping, and keep grouped SVG/HTML exports selectable independently of viewport scale.
+- Add bounded `projectFamilies` and `semanticZoom` options without changing Config v7, Scene API v1, or Web Component API v1.
+- Add Core hierarchy APIs and Web Component semantic level, expand and collapse controls; preserve source scenes and member project positions.
+- Cap derived grouping at 256 projects, group definitions at 256, family membership at 2,048 per group and edge references at 256 per aggregate.
+- Document semantic levels, provenance, config and API usage; add grouping, aggregation and export regression coverage.
+- Keep derived group IDs stable as visible membership changes, describe owner evidence accurately, report capped aggregate-edge references, and compare family repository IDs case-insensitively.
+
 ## 3.11.0 — Evidence Everywhere Foundation
 
 - Add optional bounded Scene Evidence v1 with source, user and derived provenance, without changing Config v7 or Scene API v1.

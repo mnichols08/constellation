@@ -42,6 +42,7 @@ import {
 } from "./ring-animation.mjs";
 import { rustAvailable } from "./engine.mjs";
 import { renderTemporalStackSVG } from "./temporal-stack-svg.mjs";
+import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
 
 import { repositoryLanguages } from "./constellation.mjs";
 const hash = (value) => {
@@ -89,6 +90,11 @@ const boundedText = (value, limit) =>
 
 export function renderSceneSVG(visualScene, renderOptions) {
   assertScene(visualScene);
+  const semanticLevel = renderOptions?.semanticLevel || (visualScene.presentation.options.semanticZoom?.enabled ? visualScene.presentation.options.semanticZoom.level : null);
+  if ((semanticLevel === 'groups' || semanticLevel === 'overview') && visualScene.kind === 'scene' && !visualScene.timeline && !visualScene.temporalStack) {
+    const hierarchy = buildSemanticHierarchy(visualScene, { projectFamilies: visualScene.presentation.options.projectFamilies });
+    return renderSceneSVG(projectSemanticLevel(visualScene, 'groups', { hierarchy }), { ...renderOptions, semanticLevel: 'projects' });
+  }
   if (visualScene.presentation.options.readmePresentation === "recruiter") return renderRecruiterSVG(visualScene);
   if (visualScene.temporalStack)
     return renderTemporalStackSVG(visualScene, renderOptions);
@@ -508,7 +514,9 @@ export function renderSceneSVG(visualScene, renderOptions) {
         Number.isFinite(Date.parse(repo.created_at))
           ? ` · Created ${new Date(repo.created_at).getUTCFullYear()}`
           : "";
-      const tooltip = repo.commit
+      const tooltip = repo.nodeKind === 'semantic-group'
+        ? `${repo.name} · ${repo.groupKind === 'project-family' ? 'project family' : repo.groupKind === 'repository-owner' ? 'repository-owner group' : 'derived group'} · ${repo.memberCount} projects`
+        : repo.commit
         ? `${repo.commit.author} · ${repo.commit.date || "Date unknown"} · ${repo.commit.subject} · ${repo.commit.sha}${repo.commit.parents > 1 ? " · merge commit" : ""}`
         : repo.nodeKind && repo.nodeKind !== "repository"
           ? Array.isArray(repo.members)
@@ -569,7 +577,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
     : "";
   const ringPoints = visualScene.geometry.ringPoints;
   const occupiedAt = stableOverview ? ringOccupancy(stars) : null;
-  const pointMarkup = Array.from({ length: ringPoints.length / 3 }, (_, i) => {
+  const pointMarkup = Array.from({ length: Math.min(ordered.length, ringPoints.length / 3) }, (_, i) => {
     const [x, y, radius] = ringPoints.slice(i * 3, i * 3 + 3);
     const sx = Number((450 + ((x - 240) * 368) / 172).toFixed(1));
     const sy = Number((centerY + ((y - 240) * spreadY) / 172).toFixed(1));
