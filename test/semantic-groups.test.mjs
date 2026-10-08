@@ -4,6 +4,27 @@ import { buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGrou
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
 import { renderSceneHTML } from '../src/renderer-html.mjs';
 import { validateScene, serializeScene } from '../src/scene.mjs';
+import { createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_POLICY } from '../src/semantic-zoom.mjs';
+
+test('semantic zoom uses hysteresis, stable thresholds and bounded explicit modes', () => {
+  const zoom = createSemanticZoomState('groups');
+  assert.equal(zoom.update(SEMANTIC_ZOOM_POLICY.groupsToProjects + 0.001).current, 'projects');
+  for (const scale of [1.79, 1.81, 1.80, 1.79, 1.81]) assert.equal(zoom.update(scale).changed, false);
+  assert.equal(zoom.update(SEMANTIC_ZOOM_POLICY.projectsToGroups - 0.001).current, 'groups');
+  for (const scale of [1.44, 1.46, 1.45, 1.44, 1.46]) assert.equal(zoom.update(scale).changed, false);
+  assert.equal(zoom.update(SEMANTIC_ZOOM_POLICY.groupsToOverview - 0.001).current, 'overview');
+  assert.equal(zoom.update(SEMANTIC_ZOOM_POLICY.overviewToGroups + 0.001).current, 'groups');
+  assert.equal(zoom.update(2, { allowProjects: false }).current, 'groups');
+  assert.equal(resolveSemanticZoomMode({ mode: 'auto' }), 'auto');
+  assert.equal(resolveSemanticZoomMode({ enabled: true, level: 'groups' }), 'groups');
+  assert.equal(resolveSemanticZoomMode({ enabled: false, level: 'groups' }), 'projects');
+  assert.equal(resolveSemanticZoomMode({ enabled: true, level: 'overview' }), 'groups');
+  assert.equal(parseConfig({ version: 7, account: 'journey', options: { semanticZoom: { mode: 'auto' } } }).version, 7);
+  assert.equal(resolveSemanticZoomMode(parseConfig({ version: 7, account: 'journey', options: { semanticZoom: { enabled: true, level: 'groups' } } }).options.semanticZoom), 'groups');
+  assert.equal(resolveSemanticZoomMode(parseConfig({ version: 7, account: 'journey', options: { semanticZoom: { enabled: false, level: 'groups' } } }).options.semanticZoom), 'projects');
+  assert.throws(() => parseConfig({ version: 7, account: 'journey', options: { semanticZoom: { mode: 'invalid' } } }), /semanticZoom/);
+  assert.throws(() => zoom.update(Infinity), /finite positive/);
+});
 
 const repositories = [
   { full_name: 'journey/demo-a', name: 'demo-a', language: 'Rust', topics: ['tools'] },

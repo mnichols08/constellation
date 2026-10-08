@@ -26,7 +26,7 @@ The enclosing page should provide a descriptive heading and size the host with o
 
 After `scene-ready`, call `selectNode(id, { focus, extend })`, `clearSelection()`, `fit()`, `reset()`, `setFilter({ query, language })`, or `setTheme(name)`. The `selection` getter returns an isolated `{ start, end, path }` value. Unknown/hidden node IDs throw; camera methods called before readiness throw a descriptive error.
 
-For Semantic Groups, set `view.semanticLevel = 'groups'` or `'projects'`, then call `view.expandGroup(id)` and `view.collapseGroup(id)`. Groups can be selected and explained in the component inspector. The canonical scene remains available from `view.scene` while a group projection is displayed. See [Semantic Groups](semantic-groups.md).
+For semantic detail, set `view.semanticLevel` to `'auto'`, `'groups'` or `'projects'`. Automatic mode follows camera scale with hysteresis; explicit modes ignore camera thresholds. A selected group expands locally first, and unrelated groups stay collapsed. The component emits `semantic-level-change` with previous/current levels and a reason. `view.expandGroup(id)` and `view.collapseGroup(id)` remain available, and the canonical scene stays available from `view.scene`. See [Semantic Groups](semantic-groups.md) for thresholds, bounds and legacy Config v7 normalization.
 
 `await setConfig(config)` returns whether a connected view was rendered successfully. `loadScene(sceneOrJSON)` validates and renders synchronously, returning the same boolean. Assigning data while disconnected stages it for connection. These update methods report errors through the event rather than an unhandled promise rejection.
 

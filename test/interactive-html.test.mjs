@@ -88,6 +88,15 @@ test("grouped offline HTML expands and collapses from real projects with group e
   assert.ok(await evaluate("Boolean(document.querySelector('[data-semantic-collapse]'))"));
   await evaluate("document.querySelector('[data-semantic-collapse]').click()");
   await waitFor(`Boolean(document.querySelector('.star[data-repo="group:user:offline-family"]'))`);
+  const automatic = join(dir, "automatic.html");
+  await writeFile(automatic, renderSceneHTML(grouped, { semanticLevel: "auto" }));
+  assert.match(await readFile(automatic, "utf8"), /constellation-semantic-mode/);
+  await cdp("Page.navigate", { url: pathToFileURL(automatic).href });
+  await waitFor(`Boolean(document.querySelector('main')?.constellation)`);
+  await evaluate(`window.semanticChanges = []; document.querySelector('main').addEventListener('semantic-level-change', event => semanticChanges.push(event.detail)); document.querySelector('main').constellation.selectNode('group:user:offline-family',{focus:false}); const base = document.querySelector('main').constellation.camera; document.querySelector('main').constellation.setCamera([base[0],base[1],base[2]/2,base[3]/2]);`);
+  await waitFor(`document.querySelectorAll('.star[data-repo^="fixture/"]').length === ${fixture.repositories.length}`);
+  assert.equal(await evaluate(`semanticChanges.at(-1)?.current`), "projects");
+  assert.ok(await evaluate(`document.querySelector('[data-details]').textContent.includes('Offline Family')`));
   assert.deepEqual(errors, []);
 });
 

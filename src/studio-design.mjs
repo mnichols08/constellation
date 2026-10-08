@@ -17,6 +17,7 @@ import { newSeed } from './seeded-random.mjs';
 import { visualThemes } from './themes.mjs';
 import { newDesignCode, randomizeDesign, randomizeMatchingDesign } from './design-randomizer.mjs';
 import { defaultStarfield, starfieldOptions } from './starfield.mjs';
+import { resolveSemanticZoomMode } from './semantic-zoom.mjs';
 
 export const designDefaults = { ringMeaning: 'identity', semanticLegend: false, accountSun: 'off', ...rhythmDefaults, starlightAnimate: true, activityAnimate: true, seedMode: 'account', seed: '', nodeSize: 'legacy', nodeColorMode: 'custom', nodeGlowMode: 'uniform', connectionWeight: 'uniform', majorMetric: 'stars', nodeShape: 'circle', effect: 'none', legend: false, minStars: 0, includeArchived: true, updatedWithin: 0, repoQuery: '', sortBy: 'stars', exportProfile: 'custom', readmePresentation: 'full-universe', ringOrganization: 'identity', featuredTreatment: 'label', activityEffect: 'off', activityWindow: '7d', activityDetail: 'simple', activityConnections: false };
 
@@ -41,9 +42,9 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   const familySection = document.createElement('details'); familySection.id = 'project-families'; familySection.className = 'control-section';
   const familyTitle = document.createElement('summary'); familyTitle.textContent = 'Project families';
   const familyBody = document.createElement('div'); familyBody.className = 'control-section-body'; familySection.append(familyTitle, familyBody); host.append(familySection);
-  const detailLabel = document.createElement('label'); detailLabel.htmlFor = 'semantic-detail'; detailLabel.textContent = 'Semantic detail';
+  const detailLabel = document.createElement('label'); detailLabel.htmlFor = 'semantic-detail'; detailLabel.textContent = 'Detail';
   const detailSelect = document.createElement('select'); detailSelect.id = detailLabel.htmlFor;
-  for (const [value, label] of [['groups', 'Groups'], ['projects', 'Projects']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; detailSelect.append(option); }
+  for (const [value, label] of [['auto', 'Automatic'], ['groups', 'Groups'], ['projects', 'Projects']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; detailSelect.append(option); }
   detailSelect.addEventListener('change', changed);
   familyBody.append(detailLabel, detailSelect);
   const familyList = document.createElement('div'); familyList.setAttribute('aria-label', 'Saved project families');
@@ -400,7 +401,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
   window.addEventListener('pagehide', flush);
   function restore(options) {
     syncFamilyEditor(options);
-    detailSelect.value = ['groups', 'projects'].includes(options.semanticZoom?.level) ? options.semanticZoom.level : 'projects';
+    detailSelect.value = resolveSemanticZoomMode(options.semanticZoom, 'auto');
     layerControls.restore(options);
     organizationControls.restore(options);
     historyControls.restore(options);
@@ -428,7 +429,7 @@ export function mountStudioDesign({ access, host, changed, apply, theme, message
       const entries = [...controls].map(([key, input]) => [key, input.type === 'checkbox' ? input.checked : input.type === 'range' || ['minStars', 'updatedWithin'].includes(key) ? Number(input.value) : input.value]);
       const projectShowcase = { ...(current?.options.projectShowcase || {}) };
       for (const [id, entry] of roleEntries()) entry ? projectShowcase[id] = entry : delete projectShowcase[id];
-      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), semanticZoom: { enabled: detailSelect.value === 'groups', level: detailSelect.value }, ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), ...(Object.keys(projectFamilies).length ? { projectFamilies: structuredClone(projectFamilies) } : {}), projectRelationships: relationships.value.split(/\r?\n/).filter(line => line.trim()).map(line => line.split(/\s*(?:↔|<->|,)\s*/).map(id => id.trim())), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
+      return { ...layerControls.read(), layoutRefinement: { enabled: refinementEnabled.checked, intensity: Number(refinementIntensity.value) }, ...organizationControls.read(), ...historyControls.read(), ...Object.fromEntries(entries.filter(([key]) => !key.startsWith('sky-') && !key.startsWith('refinement-') && key !== 'rhythmZoneMode')), semanticZoom: { mode: detailSelect.value }, ...(Object.keys(projectShowcase).length ? { projectShowcase } : {}), ...(Object.keys(projectFamilies).length ? { projectFamilies: structuredClone(projectFamilies) } : {}), projectRelationships: relationships.value.split(/\r?\n/).filter(line => line.trim()).map(line => line.split(/\s*(?:↔|<->|,)\s*/).map(id => id.trim())), readmePresentation: controls.get('readmePresentation').value, ringOrganization: controls.get('ringOrganization').value, featuredTreatment: controls.get('featuredTreatment').value, codingRhythm: controls.get('codingRhythmStyle').value !== 'hidden', codingRhythmTimezone: zoneMode.value === 'browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : zoneMode.value === 'UTC' ? 'UTC' : zone.value, starfield: Object.fromEntries(entries.filter(([key]) => key.startsWith('sky-')).map(([key, value]) => [key.slice(4), value])) };
     },
     update(account, options, source) {
       if (JSON.stringify(options.projectFamilies || {}) !== JSON.stringify(projectFamilies)) syncFamilyEditor(options);

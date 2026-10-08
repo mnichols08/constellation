@@ -61,7 +61,7 @@ fields.add("layoutEngine");
 fields.add("layoutOptions");
 export const configFields = [...fields];
 const nested = {
-  semanticZoom: "enabled level",
+  semanticZoom: "mode enabled level",
   layoutRefinement: "enabled intensity",
   ringAnimation: "enabled linked speeds directions modes easing amplitudes",
   perspective: "enabled animate horizontal vertical zoom range duration",
@@ -93,7 +93,12 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   );
   validateLayoutReference(options);
   validateSemanticOptions(options);
-  if (options.semanticZoom !== undefined && (!object(options.semanticZoom) || Object.keys(options.semanticZoom).some(key => !['enabled', 'level'].includes(key)) || typeof options.semanticZoom.enabled !== 'boolean' || !['overview', 'groups', 'projects'].includes(options.semanticZoom.level))) throw new Error("semanticZoom must contain enabled and a valid overview, groups or projects level.");
+  if (options.semanticZoom !== undefined) {
+    const zoom = options.semanticZoom;
+    const legacy = object(zoom) && Object.keys(zoom).every(key => ['enabled', 'level'].includes(key));
+    const current = object(zoom) && Object.keys(zoom).length === 1 && zoom.mode !== undefined;
+    if (current ? !['auto', 'groups', 'projects'].includes(zoom.mode) : !legacy || typeof zoom.enabled !== 'boolean' || !['overview', 'groups', 'projects'].includes(zoom.level)) throw new Error("semanticZoom must be { mode: auto|groups|projects } or a valid legacy enabled/level object.");
+  }
   if (options.projectFamilies !== undefined) {
     const families = options.projectFamilies;
     if (!object(families) || Object.keys(families).length > 256) throw new Error("projectFamilies must contain at most 256 families.");

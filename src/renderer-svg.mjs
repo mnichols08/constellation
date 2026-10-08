@@ -43,6 +43,7 @@ import {
 import { rustAvailable } from "./engine.mjs";
 import { renderTemporalStackSVG } from "./temporal-stack-svg.mjs";
 import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
+import { resolveSemanticZoomMode } from './semantic-zoom.mjs';
 
 import { repositoryLanguages } from "./constellation.mjs";
 const hash = (value) => {
@@ -90,7 +91,11 @@ const boundedText = (value, limit) =>
 
 export function renderSceneSVG(visualScene, renderOptions) {
   assertScene(visualScene);
-  const semanticLevel = renderOptions?.semanticLevel || (visualScene.presentation.options.semanticZoom?.enabled ? visualScene.presentation.options.semanticZoom.level : null);
+  const configuredMode = visualScene.presentation.options.semanticZoom === undefined ? null : resolveSemanticZoomMode(visualScene.presentation.options.semanticZoom, 'projects');
+  const requestedLevel = renderOptions?.semanticLevel || configuredMode;
+  // Static SVG has no camera events. Keep full project detail for Automatic;
+  // interactive hosts apply the camera policy in their browser runtime.
+  const semanticLevel = requestedLevel === 'auto' ? 'projects' : requestedLevel;
   if ((semanticLevel === 'groups' || semanticLevel === 'overview') && visualScene.kind === 'scene' && !visualScene.timeline && !visualScene.temporalStack) {
     const hierarchy = buildSemanticHierarchy(visualScene, { projectFamilies: visualScene.presentation.options.projectFamilies });
     return renderSceneSVG(projectSemanticLevel(visualScene, 'groups', { hierarchy }), { ...renderOptions, semanticLevel: 'projects' });
