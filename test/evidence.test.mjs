@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createScene, explainNode, explainEdge, explainVisual, validateEvidence, serializeScene, parseScene } from '../src/core-api.mjs';
 import { validateScene } from '../src/scene.mjs';
+import { renderSceneHTML } from '../src/renderer-html.mjs';
 
 const repositories = [
   { full_name: 'demo/engine', name: 'engine', language: 'Rust', languages: { Rust: 800, JavaScript: 200 }, topics: ['systems-programming', 'webassembly'], stargazers_count: 42, created_at: '2023-04-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
@@ -23,11 +24,12 @@ test('Scene Evidence v1 is deterministic, bounded, serializable and rejects malf
   assert.ok(Buffer.byteLength(JSON.stringify(scene.evidence)) > 0);
 });
 
-test('node explanation distinguishes source facts, user choices and derived Developer Topology evidence', () => {
+test('node explanation distinguishes inclusion provenance, user choices and derived Developer Topology evidence', () => {
   const scene = createScene('demo', repositories, { arrangement: 'profile', projectShowcase: { 'demo/engine': { role: 'featured' } } });
   const explanation = explainNode(scene, 'demo/engine');
-  assert.equal(explanation.included.provenance, 'user');
-  assert.match(explanation.included.summary, /Featured by you/);
+  assert.equal(explanation.included.provenance, 'derived');
+  assert.match(explanation.included.summary, /current scene selection and filters/);
+  assert.match(explanation.role.summary, /Featured by you/);
   assert.equal(explanation.position.provenance, 'derived');
   assert.match(explanation.position.summary, /Systems/);
   assert.ok(explanation.evidence.some(item => item.provenance === 'source' && item.claim.value === 'Rust'));
@@ -47,6 +49,14 @@ test('visual explanations report mapping inputs and manual override precedence w
   assert.equal(explainNode(scene, 'demo/site').position.provenance, 'user');
   const identityScene = createScene('demo', repositories, {});
   assert.match(explainNode(identityScene, 'demo/site').position.summary, /Identity Rings/);
+  const orbitalScene = createScene('demo', repositories, { arrangement: 'orbital' });
+  assert.match(explainNode(orbitalScene, 'demo/site').position.summary, /Identity Orbits/);
+  assert.match(explainNode(orbitalScene, 'demo/site').position.summary, /does not indicate project importance or shared technology/);
+  assert.doesNotMatch(explainNode(orbitalScene, 'demo/site').position.summary, /grouped by shared technology/i);
+  for (const arrangement of ['field', 'force', 'galaxy', 'solar-system']) assert.doesNotMatch(explainNode(createScene('demo', repositories, { arrangement }), 'demo/site').position.summary, /Identity Rings/);
+  const selected = explainNode(createScene('demo', repositories, { includeRepos: ['demo/site'] }), 'demo/site');
+  assert.equal(selected.included.provenance, 'user');
+  assert.match(selected.included.summary, /Selected by you/);
   const colorScene = createScene('demo', repositories, { mappings: { color: { field: 'attributes.language', palette: 'language' } } });
   assert.match(explainVisual(colorScene, 'demo/engine').color.summary, /attributes.language/);
   assert.equal(explainVisual(colorScene, 'demo/engine').color.input, 'Rust');
@@ -56,6 +66,14 @@ test('visual explanations report mapping inputs and manual override precedence w
   const fallbackScene = createScene('demo', repositories, { mappings: { size: { field: 'metrics.derived-score', domain: [0, 10], range: [2, 10], fallback: 4 } } });
   assert.match(explainVisual(fallbackScene, 'demo/site').size.summary, /Fallback 4 is configured/);
   assert.equal(explainVisual(fallbackScene, 'demo/site').size.fallback, 4);
+});
+
+test('ordinary inclusion is derived, explicit includeRepos is user intent, and source facts stay source facts', () => {
+  const automatic = createScene('demo', repositories, {});
+  assert.ok(automatic.nodes.every(node => explainNode(automatic, node.id).included.provenance === 'derived'));
+  assert.ok(automatic.evidence.facts.some(fact => fact.kind === 'primary-language' && fact.provenance === 'source'));
+  const explicit = createScene('demo', repositories, { includeRepos: ['engine'] });
+  assert.equal(explainNode(explicit, 'demo/engine').included.provenance, 'user');
 });
 
 test('scene evidence validation rejects unknown nodes and oversized lists', () => {
@@ -96,4 +114,15 @@ test('registered source provenance is preserved without copying provider payload
   const fact = scene.evidence.facts.find(item => item.kind === 'primary-language');
   assert.equal(fact.source, 'fixture-source');
   assert.equal(JSON.stringify(scene.evidence).includes('ghp_'), false);
+});
+
+test('offline HTML bundles the canonical explanation helpers and retains CSP and DOM text rendering', () => {
+  const scene = createScene('demo', repositories, { arrangement: 'orbital', mappings: { size: { field: 'metrics.stars', domain: [0, 100], range: [2, 10] } } });
+  const html = renderSceneHTML(scene);
+  assert.match(html, /Identity Orbits/);
+  assert.match(html, /Mapped from \$\{mapping\.field/);
+  assert.match(html, /Explanation unavailable for this connection type/);
+  assert.match(html, /textContent/);
+  assert.match(html, /Content-Security-Policy/);
+  assert.doesNotMatch(html, /Selected project in this scene\./);
 });

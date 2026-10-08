@@ -72,6 +72,7 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
         const summary = document.createElement('summary'); summary.textContent = 'Why is this here?'; disclosure.append(summary);
         const addSection = (title, value) => { if (!value) return; const heading = document.createElement('h4'); heading.textContent = title; const text = document.createElement('p'); text.textContent = value; disclosure.append(heading, text); };
         addSection('Included', explanation.included.summary);
+        if (explanation.role) addSection('Showcase role', explanation.role.summary);
         addSection('Position', explanation.position.summary);
         if (explanation.position.evidence?.length) addSection('Evidence', explanation.position.evidence.join(' · '));
         for (const [channel, visual] of Object.entries(explanation.appearance || {})) {
@@ -85,9 +86,9 @@ export function mountGraphExplorer(host, panel, selection, onSelect, { highlight
         if (selection.end && scene.kind !== 'time-lapse') {
           const reasons = path.slice(1).flatMap((to, index) => {
             const from = path[index], edge = scene.edges.find(item => item.from === from && item.to === to || item.to === from && item.from === to);
-            return edge ? explainEdge(scene, edge.id)?.evidence || [] : [];
+            return edge ? [explainEdge(scene, edge.id)].filter(Boolean) : [];
           });
-          addSection('Connection', reasons.length ? `Shared metadata: ${reasons.join(' · ')}` : 'Explanation unavailable for this connection type.');
+          addSection('Connection', reasons.length ? reasons.map(detail => `${detail.summary}${detail.evidence.length ? ` ${detail.evidence.join(' · ')}` : ''}`).join(' ') : 'Explanation unavailable for this connection type.');
         }
         panel.append(disclosure);
       }

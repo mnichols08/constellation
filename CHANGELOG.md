@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.11.1 — Evidence truthfulness and explanation parity
+
+- Distinguish Identity Rings from Identity Orbits and use neutral wording for other deterministic layouts.
+- Record explicit repository selection as user intent; describe ordinary scene inclusion as derived, independently of Showcase presentation roles.
+- Route Studio/Core and offline interactive HTML explanations through one shared pure explanation implementation.
+
 ## 3.11.0 — Evidence Everywhere Foundation
 
 - Add optional bounded Scene Evidence v1 records distinguishing source facts, explicit user choices, and deterministic Developer Topology reasons without changing Config v7 or Scene API v1.

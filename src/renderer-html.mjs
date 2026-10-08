@@ -12,11 +12,13 @@ import { createTemporalGeometryMath } from './temporal-geometry.mjs';
 import { temporalGeometryDrawing } from './temporal-geometry-drawing.mjs';
 import { applyTemporalGeometryDrawing } from './temporal-geometry-runtime.mjs';
 import { temporalMotion } from './temporal-motion.mjs';
+import { createExplanationHelpers, EVIDENCE_VERSION, dimensionName, layoutSummary } from './evidence.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const scriptJSON = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
 const runtimeScript = `${bindings}
 await __wbg_init({ module_or_path: Uint8Array.from(atob('${base64}'), char => char.charCodeAt(0)) });
+const explanationAPI = (${createExplanationHelpers.toString()})(${EVIDENCE_VERSION}, (${dimensionName.toString()}), (${layoutSummary.toString()}));
 const scene = JSON.parse(document.getElementById('constellation-scene').textContent);
 const projectTemporalPlane = ${projectTemporalPlane.toString()};
 const temporalGeometryMath = (${createTemporalGeometryMath.toString()})();
@@ -24,7 +26,7 @@ const temporalMotion = ${temporalMotion.toString()};
 const temporalGeometryDrawing = ${temporalGeometryDrawing.toString()};
 const applyTemporalGeometryDrawing = ${applyTemporalGeometryDrawing.toString()};
 const mountTemporalStack = ${mountTemporalStack.toString()};
-const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, options, ${mountInteractive.toString()});
+const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, options, (root, scene, options) => (${mountInteractive.toString()})(root, scene, options, explanationAPI));
 const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})(root, scene, options, mountScene);
 const experience = (${mountStory.toString()})(document.getElementById('constellation'), scene, { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) }, mountExperience);
 const initialChapter = JSON.parse(document.getElementById('constellation-initial').textContent);
