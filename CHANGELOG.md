@@ -1,18 +1,13 @@
 # Changelog
 
-## 3.11.1 — Evidence truthfulness and explanation parity
-
-- Distinguish Identity Rings from Identity Orbits and use neutral wording for other deterministic layouts.
-- Record explicit repository selection as user intent; describe ordinary scene inclusion as derived, independently of Showcase presentation roles.
-- Route Studio/Core and offline interactive HTML explanations through one shared pure explanation implementation.
-
 ## 3.11.0 — Evidence Everywhere Foundation
 
-- Add optional bounded Scene Evidence v1 records distinguishing source facts, explicit user choices, and deterministic Developer Topology reasons without changing Config v7 or Scene API v1.
-- Add the Core `explainNode` and `explainVisual` APIs and a **Why is this here?** disclosure in the existing Studio Content inspector and offline interactive HTML.
-- Explain node inclusion, Developer Topology or deterministic layout position, configured visual mappings, and manual position/color choices; retain existing profile scores and role weights.
-- Include structured evidence in CLI `--explain` output; keep SVG node descriptions concise and label manual overrides accurately.
-- Document evidence provenance, bounds, privacy and reuse. No AI service or network request is required.
+- Add optional bounded Scene Evidence v1 with source, user and derived provenance, without changing Config v7 or Scene API v1.
+- Add Core explanation APIs and the **Why is this here?** disclosure in Studio and offline interactive HTML. Explain inclusion, position, visual mappings, manual overrides and evidence-backed connections; include structured evidence in CLI `--explain` output.
+- Distinguish Identity Rings from Identity Orbits, use neutral wording for other deterministic layouts, and explain temporal layouts with their existing evidence.
+- Record explicit repository selection as user intent and ordinary scene/filter inclusion as derived. Keep source provenance for provider facts and explain Showcase roles separately from inclusion.
+- Use one shared pure explanation implementation across Studio, Core and offline interactive HTML. Preserve existing Developer Topology scores and role weights.
+- Document evidence bounds, privacy and reuse. No AI service or network request is required.
 
 ## 3.10.0 — Simplify Constellation
 
