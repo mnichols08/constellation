@@ -160,6 +160,14 @@ export function renderSceneSVG(visualScene, renderOptions) {
     connectionBasis = "languages",
   } = options;
   const [frameX, frameY, frameWidth, height] = visualScene.viewport.viewBox;
+  const frameRight = frameX + frameWidth;
+  const frameBottom = frameY + height;
+  const frameCenterX = frameX + frameWidth / 2;
+  const frameCenterY = frameY + height / 2;
+  const legacyFrame = frameX === 0 && frameY === 0 && frameWidth === 900;
+  const nebulaCenterX = legacyFrame ? 440 : frameCenterX;
+  const nebulaRadiusX = legacyFrame ? 420 : frameWidth * 0.47;
+  const frame = { left: frameX, top: frameY, right: frameRight, bottom: frameBottom, width: frameWidth, height };
   const compact = layout === "compact";
   const profile = {
     ...profileDimensions(options.exportProfile, height),
@@ -644,7 +652,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
     ? `${visibleGroups.length} semantic groups and ${representedProjects} represented projects. ${selectedEdges.size} aggregate edges represent ${representedRelationships} source relationships. Group size reflects member count within a bounded visual range. Aggregate edge visual weight reflects the number of represented source relationships, not dependency strength or project importance. Group labels and user-curated labels take priority; hidden labels remain represented by accessible node titles. `
     : '';
   const densityLegend = readmeDensity
-    ? `<g class="static-export-legend" role="group" aria-label="Group and project shapes; line weight reflects represented relationships" transform="translate(26 ${height + 19})"><path d="M0 -7L6 -4L6 4L0 7L-6 4L-6 -4Z"/><text x="11" y="4">group</text><circle cx="60" cy="0" r="4"/><text x="68" y="4">project</text><path d="M126 0H151" class="legend-edge"/><text x="157" y="4">weight = represented relationships</text></g>`
+    ? `<g class="static-export-legend" role="group" aria-label="Group and project shapes; line weight reflects represented relationships" transform="translate(${frameX + 26} ${frameBottom + 19})"><path d="M0 -7L6 -4L6 4L0 7L-6 4L-6 -4Z"/><text x="11" y="4">group</text><circle cx="60" cy="0" r="4"/><text x="68" y="4">project</text><path d="M126 0H151" class="legend-edge"/><text x="157" y="4">weight = represented relationships</text></g>`
     : '';
   const extraHeight = (legendLines.length ? 18 + legendLines.length * 13 : 0) + (readmeDensity ? 28 : 0);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height + extraHeight * profile.height / height}" viewBox="${frameX} ${frameY} ${frameWidth} ${height + extraHeight}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title${semanticStudio ? " meaning-description" : ""} description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
@@ -667,8 +675,8 @@ ${["space", "milky-way"].includes(sky.mode) ? starfieldCSS : ""}
 ${transparent ? "svg{background:transparent!important}.background{fill:none!important}" : ""}
 ${readmeDensity ? ".star[data-kind=\"semantic-group\"]{clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);stroke:var(--sky-foreground);stroke-width:1.2}.static-export-legend{font-size:10px;fill:var(--sky-foreground);opacity:.78}.static-export-legend path{fill:var(--sky-accent)}.static-export-legend circle{fill:var(--sky-star)}.static-export-legend .legend-edge{fill:none;stroke:var(--sky-line);stroke-width:2;opacity:.7}" : ""}</style>
 ${composeLayers(visualScene, "backdrop", {
-  background: `<rect class="background" width="900" height="${height}" rx="${compact ? 12 : 18}"/>
-${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height * 0.43}" fill="url(#nebula)"/>`}
+  background: `<rect class="background" x="${frameX}" y="${frameY}" width="${frameWidth}" height="${height}" rx="${compact ? 12 : 18}"/>
+${transparent ? "" : `<ellipse cx="${nebulaCenterX}" cy="${frameCenterY}" rx="${nebulaRadiusX}" ry="${height * 0.43}" fill="url(#nebula)"/>`}
 
 `,
   effects: `${decoration(options, height, visibleStars)}
@@ -679,13 +687,13 @@ ${transparent ? "" : `<ellipse cx="440" cy="${height / 2}" rx="420" ry="${height
     visualScene,
     "overlay",
     {
-      annotations: `${(visualScene.annotations || []).map((annotation) => `<text class="scene-annotation" x="${annotation.x}" y="${annotation.y}">${escape(annotation.text)}</text>`).join("")}${densityLegend}${historyLayer.note}${options.organizationUser && graph.organization ? `<g class="organization-focus-caption"><text x="450" y="26" text-anchor="middle" font-size="16" font-weight="600">@${escape(options.organizationUser)} → ${escape(name)}</text><text x="450" y="43" text-anchor="middle" font-size="10">${graph.focus ? `${graph.focusProjects.length} connected projects · bright lines show direct participation` : "No verified connection in the loaded results; expand or refresh the scan"}</text></g>` : ""}${graph.organization ? `<text class="organization-coverage" x="450" y="${height - 34}" text-anchor="middle" font-size="9">${escape(`${graph.nodeCount} nodes · ${graph.repositoryCount} selected projects · ${options.organizationData?.scanned || 0} repositories scanned for contributors`)}<title>${escape(graph.note)}</title></text>` : ""}
-${visibleStars.length ? "" : `<text x="450" y="${height / 2}" text-anchor="middle">${repos.length ? "All nodes are hidden. Restore visibility in Individual nodes." : graph.emptyMessage ? escape(graph.emptyMessage) : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : sourceHasRepositories ? "No projects match these filters or historical year." : options.repoSource === "pinned" ? "No public pinned repositories match this selection." : "No public repositories to show yet."}</text>`}
-${options.legend ? `<text class="mapping-legend" x="32" y="${height - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || "legacy"} · Glow: ${options.nodeGlowMode || "uniform"} · Color: ${options.nodeColorMode || "custom"} · Links: ${options.connectionWeight || "uniform"}${activitySettings.activityEffect === "asteroids" ? " · Asteroids: latest 24 loaded commits per repository" : activitySettings.activityEffect !== "off" ? ` · ${activitySettings.activityEffect}: public activity / ${["1d", "7d", "30d"].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ""}`)}</text>` : ""}
-${generatedLabel ? `<text class="generated-at" x="32" y="${height - 14}">${generatedLabel}</text>` : ""}
+      annotations: `${(visualScene.annotations || []).map((annotation) => `<text class="scene-annotation" x="${annotation.x}" y="${annotation.y}">${escape(annotation.text)}</text>`).join("")}${densityLegend}${historyLayer.note}${options.organizationUser && graph.organization ? `<g class="organization-focus-caption"><text x="${frameCenterX}" y="${frameY + 26}" text-anchor="middle" font-size="16" font-weight="600">@${escape(options.organizationUser)} → ${escape(name)}</text><text x="${frameCenterX}" y="${frameY + 43}" text-anchor="middle" font-size="10">${graph.focus ? `${graph.focusProjects.length} connected projects · bright lines show direct participation` : "No verified connection in the loaded results; expand or refresh the scan"}</text></g>` : ""}${graph.organization ? `<text class="organization-coverage" x="${frameCenterX}" y="${frameBottom - 34}" text-anchor="middle" font-size="9">${escape(`${graph.nodeCount} nodes · ${graph.repositoryCount} selected projects · ${options.organizationData?.scanned || 0} repositories scanned for contributors`)}<title>${escape(graph.note)}</title></text>` : ""}
+${visibleStars.length ? "" : `<text class="empty-state" x="${frameCenterX}" y="${frameCenterY}" text-anchor="middle">${repos.length ? "All nodes are hidden. Restore visibility in Individual nodes." : graph.emptyMessage ? escape(graph.emptyMessage) : categoryMode && graph.repositoryCount ? `No ${nodeMode} in the matching repositories.` : sourceHasRepositories ? "No projects match these filters or historical year." : options.repoSource === "pinned" ? "No public pinned repositories match this selection." : "No public repositories to show yet."}</text>`}
+${options.legend ? `<text class="mapping-legend" x="${frameX + 32}" y="${frameBottom - 30}" font-size="9">${escape(`Size: ${options.nodeSize || options.sizingMode || "legacy"} · Glow: ${options.nodeGlowMode || "uniform"} · Color: ${options.nodeColorMode || "custom"} · Links: ${options.connectionWeight || "uniform"}${activitySettings.activityEffect === "asteroids" ? " · Asteroids: latest 24 loaded commits per repository" : activitySettings.activityEffect !== "off" ? ` · ${activitySettings.activityEffect}: public activity / ${["1d", "7d", "30d"].includes(options.activityData?.window) ? options.activityData.window : activitySettings.activityWindow}` : ""}`)}</text>` : ""}
+${generatedLabel ? `<text class="generated-at" x="${frameX + 32}" y="${frameBottom - 14}">${generatedLabel}</text>` : ""}
 `,
     },
-  )}${renderCredit(height)}${legendLines.length ? `<g class="semantic-legend" fill="var(--sky-foreground)">${legendLines.map((line,i) => `<text x="32" y="${height+18+i*13}" font-size="11">${escape(line)}</text>`).join("")}</g>` : ""}
+  )}${renderCredit(frame)}${legendLines.length ? `<g class="semantic-legend" fill="var(--sky-foreground)">${legendLines.map((line,i) => `<text x="${frameX + 32}" y="${frameBottom+18+i*13}" font-size="11">${escape(line)}</text>`).join("")}</g>` : ""}
 </svg>\n`;
   return animateRingSVG(
     focusSVG(svg, selectionForScene(visualScene)),

@@ -29,8 +29,12 @@ export function fitSceneViewport(scene, { nodeIds, padding = 0.1, maxExpansion =
   const pad=Math.max(0.04,Math.min(0.2,Number.isFinite(padding)?padding:0.1));
   const requiredWidth=Math.max(bounds.width/(1-2*pad),bounds.height/(1-2*pad)*aspect);
   const width=Math.min(currentWidth*Math.max(1,Math.min(1.2,maxExpansion)),Math.max(120,requiredWidth));
-  if(Math.abs(width-currentWidth)<currentWidth*0.005)return scene;
   const height=width/aspect;
+  const centerX=bounds.centerX,centerY=bounds.centerY;
+  const currentCenterX=x+currentWidth/2,currentCenterY=y+currentHeight/2;
+  const widthTolerance=Math.max(1e-6,currentWidth*0.005),heightTolerance=Math.max(1e-6,currentHeight*0.005);
+  if(Math.abs(width-currentWidth)<widthTolerance&&Math.abs(height-currentHeight)<heightTolerance
+    &&Math.abs(centerX-currentCenterX)<widthTolerance&&Math.abs(centerY-currentCenterY)<heightTolerance)return scene;
   const stable=value=>Math.round(value*1e6)/1e6;
-  return {...scene,viewport:{...scene.viewport,viewBox:[stable(bounds.centerX-width/2),stable(bounds.centerY-height/2),width,height]}};
+  return {...scene,viewport:{...scene.viewport,viewBox:[stable(centerX-width/2),stable(centerY-height/2),width,height]}};
 }
