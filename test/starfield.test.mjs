@@ -27,6 +27,17 @@ test('starfield has stable prefixes, independently seeded layers and bounded out
   assert.ok(Buffer.byteLength(renderStarfield('sky', { ...defaultStarfield, density: 100 })) < 100000);
 });
 
+test('framed starfields stay in the camera bounds without changing viewport density', () => {
+  const svg = renderStarfield('sky', { ...defaultStarfield, density: 80, mode: 'milky-way' }, { x: 180, y: 60, width: 540, height: 337, densityHeight: 560 });
+  const points = [...svg.matchAll(/<circle class="starfield-point[^>]*cx="([\d.]+)" cy="([\d.]+)"/g)];
+  assert.equal(points.length, 400);
+  for (const [, rawX, rawY] of points) {
+    assert.ok(Number(rawX) >= 186 && Number(rawX) <= 714);
+    assert.ok(Number(rawY) >= 66 && Number(rawY) <= 391);
+  }
+  assert.match(svg, /<ellipse cx="234\.0" cy="[\d.]+" rx="144\.0"/);
+});
+
 test('Milky Way concentrates stars in a band, flat depth removes size differences', () => {
   const options = { ...defaultStarfield, density: 100 };
   const field = generateStarfield('band', options), band = generateStarfield('band', { ...options, mode: 'milky-way' });

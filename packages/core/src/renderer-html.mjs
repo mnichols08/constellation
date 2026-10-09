@@ -1,6 +1,7 @@
 import { renderSceneSVG } from './renderer-svg.mjs';
 import { serializeScene } from './scene.mjs';
 import { mountInteractive, interactiveStyles } from './interactive-runtime.mjs';
+import { contentBounds, fitSceneViewport } from './scene-framing.mjs';
 import { bindings, base64 } from './wasm/inline.mjs';
 import { mountTimeline } from './timeline-runtime.mjs';
 import { replaceInteractiveSVG, transitionCamera } from './scene-transition.mjs';
@@ -32,7 +33,7 @@ const temporalMotion = ${temporalMotion.toString()};
 const temporalGeometryDrawing = ${temporalGeometryDrawing.toString()};
 const applyTemporalGeometryDrawing = ${applyTemporalGeometryDrawing.toString()};
 const mountTemporalStack = ${mountTemporalStack.toString()};
-const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, { ...options, semanticGroupActions: semanticArtifacts.length > 0 }, (root, scene, options) => (${mountInteractive.toString()})(root, scene, options, explanationAPI));
+const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, { ...options, semanticGroupActions: semanticArtifacts.length > 0 }, (root, scene, options) => (${mountInteractive.toString()})(root, scene, options, explanationAPI, ((contentBounds) => (${fitSceneViewport.toString()}))(${contentBounds.toString()})));
 const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})(root, scene, options, mountScene);
 const runtimeOptions = { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) };
 let experience = (${mountStory.toString()})(document.getElementById('constellation'), scene, runtimeOptions, mountExperience);

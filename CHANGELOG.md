@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.14.0 — Portable Semantic Graph
+
+- Added a bounded, deterministic renderer-independent Semantic Graph v1 with developer and Project Constellation adapters, provenance, evidence, completeness, serialization and Scene v1 projection.
+- Preserved Config v7, Scene v1, Evidence v1, Project Constellation v1 and Web Component API v1.
+
 ## 3.13.0 — Project Constellations
 
 - Add a bounded, deterministic project-structure model with stable path IDs, package/directory/module/entry-point nodes, evidence-backed containment, workspace and static import relationships, commit provenance, and explicit truncation statistics.

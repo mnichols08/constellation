@@ -205,9 +205,10 @@ test(
       "true",
     );
     await evaluate('document.querySelector("[data-action=fit]").click()');
-    assert.notDeepEqual(
+    assert.deepEqual(
       await evaluate('document.querySelector("main").constellation.camera'),
       base,
+      "Fit returns to the already content-fitted initial frame",
     );
     await evaluate('document.querySelector("[data-action=reset]").click()');
     assert.deepEqual(

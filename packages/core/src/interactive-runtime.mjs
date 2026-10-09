@@ -3,7 +3,7 @@ import { createExplanationHelpers, EVIDENCE_VERSION, dimensionName, layoutSummar
 // This function is also embedded verbatim into standalone HTML. Keep dependencies
 // explicit in its arguments and use DOM text APIs for all scene-provided content.
 const canonicalExplanations = createExplanationHelpers(EVIDENCE_VERSION, dimensionName, layoutSummary);
-export function mountInteractive(root, source, options = {}, explanations = canonicalExplanations) {
+export function mountInteractive(root, source, options = {}, explanations = canonicalExplanations, fitViewport = null) {
   const scene = source.kind === "time-lapse" ? source.latest : source;
   const svg = root.querySelector("[data-canvas] > svg");
   if (!svg) throw new Error("Interactive view requires a rendered scene.");
@@ -520,6 +520,10 @@ export function mountInteractive(root, source, options = {}, explanations = cano
   }
   function fit() {
     if (scene.temporalStack) return setCamera(base);
+    if (fitViewport) {
+      const fitted = fitViewport(scene, { nodeIds: ids }).viewport.viewBox;
+      return setCamera(fitted || base);
+    }
     const visible = scene.nodes.filter((node) => ids.includes(node.id));
     if (!visible.length) return setCamera(base);
     const left =

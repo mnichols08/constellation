@@ -17,7 +17,7 @@ async function withPreview(t, run) {
 
 test('preview server serves every module in the Project Constellation Studio import graph', async t => {
   await withPreview(t, async origin => {
-    const pending = ['/src/preview.mjs', '/src/github-project-structure.mjs', '/src/project-constellation.mjs', '/src/project-constellation-scene.mjs'];
+    const pending = ['/src/preview.mjs', '/src/github-project-structure.mjs', '/src/project-constellation.mjs', '/src/project-constellation-scene.mjs', '/src/scene-framing.mjs'];
     const visited = new Set();
     while (pending.length) {
       const path = pending.pop();

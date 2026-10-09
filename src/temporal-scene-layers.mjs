@@ -22,7 +22,7 @@ export function temporalSceneLayers(scene, viewBox = scene.viewport.viewBox) {
   rhythm.codingRhythmAnimate &&= options.animate !== false;
   const summary = events.markup + renderCodingRhythm(options.codingRhythmData, rhythm, dimensions);
   return {
-    credit: `<g transform="translate(${x} ${y}) scale(${width / 900})">${renderCredit(height * 900 / width)}</g>`,
+    credit: `<g transform="translate(${x} ${y}) scale(${width / 900})">${renderCredit({ right: 900, bottom: height * 900 / width })}</g>`,
     css: `.credit{font-size:9px;opacity:.65;fill:var(--sky-accent);text-anchor:end}.dust{fill:var(--sky-foreground)}${starfieldCSS}${historyCSS}${codingRhythmCSS}`,
     underlay: composeLayers(scene, 'underlay', { annotations: `<g data-temporal-summary="" transform="${fit}"><title>Account observations at the reference date; not historical activity for each year.</title>${summary}</g>` }),
     backdrop: composeLayers(scene, 'backdrop', {
