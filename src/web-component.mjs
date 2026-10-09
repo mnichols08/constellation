@@ -258,11 +258,7 @@ export class ConstellationView extends HTMLElement {
   #error(error, type = 'error') {
     this.dispatchEvent(new CustomEvent(type, { detail: { message: error.message }, bubbles: true, composed: true }));
     if (!this.#runtime) { const message = document.createElement('p'); message.setAttribute('role', 'alert'); message.textContent = error.message; this.shadowRoot.replaceChildren(message); }
-    else {
-      let message = this.shadowRoot.querySelector('[data-load-error]');
-      if (!message) { message = document.createElement('p'); message.dataset.loadError = ''; message.setAttribute('role', 'alert'); message.className = 'semantic-identity'; this.shadowRoot.append(message); }
-      message.textContent = error.message;
-    }
+    else { const main = this.shadowRoot.querySelector('main'); main?.setAttribute('aria-description', [main?.getAttribute('aria-description'), error.message].filter(Boolean).join(' ')); }
   }
   async #refreshSemanticGraphURL(source) {
     this.#request?.abort(); const request = new AbortController(); this.#request = request;
@@ -278,8 +274,7 @@ export class ConstellationView extends HTMLElement {
       try { while (true) { const { done, value } = await reader.read(); if (done) break; total += value.byteLength; if (total > 16 * 1024 * 1024) { await reader.cancel(); throw new Error('Semantic Graph exceeds 16 MiB.'); } chunks.push(value); } }
       finally { reader.releaseLock(); }
       request.signal.throwIfAborted();
-      const bytes = new Uint8Array(total); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-      const json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      const json = new TextDecoder('utf-8', { fatal: true }).decode(await new Blob(chunks).arrayBuffer());
       const graph = parseSemanticGraph(json);
       request.signal.throwIfAborted(); this.loadSemanticGraph(graph);
     } catch (error) { if (!request.signal.aborted) this.#error(error, 'semantic-graph-error'); }
@@ -337,11 +332,14 @@ export class ConstellationView extends HTMLElement {
       }
       const markup = interactiveMarkup(renderSceneSVG(viewScene));
       this.#runtime?.destroy();
-      this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}.semantic-identity{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}${interactiveStyles}</style>${markup}${this.#semanticGraph ? '<p class="semantic-identity" role="status"></p>' : ''}`;
+      this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
+      const main = this.shadowRoot.querySelector('main');
       if (this.#semanticGraph) {
         const graph = this.#semanticGraph;
         const label = graph.subject.kind === 'developer' ? 'Developer' : 'Project';
-        this.shadowRoot.querySelector('.semantic-identity').textContent = `${label}: ${graph.subject.id}. Semantic Graph v${graph.version}. Fingerprint ${semanticGraphFingerprint(graph)}.${graph.statistics.truncated ? ' Source coverage is incomplete.' : ''}${graph.project?.provenance?.visibility === 'private' ? ' Source visibility is private; this graph may disclose repository names, paths, and structure.' : ''}`;
+        main.setAttribute('aria-label', `${label}: ${graph.subject.id} · Semantic Graph v${graph.version} · ${semanticGraphFingerprint(graph)}`);
+        const notes = [graph.statistics.truncated && 'Source coverage is incomplete.', graph.project?.provenance?.visibility === 'private' && 'Source visibility is private; this graph may disclose repository names, paths, and structure.'].filter(Boolean);
+        if (notes.length) main.setAttribute('aria-description', notes.join(' '));
       }
       this.#runtime = mountStory(this.shadowRoot.querySelector('main'), viewScene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(viewScene), storyArtifacts: storyArtifacts(viewScene), frameSVGs: viewScene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
       if (previousCamera) this.#runtime.setCamera?.(previousCamera);
@@ -357,7 +355,6 @@ export class ConstellationView extends HTMLElement {
       }
       const focusGroup = this.#semanticFocus && this.#semanticHierarchy?.groups.find(group => group.id === this.#semanticFocus);
       if (focusGroup && viewScene.semanticGroups) this.#runtime.showSemanticContext?.(focusGroup, { expanded: viewScene.semanticGroups.expanded.includes(focusGroup.id) });
-      const main = this.shadowRoot.querySelector('main');
       main.addEventListener('semantic-group-expand', event => this.expandGroup(event.detail.id));
       main.addEventListener('semantic-group-collapse', event => this.collapseGroup(event.detail.id));
       const first = !this.#initialized; this.#initialized = true;

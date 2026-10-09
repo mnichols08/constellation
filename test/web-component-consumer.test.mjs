@@ -49,6 +49,7 @@ test(
       "evidence-provenance.md",
       "index.mjs",
       "package.json",
+      "portable-embed.md",
       "project-constellations.md",
       "semantic-groups.md",
       "temporal-stack.md",
