@@ -152,8 +152,14 @@ export function createAtlasHistory(initial, limit = ATLAS_HISTORY_LIMIT) {
     get canForward() { return index < entries.length - 1; },
     get length() { return entries.length; },
     push(next) { entries = [...entries.slice(0, index + 1), next].slice(-limit); index = entries.length - 1; return next; },
-    back() { if (index > 0) index--; return entries[index]; },
-    forward() { if (index < entries.length - 1) index++; return entries[index]; },
+    transact(direction, render) {
+      const target = direction === 'back' ? index - 1 : direction === 'forward' ? index + 1 : index;
+      if (target < 0 || target >= entries.length || typeof render !== 'function') return false;
+      try { if (render(entries[target]) === false) return false; }
+      catch { return false; }
+      index = target;
+      return entries[index];
+    },
     snapshot() { return Object.freeze({ entries: [...entries], index }); },
   });
 }

@@ -78,7 +78,14 @@ test('Atlas structure, breadcrumbs, share fallback, and bounded history work wit
   const history = createAtlasHistory(root, 3);
   history.push(navigateAtlasToGroup(root, graph, family.id));
   history.push(project);
-  assert.equal(history.back().level, 'group');
+  const historyBeforeFailure = history.snapshot();
+  assert.equal(history.transact('back', () => false), false);
+  assert.deepEqual(history.snapshot(), historyBeforeFailure);
+  assert.equal(history.transact('back', candidate => candidate.level === 'group').level, 'group');
+  assert.equal(history.transact('forward', () => { throw new Error('renderer failed'); }), false);
+  assert.equal(history.current.level, 'group');
+  assert.equal(history.transact('forward', () => true).level, 'project');
+  assert.equal(history.transact('back', () => true).level, 'group');
   history.push(root);
   assert.equal(history.canForward, false);
   history.push(project); history.push(root);

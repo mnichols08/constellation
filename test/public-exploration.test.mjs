@@ -43,6 +43,19 @@ const storage = () => {
   };
 };
 
+test('anonymous project structure access is limited to explicit scan endpoints', async () => {
+  const calls = [];
+  const fetchImpl = createPreviewFetch({ fetchImpl: async url => { calls.push(url); return Response.json({}); } });
+  await fetchImpl('https://api.github.com/repos/alice/project/commits/main');
+  await fetchImpl('https://api.github.com/repos/alice/project/git/trees/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?recursive=1');
+  await fetchImpl('https://api.github.com/repos/alice/project/contents/package.json?ref=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+  assert.equal(calls.length, 3);
+  await assert.rejects(fetchImpl('https://api.github.com/repos/alice/project/issues'), /Sign in/);
+  await assert.rejects(fetchImpl('https://api.github.com/repos/alice/project/git/trees/not-a-sha'), /Sign in/);
+  await assert.rejects(fetchImpl('https://api.github.com/repos/alice/project/commits/main', { method: 'POST' }), /Sign in/);
+  assert.equal(calls.length, 3);
+});
+
 for (const type of ["User", "Organization"])
   test(`anonymous ${type} load is bounded to two requests despite enrichment options`, async () => {
     const calls = [];

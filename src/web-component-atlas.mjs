@@ -37,12 +37,27 @@ export class AtlasNavigation {
     if (!result) this.#projectGraph = previous;
     return result;
   }
-  back(render, changed) { if (!this.#history?.canBack) return false; return this.#commit(this.#history.back(), render, changed, false); }
-  forward(render, changed) { if (!this.#history?.canForward) return false; return this.#commit(this.#history.forward(), render, changed, false); }
+  back(render, changed) { return this.#travel('back', render, changed); }
+  forward(render, changed) { return this.#travel('forward', render, changed); }
+  #travel(direction, render, changed) {
+    if (!this.#history || (direction === 'back' ? !this.#history.canBack : !this.#history.canForward)) return false;
+    const previous = this.#state; let succeeded = false;
+    const target = this.#history.transact(direction, candidate => {
+      this.#state = candidate;
+      try { succeeded = render() !== false; return succeeded; }
+      catch { succeeded = false; return false; }
+      finally { if (!succeeded) this.#state = previous; }
+    });
+    if (!target) return false;
+    changed?.({ state: this.state, breadcrumbs: this.breadcrumbs, context: this.context, shareState: this.shareState });
+    return true;
+  }
   #commit(next, render, changed, push = true) {
     if (!this.#graph || !next) return false;
     const previous = this.#state; this.#state = next;
-    if (!render()) { this.#state = previous; return false; }
+    let rendered = false;
+    try { rendered = render() !== false; } catch { rendered = false; }
+    if (!rendered) { this.#state = previous; return false; }
     if (push) this.#history?.push(next);
     changed?.({ state: this.state, breadcrumbs: this.breadcrumbs, context: this.context, shareState: this.shareState });
     return true;

@@ -47,6 +47,8 @@ body{background:radial-gradient(ellipse at 50% 5%,#dde5f766,transparent 48%),var
 #github-sign-out{color:#e5e7eb}
 @media(max-width:400px){.masthead .source-link{display:none}}
 .developer-atlas{display:flex;align-items:center;gap:.45rem;overflow-x:auto;white-space:nowrap;padding:.35rem 0;scrollbar-width:thin}
+#preview.atlas-active{flex-direction:column;align-items:stretch}
+#preview.atlas-active>div:first-child{width:100%;flex:0 0 auto}
 .developer-atlas-context{border:1px solid color-mix(in srgb,var(--sky-foreground,#dce5ff) 20%,transparent);border-radius:.5rem;padding:.65rem .75rem;margin:0 0 .65rem;color:var(--sky-foreground,#dce5ff);background:color-mix(in srgb,var(--sky-background,#080b11) 88%,transparent)}
 .developer-atlas-context h2{font-size:.95rem;margin:0 0 .25rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .developer-atlas-context p{font-size:.8rem;line-height:1.45;margin:.25rem 0;overflow-wrap:anywhere}
