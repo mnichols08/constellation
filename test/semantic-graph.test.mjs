@@ -5,6 +5,8 @@ import { createProjectConstellation } from '../src/project-constellation.mjs';
 import { semanticGraphFromScene, semanticGraphFromProjectConstellation, validateSemanticGraph, serializeSemanticGraph, parseSemanticGraph, semanticGraphFingerprint, projectSemanticGraphToScene } from '../src/semantic-graph.mjs';
 import { validateScene } from '../src/scene.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
+import { repositories as recruiterRepositories } from './fixtures/recruiter.mjs';
+import { buildSemanticHierarchy, projectSemanticLevel, expandGroup } from '../src/semantic-groups.mjs';
 
 test('developer semantic graphs ignore Scene presentation and ordering', () => {
   const scene=createScene('octocat',[{full_name:'octocat/alpha',name:'alpha',language:'JavaScript',topics:['tooling']},{full_name:'octocat/beta',name:'beta',language:'Rust',topics:[]}]);
@@ -14,6 +16,46 @@ test('developer semantic graphs ignore Scene presentation and ordering', () => {
   assert.deepEqual(semanticGraphFromScene(createScene('octocat',[{full_name:'octocat/beta',name:'beta',language:'Rust',topics:[]},{full_name:'octocat/alpha',name:'alpha',language:'JavaScript',topics:['tooling']} ])),graph);
   const projected=projectSemanticGraphToScene(graph); assert.equal(validateScene(projected).valid,true); assert.match(renderSceneSVG(projected),/<svg/);
   assert.equal(graph.nodes.some(n=>'geometry' in n||'style' in n),false);
+});
+
+test('canonical semantic truth survives collapsed, expanded, filtered and presentation projections', () => {
+  const families = { studio: { label: 'Studio', members: recruiterRepositories.slice(0, 4).map(repo => repo.full_name) }, tools: { label: 'Tools', members: recruiterRepositories.slice(5, 8).map(repo => repo.full_name) } };
+  const base = createScene('alice', recruiterRepositories, { projectFamilies: families, projectRelationships: [['alice/atlas', 'alice/atlas-mobile']] });
+  const hierarchy = buildSemanticHierarchy(base);
+  const grouped = projectSemanticLevel(base, 'groups', { hierarchy });
+  const firstGroup = hierarchy.groups.find(group => group.provenance === 'user');
+  const expanded = expandGroup(grouped, hierarchy, firstGroup.id);
+  const presentation = structuredClone(base); presentation.presentation.options.semanticZoom = { enabled: true, level: 'groups' };
+  const graphs = [base, grouped, expanded, presentation].map(semanticGraphFromScene);
+  for (const graph of graphs.slice(1)) assert.deepEqual(graph, graphs[0]);
+  assert.equal(graphs[0].nodes.some(node => node.id === 'community/query-engine' && node.kind === 'project'), true);
+  assert.equal(graphs[0].edges.some(edge => edge.kind === 'repository-owner' && edge.from === 'community/query-engine'), false);
+  assert.equal(graphs[0].edges.some(edge => edge.kind === 'repository-owner' && edge.from === 'alice/atlas'), true);
+});
+
+test('unsafe optional repository metadata is omitted while identity remains intact', () => {
+  const scene = createScene('alice', [{ full_name: 'alice/safe-id', name: 'ghp_abcdefghijklmnopqrstuvwxyz0123456789', description: 'x'.repeat(9000), language: 'Rust', topics: ['safe', 'github_pat_abcdefghijklmnopqrstuvwxyz0123456789'] }]);
+  const graph = semanticGraphFromScene(scene);
+  const project = graph.nodes.find(node => node.kind === 'project');
+  assert.equal(project.id, 'alice/safe-id');
+  assert.equal(project.label, project.id);
+  assert.equal('description' in project.properties, false);
+  assert.deepEqual(project.properties.topics, ['safe']);
+  assert.equal(JSON.stringify(graph).includes('ghp_'), false);
+});
+
+test('group inventory, group nodes and member edges reject contradictory portable truth', () => {
+  const records = recruiterRepositories.filter(repo => repo.full_name.startsWith('alice/')).slice(0, 4);
+  const scene = createScene('alice', records, { projectFamilies: { studio: { label: 'Studio', members: records.map(repo => repo.full_name) } } });
+  const graph = semanticGraphFromScene(scene);
+  const missingNode = structuredClone(graph); missingNode.nodes = missingNode.nodes.filter(node => node.id !== missingNode.groups[0].id); missingNode.statistics.nodeCount--;
+  assert.equal(validateSemanticGraph(missingNode).valid, false);
+  const missingEdge = structuredClone(graph); missingEdge.edges = missingEdge.edges.filter(edge => edge.kind !== 'member-of'); missingEdge.statistics.edgeCount = missingEdge.edges.length;
+  assert.equal(validateSemanticGraph(missingEdge).valid, false);
+  const mismatchedLabel = structuredClone(graph); mismatchedLabel.nodes.find(node => node.id === mismatchedLabel.groups[0].id).label = 'Different';
+  assert.equal(validateSemanticGraph(mismatchedLabel).valid, false);
+  const extraEdge = structuredClone(graph); extraEdge.edges.push({ ...structuredClone(extraEdge.edges.find(edge => edge.kind === 'member-of')), id: 'extra-membership', from: 'alice/atlas', to: 'developer:alice' }); extraEdge.statistics.edgeCount++;
+  assert.equal(validateSemanticGraph(extraEdge).valid, false);
 });
 
 test('project graph preserves structural facts, ref, commit and truncation through JSON', () => {

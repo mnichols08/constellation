@@ -181,6 +181,21 @@ function record(scene, path = '$') {
       members += group.members.length; groupIds.add(group.id);
     }
     if (members > 32768 || semantic.expanded.some(value => !groupIds.has(value))) fail(`${path}.semanticGroups`, 'hierarchy exceeds bounds or has unknown expanded groups');
+    if (semantic.canonical !== undefined) {
+      const canonical = semantic.canonical, projectIds = new Set();
+      if (!object(canonical) || !id(canonical.account) || canonical.account.length > 160 || !Array.isArray(canonical.projects) || canonical.projects.length > 2048 || !Array.isArray(canonical.groups) || canonical.groups.length > 256 || typeof canonical.truncated !== 'boolean' || !Array.isArray(canonical.projectRelationships) || canonical.projectRelationships.length > 6 || !validateEvidence(canonical.evidence, new Set([...(canonical.projects || []).map(item => item?.id), ...(canonical.groups || []).map(item => item?.id)]))) fail(`${path}.semanticGroups.canonical`, 'invalid canonical semantic source');
+      for (const project of canonical.projects || []) {
+        if (!object(project) || !id(project.id) || projectIds.has(project.id) || !sourceNodeIds.has(project.id) || Object.keys(project).some(key => !['id', 'name', 'description', 'url', 'language', 'topics', 'source', 'family'].includes(key)) || ['name', 'description', 'url', 'language', 'source', 'family'].some(key => project[key] !== undefined && !safeEvidenceText(project[key], key === 'source' ? 80 : 160)) || project.topics !== undefined && !safeList(project.topics, 32)) fail(`${path}.semanticGroups.canonical.projects`, 'invalid bounded project metadata');
+        projectIds.add(project.id);
+      }
+      const canonicalGroups = new Map((canonical.groups || []).map(group => [group?.id, group]));
+      if (canonicalGroups.size !== groupIds.size || [...groupIds].some(groupId => !canonicalGroups.has(groupId))) fail(`${path}.semanticGroups.canonical.groups`, 'canonical groups disagree with the projection');
+      for (const group of canonical.groups || []) {
+        const projected = semantic.groups.find(item => item.id === group?.id);
+        if (!object(group) || !projected || !(group.label === null || safeEvidenceText(group.label, 160)) || group.kind !== projected.kind || group.label !== null && group.label !== projected.label || group.provenance !== projected.provenance || JSON.stringify(group.members) !== JSON.stringify(projected.members) || JSON.stringify(group.basis) !== JSON.stringify(projected.basis) || !group.members.every(member => projectIds.has(member))) fail(`${path}.semanticGroups.canonical.groups`, 'invalid or contradictory canonical group');
+      }
+      for (const pair of canonical.projectRelationships || []) if (!Array.isArray(pair) || pair.length !== 2 || pair[0] === pair[1] || pair.some(projectId => !projectIds.has(projectId))) fail(`${path}.semanticGroups.canonical.projectRelationships`, 'invalid canonical project relationship');
+    }
   }
   for (const edge of scene.edges) {
     if (!id(edge?.id) || edges.has(edge.id) || !nodes.has(edge.from) || !nodes.has(edge.to) || edge.from === edge.to) fail(`${path}.edges`, 'invalid ID or endpoints');

@@ -65,6 +65,7 @@ import {
   rustAvailable,
 } from "./engine.mjs";
 import { createSceneEvidence } from "./evidence.mjs";
+import { fitSceneViewport } from "./scene-framing.mjs";
 
 export function username(value = "") {
   const name = value
@@ -1582,7 +1583,7 @@ export function createScene(
       style: { primary: backbone.has(edge) },
     }));
   signal?.throwIfAborted();
-  return prepareRecruiterScene(JSON.parse(
+  const compiled = prepareRecruiterScene(JSON.parse(
     JSON.stringify({
       version: 1,
       kind: "scene",
@@ -1665,4 +1666,8 @@ export function createScene(
       },
     }),
   ), repositories.filter(repo => repo.private !== true).length);
+  const fixedExport = ['readme', 'repository', 'compact', 'wide'].includes(options.exportProfile) || options.layout === 'compact';
+  return !fixedExport && !scene.profile && !graph.organization && !perspective.enabled
+    ? fitSceneViewport(compiled)
+    : compiled;
 }

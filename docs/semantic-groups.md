@@ -2,6 +2,8 @@
 
 Semantic Groups adds a reversible project-level overview. A group is a view over existing project nodes; the canonical scene and its project evidence remain available for expansion.
 
+Ordinary atlas scenes fit their initial viewBox to visible node and label bounds, keeping its original aspect ratio and leaving a bounded margin. This changes only the camera frame, not node coordinates or semantic relationships. Fixed compact, README, repository, and wide export profiles retain their established dimensions and density behavior. Interactive Fit uses the same visible-content bounds; Reset restores the original frame.
+
 ## Levels and exports
 
 The semantic levels are `overview`, `groups`, and `projects`. `overview` and `groups` currently use the same grouped projection. In v3.12.1, Automatic detail uses camera scale to move through these levels without changing the underlying semantic hierarchy.

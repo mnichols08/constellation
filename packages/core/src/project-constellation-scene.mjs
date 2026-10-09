@@ -1,6 +1,7 @@
 import { createScene } from './constellation.mjs';
 import { createHierarchy } from './hierarchy.mjs';
 import { validateProjectConstellation } from './project-constellation.mjs';
+import { fitSceneViewport } from './scene-framing.mjs';
 
 /** Adapt a normalized structural graph into the existing Scene API v1 renderer.
  * Network acquisition and structure parsing never enter the renderer. */
@@ -27,6 +28,8 @@ export function createProjectConstellationScene(model, options = {}, runtime = {
     const level = parent ? levelOf(parent) + 1 : 1;
     levelById.set(node.id,level); return level;
   };
+  const maximumDepth=Math.max(1,...model.nodes.map(levelOf));
+  const outerRadius=Math.max(84,Math.min(205,30+Math.sqrt(Math.max(1,model.nodes.length-1))*11+maximumDepth*25));
   const layers = new Map();
   for (const node of model.nodes) if (node.kind !== 'project-root') {
     const level=levelOf(node); if(!layers.has(level)) layers.set(level,[]); layers.get(level).push(node);
@@ -40,7 +43,7 @@ export function createProjectConstellationScene(model, options = {}, runtime = {
     node.geometry.radius = ({ 'project-root':8, package:6.5, directory:5.5, module:4, 'entry-point':5 })[structural.kind];
     if (structural.kind === 'project-root') { node.geometry.x=centerX; node.geometry.y=centerY; continue; }
     const siblings=layers.get(levelOf(structural)).sort((a,b)=>a.id.localeCompare(b.id));
-    const index=siblings.findIndex(item=>item.id===structural.id), radius=({1:110,2:185,3:260})[levelOf(structural)] || 260;
+    const level=levelOf(structural), index=siblings.findIndex(item=>item.id===structural.id), radius=outerRadius*level/maximumDepth;
     const angle=-Math.PI/2+2*Math.PI*index/siblings.length;
     node.geometry.x=centerX+Math.cos(angle)*radius; node.geometry.y=centerY+Math.sin(angle)*radius;
   }
@@ -62,7 +65,8 @@ export function createProjectConstellationScene(model, options = {}, runtime = {
   }
   scene.presentation.totalConnections = scene.edges.length;
   scene.presentation.graph.note = `${scene.presentation.graph.note || ''} Project structure at ${model.provenance.ref}${model.provenance.commit ? ` (${model.provenance.commit})` : ''}; ${model.statistics.filesInspected} files inspected${model.statistics.truncated ? `; limited scan: ${model.statistics.limitation}` : '.'}`;
-  return { model: structuredClone(model), scene };
+  const framed=options.perspective?.enabled?scene:fitSceneViewport(scene);
+  return { model: structuredClone(model), scene: framed };
 }
 
 /** Attach the project as a child Scene API hierarchy entry. Existing hierarchy

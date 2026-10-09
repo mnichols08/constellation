@@ -2,7 +2,9 @@ import { createScene } from './constellation.mjs';
 import { validateScene } from './scene.mjs';
 import { createProjectConstellationScene } from './project-constellation-scene.mjs';
 import { validateProjectConstellation, PROJECT_CONSTELLATION_VERSION } from './project-constellation.mjs';
-import { validateEvidence, EVIDENCE_VERSION } from './evidence.mjs';
+import { validateEvidence, EVIDENCE_VERSION, safeEvidenceText } from './evidence.mjs';
+import { buildSemanticHierarchy } from './semantic-groups.mjs';
+import { projectSemanticLevel } from './semantic-groups.mjs';
 
 export const SEMANTIC_GRAPH_VERSION = 1;
 export const SEMANTIC_GRAPH_LIMITS = Object.freeze({ nodes: 4096, edges: 16384, groups: 256, memberships: 32768, string: 4096, jsonBytes: 16 * 1024 * 1024, evidenceFacts: 32768 });
@@ -46,36 +48,40 @@ function portableEvidence(attachment) {
   return {evidence:{version:EVIDENCE_VERSION,facts,subjects},subjectFacts:new Map(subjects.map(s=>[s.id,s.facts]))};
 }
 function projectMetadataFromScene(scene) {
-  const account=scene.metadata?.account || scene.presentation?.graph?.focus || 'unknown';
-  const projects=scene.nodes.filter(n=>n.metadata?.nodeKind==='repository' || n.metadata?.full_name?.includes('/'));
-  const nodes=[{id:`developer:${account}`,kind:'developer',label:account,properties:{},provenance:[{category:'source',source:'github-profile'}],evidenceIds:[]}];
-  const edges=[];
-  const {evidence,subjectFacts}=portableEvidence(scene.evidence);
-  for(const p of projects){
-    const id=p.metadata.full_name;
-    nodes.push({id,kind:'project',label:p.metadata.name||id,properties:safeTree({description:p.metadata.description||'',url:p.metadata.html_url||'',language:p.metadata.language||null,topics:(p.metadata.topics||[]).slice(0,32),family:p.metadata.projectFamily||null}),provenance:[{category:'source',source:p.metadata.pluginSource||p.metadata.source||'github'}],evidenceIds:subjectFacts.get(id)||[]});
-    edges.push({id:`owner:${idHash(`repository-owner:${id}:${account}`)}`,kind:'repository-owner',from:id,to:`developer:${account}`,provenance:[{category:'derived',source:'repository-owner'}],evidence:[]});
-    const language=p.metadata.language;
-    if(typeof language==='string'&&language.length&&language.length<=160){const lid=`language:${idHash(language.toLowerCase())}`;if(!nodes.some(n=>n.id===lid))nodes.push({id:lid,kind:'language',label:language,properties:{},provenance:[{category:'source',source:'github-repository-metadata'}],evidenceIds:[]});edges.push({id:`uses-language:${idHash(`${id}:${lid}`)}`,kind:'uses-language',from:id,to:lid,provenance:[{category:'source',source:'github-repository-metadata'}],evidence:[]});}
-    for(const topic of (p.metadata.topics||[]).slice(0,32)){if(typeof topic!=='string'||!topic.length||topic.length>160)continue;const tid=`topic:${idHash(topic.toLowerCase())}`;if(!nodes.some(n=>n.id===tid))nodes.push({id:tid,kind:'topic',label:topic,properties:{},provenance:[{category:'source',source:'github-repository-metadata'}],evidenceIds:[]});edges.push({id:`has-topic:${idHash(`${id}:${tid}`)}`,kind:'has-topic',from:id,to:tid,provenance:[{category:'source',source:'github-repository-metadata'}],evidence:[]});}
+  const canonical=scene.semanticGroups?.canonical;
+  const hierarchy=canonical?null:buildSemanticHierarchy(scene);
+  const account=canonical?.account || scene.metadata?.account || scene.presentation?.graph?.focus || 'unknown';
+  const projects=canonical?.projects || scene.nodes.filter(n=>n.metadata?.nodeKind==='repository'||n.metadata?.full_name?.includes('/')).map(n=>({id:n.metadata.full_name,name:n.metadata.name,description:n.metadata.description,url:n.metadata.html_url,language:n.metadata.language,topics:n.metadata.topics,source:n.metadata.pluginSource||n.metadata.source,family:n.metadata.projectFamily}));
+  const rawGroups=canonical?.groups || hierarchy.groups.map(g=>({id:g.id,kind:g.kind,label:g.label,provenance:g.provenance,basis:g.basis,members:g.members}));
+  const groups=rawGroups.map(g=>({id:g.id,kind:g.kind,label:safeEvidenceText(g.label,160)?g.label:(g.kind==='project-family'?'Project family':'Repository owner group'),provenance:g.provenance,basis:(g.basis||[]).filter(value=>safeEvidenceText(value,160)).slice(0,16),members:[...g.members].sort()}));
+  const {evidence,subjectFacts}=portableEvidence(canonical?.evidence || scene.evidence);
+  const nodes=[{id:`developer:${account}`,kind:'developer',label:account,properties:{},provenance:[{category:'source',source:'github-profile'}],evidenceIds:[]}],edges=[];
+  const safeProjects=projects.map(p=>{
+    const id=p.id;
+    const optional=(value,max=160)=>safeEvidenceText(value,max)?value:undefined;
+    const language=optional(p.language), topics=(Array.isArray(p.topics)?p.topics:[]).filter(value=>safeEvidenceText(value,160)).slice(0,32);
+    return {id,label:optional(p.name)||id,properties:{...(optional(p.description)?{description:optional(p.description)}:{}),...(optional(p.url)?{url:optional(p.url)}:{}),...(language?{language}:{}),...(topics.length?{topics}:{}),...(optional(p.family)?{family:optional(p.family)}:{})},source:optional(p.source,80)||'github'};
+  }).sort((a,b)=>a.id.localeCompare(b.id));
+  for(const p of safeProjects){
+    const {id,label,properties,source}=p;
+    nodes.push({id,kind:'project',label,properties:safeTree(properties),provenance:[{category:'source',source}],evidenceIds:subjectFacts.get(id)||[]});
+    const namespace=id.split('/')[0];
+    if(namespace.toLocaleLowerCase('en-US')===String(account).toLocaleLowerCase('en-US')) edges.push({id:`owner:${idHash(`repository-owner:${id}:${account}`)}`,kind:'repository-owner',from:id,to:`developer:${account}`,provenance:[{category:'derived',source:'repository-owner'}],evidence:[]});
+    const language=properties.language;
+    if(language){const lid=`language:${idHash(language.toLocaleLowerCase('en-US'))}`;if(!nodes.some(n=>n.id===lid))nodes.push({id:lid,kind:'language',label:language,properties:{},provenance:[{category:'source',source:'github-repository-metadata'}],evidenceIds:[]});edges.push({id:`uses-language:${idHash(`${id}:${lid}`)}`,kind:'uses-language',from:id,to:lid,provenance:[{category:'source',source:'github-repository-metadata'}],evidence:[]});}
+    for(const topic of properties.topics||[]){const tid=`topic:${idHash(topic.toLocaleLowerCase('en-US'))}`;if(!nodes.some(n=>n.id===tid))nodes.push({id:tid,kind:'topic',label:topic,properties:{},provenance:[{category:'source',source:'github-repository-metadata'}],evidenceIds:[]});edges.push({id:`has-topic:${idHash(`${id}:${tid}`)}`,kind:'has-topic',from:id,to:tid,provenance:[{category:'source',source:'github-repository-metadata'}],evidence:[]});}
   }
-  const projectIds=new Set(projects.map(p=>p.metadata.full_name));
-  for(const pair of scene.presentation?.options?.projectRelationships||[]){if(!Array.isArray(pair)||pair.length!==2||!pair.every(id=>projectIds.has(id)))continue;const [a,b]=[...pair].sort();edges.push({id:`project-relationship:${idHash(`${a}:${b}`)}`,kind:'project-relationship',from:a,to:b,provenance:[{category:'user',source:'user-project-relationship'}],evidence:{source:'user-project-relationship',projects:[a,b]}});}
-  const groups=scene.semanticGroups?.groups||[];
-  for(const g of groups){
-    nodes.push({id:g.id,kind:'semantic-group',label:g.label,properties:safeTree({groupKind:g.kind,members:g.members,basis:g.basis||[]}),provenance:[{category:g.provenance,source:g.provenance==='user'?'user-project-family':'derived-repository-owner'}],evidenceIds:subjectFacts.get(g.id)||[]});
-    for(const member of g.members) edges.push({id:`member:${idHash(`${member}:${g.id}`)}`,kind:'member-of',from:member,to:g.id,provenance:[{category:g.provenance,source:g.provenance==='user'?'user-project-family':'derived-repository-owner'}],evidence:[]});
-  }
-  const relationships=scene.edges.filter(e=>e.metadata?.structuralKind || e.metadata?.relationshipKind || e.metadata?.projectRelationship);
-  // Scene edges without an explicit factual relationship declaration are omitted (including visual bridges).
-  for(const e of relationships){
-    const kind=e.metadata.structuralKind;
-    if(SEMANTIC_EDGE_KINDS.includes(kind)) edges.push({id:e.id,kind,from:e.from,to:e.to,provenance:[{category:'source',source:'scene-relationship'}],evidence:safeTree(e.metadata.evidence||[])});
-  }
-  return finish({kind:'developer',id:account},nodes,edges,{evidence,groups:safeTree(groups.map(g=>({id:g.id,kind:g.kind,provenance:g.provenance,members:g.members,basis:g.basis||[]}))),statistics:{truncated:scene.presentation?.pipeline?.truncated===true,limitations:scene.presentation?.pipeline?.truncated?['source-pipeline-bounded']:[]}});
+  const projectIds=new Set(safeProjects.map(p=>p.id));
+  for(const pair of canonical?.projectRelationships||scene.presentation?.options?.projectRelationships||[]){if(!Array.isArray(pair)||pair.length!==2||!pair.every(id=>projectIds.has(id)))continue;const [a,b]=[...pair].sort();edges.push({id:`project-relationship:${idHash(`${a}:${b}`)}`,kind:'project-relationship',from:a,to:b,provenance:[{category:'user',source:'user-project-relationship'}],evidence:{source:'user-project-relationship',projects:[a,b]}});}
+  for(const g of groups){nodes.push({id:g.id,kind:'semantic-group',label:g.label,properties:safeTree({groupKind:g.kind,members:g.members,basis:g.basis}),provenance:[{category:g.provenance,source:g.provenance==='user'?'user-project-family':'derived-repository-owner'}],evidenceIds:subjectFacts.get(g.id)||[]});for(const member of g.members)edges.push({id:`member:${idHash(`${member}:${g.id}`)}`,kind:'member-of',from:member,to:g.id,provenance:[{category:g.provenance,source:g.provenance==='user'?'user-project-family':'derived-repository-owner'}],evidence:[]});}
+  const relationships=scene.edges.filter(e=>e.metadata?.structuralKind||e.metadata?.relationshipKind||e.metadata?.projectRelationship);
+  for(const e of relationships){const kind=e.metadata.structuralKind;if(SEMANTIC_EDGE_KINDS.includes(kind))edges.push({id:e.id,kind,from:e.from,to:e.to,provenance:[{category:'source',source:'scene-relationship'}],evidence:safeTree(e.metadata.evidence||[])});}
+  const truncated=canonical?.truncated??(scene.presentation?.pipeline?.truncated===true);
+  return finish({kind:'developer',id:account},nodes,edges,{evidence,groups:safeTree(groups),statistics:{truncated,limitations:truncated?['source-pipeline-bounded']:[]}});
 }
 export function semanticGraphFromScene(scene) {
   const validation=validateScene(scene); if(!validation.valid) throw new Error(`Invalid Scene: ${validation.errors.join(' ')}`);
+  if(scene.semanticGroups && !scene.semanticGroups.canonical) throw new Error('Cannot derive portable semantic truth from a projected Scene without canonical group input.');
   return projectMetadataFromScene(scene);
 }
 
@@ -108,7 +114,30 @@ export function validateSemanticGraph(graph) {
     else {try{const projectValidation=validateProjectConstellation(projectModelFromGraph(graph));if(!projectValidation.valid)fail('Project graph does not preserve a valid Project Constellation.');}catch{fail('Project graph does not preserve a valid Project Constellation.');}}
   }
   if(graph.groups!==undefined&&(!Array.isArray(graph.groups)||graph.groups.length>SEMANTIC_GRAPH_LIMITS.groups))fail('Invalid semantic group inventory.');
-  if(graph.groups){for(const g of graph.groups){if(!obj(g)||!safeText(g.id)||!['project-family','repository-owner'].includes(g.kind)||!['user','derived'].includes(g.provenance)||!Array.isArray(g.members)||g.members.length<2||g.members.some(id=>!ids.has(id)))fail('Invalid semantic group or membership.');memberTotal+=g.members.length;}if(memberTotal>SEMANTIC_GRAPH_LIMITS.memberships)fail('Semantic group membership exceeds bounds.');}
+  if(graph.subject?.kind==='developer'){
+    const projectIds=new Set((graph.nodes||[]).filter(n=>n?.kind==='project').map(n=>n.id));
+    const groupNodes=new Map((graph.nodes||[]).filter(n=>n?.kind==='semantic-group').map(n=>[n.id,n]));
+    const inventory=Array.isArray(graph.groups)?graph.groups:[];
+    if(groupNodes.size!==inventory.length)fail('Semantic group nodes and inventory disagree.');
+    const expected=new Set();
+    for(const g of inventory){
+      if(!obj(g)||!safeText(g.id)||!['project-family','repository-owner'].includes(g.kind)||!['user','derived'].includes(g.provenance)||!safeText(g.label)||!Array.isArray(g.basis)||g.basis.length>16||g.basis.some(v=>!safeText(v))||!Array.isArray(g.members)||g.members.length<2||g.members.length>2048||new Set(g.members).size!==g.members.length||g.members.some(id=>!projectIds.has(id))){fail('Invalid semantic group inventory entry.');continue;}
+      memberTotal+=g.members.length;
+      const node=groupNodes.get(g.id);
+      if(!node||node.label!==g.label||node.properties?.groupKind!==g.kind||node.provenance?.length!==1||node.provenance[0]?.category!==g.provenance||!Array.isArray(node.properties?.members)||JSON.stringify([...node.properties.members].sort())!==JSON.stringify([...g.members].sort())||!Array.isArray(node.properties?.basis)||JSON.stringify(node.properties.basis)!==JSON.stringify(g.basis))fail('Semantic group node contradicts its inventory.');
+      for(const member of g.members)expected.add(`${member}\n${g.id}`);
+    }
+    if(memberTotal>SEMANTIC_GRAPH_LIMITS.memberships)fail('Semantic group membership exceeds bounds.');
+    const actual=new Set();
+    for(const edge of graph.edges||[])if(edge?.kind==='member-of'){
+      const key=`${edge.from}\n${edge.to}`;
+      if(actual.has(key)||!expected.has(key))fail('Contradictory semantic group membership edge.');
+      actual.add(key);
+      const group=inventory.find(g=>g?.id===edge.to);
+      if(!group||edge.provenance?.length!==1||edge.provenance[0]?.category!==group.provenance)fail('Semantic group edge provenance disagrees with inventory.');
+    }
+    if(actual.size!==expected.size)fail('Semantic group membership edges are incomplete.');
+  }
   try{safeTree(graph);}catch{fail('Unsafe or oversized semantic graph data.');}
   try{ if(new TextEncoder().encode(JSON.stringify(graph)).length>SEMANTIC_GRAPH_LIMITS.jsonBytes) fail('Semantic graph exceeds serialized size bound.'); }catch{fail('Semantic graph is not serializable JSON.');}
   return {valid:errors.length===0,errors};
@@ -132,20 +161,14 @@ export function projectSemanticGraphToScene(graph, options={}, runtime={}) {
     scene=createProjectConstellationScene(model,options,runtime).scene;
   } else {
     const developer=graph.nodes.find(n=>n.kind==='developer');
-    const records=graph.nodes.filter(n=>n.kind==='project').map(n=>({full_name:n.id,name:n.label,description:n.properties.description||'',language:n.properties.language||null,topics:n.properties.topics||[]}));
-    scene=createScene(developer?.label||graph.subject.id,records,{...options,maxRepos:Math.max(1,Math.min(100,records.length||1)),includeRepos:records.map(r=>r.full_name)},runtime);
-    if(graph.nodes.length>2048)throw new Error('Developer graph is larger than Scene v1 node bounds.');
-    const present=new Set(scene.nodes.map(n=>n.id)), centerX=scene.viewport.width/2,centerY=scene.viewport.height/2;
-    for(const node of graph.nodes){if(present.has(node.id))continue;const index=scene.nodes.length,angle=-Math.PI/2+index*2.399963229728653,radius=55+Math.sqrt(index)*19;
-      scene.nodes.push({id:node.id,geometry:{x:centerX+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius,radius:node.kind==='developer'?9:6},metadata:{full_name:node.id,name:node.label,description:`Semantic ${node.kind}`,nodeKind:node.kind,semanticKind:node.kind,provenance:node.provenance,evidenceIds:node.evidenceIds},style:{color:null,glow:null,opacity:1,shape:node.kind==='semantic-group'?'hexagon':node.kind==='developer'?'star':'circle'},interaction:{hidden:false,labelHidden:false}});
-      scene.labels.push({id:node.id,x:centerX+Math.cos(angle)*radius+12,y:centerY+Math.sin(angle)*radius+4,text:node.label,hidden:false,focal:false});present.add(node.id);
-    }
-    const existing=new Set(scene.edges.map(e=>e.id));
-    for(const edge of graph.edges){const id=`semantic:${edge.id}`;if(existing.has(id))continue;const from=scene.nodes.find(n=>n.id===edge.from),to=scene.nodes.find(n=>n.id===edge.to);if(!from||!to)continue;
-      scene.edges.push({id,from:edge.from,to:edge.to,metadata:{key:id,shared:[],sharedLanguages:[],sharedTopics:[],sharedRepositories:[],strength:1,structuralKind:edge.kind,semanticProvenance:edge.provenance,semanticEvidence:edge.evidence},geometry:{distance:(to.geometry.x-from.geometry.x)**2+(to.geometry.y-from.geometry.y)**2},style:{primary:true}});
-    }
-    scene.presentation.totalConnections=scene.edges.length;scene.presentation.graph.nodeCount=scene.nodes.length;
-    if(graph.evidence)scene.evidence=clone(graph.evidence);
+    const records=graph.nodes.filter(n=>n.kind==='project').sort((a,b)=>a.id.localeCompare(b.id)).slice(0,100).map(n=>({full_name:n.id,name:n.label,description:n.properties.description||'',language:n.properties.language||null,topics:n.properties.topics||[]}));
+    const projectIds=new Set(records.map(record=>record.full_name));
+    const families=Object.fromEntries((graph.groups||[]).filter(group=>group.provenance==='user').map(group=>[group.id.startsWith('group:user:')?group.id.slice('group:user:'.length):group.id,{label:group.label,members:group.members.filter(id=>projectIds.has(id))}]).filter(([,family])=>family.members.length>=2));
+    const relationships=graph.edges.filter(edge=>edge.kind==='project-relationship'&&projectIds.has(edge.from)&&projectIds.has(edge.to)).slice(0,6).map(edge=>[edge.from,edge.to]);
+    const base=createScene(developer?.label||graph.subject.id,records,{...options,maxRepos:Math.max(1,records.length),includeRepos:records.map(r=>r.full_name),projectFamilies:families,projectRelationships:relationships},runtime);
+    const groups=(graph.groups||[]).map(group=>({...group,version:1,members:group.members.filter(id=>projectIds.has(id))})).filter(group=>group.members.length>=2);
+    scene=groups.length?projectSemanticLevel(base,'groups',{hierarchy:{groups,projectIds:[...projectIds],source:base}}):base;
+    if(graph.evidence){scene.evidence=clone(graph.evidence);if(scene.semanticGroups?.canonical)scene.semanticGroups.canonical.evidence=clone(graph.evidence);}
   }
   const validation=validateScene(scene); if(!validation.valid) throw new Error(`Projected Scene invalid: ${validation.errors.join(' ')}`); return scene;
 }

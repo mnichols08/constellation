@@ -1,5 +1,6 @@
 import { assertScene } from './scene.mjs';
 import { attachGroupEvidence, safeEvidenceText } from './evidence.mjs';
+import { fitSceneViewport } from './scene-framing.mjs';
 
 export const SEMANTIC_GROUP_VERSION = 1;
 export const SEMANTIC_LEVELS = Object.freeze(['overview', 'groups', 'projects']);
@@ -141,7 +142,26 @@ export function projectSemanticLevel(scene, level = 'groups', { hierarchy = null
   const labels = nodes.map(node => ({ id: node.id, x: node.geometry.x, y: node.geometry.y + node.geometry.radius + 8, text: displayName(node), hidden: false, focal: false }));
   const groupRecords = hierarchy.groups.map(group => ({ ...group, members: [...group.members], explanation: explainGroup(hierarchy, group.id) }));
   const collapsedGroups = groupRecords.filter(group => !expandedIds.has(group.id));
-  return { ...structuredClone(scene), nodes, edges, labels, evidence: attachGroupEvidence(scene.evidence, collapsedGroups), semanticGroups: { version: 1, level, expanded: [...expandedIds], groups: groupRecords, sourceNodeIds: scene.nodes.map(node => node.id) } };
+  const source = hierarchy.source;
+  const safeOptional = (value, max = 160) => safeEvidenceText(value, max) ? value : undefined;
+  const sourceProjects = source.nodes.map(node => {
+    const metadata = node.metadata || {};
+    const optional = { name: safeOptional(metadata.name), description: safeOptional(metadata.description), url: safeOptional(metadata.html_url), language: safeOptional(metadata.language), source: safeOptional(metadata.pluginSource || metadata.source, 80), family: safeOptional(metadata.projectFamily) };
+    const topics = (Array.isArray(metadata.topics) ? metadata.topics : []).filter(value => safeEvidenceText(value, 160)).slice(0, 32);
+    return { id: node.id, ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)), ...(topics.length ? { topics } : {}) };
+  });
+  const projectIds = new Set(sourceProjects.map(project => project.id));
+  const canonical = {
+    account: source.metadata?.account || 'unknown',
+    projects: sourceProjects,
+    groups: hierarchy.groups.map(group => ({ id: group.id, kind: group.kind, label: safeOptional(group.label) || null, provenance: group.provenance, basis: group.basis.filter(value => safeEvidenceText(value, 160)).slice(0, 16), members: [...group.members] })),
+    evidence: structuredClone(source.evidence || { version: 1, facts: [], subjects: [] }),
+    projectRelationships: (source.presentation?.options?.projectRelationships || []).filter(pair => Array.isArray(pair) && pair.length === 2 && pair.every(id => projectIds.has(id))).map(pair => [...pair]),
+    truncated: source.presentation?.pipeline?.truncated === true,
+  };
+  const projected = { ...structuredClone(scene), nodes, edges, labels, evidence: attachGroupEvidence(scene.evidence, collapsedGroups), semanticGroups: { version: 1, level, expanded: [...expandedIds], groups: groupRecords, sourceNodeIds: source.nodes.map(node => node.id), canonical } };
+  const fixedExport = ['readme', 'repository', 'compact', 'wide'].includes(scene.presentation?.options?.exportProfile);
+  return fixedExport || scene.profile || scene.presentation?.graph?.organization || scene.presentation?.options?.perspective?.enabled ? projected : fitSceneViewport(projected);
 }
 
 function common(edges, key) {
