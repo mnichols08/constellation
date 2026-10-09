@@ -4,10 +4,10 @@ await mkdir(directory, { recursive: true });
 const { version } = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
-await copyFile(
-  new URL("../src/web-component.mjs", import.meta.url),
-  new URL("index.mjs", directory),
-);
+const component = await readFile(new URL("../src/web-component.mjs", import.meta.url), "utf8");
+// Keep the published entry below its 24 KiB budget while preserving its source structure.
+const compactComponent = component.replace(/^ {2}/gm, " ").replace(/^ {3}/gm, "  ");
+await writeFile(new URL("index.mjs", directory), compactComponent);
 await copyFile(
   new URL("../docs/web-component.md", import.meta.url),
   new URL("README.md", directory),

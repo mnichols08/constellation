@@ -39,6 +39,7 @@ export class ConstellationView extends HTMLElement {
     const records = structuredClone(value);
     if (JSON.stringify(records) === JSON.stringify(this.#records)) return;
     this.#records = records;
+    if (this.#semanticGraph) return;
     this.#resetSemanticNavigation();
     this.#refresh(false);
   }
@@ -48,12 +49,13 @@ export class ConstellationView extends HTMLElement {
   set semanticGraph(value) { this.loadSemanticGraph(value); }
   get semanticFingerprint() { return this.#semanticGraph ? semanticGraphFingerprint(this.#semanticGraph) : null; }
   loadSemanticGraph(value) {
+    if (value === null) return this.#clearSemanticGraphMode();
     let previous;
     try {
       const graph = parseSemanticGraph(typeof value === 'string' ? value : serializeSemanticGraph(value));
       const scene = projectSemanticGraphToScene(graph);
-      previous = { graph: this.#semanticGraph, scene: this.#scene, config: this.#config, sourceMode: this.#sourceMode };
-      this.#request?.abort(); this.#semanticGraph = graph; this.#scene = scene; this.#config = null; this.#sourceMode = false;
+      previous = { graph: this.#semanticGraph, scene: this.#scene };
+      this.#request?.abort(); this.#semanticGraph = graph; this.#scene = scene;
       this.#semanticMode = null; this.#resetSemanticNavigation();
       const rendered = !this.isConnected || !this.#visible || this.#render();
       if (!rendered) throw new Error('Unable to render Semantic Graph.');
@@ -61,9 +63,15 @@ export class ConstellationView extends HTMLElement {
       this.dispatchEvent(new CustomEvent('semantic-graph-load', { detail, bubbles: true, composed: true }));
       return true;
     } catch (error) {
-      if (previous) { this.#semanticGraph = previous.graph; this.#scene = previous.scene; this.#config = previous.config; this.#sourceMode = previous.sourceMode; this.#resetSemanticNavigation(); if (this.isConnected && this.#visible && previous.scene) this.#render(); }
+      if (previous) { this.#semanticGraph = previous.graph; this.#scene = previous.scene; this.#resetSemanticNavigation(); if (this.isConnected && this.#visible && previous.scene) this.#render(); }
       this.#error(error, 'semantic-graph-error'); return false;
     }
+  }
+  #clearSemanticGraphMode() {
+    if (!this.#semanticGraph) return false;
+    this.#request?.abort(); this.#semanticGraph = null; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation();
+    this.#runtime?.destroy(); this.#runtime = null; this.shadowRoot.replaceChildren();
+    return this.isConnected && this.#visible ? this.#refresh() : true;
   }
   get semanticLevel() { return this.#semanticMode || resolveSemanticZoomMode(this.#config?.options?.semanticZoom, 'projects'); }
   set semanticLevel(value) {
@@ -109,7 +117,7 @@ export class ConstellationView extends HTMLElement {
   setConfig(value) {
     try {
       const config = parseConfig(value); normalizeConfig(config.options);
-      this.#sourceMode = false; this.#semanticGraph = null; this.#config = config; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
+      this.#request?.abort(); this.#semanticGraph = null; this.#sourceMode = false; this.#config = config; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
     } catch (error) { this.#error(error); return Promise.resolve(false); }
   }
   loadScene(value) {
@@ -246,11 +254,17 @@ export class ConstellationView extends HTMLElement {
   get cacheStatistics() { return { sources: this.#sourceCache.size, sourceLimit: 4, pipeline: this.#pipeline.cacheStatistics, layout: this.#layouts.cacheStatistics }; }
   attributeChangedCallback(name, previous, value) {
     if (previous === value) return;
-    if (name === 'src') { this.#sourceMode = true; this.#request?.abort(); this.#resetSemanticNavigation(); }
-    if (name === 'semantic-graph') { this.#sourceMode = false; this.#request?.abort(); if (this.isConnected && value) this.#refreshSemanticGraphURL(value); return; }
+    if (name === 'src') { this.#sourceMode = true; if (!this.#semanticGraph && !this.hasAttribute('semantic-graph')) { this.#request?.abort(); this.#resetSemanticNavigation(); } }
+    if (name === 'semantic-graph') {
+      this.#request?.abort();
+      if (this.isConnected && value) this.#refreshSemanticGraphURL(value);
+      else if (value === null && this.#semanticGraph) this.#clearSemanticGraphMode();
+      else if (value === null && this.isConnected) this.#refresh();
+      return;
+    }
     if (name === 'loading') { if (this.isConnected) this.#observe(); return; }
     if (name === 'config') {
-      try { this.#config = value === null ? null : parseConfig(value); this.#semanticGraph = null; this.#sourceMode = false; this.#semanticMode = null; this.#resetSemanticNavigation(); }
+      try { this.#config = value === null ? null : parseConfig(value); if (!this.#semanticGraph && !this.hasAttribute('semantic-graph')) { this.#sourceMode = false; this.#semanticMode = null; this.#resetSemanticNavigation(); } }
       catch (error) { this.#error(error); return; }
     }
     if (this.isConnected && !this.hasAttribute('semantic-graph')) this.#refresh();
@@ -281,6 +295,7 @@ export class ConstellationView extends HTMLElement {
   }
   async #refresh(loadSource = true) {
     if (!this.isConnected || !this.#visible) return false;
+    if (this.#semanticGraph) return this.#render();
     this.#request?.abort(); const request = new AbortController(); this.#request = request;
     try {
       const src = loadSource && this.#sourceMode && this.getAttribute('src');

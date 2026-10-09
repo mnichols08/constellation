@@ -28,6 +28,8 @@ view.semanticGraph = graph;
 
 Assignment validates and projects synchronously without network access. Invalid replacements keep the prior rendered view and emit `semantic-graph-error`; successful replacements emit `semantic-graph-load` with subject, version, fingerprint, and private-source status. Graph values are cloned through canonical serialization and are not mutated. Accessible component status includes the subject and semantic identity.
 
+An active Semantic Graph overrides `src` and config while records/account remain available for the fallback scene. Removing `semantic-graph` restores the normal configured source; assigning `view.semanticGraph = null` clears a programmatic graph override.
+
 ## Standalone HTML and bundle
 
 The CLI produces an offline interactive HTML file from the graph projection:
