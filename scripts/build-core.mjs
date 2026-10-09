@@ -54,6 +54,7 @@ const guides = [
   "project-constellations",
   "semantic-graph",
   "semantic-graph-import",
+  "portable-embed",
   "semantic-markdown",
   "semantic-studio",
   "github-data-cache",

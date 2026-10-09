@@ -5,7 +5,8 @@ import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createScene } from '../src/constellation.mjs';
-import { semanticGraphFromScene, semanticGraphFromProjectConstellation, serializeSemanticGraph } from '../src/semantic-graph.mjs';
+import { semanticGraphFromScene, semanticGraphFromProjectConstellation, serializeSemanticGraph, parseSemanticGraph } from '../src/semantic-graph.mjs';
+import { renderSemanticMarkdown } from '../src/semantic-markdown.mjs';
 import { createProjectConstellation } from '../src/project-constellation.mjs';
 
 test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo and zero interaction requests', {skip:!browser,timeout:120000}, async t=>{
@@ -67,7 +68,8 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   assert.equal(JSON.parse(await e(`document.querySelector('#config-json').value`)).semanticZoom.mode, 'projects');
   assert.equal(await e('apiCalls.length'),calls);
   assert.ok(await e(`document.querySelector('#import-semantic-graph')`), `Studio import control should remain in the document: ${await e(`document.body.innerText.includes('Import semantic graph') + ' / ' + [...document.querySelectorAll('[id*=semantic]')].map(e=>e.id).join(',')`)}`);
-  const graphJSON=serializeSemanticGraph(semanticGraphFromScene(createScene('portable-alice',[{full_name:'portable-alice/offline',name:'Offline',language:'Rust'}])));
+  const importedGraph=semanticGraphFromScene(createScene('portable-alice',[{full_name:'portable-alice/offline',name:'Offline',language:'Rust'}]));
+  const graphJSON=serializeSemanticGraph(importedGraph);
   const projectJSON=serializeSemanticGraph(semanticGraphFromProjectConstellation(createProjectConstellation({projectId:'portable-owner/portable-project',ref:'main',tree:[{path:'src',type:'tree'},{path:'src/index.js',type:'blob'},{path:'package.json',type:'blob'}],contents:{'src/index.js':'export default 1;','package.json':'{"name":"portable-project","main":"src/index.js"}'}})));
   await e(`{const input=document.querySelector('#import-semantic-graph');const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(graphJSON)}],'portable-alice.semantic-graph.json',{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}`);
   await wait(`document.querySelector('#semantic-graph-status').textContent.includes('Imported offline')`);
@@ -79,6 +81,7 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   const beforeImportedStatus=await e(`document.querySelector('#semantic-graph-status').textContent`);
   const beforeFingerprint=beforeImportedStatus.match(/sg1:[a-f0-9]+/)?.[0];assert.ok(beforeFingerprint);
   assert.equal(await e(`fetch(document.querySelector('#download-semantic-graph').href).then(r=>r.text())`),graphJSON);
+  assert.equal(await e(`fetch(document.querySelector('#download-semantic-markdown').href).then(r=>r.text())`),renderSemanticMarkdown(importedGraph));
   await e(`{const theme=document.querySelector('#design-visualTheme');theme.value=[...theme.options].find(o=>o.value!=='custom')?.value;theme.dispatchEvent(new Event('change',{bubbles:true}));const c=document.querySelector('#layout');c.value='compact';c.dispatchEvent(new Event('change',{bubbles:true}));const a=document.querySelector('#animate');a.checked=!a.checked;a.dispatchEvent(new Event('change',{bubbles:true}));}`);
   await e(`{const control=document.querySelector('#semantic-detail');control.value='groups';control.dispatchEvent(new Event('change',{bubbles:true}));}`);
   assert.equal(await e(`fetch(document.querySelector('#download-semantic-graph').href).then(r=>r.text())`),graphJSON);
@@ -107,6 +110,7 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   assert.equal(await e(`document.querySelector('#preview').dataset.semanticSubject`),undefined);
   const liveJSON=await e(`fetch(document.querySelector('#download-semantic-graph').href).then(r=>r.text())`);
   assert.notEqual(liveJSON,graphJSON);
+  assert.equal(await e(`fetch(document.querySelector('#download-semantic-markdown').href).then(r=>r.text())`),renderSemanticMarkdown(parseSemanticGraph(liveJSON)));
   assert.equal(await e('apiCalls.length'),calls+3);
   await e(`{const input=document.querySelector('#import-semantic-graph');const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(projectJSON)}],'portable-project.semantic-graph.json',{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}`);
   await wait(`document.querySelector('#semantic-graph-status').textContent.includes('Imported offline') && document.querySelector('#preview').dataset.semanticSubjectKind==='project'`);

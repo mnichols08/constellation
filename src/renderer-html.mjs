@@ -152,7 +152,7 @@ export function interactiveMarkup(svg) {
 </div><div data-viewports><div class="constellation-canvas" data-canvas>${svg}</div></div><p class="constellation-status" data-status role="status" aria-live="polite"></p><section class="constellation-details" data-details aria-label="Node details"></section></main>`;
 }
 
-export function renderSceneHTML(scene, { title = 'Constellation', initialChapter = 0, semanticLevel } = {}) {
+export function renderSceneHTML(scene, { title = 'Constellation', initialChapter = 0, semanticLevel, semanticMetadata } = {}) {
   serializeScene(scene); // Validate before embedding either data or SVG.
   scene = sanitizeEvidenceMetadata(scene);
   const mode = semanticLevel || (scene.presentation?.options?.semanticZoom === undefined ? 'projects' : resolveSemanticZoomMode(scene.presentation.options.semanticZoom, 'projects'));
@@ -174,9 +174,11 @@ export function renderSceneHTML(scene, { title = 'Constellation', initialChapter
     if (new TextEncoder().encode(JSON.stringify(semanticArtifacts)).length > 4 * 1024 * 1024) semanticArtifacts = [];
   }
   const semanticBase = semanticArtifacts.some(item => item.id) ? svg : '';
+  const metadataMarkup = semanticMetadata ? `<section aria-label="Semantic graph information"><h1>${escape(semanticMetadata.subjectLabel)}</h1><p>Semantic Graph v${escape(semanticMetadata.version)} · Fingerprint ${escape(semanticMetadata.fingerprint)}</p><p>${semanticMetadata.truncated ? 'Source coverage is incomplete; this graph was truncated.' : 'Source coverage is marked complete.'}</p>${semanticMetadata.privateSource ? '<p role="note">Source visibility is private. This export may disclose repository names, paths, and structure.</p>' : ''}</section>` : '';
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escape(htmlPolicy)}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title>
 <style>body{margin:0;padding:16px;background:#080b11}${interactiveStyles}</style></head><body>
+${metadataMarkup}
 ${interactiveMarkup(svg)}
 <script type="application/json" id="constellation-scene">${scriptJSON(view)}</script>
 <script type="application/json" id="constellation-semantic-artifacts">${scriptJSON(semanticArtifacts)}</script>

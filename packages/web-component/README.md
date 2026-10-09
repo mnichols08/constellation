@@ -45,3 +45,6 @@ Web Component API v1 is exported as `WEB_COMPONENT_API_VERSION = 1`. Legacy v6 c
 Universe scenes add `focusLayer(layerId)` for semantic dimensional layers. Temporal scenes also expose `setTemporalView`, `focusYear`, `focusTemporalNode` and `resetTemporalView`. See [Temporal Stack](temporal-stack.md).
 
 Scene nodes retain the optional bounded provenance attachment through component events and offline interaction. See [Evidence and provenance](evidence-provenance.md) for the shared contract and privacy limits.
+# Semantic Graph input
+
+Use `semantic-graph="./graph.json"` for an explicit HTTP(S) JSON URL, or assign a graph object with `view.semanticGraph = graph`. The component validates Semantic Graph v1, projects it through Core into Scene v1, and uses the existing renderer. Programmatic assignment is offline. URL input is bounded to 16 MiB and requires CORS permission from the graph host. Failed replacements preserve the last valid view and emit `semantic-graph-error`; successful loads emit `semantic-graph-load`. Semantic Graph overrides `src` and config while active; removing the attribute restores the normal configured source, and `view.semanticGraph = null` clears a programmatic graph override. See [Portable Embed and Export](portable-embed.md).

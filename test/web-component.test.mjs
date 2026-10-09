@@ -3,6 +3,91 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
+import { createScene } from '../src/constellation.mjs';
+import { semanticGraphFromScene, serializeSemanticGraph, semanticGraphFingerprint } from '../src/semantic-graph.mjs';
+
+test('component loads Semantic Graph offline and preserves the active graph after invalid replacement', { skip: !browser, timeout: 120000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  await waitFor(`Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('main')?.constellation)`);
+  const graph = semanticGraphFromScene(createScene('portable-alice', [{ full_name: 'portable-alice/tool', name: 'tool', language: 'Rust' }]));
+  const graphB = semanticGraphFromScene(createScene('portable-bob', [{ full_name: 'portable-bob/tool', name: 'tool', language: 'Rust' }]));
+  const json = serializeSemanticGraph(graph);
+  const jsonB = serializeSemanticGraph(graphB);
+  await evaluate(`window.graphInput=${json}; window.originalFetch=window.fetch; window.fetch=()=>{throw new Error('unexpected network')}; window.events=[]; const v=document.querySelector('#view'); v.addEventListener('semantic-graph-load',e=>events.push(e.detail)); v.addEventListener('semantic-graph-error',e=>events.push({error:e.detail.message})); window.graphBefore=structuredClone(graphInput); v.semanticGraph=graphInput;`);
+  assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), semanticGraphFingerprint(graph));
+  assert.equal(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('.star[data-repo="portable-alice/tool"]') !== null`), true);
+  assert.equal(await evaluate(`JSON.stringify(graphInput)===JSON.stringify(graphBefore)`), true);
+  assert.equal(await evaluate(`events.at(-1).fingerprint`), semanticGraphFingerprint(graph));
+  await evaluate(`const invalid=structuredClone(graphInput); invalid.version=2; document.querySelector('#view').semanticGraph=invalid; window.fetch=originalFetch`);
+  assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), semanticGraphFingerprint(graph));
+  assert.equal(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('.star[data-repo="portable-alice/tool"]') !== null`), true);
+  assert.match(await evaluate(`events.at(-1).error`), /Semantic Graph version|semantic graph version/i);
+  await evaluate(`window.fetchCalls=[]; window.fetch=(url,{signal})=>{const value=String(url);fetchCalls.push(value);if(value.endsWith('/a.json'))return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError'))));if(value.endsWith('/b.json'))return Promise.resolve(new Response(${JSON.stringify(jsonB)},{headers:{'content-type':'application/json'}}));if(value.includes('api.github.com'))throw new Error('GitHub must not be called');throw new Error('Unexpected graph URL '+value)}; window.urlView=document.querySelector('#view'); urlView.setAttribute('semantic-graph','https://graphs.example/a.json'); urlView.setAttribute('semantic-graph','https://graphs.example/b.json');`);
+  await waitFor(`document.querySelector('#view').semanticFingerprint === '${semanticGraphFingerprint(graphB)}'`);
+  assert.equal(await evaluate(`document.querySelector('#view').semanticGraph.subject.id`), 'portable-bob');
+  assert.equal(await evaluate(`fetchCalls.length`), 2);
+  assert.deepEqual(errors, []);
+});
+
+test('Semantic Graph override restores src and programmatic fallbacks when cleared', { skip: !browser, timeout: 120000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  await waitFor(`Boolean(document.querySelector('#view')?.shadowRoot?.querySelector('main')?.constellation)`);
+  const sourceScene = createScene('source-alice', [{ full_name: 'source-alice/fallback', name: 'fallback', language: 'Rust' }]);
+  const changedSourceScene = createScene('source-carol', [{ full_name: 'source-carol/fallback', name: 'fallback', language: 'Rust' }]);
+  const graph = semanticGraphFromScene(createScene('graph-bob', [{ full_name: 'graph-bob/override', name: 'override', language: 'Rust' }]));
+  await evaluate(`window.fallbackScene=${JSON.stringify(sourceScene)}; window.changedSourceScene=${JSON.stringify(changedSourceScene)}; window.overrideGraph=${JSON.stringify(graph)}; window.fallbackFetch=window.fetch; window.abortedGraphRequests=0; window.fetch=(url,{signal}={})=>{const value=String(url);if(value.endsWith('/source.json'))return Promise.resolve(new Response(JSON.stringify(fallbackScene)));if(value.endsWith('/source-two.json'))return Promise.resolve(new Response(JSON.stringify(changedSourceScene)));if(value.endsWith('/graph.json'))return Promise.resolve(new Response(JSON.stringify(overrideGraph)));if(value.endsWith('/slow-graph.json'))return new Promise((resolve,reject)=>{window.slowGraphStarted=true;signal.addEventListener('abort',()=>{abortedGraphRequests++;reject(new DOMException('Aborted','AbortError'));},{once:true})});if(value.includes('api.github.com'))throw new Error('GitHub must not be called');throw new Error('Unexpected URL '+value)}; window.srcFallback=document.createElement('constellation-view'); srcFallback.setAttribute('src','/source.json'); srcFallback.setAttribute('semantic-graph','/graph.json'); document.body.append(srcFallback);`);
+  await waitFor(`srcFallback.semanticGraph?.subject?.id === 'graph-bob'`);
+  const fingerprint = await evaluate(`srcFallback.semanticFingerprint`);
+  assert.match(fingerprint, /^sg1:/);
+  assert.match(await evaluate(`srcFallback.shadowRoot.querySelector('main').getAttribute('aria-label')`), /Semantic Graph.*sg1:/);
+  await evaluate(`srcFallback.semanticGraph={version:2,kind:'constellation-semantic-graph'}`);
+  assert.match(await evaluate(`srcFallback.shadowRoot.querySelector('main').getAttribute('aria-description')`), /Semantic Graph version/i);
+  await evaluate(`srcFallback.removeAttribute('semantic-graph')`);
+  await waitFor(`srcFallback.semanticGraph === null && srcFallback.shadowRoot.querySelector('.star[data-repo="source-alice/fallback"]')`);
+  assert.equal(await evaluate(`srcFallback.semanticFingerprint`), null);
+  assert.equal(await evaluate(`srcFallback.shadowRoot.querySelector('.star[data-repo="graph-bob/override"]')`), null);
+  assert.equal(await evaluate(`/Semantic Graph|sg1:|private source/i.test(srcFallback.shadowRoot.querySelector('main').getAttribute('aria-label')+' '+(srcFallback.shadowRoot.querySelector('main').getAttribute('aria-description')||''))`), false);
+
+  await evaluate(`srcFallback.setAttribute('semantic-graph','/graph.json')`);
+  await waitFor(`srcFallback.semanticGraph?.subject?.id === 'graph-bob'`);
+  await evaluate(`srcFallback.setAttribute('src','/source-two.json')`);
+  assert.equal(await evaluate(`srcFallback.semanticGraph.subject.id`), 'graph-bob', 'src updates do not replace the active graph');
+  await evaluate(`srcFallback.removeAttribute('semantic-graph')`);
+  await waitFor(`srcFallback.shadowRoot.querySelector('.star[data-repo="source-carol/fallback"]')`);
+
+  await evaluate(`window.configAttributeFallback=document.createElement('constellation-view'); configAttributeFallback.setAttribute('config',JSON.stringify({version:7,account:'config-dora',options:{animate:false}})); configAttributeFallback.setAttribute('semantic-graph','/graph.json'); document.body.append(configAttributeFallback);`);
+  await waitFor(`configAttributeFallback.semanticGraph?.subject?.id === 'graph-bob'`);
+  await evaluate(`configAttributeFallback.setAttribute('config',JSON.stringify({version:7,account:'updated-dora',options:{animate:false}}))`);
+  assert.equal(await evaluate(`configAttributeFallback.semanticGraph.subject.id`), 'graph-bob', 'config updates do not replace the active graph');
+  await evaluate(`configAttributeFallback.removeAttribute('semantic-graph')`);
+  await waitFor(`configAttributeFallback.semanticGraph===null && configAttributeFallback.scene.metadata.account==='updated-dora'`);
+  assert.equal(await evaluate(`configAttributeFallback.semanticFingerprint`), null);
+
+  await evaluate(`window.programmaticFallback=document.createElement('constellation-view'); programmaticFallback.config={version:7,account:'config-alice',options:{animate:false}}; programmaticFallback.records=[{full_name:'config-alice/fallback',name:'fallback',language:'Rust'}]; document.body.append(programmaticFallback);`);
+  await waitFor(`Boolean(programmaticFallback.shadowRoot.querySelector('.star[data-repo="config-alice/fallback"]'))`);
+  await evaluate(`programmaticFallback.semanticGraph=overrideGraph`);
+  assert.equal(await evaluate(`programmaticFallback.semanticGraph.subject.id`), 'graph-bob');
+  await evaluate(`programmaticFallback.records=[{full_name:'config-alice/updated-fallback',name:'updated fallback',language:'Rust'}]`);
+  assert.equal(await evaluate(`programmaticFallback.semanticGraph.subject.id`), 'graph-bob', 'records updates do not replace the active graph');
+  await evaluate(`programmaticFallback.semanticGraph=null`);
+  await waitFor(`programmaticFallback.semanticGraph===null && programmaticFallback.shadowRoot.querySelector('.star[data-repo="config-alice/updated-fallback"]')`);
+  assert.equal(await evaluate(`programmaticFallback.semanticFingerprint`), null);
+
+  await evaluate(`window.raceFallback=document.createElement('constellation-view'); raceFallback.setAttribute('src','/source.json'); raceFallback.setAttribute('semantic-graph','/slow-graph.json'); document.body.append(raceFallback);`);
+  await waitFor(`window.slowGraphStarted===true`);
+  await evaluate(`raceFallback.removeAttribute('semantic-graph')`);
+  await waitFor(`raceFallback.shadowRoot.querySelector('.star[data-repo="source-alice/fallback"]') && abortedGraphRequests===1`);
+  assert.equal(await evaluate(`raceFallback.semanticGraph`), null);
+  assert.equal(await evaluate(`raceFallback.semanticFingerprint`), null);
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(await evaluate(`raceFallback.semanticGraph`), null, 'aborted URL cannot reactivate graph mode');
+  await evaluate(`window.fetch=fallbackFetch`);
+  assert.deepEqual(errors, []);
+});
 
 test('semantic zoom resets on canonical records replacement and evaluates Auto immediately', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');

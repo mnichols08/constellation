@@ -1,12 +1,13 @@
-import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost, buildSemanticHierarchy, projectSemanticLevel } from '@constellation/core';
+import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost, buildSemanticHierarchy, projectSemanticLevel, parseSemanticGraph, serializeSemanticGraph, projectSemanticGraphToScene, semanticGraphFingerprint } from '@constellation/core';
 import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, shortest_path, neighbors, createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_MODES } from '@constellation/core/browser-runtime';
 
 export const WEB_COMPONENT_API_VERSION = 1;
 export class ConstellationView extends HTMLElement {
-  static observedAttributes = ['src', 'config', 'account', 'loading'];
+  static observedAttributes = ['src', 'semantic-graph', 'config', 'account', 'loading'];
   #config = null;
   #records = [];
   #scene = null;
+  #semanticGraph = null;
   #runtime = null;
   #request = null;
   #pipeline = createDataPipeline();
@@ -38,11 +39,40 @@ export class ConstellationView extends HTMLElement {
     const records = structuredClone(value);
     if (JSON.stringify(records) === JSON.stringify(this.#records)) return;
     this.#records = records;
+    if (this.#semanticGraph) return;
     this.#resetSemanticNavigation();
     this.#refresh(false);
   }
   get scene() { return this.#scene && structuredClone(this.#scene); }
   set scene(value) { this.loadScene(value); }
+  get semanticGraph() { return this.#semanticGraph && structuredClone(this.#semanticGraph); }
+  set semanticGraph(value) { this.loadSemanticGraph(value); }
+  get semanticFingerprint() { return this.#semanticGraph ? semanticGraphFingerprint(this.#semanticGraph) : null; }
+  loadSemanticGraph(value) {
+    if (value === null) return this.#clearSemanticGraphMode();
+    let previous;
+    try {
+      const graph = parseSemanticGraph(typeof value === 'string' ? value : serializeSemanticGraph(value));
+      const scene = projectSemanticGraphToScene(graph);
+      previous = { graph: this.#semanticGraph, scene: this.#scene };
+      this.#request?.abort(); this.#semanticGraph = graph; this.#scene = scene;
+      this.#semanticMode = null; this.#resetSemanticNavigation();
+      const rendered = !this.isConnected || !this.#visible || this.#render();
+      if (!rendered) throw new Error('Unable to render Semantic Graph.');
+      const detail = { subject: structuredClone(graph.subject), version: graph.version, fingerprint: semanticGraphFingerprint(graph), privateSource: graph.project?.provenance?.visibility === 'private' };
+      this.dispatchEvent(new CustomEvent('semantic-graph-load', { detail, bubbles: true, composed: true }));
+      return true;
+    } catch (error) {
+      if (previous) { this.#semanticGraph = previous.graph; this.#scene = previous.scene; this.#resetSemanticNavigation(); if (this.isConnected && this.#visible && previous.scene) this.#render(); }
+      this.#error(error, 'semantic-graph-error'); return false;
+    }
+  }
+  #clearSemanticGraphMode() {
+    if (!this.#semanticGraph) return false;
+    this.#request?.abort(); this.#semanticGraph = null; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation();
+    this.#runtime?.destroy(); this.#runtime = null; this.shadowRoot.replaceChildren();
+    return this.isConnected && this.#visible ? this.#refresh() : true;
+  }
   get semanticLevel() { return this.#semanticMode || resolveSemanticZoomMode(this.#config?.options?.semanticZoom, 'projects'); }
   set semanticLevel(value) {
     if (!SEMANTIC_ZOOM_MODES.includes(value)) throw new Error('semanticLevel must be auto, groups or projects.');
@@ -87,14 +117,14 @@ export class ConstellationView extends HTMLElement {
   setConfig(value) {
     try {
       const config = parseConfig(value); normalizeConfig(config.options);
-      this.#sourceMode = false; this.#config = config; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
+      this.#request?.abort(); this.#semanticGraph = null; this.#sourceMode = false; this.#config = config; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
     } catch (error) { this.#error(error); return Promise.resolve(false); }
   }
   loadScene(value) {
     try {
       const scene = parseScene(typeof value === 'string' ? value : serializeScene(value));
       this.#request?.abort(); const previous = this.#scene;
-      this.#sourceMode = false; this.#scene = scene; this.#config = null; this.#semanticMode = null; this.#resetSemanticNavigation();
+      this.#sourceMode = false; this.#semanticGraph = null; this.#scene = scene; this.#config = null; this.#semanticMode = null; this.#resetSemanticNavigation();
       const rendered = this.#render();
       if (!rendered && this.isConnected && this.#visible) this.#scene = previous;
       return rendered;
@@ -212,10 +242,11 @@ export class ConstellationView extends HTMLElement {
   #observe() {
     this.#intersection?.disconnect(); this.#intersection = null;
     this.#visible = this.getAttribute('loading') !== 'lazy' || typeof IntersectionObserver !== 'function';
-    if (this.#visible) { this.#refresh(); return; }
+    if (this.#visible) { const graphUrl = this.getAttribute('semantic-graph'); if (graphUrl) this.#refreshSemanticGraphURL(graphUrl); else this.#refresh(); return; }
     this.#intersection = new IntersectionObserver(entries => {
       if (!entries.some(entry => entry.isIntersecting)) return;
-      this.#visible = true; this.#intersection.disconnect(); this.#intersection = null; this.#refresh();
+      this.#visible = true; this.#intersection.disconnect(); this.#intersection = null;
+      const graphUrl = this.getAttribute('semantic-graph'); if (graphUrl) this.#refreshSemanticGraphURL(graphUrl); else this.#refresh();
     }, { rootMargin: '200px' });
     this.#intersection.observe(this);
   }
@@ -223,20 +254,48 @@ export class ConstellationView extends HTMLElement {
   get cacheStatistics() { return { sources: this.#sourceCache.size, sourceLimit: 4, pipeline: this.#pipeline.cacheStatistics, layout: this.#layouts.cacheStatistics }; }
   attributeChangedCallback(name, previous, value) {
     if (previous === value) return;
-    if (name === 'src') { this.#sourceMode = true; this.#request?.abort(); this.#resetSemanticNavigation(); }
+    if (name === 'src') { this.#sourceMode = true; if (!this.#semanticGraph && !this.hasAttribute('semantic-graph')) { this.#request?.abort(); this.#resetSemanticNavigation(); } }
+    if (name === 'semantic-graph') {
+      this.#request?.abort();
+      if (this.isConnected && value) this.#refreshSemanticGraphURL(value);
+      else if (value === null && this.#semanticGraph) this.#clearSemanticGraphMode();
+      else if (value === null && this.isConnected) this.#refresh();
+      return;
+    }
     if (name === 'loading') { if (this.isConnected) this.#observe(); return; }
     if (name === 'config') {
-      try { this.#config = value === null ? null : parseConfig(value); this.#sourceMode = false; this.#semanticMode = null; this.#resetSemanticNavigation(); }
+      try { this.#config = value === null ? null : parseConfig(value); if (!this.#semanticGraph && !this.hasAttribute('semantic-graph')) { this.#sourceMode = false; this.#semanticMode = null; this.#resetSemanticNavigation(); } }
       catch (error) { this.#error(error); return; }
     }
-    if (this.isConnected) this.#refresh();
+    if (this.isConnected && !this.hasAttribute('semantic-graph')) this.#refresh();
   }
-  #error(error) {
-    this.dispatchEvent(new CustomEvent('error', { detail: { message: error.message }, bubbles: true, composed: true }));
+  #error(error, type = 'error') {
+    this.dispatchEvent(new CustomEvent(type, { detail: { message: error.message }, bubbles: true, composed: true }));
     if (!this.#runtime) { const message = document.createElement('p'); message.setAttribute('role', 'alert'); message.textContent = error.message; this.shadowRoot.replaceChildren(message); }
+    else { const main = this.shadowRoot.querySelector('main'); main?.setAttribute('aria-description', [main?.getAttribute('aria-description'), error.message].filter(Boolean).join(' ')); }
+  }
+  async #refreshSemanticGraphURL(source) {
+    this.#request?.abort(); const request = new AbortController(); this.#request = request;
+    try {
+      const url = new URL(source, this.ownerDocument.baseURI);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error('semantic-graph must be an HTTP(S) JSON URL.');
+      const response = await fetch(url, { signal: request.signal });
+      if (!response.ok) throw new Error(`Unable to load Semantic Graph (${response.status}).`);
+      const declared = Number(response.headers.get('content-length'));
+      if (Number.isFinite(declared) && declared > 16 * 1024 * 1024) throw new Error('Semantic Graph exceeds 16 MiB.');
+      if (!response.body) throw new Error('Unable to read Semantic Graph response.');
+      const reader = response.body.getReader(); const chunks = []; let total = 0;
+      try { while (true) { const { done, value } = await reader.read(); if (done) break; total += value.byteLength; if (total > 16 * 1024 * 1024) { await reader.cancel(); throw new Error('Semantic Graph exceeds 16 MiB.'); } chunks.push(value); } }
+      finally { reader.releaseLock(); }
+      request.signal.throwIfAborted();
+      const json = new TextDecoder('utf-8', { fatal: true }).decode(await new Blob(chunks).arrayBuffer());
+      const graph = parseSemanticGraph(json);
+      request.signal.throwIfAborted(); this.loadSemanticGraph(graph);
+    } catch (error) { if (!request.signal.aborted) this.#error(error, 'semantic-graph-error'); }
   }
   async #refresh(loadSource = true) {
     if (!this.isConnected || !this.#visible) return false;
+    if (this.#semanticGraph) return this.#render();
     this.#request?.abort(); const request = new AbortController(); this.#request = request;
     try {
       const src = loadSource && this.#sourceMode && this.getAttribute('src');
@@ -252,8 +311,8 @@ export class ConstellationView extends HTMLElement {
         request.signal.throwIfAborted();
         if (text.length > 32 * 1024 * 1024) throw new Error('Visualization JSON exceeds 32 MiB.');
         const data = JSON.parse(text);
-        if (['scene', 'time-lapse'].includes(data.kind)) { this.#scene = parseScene(text); this.#config = null; }
-        else { this.#config = parseConfig(data.config || data); if (data.records !== undefined) { if (!Array.isArray(data.records)) throw new Error('records must be an array.'); this.#records = data.records; } }
+        if (['scene', 'time-lapse'].includes(data.kind)) { this.#semanticGraph = null; this.#scene = parseScene(text); this.#config = null; }
+        else { this.#semanticGraph = null; this.#config = parseConfig(data.config || data); if (data.records !== undefined) { if (!Array.isArray(data.records)) throw new Error('records must be an array.'); this.#records = data.records; } }
         if (text.length <= 1024 * 1024) {
           this.#sourceCache.delete(url.href); this.#sourceCache.set(url.href, text);
           while (this.#sourceCache.size > 4) this.#sourceCache.delete(this.#sourceCache.keys().next().value);
@@ -289,6 +348,14 @@ export class ConstellationView extends HTMLElement {
       const markup = interactiveMarkup(renderSceneSVG(viewScene));
       this.#runtime?.destroy();
       this.shadowRoot.innerHTML = `<style>:host{display:block;min-width:0}${interactiveStyles}</style>${markup}`;
+      const main = this.shadowRoot.querySelector('main');
+      if (this.#semanticGraph) {
+        const graph = this.#semanticGraph;
+        const label = graph.subject.kind === 'developer' ? 'Developer' : 'Project';
+        main.setAttribute('aria-label', `${label}: ${graph.subject.id} · Semantic Graph v${graph.version} · ${semanticGraphFingerprint(graph)}`);
+        const notes = [graph.statistics.truncated && 'Source coverage is incomplete.', graph.project?.provenance?.visibility === 'private' && 'Source visibility is private; this graph may disclose repository names, paths, and structure.'].filter(Boolean);
+        if (notes.length) main.setAttribute('aria-description', notes.join(' '));
+      }
       this.#runtime = mountStory(this.shadowRoot.querySelector('main'), viewScene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(viewScene), storyArtifacts: storyArtifacts(viewScene), frameSVGs: viewScene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
       if (previousCamera) this.#runtime.setCamera?.(previousCamera);
       if (previousSelection?.start) {
@@ -303,7 +370,6 @@ export class ConstellationView extends HTMLElement {
       }
       const focusGroup = this.#semanticFocus && this.#semanticHierarchy?.groups.find(group => group.id === this.#semanticFocus);
       if (focusGroup && viewScene.semanticGroups) this.#runtime.showSemanticContext?.(focusGroup, { expanded: viewScene.semanticGroups.expanded.includes(focusGroup.id) });
-      const main = this.shadowRoot.querySelector('main');
       main.addEventListener('semantic-group-expand', event => this.expandGroup(event.detail.id));
       main.addEventListener('semantic-group-collapse', event => this.collapseGroup(event.detail.id));
       const first = !this.#initialized; this.#initialized = true;

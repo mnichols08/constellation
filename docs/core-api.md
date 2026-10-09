@@ -51,3 +51,5 @@ Interactive exports: `renderSceneHTML(scene, { title })` produces an offline HTM
 
 `temporalStack.axis` supports `year` (default), `language`, `repository` and `topic`. Optional `layerValues` selects and orders dimensional layers. Config stays v7; v1 year attachments remain readable, while dimensional scenes use attachment v2 without a Timeline. See [Universe dimensions](temporal-stack.md).
 Portable meaning can be created with Semantic Graph v1 adapters and projected to Scene v1; see [Semantic Graph](semantic-graph.md). `renderSemanticMarkdown(graph, { detail: 'standard' })` produces a bounded Markdown projection directly from a validated graph; see [Semantic Markdown](semantic-markdown.md). These optional layers do not change direct Scene generation.
+
+`createPortableExport(graph)` creates deterministic graph JSON, standard Semantic Markdown, SVG, interactive HTML, and manifest strings from one validated graph. It performs no filesystem, DOM, network, or archive operations. See [Portable Embed and Export](portable-embed.md).

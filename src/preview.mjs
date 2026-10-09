@@ -49,6 +49,7 @@ import { explainFilters } from "./filter-explanation.mjs";
 import { rustAvailable, identityPoints } from "./engine.mjs";
 import { needsContributorData } from "./organization/settings.mjs";
 import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, semanticGraphFromScene, projectSemanticGraphToScene } from "./semantic-graph.mjs";
+import { renderSemanticMarkdown } from "./semantic-markdown.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
 import {
@@ -171,6 +172,7 @@ let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
 let importedSemanticGraph = null;
 let importedPresentationOverrides = {};
 let semanticGraphUrl = null;
+let semanticMarkdownUrl = null;
 let guidedHost;
 let intentStorage;
 try {
@@ -401,6 +403,12 @@ function setSemanticGraphArtifact(graph) {
   graphDownload.href = nextUrl;
   graphDownload.download = info.filename;
   graphStatus.textContent = `${graph.subject.kind === 'developer' ? 'Developer' : 'Project'}: ${graph.subject.id} · Semantic Graph v${info.version} · ${info.fingerprint}`;
+  const markdown = new Blob([renderSemanticMarkdown(graph)], { type: 'text/markdown;charset=utf-8' });
+  const markdownUrl = URL.createObjectURL(markdown);
+  const markdownDownload = document.getElementById('download-semantic-markdown');
+  if (markdownDownload) { markdownDownload.href = markdownUrl; markdownDownload.download = `${graph.subject.id.replace(/[^A-Za-z0-9._-]+/g, '-')}.md`; }
+  if (semanticMarkdownUrl) URL.revokeObjectURL(semanticMarkdownUrl);
+  semanticMarkdownUrl = markdownUrl;
   if (graph.project?.provenance?.visibility === 'private') graphStatus.textContent += ' · This graph may contain names, paths, and structure derived from a private repository.';
   if (semanticGraphUrl) URL.revokeObjectURL(semanticGraphUrl);
   semanticGraphUrl = nextUrl;

@@ -25,7 +25,7 @@ constellation --semantic-graph alice.semantic-graph.json --format svg --output c
 constellation --semantic-graph owner-repo.semantic-graph.json --format html --output constellation.html
 ```
 
-Supported formats are `json`, `markdown`, `svg`, and `html`. JSON and Markdown go to stdout if `--output` is omitted. SVG and HTML use the normal generated output paths. Diagnostics go to stderr. `--fingerprint` prints the semantic fingerprint to stderr. Graph input is mutually exclusive with GitHub acquisition, config, fixture, and migration inputs.
+Supported formats are `json`, `markdown`, `svg`, `html`, and `bundle`. JSON and Markdown go to stdout if `--output` is omitted. SVG and HTML use the normal generated output paths. Diagnostics go to stderr. `--fingerprint` prints the semantic fingerprint to stderr. Graph input is mutually exclusive with GitHub acquisition, config, fixture, and migration inputs. For bundle format, `--output` is a required directory and contains the canonical graph, standard Markdown, SVG, standalone HTML, and a versioned manifest. See [Portable Embed and Export](portable-embed.md).
 
 ## Guarantees and boundaries
 
