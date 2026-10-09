@@ -11,19 +11,25 @@ export const SEMANTIC_MARKDOWN_LIMITS = Object.freeze({
   structureNodes: 256,
   evidenceItems: 64,
   descriptionCharacters: 300,
+  languages: 64,
+  topics: 128,
+  projectLanguages: 8,
+  projectTopics: 16,
+  sourceLimitations: 8,
 });
 
 const encoder = new TextEncoder();
 const cmp = (a, b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
-const esc = value => String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([\\`*_{}\[\]()#+.!|~-])/g, '\\$1');
+const normalizeInline = value => String(value).replace(/[ \t]*(?:(?:\r\n|\r|\n)[ \t]*)+/g, ' ');
+const esc = value => normalizeInline(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([\\`*_{}\[\]()#+.!|~-])/g, '\\$1');
 function code(value) {
-  const text = String(value);
+  const text = normalizeInline(value);
   const ticks = Math.max(0, ...[...text.matchAll(/`+/g)].map(match => match[0].length)) + 1;
   const fence = '`'.repeat(ticks);
   return `${fence}${/[`\s]$|^[`\s]/.test(text) ? ` ${text} ` : text}${fence}`;
 }
 const bounded = (value, max = 300) => {
-  const text = String(value);
+  const text = normalizeInline(value);
   return [...text].length > max ? `${[...text].slice(0, max - 1).join('')}…` : text;
 };
 const nodeMap = graph => new Map(graph.nodes.map(node => [node.id, node]));
@@ -36,7 +42,7 @@ function createWriter() {
   return {
     add(line = '') {
       if (omitted) return false;
-      if (lines.length >= SEMANTIC_MARKDOWN_LIMITS.lines - 1 || bytes + encoder.encode(`${line}\n`).length > SEMANTIC_MARKDOWN_LIMITS.bytes - 128) {
+      if (lines.length >= SEMANTIC_MARKDOWN_LIMITS.lines - 1 || bytes + encoder.encode(`${line}\n`).length > SEMANTIC_MARKDOWN_LIMITS.bytes - 256) {
         omitted = true;
         return false;
       }
@@ -60,6 +66,28 @@ function addLimit(writer, label, shown, total) {
   if (shown < total) writer.add(`Showing ${shown} of ${total} ${label}; ${total - shown} additional ${label} omitted from this Markdown projection.`);
 }
 
+function addSourceCoverage(graph, writer) {
+  const sourceTruncated = graph.statistics.truncated || (graph.subject.kind === 'project' && graph.project.statistics.truncated);
+  if (sourceTruncated) {
+    writer.add('## Source coverage');
+    writer.add('');
+    writer.add(graph.subject.kind === 'developer'
+      ? 'Developer graph coverage is incomplete because its source pipeline was bounded.'
+      : 'Project structure is truncated; this is an incomplete bounded view.');
+    writer.add('');
+  }
+  const limitations = new Set(graph.statistics.limitations || []);
+  if (graph.subject.kind === 'project' && graph.project.statistics.limitation) limitations.add(graph.project.statistics.limitation);
+  const ordered = [...limitations].sort(cmp);
+  if (ordered.length) {
+    writer.add('## Source limitations');
+    writer.add('');
+    for (const limitation of ordered.slice(0, SEMANTIC_MARKDOWN_LIMITS.sourceLimitations)) writer.add(`- ${esc(bounded(limitation))}`);
+    if (ordered.length > SEMANTIC_MARKDOWN_LIMITS.sourceLimitations) writer.add(`Showing ${SEMANTIC_MARKDOWN_LIMITS.sourceLimitations} of ${ordered.length} source limitations; ${ordered.length - SEMANTIC_MARKDOWN_LIMITS.sourceLimitations} additional source limitations omitted.`);
+    writer.add('');
+  }
+}
+
 function renderDeveloper(graph, detail, writer) {
   const nodes = nodeMap(graph);
   const projects = graph.nodes.filter(node => node.kind === 'project').sort((a, b) => cmp(a.id, b.id));
@@ -80,9 +108,11 @@ function renderDeveloper(graph, detail, writer) {
       index.get(edge.from).push(target);
     }
   }
-  for (const values of [...projectLanguages.values(), ...projectTopics.values()]) values.sort(cmp);
+  for (const [id, values] of projectLanguages) projectLanguages.set(id, [...new Set(values)].sort(cmp));
+  for (const [id, values] of projectTopics) projectTopics.set(id, [...new Set(values)].sort(cmp));
 
   writer.add(`# ${esc(bounded(graph.subject.id))}`);
+  addSourceCoverage(graph, writer);
   writer.add('');
   writer.add('## Projects');
   writer.add('');
@@ -92,8 +122,17 @@ function renderDeveloper(graph, detail, writer) {
     writer.add(`- Repository: ${code(bounded(project.id))}`);
     const language = projectLanguages.get(project.id) || [];
     const topicsForProject = projectTopics.get(project.id) || [];
-    for (const value of language) writer.add(`- Primary language: ${esc(bounded(value, 120))}`);
-    if (topicsForProject.length) writer.add(`- Topics: ${topicsForProject.map(value => esc(bounded(value, 120))).join(', ')}`);
+    const primaryLanguage = typeof project.properties.language === 'string' && language.includes(project.properties.language) ? project.properties.language : null;
+    const shownLanguages = primaryLanguage
+      ? [primaryLanguage, ...language.filter(value => value !== primaryLanguage).slice(0, SEMANTIC_MARKDOWN_LIMITS.projectLanguages - 1)]
+      : language.slice(0, SEMANTIC_MARKDOWN_LIMITS.projectLanguages);
+    if (primaryLanguage) writer.add(`- Primary language: ${esc(bounded(primaryLanguage, 120))}`);
+    const otherLanguages = shownLanguages.filter(value => value !== primaryLanguage);
+    if (otherLanguages.length) writer.add(`- ${primaryLanguage ? 'Additional languages' : 'Languages'}: ${otherLanguages.map(value => esc(bounded(value, 120))).join(', ')}`);
+    addLimit(writer, `languages for ${code(bounded(project.id))}`, shownLanguages.length, language.length);
+    const shownTopics = topicsForProject.slice(0, SEMANTIC_MARKDOWN_LIMITS.projectTopics);
+    if (shownTopics.length) writer.add(`- Topics: ${shownTopics.map(value => esc(bounded(value, 120))).join(', ')}`);
+    addLimit(writer, `topics for ${code(bounded(project.id))}`, shownTopics.length, topicsForProject.length);
     if (detail === 'detailed' && project.properties.url) writer.add(`- Repository URL: ${code(bounded(project.properties.url, 300))}`);
     if (detail === 'detailed' && project.properties.description) writer.add(`- Description: ${esc(bounded(project.properties.description, SEMANTIC_MARKDOWN_LIMITS.descriptionCharacters))}`);
     writer.add('');
@@ -115,8 +154,12 @@ function renderDeveloper(graph, detail, writer) {
   }
   if (detail !== 'summary' && (languages.length || topics.length)) {
     writer.add(''); writer.add('## Languages and topics'); writer.add('');
-    if (languages.length) writer.add(`- Languages: ${languages.map(value => esc(bounded(value, 120))).join(', ')}`);
-    if (topics.length) writer.add(`- Topics: ${topics.map(value => esc(bounded(value, 120))).join(', ')}`);
+    const shownLanguages = languages.slice(0, SEMANTIC_MARKDOWN_LIMITS.languages);
+    const shownTopics = topics.slice(0, SEMANTIC_MARKDOWN_LIMITS.topics);
+    if (shownLanguages.length) writer.add(`- Languages: ${shownLanguages.map(value => esc(bounded(value, 120))).join(', ')}`);
+    addLimit(writer, 'languages', shownLanguages.length, languages.length);
+    if (shownTopics.length) writer.add(`- Topics: ${shownTopics.map(value => esc(bounded(value, 120))).join(', ')}`);
+    addLimit(writer, 'topics', shownTopics.length, topics.length);
   }
   if (relationships.length) {
     const shown = relationships.slice(0, SEMANTIC_MARKDOWN_LIMITS.relationships);
@@ -132,11 +175,6 @@ function renderDeveloper(graph, detail, writer) {
   }
   writer.add(''); writer.add('## Coverage'); writer.add('');
   writer.add(`Portable graph contains ${projects.length} ${projects.length === 1 ? 'project' : 'projects'} and ${groups.length} ${groups.length === 1 ? 'semantic group' : 'semantic groups'}.`);
-  if (graph.statistics.truncated) writer.add('**Developer graph coverage is incomplete because its source pipeline was bounded.**');
-  if (graph.statistics.limitations.length) {
-    writer.add(''); writer.add('## Limitations'); writer.add('');
-    for (const limitation of [...graph.statistics.limitations].sort(cmp)) writer.add(`- ${esc(bounded(limitation))}`);
-  }
 }
 
 function renderProject(graph, detail, writer) {
@@ -157,7 +195,9 @@ function renderProject(graph, detail, writer) {
   const byId = nodeMap(graph);
   const nodeLimit = detail === 'summary' ? 40 : SEMANTIC_MARKDOWN_LIMITS.structureNodes;
   const identity = graph.subject.id;
-  writer.add(`# ${esc(bounded(identity))}`); writer.add(''); writer.add('## Repository'); writer.add('');
+  writer.add(`# ${esc(bounded(identity))}`);
+  addSourceCoverage(graph, writer);
+  writer.add(''); writer.add('## Repository'); writer.add('');
   if (graph.project.provenance.ref) writer.add(`- Ref: ${code(bounded(graph.project.provenance.ref, 300))}`);
   if (graph.project.provenance.commit) writer.add(`- Commit: ${code(graph.project.provenance.commit)}`);
   if (graph.project.provenance.visibility) writer.add(`- Visibility: ${esc(graph.project.provenance.visibility)}`);
@@ -182,7 +222,7 @@ function renderProject(graph, detail, writer) {
       const source = byId.get(edge.from)?.properties.path || edge.from;
       const target = byId.get(edge.to)?.properties.path || edge.to;
       const evidence = edge.evidence;
-      if (edge.kind === 'workspace-member') writer.add(`- ${code(bounded(source))} is declared as a workspace member by ${code(bounded(evidence.path))}${evidence.declaration ? ` (${code(bounded(evidence.declaration))})` : ''}.`);
+      if (edge.kind === 'workspace-member') writer.add(`- ${code(bounded(target))} is declared as a workspace member by ${code(bounded(evidence.path))}${evidence.declaration ? ` (${code(bounded(evidence.declaration))})` : ''}.`);
       if (edge.kind === 'entry-of') writer.add(`- ${code(bounded(target))} is declared as an entry point by ${code(bounded(evidence.path))}${evidence.declaration ? ` (${code(bounded(evidence.declaration))})` : ''}.`);
       if (edge.kind === 'imports') writer.add(`- ${code(bounded(source))} imports ${code(bounded(evidence.specifier || target))} → ${code(bounded(target))} (static import evidence).`);
     }
@@ -198,13 +238,6 @@ function renderProject(graph, detail, writer) {
   for (const [countKey, availableKey, format] of metrics) if (Number.isInteger(stats[countKey]) && Number.isInteger(stats[availableKey])) writer.add(`- ${format(stats[countKey])}`);
   if (Number.isInteger(stats.nodeCount)) writer.add(`- ${stats.nodeCount} structural nodes represented.`);
   if (Number.isInteger(stats.edgeCount)) writer.add(`- ${stats.edgeCount} structural relationships represented.`);
-  if (graph.statistics.truncated) writer.add('');
-  if (graph.statistics.truncated) writer.add('**Project structure is truncated; this is an incomplete bounded view.**');
-  const limitations = new Set([...(graph.statistics.limitations || []), ...(stats.limitation ? [stats.limitation] : [])]);
-  if (limitations.size) {
-    writer.add(''); writer.add('## Limitations'); writer.add('');
-    for (const limitation of [...limitations].sort(cmp)) writer.add(`- ${esc(bounded(limitation))}`);
-  }
   if (detail === 'detailed') {
     writer.add(''); writer.add('## Provenance'); writer.add('');
     writer.add(`- Repository structure from ${esc(bounded(graph.project.provenance.source || 'repository data'))}${graph.project.provenance.ref ? ` at ${code(bounded(graph.project.provenance.ref))}` : ''}${graph.project.provenance.commit ? ` (${code(graph.project.provenance.commit)})` : ''}.`);
