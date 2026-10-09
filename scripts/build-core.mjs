@@ -56,6 +56,7 @@ const guides = [
   "semantic-graph-import",
   "portable-embed",
   "semantic-markdown",
+  "developer-atlas",
   "semantic-studio",
   "github-data-cache",
 ].map((name) => name + ".md");

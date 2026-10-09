@@ -6,8 +6,19 @@ const { version } = JSON.parse(
 );
 const component = await readFile(new URL("../src/web-component.mjs", import.meta.url), "utf8");
 // Keep the published entry below its 24 KiB budget while preserving its source structure.
-const compactComponent = component.replace(/^ {2}/gm, " ").replace(/^ {3}/gm, "  ");
+const compactComponent = component
+  .replace(/^\s*\/\/.*$/gm, "")
+  .replace(/\r?\n[ \t]*/g, " ")
+  .replace(/;\s+/g, ";")
+  .replace(/;(?=\s*})/g, "")
+  .replace(/\) \{/g, "){")
+  .replace(/=> \{/g, "=>{")
+  .replace(/\b(if|for|while|catch|switch)\s+\(/g, "$1(");
 await writeFile(new URL("index.mjs", directory), compactComponent);
+await copyFile(
+  new URL("../src/web-component-atlas.mjs", import.meta.url),
+  new URL("web-component-atlas.mjs", directory),
+);
 await copyFile(
   new URL("../docs/web-component.md", import.meta.url),
   new URL("README.md", directory),
@@ -46,6 +57,7 @@ await writeFile(
       exports: "./index.mjs",
       files: [
         "index.mjs",
+        "web-component-atlas.mjs",
         "README.md",
         "temporal-stack.md",
         "developer-topology.md",

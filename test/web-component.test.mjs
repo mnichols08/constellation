@@ -4,7 +4,8 @@ import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createScene } from '../src/constellation.mjs';
-import { semanticGraphFromScene, serializeSemanticGraph, semanticGraphFingerprint } from '../src/semantic-graph.mjs';
+import { semanticGraphFromScene, semanticGraphFromProjectConstellation, serializeSemanticGraph, semanticGraphFingerprint } from '../src/semantic-graph.mjs';
+import { createProjectConstellation } from '../src/project-constellation.mjs';
 
 test('component loads Semantic Graph offline and preserves the active graph after invalid replacement', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -28,6 +29,45 @@ test('component loads Semantic Graph offline and preserves the active graph afte
   await waitFor(`document.querySelector('#view').semanticFingerprint === '${semanticGraphFingerprint(graphB)}'`);
   assert.equal(await evaluate(`document.querySelector('#view').semanticGraph.subject.id`), 'portable-bob');
   assert.equal(await evaluate(`fetchCalls.length`), 2);
+  assert.deepEqual(errors, []);
+});
+
+test('Developer Atlas exposes accessible breadcrumbs, group and project contexts without graph mutation', { skip: !browser, timeout: 120000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  await waitFor(`Boolean(document.querySelector('#view')?.shadowRoot?.querySelector('main')?.constellation)`);
+  const source = createScene('atlas-alice', [
+    { full_name: 'atlas-alice/one', name: 'one', language: 'Rust' },
+    { full_name: 'atlas-alice/two', name: 'two', language: 'Rust' },
+    { full_name: 'atlas-bob/other', name: 'other', language: 'JavaScript' },
+  ], { projectFamilies: { tools: { label: 'Developer Tools', members: ['atlas-alice/one', 'atlas-alice/two'] } } });
+  const graph = semanticGraphFromScene(source); const fingerprint = semanticGraphFingerprint(graph);
+  const projectGraph = semanticGraphFromProjectConstellation(createProjectConstellation({ projectId: 'atlas-alice/one', ref: 'main', tree: [
+    { path: 'packages', type: 'tree' }, { path: 'packages/core', type: 'tree' }, { path: 'packages/core/package.json', type: 'blob' },
+  ] }));
+  const packageNode = projectGraph.nodes.find(node => node.kind === 'package');
+  await evaluate(`window.atlasGraph=${JSON.stringify(graph)}; window.atlasProjectGraph=${JSON.stringify(projectGraph)}; window.atlasPackageId=${JSON.stringify(packageNode.id)}; window.atlasCalls=[]; window.atlasFetch=window.fetch; window.fetch=(...args)=>{atlasCalls.push(args[0]);throw Error('Atlas navigation must stay offline')}; const atlasView=document.querySelector('#view'); atlasView.semanticGraph=atlasGraph; window.atlasEvents=[]; atlasView.addEventListener('atlas-change',event=>atlasEvents.push(event.detail));`);
+  await waitFor(`document.querySelector('#view').shadowRoot.querySelector('[aria-label="Developer Atlas"]')`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'developer');
+  assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), fingerprint);
+  await evaluate(`document.querySelector('#view').navigateAtlasGroup(atlasGraph.groups.find(group=>group.label==='Developer Tools').id)`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'group');
+  assert.match(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('[aria-label="Atlas context"]').textContent`), /User-authored group/);
+  await evaluate(`document.querySelector('#view').navigateAtlasProject('atlas-alice/one')`);
+  assert.deepEqual(await evaluate(`document.querySelector('#view').atlasBreadcrumbs.map(item=>item.level)`), ['developer', 'group', 'project']);
+  await evaluate(`document.querySelector('#view').navigateAtlasStructure(atlasProjectGraph, atlasPackageId)`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'structure');
+  assert.equal((await evaluate(`document.querySelector('#view').atlasBreadcrumbs.at(-1).label`)), 'packages/core');
+  assert.equal(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('.star[data-repo="'+atlasPackageId+'"]')!==null`), true);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasBack()`), true);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'project');
+  assert.equal(await evaluate(`document.querySelector('#view').atlasBack()`), true);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'group');
+  assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), fingerprint);
+  assert.equal(await evaluate(`atlasCalls.length`), 0);
+  assert.ok(await evaluate(`atlasEvents.length >= 3`));
+  await evaluate('window.fetch=window.atlasFetch');
   assert.deepEqual(errors, []);
 });
 

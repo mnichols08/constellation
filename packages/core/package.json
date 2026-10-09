@@ -1,6 +1,6 @@
 {
   "name": "@constellation/core",
-  "version": "3.14.3",
+  "version": "4.0.0",
   "type": "module",
   "description": "Compile project data into scenes, SVG and interactive visualizations with bundled Rust/WASM.",
   "engines": {
@@ -40,6 +40,7 @@
     "semantic-graph-import.md",
     "portable-embed.md",
     "semantic-markdown.md",
+    "developer-atlas.md",
     "semantic-studio.md",
     "github-data-cache.md"
   ],

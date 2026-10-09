@@ -49,6 +49,8 @@ import { explainFilters } from "./filter-explanation.mjs";
 import { rustAvailable, identityPoints } from "./engine.mjs";
 import { needsContributorData } from "./organization/settings.mjs";
 import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, semanticGraphFromScene, projectSemanticGraphToScene } from "./semantic-graph.mjs";
+import { createAtlasState, createAtlasHistory, navigateAtlasToGroup, navigateAtlasToProject, atlasBreadcrumbs, resolveAtlasContext } from "./developer-atlas.mjs";
+import { projectDeveloperAtlasScene } from "./developer-atlas-scene.mjs";
 import { renderSemanticMarkdown } from "./semantic-markdown.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
@@ -170,6 +172,8 @@ let commitFieldLoading = false,
 let loading = false;
 let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
 let importedSemanticGraph = null;
+let importedAtlasState = null;
+let importedAtlasHistory = null;
 let importedPresentationOverrides = {};
 let semanticGraphUrl = null;
 let semanticMarkdownUrl = null;
@@ -440,28 +444,82 @@ function importedGraphPresentationOptions(graph) {
 }
 function prepareImportedSemanticGraph(graph = importedSemanticGraph) {
   if (!graph) throw new Error("No Semantic Graph is imported.");
-  const scene = projectSemanticGraphToScene(graph, importedGraphPresentationOptions(graph));
+  const scene = graph.subject.kind === 'developer' && importedAtlasState
+    ? projectDeveloperAtlasScene(graph, importedAtlasState, importedGraphPresentationOptions(graph))
+    : projectSemanticGraphToScene(graph, importedGraphPresentationOptions(graph));
   return { scene, svg: renderSceneSVG(scene) };
+}
+function navigateImportedAtlas(next, push = true) {
+  const previous = importedAtlasState;
+  try {
+    importedAtlasState = next;
+    const prepared = prepareImportedSemanticGraph();
+    renderImportedSemanticGraph(prepared);
+    if (push) importedAtlasHistory?.push(next);
+  } catch (error) { importedAtlasState = previous; message(error.message); }
+}
+function importedAtlasChrome() {
+  if (importedSemanticGraph?.subject.kind !== 'developer' || !importedAtlasState) return null;
+  const context = resolveAtlasContext(importedAtlasState, importedSemanticGraph);
+  const nav = document.createElement('nav'); nav.className = 'developer-atlas'; nav.setAttribute('aria-label', 'Developer Atlas');
+  const back = document.createElement('button'); back.type = 'button'; back.textContent = '← Back'; back.disabled = !importedAtlasHistory?.canBack;
+  back.addEventListener('click', () => { if (importedAtlasHistory?.canBack) navigateImportedAtlas(importedAtlasHistory.back(), false); }); nav.append(back);
+  nav.addEventListener('keydown', event => { if (event.key === 'Escape' && importedAtlasHistory?.canBack) { event.preventDefault(); navigateImportedAtlas(importedAtlasHistory.back(), false); } });
+  const crumbs = atlasBreadcrumbs(importedAtlasState, importedSemanticGraph);
+  crumbs.forEach((crumb, index) => {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = crumb.label; button.title = crumb.label;
+    button.setAttribute('aria-label', 'Open ' + crumb.level + ': ' + crumb.label);
+    if (index === crumbs.length - 1) button.setAttribute('aria-current', 'location');
+    button.addEventListener('click', () => {
+      let next = createAtlasState(importedSemanticGraph);
+      for (const item of crumbs.slice(1, index + 1)) next = item.level === 'group' ? navigateAtlasToGroup(next, importedSemanticGraph, item.id) : navigateAtlasToProject(next, importedSemanticGraph, item.id);
+      navigateImportedAtlas(next);
+    });
+    nav.append(button);
+    if (index < crumbs.length - 1) { const separator = document.createElement('span'); separator.textContent = '›'; separator.setAttribute('aria-hidden', 'true'); nav.append(separator); }
+  });
+  const panel = document.createElement('section'); panel.className = 'developer-atlas-context'; panel.setAttribute('aria-label', 'Atlas context');
+  const heading = document.createElement('h2'); heading.textContent = context.subject?.label || crumbs.at(-1)?.label || 'Developer'; panel.append(heading);
+  const detail = document.createElement('p');
+  if (context.level === 'group') detail.textContent = (context.provenance === 'user' ? 'User-authored' : 'Derived') + ' group · ' + context.members.length + ' projects · ' + ((context.basis || []).join(', ') || 'Canonical Semantic Group');
+  else if (context.level === 'project') detail.textContent = [context.subject?.properties?.description, context.subject?.properties?.language, ...(context.subject?.properties?.topics || [])].filter(Boolean).join(' · ') || 'Project facts from Semantic Graph v1.';
+  else detail.textContent = 'Semantic Graph v1 · navigate canonical groups and projects.';
+  panel.append(detail);
+  if (context.level === 'project' && context.groups?.length) { const p = document.createElement('p'); p.textContent = 'Group membership: ' + context.groups.map(group => `${group.label} (${group.provenance})`).join(' · '); panel.append(p); }
+  if (context.level === 'project' && context.owner) { const p = document.createElement('p'); p.textContent = 'Repository-owner relationship is recorded in the graph.'; panel.append(p); }
+  if (context.relationships?.length) { const labels = new Map(importedSemanticGraph.nodes.map(node => [node.id, node.label])); const p = document.createElement('p'); p.textContent = context.level === 'group' ? `${context.relationships.length} explicit project relationships among these members.` : 'Project relationships: ' + context.relationships.map(edge => labels.get(edge.from === context.subject?.id ? edge.to : edge.from)).filter(Boolean).join(', '); panel.append(p); }
+  const entries = context.level === 'developer'
+    ? [...(context.groups || []).map(group => ({ level: 'group', id: group.id, label: 'Explore ' + group.label + ' · ' + group.provenance })), ...(context.projects || []).slice(0, 100).map(project => ({ level: 'project', id: project.id, label: 'Explore ' + project.label }))]
+    : context.level === 'group' ? (context.members || []).slice(0, 100).map(project => ({ level: 'project', id: project.id, label: 'Explore ' + project.label })) : [];
+  if (entries.length) {
+    const actions = document.createElement('div'); actions.className = 'developer-atlas-actions';
+    for (const entry of entries) { const button = document.createElement('button'); button.type = 'button'; button.textContent = entry.label; button.addEventListener('click', () => navigateImportedAtlas(entry.level === 'group' ? navigateAtlasToGroup(importedAtlasState, importedSemanticGraph, entry.id) : navigateAtlasToProject(importedAtlasState, importedSemanticGraph, entry.id))); actions.append(button); }
+    panel.append(actions);
+  }
+  if (context.level === 'project') { const note = document.createElement('p'); note.setAttribute('role', 'note'); note.textContent = 'Structural detail is not included in this portable graph. No network request was made.'; panel.append(note); }
+  if (context.evidence?.length) { const note = document.createElement('p'); note.textContent = 'Evidence: ' + context.evidence.map(fact => fact.value).join(' · '); panel.append(note); }
+  return [nav, panel];
 }
 function renderImportedSemanticGraph(prepared = prepareImportedSemanticGraph()) {
   const { scene, svg } = prepared;
   const subject = importedSemanticGraph.subject;
-  const subjectLabel = `${subject.kind === "developer" ? "Developer" : "Project"}: ${subject.id}`;
+  const atlasLabel = importedAtlasState?.level !== 'developer' && importedAtlasState ? (atlasBreadcrumbs(importedAtlasState, importedSemanticGraph).at(-1)?.label || subject.id) : null;
+  const subjectLabel = atlasLabel || `${subject.kind === "developer" ? "Developer" : "Project"}: ${subject.id}`;
   const nextUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   mountLabelEditor(labelEditor, svg, () => {}, () => {}, true);
   if (url) URL.revokeObjectURL(url);
   url = nextUrl;
   download.href = url;
   download.download = `${subject.id.replace(/[^A-Za-z0-9._-]+/g, "-")}.svg`;
-  preview.replaceChildren(labelEditor);
+  preview.replaceChildren(...(importedAtlasChrome() || []), labelEditor);
   preview.dataset.semanticSubject = subject.id;
   preview.dataset.semanticSubjectKind = subject.kind;
-  preview.setAttribute("aria-label", `${subjectLabel} imported offline`);
+  preview.setAttribute("aria-label", importedAtlasState ? `Developer Atlas: ${atlasBreadcrumbs(importedAtlasState, importedSemanticGraph).map(crumb => crumb.label).join(' › ')}` : `${subjectLabel} imported offline`);
   capturedScene = scene;
   studio?.scene(scene);
   imageViewer?.update(svg, subject.id);
   $("#graph-explorer").replaceChildren();
-  $("#map-title").textContent = subjectLabel;
+  $("#map-title").textContent = atlasLabel ? `Atlas: ${atlasLabel}` : subjectLabel;
   $("#filter-summary").textContent = `Semantic Graph v1 · ${graphNodeCount(scene)} scene nodes · offline projection.`;
   $("#organization-status").textContent = subjectLabel;
   $("#repo-count").textContent = scene.nodes.length;
@@ -480,10 +538,13 @@ function renderImportedSemanticGraph(prepared = prepareImportedSemanticGraph()) 
 function graphNodeCount(scene) { return scene.nodes.length; }
 function activateImportedSemanticGraph(graph) {
   const previous = importedSemanticGraph;
+  const previousAtlasState = importedAtlasState, previousAtlasHistory = importedAtlasHistory;
   const previousOverrides = importedPresentationOverrides;
   const previousScene = capturedScene;
   const prepared = prepareImportedSemanticGraph(graph);
   importedSemanticGraph = graph;
+  importedAtlasState = graph.subject.kind === 'developer' ? createAtlasState(graph) : null;
+  importedAtlasHistory = importedAtlasState ? createAtlasHistory(importedAtlasState) : null;
   importedPresentationOverrides = {};
   try {
     setSemanticGraphArtifact(graph);
@@ -491,6 +552,7 @@ function activateImportedSemanticGraph(graph) {
     renderImportedSemanticGraph(prepared);
   } catch (error) {
     importedSemanticGraph = previous;
+    importedAtlasState = previousAtlasState; importedAtlasHistory = previousAtlasHistory;
     importedPresentationOverrides = previousOverrides;
     if (previous) {
       setSemanticGraphArtifact(previous);
@@ -1876,6 +1938,7 @@ async function loadAccount(
       throw new Error("This configuration could not render a populated graph.");
     if (importedBeforeLoad) {
       importedSemanticGraph = null;
+      importedAtlasState = null; importedAtlasHistory = null;
       importedPresentationOverrides = {};
       updateAccessUI();
     }

@@ -67,6 +67,7 @@ const allowed = new Map([
     "/packages/web-component/index.mjs",
     ["../packages/web-component/index.mjs", "text/javascript"],
   ],
+  ["/packages/web-component/web-component-atlas.mjs", ["../packages/web-component/web-component-atlas.mjs", "text/javascript"]],
   ...readdirSync(new URL("../packages/core/src/", import.meta.url), {
     recursive: true,
   })
@@ -101,7 +102,7 @@ const allowed = new Map([
     [`../src/${name}.mjs`, "text/javascript"],
   ]),
   ["/src/scaling.mjs", ["../src/scaling.mjs", "text/javascript"]],
-  ...["plugin-host", "json-feed-source", "theme-packs", "semantic-groups", "semantic-graph", "semantic-markdown", "scene-framing"].map((name) => [
+  ...["plugin-host", "json-feed-source", "theme-packs", "semantic-groups", "semantic-graph", "semantic-markdown", "developer-atlas", "developer-atlas-scene", "scene-framing"].map((name) => [
     `/src/${name}.mjs`,
     [`../src/${name}.mjs`, "text/javascript"],
   ]),
