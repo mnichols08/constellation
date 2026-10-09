@@ -32,7 +32,7 @@ export { CONFIG_VERSION } from "./config-schema.mjs";
 export { createScene } from "./constellation.mjs";
 export { createProjectConstellation, validateProjectConstellation, explainProjectStructuralNode, explainProjectStructuralEdge, PROJECT_CONSTELLATION_VERSION, PROJECT_STRUCTURE_LIMITS } from "./project-constellation.mjs";
 export { createProjectConstellationScene, createProjectConstellationHierarchy } from "./project-constellation-scene.mjs";
-export { SEMANTIC_GRAPH_VERSION, SEMANTIC_GRAPH_LIMITS, SEMANTIC_NODE_KINDS, SEMANTIC_EDGE_KINDS, semanticGraphFromScene, semanticGraphFromProjectConstellation, validateSemanticGraph, serializeSemanticGraph, parseSemanticGraph, semanticGraphFingerprint, projectSemanticGraphToScene } from "./semantic-graph.mjs";
+export { SEMANTIC_GRAPH_VERSION, SEMANTIC_GRAPH_LIMITS, SEMANTIC_NODE_KINDS, SEMANTIC_EDGE_KINDS, semanticGraphFromScene, semanticGraphFromProjectConstellation, validateSemanticGraph, serializeSemanticGraph, parseSemanticGraph, semanticGraphFingerprint, semanticGraphExportInfo, projectSemanticGraphToScene } from "./semantic-graph.mjs";
 export { SEMANTIC_MARKDOWN_VERSION, SEMANTIC_MARKDOWN_LIMITS, renderSemanticMarkdown } from "./semantic-markdown.mjs";
 export {
   createTimeline,

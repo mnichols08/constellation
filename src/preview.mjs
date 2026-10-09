@@ -48,6 +48,7 @@ import { mountGraphExplorer } from "./graph-explorer.mjs";
 import { explainFilters } from "./filter-explanation.mjs";
 import { rustAvailable, identityPoints } from "./engine.mjs";
 import { needsContributorData } from "./organization/settings.mjs";
+import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, semanticGraphFromScene, projectSemanticGraphToScene } from "./semantic-graph.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
 import {
@@ -117,6 +118,10 @@ function openProjectStructure({ projectId, label, parentScene }) {
   projectDialogFrame.srcdoc = ''; projectDialogFrame.hidden = true;
   projectDialogStart.hidden = false; projectDialogStart.disabled = false; projectDialogStart.textContent = 'Start bounded scan';
   projectDialogStart.onclick = async () => {
+    if (inImportedGraphMode()) {
+      message("Project scans are unavailable while viewing an imported Semantic Graph. Load a GitHub account to switch to live data.", true);
+      return;
+    }
     const controller = new AbortController(); projectStructureRequest = controller;
     projectDialogStart.disabled = true; projectDialogStatus.textContent = 'Loading repository ref and bounded structure…';
     try {
@@ -163,6 +168,9 @@ let commitFieldLoading = false,
   commitFieldDiagnostic = "";
 let loading = false;
 let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
+let importedSemanticGraph = null;
+let importedPresentationOverrides = {};
+let semanticGraphUrl = null;
 let guidedHost;
 let intentStorage;
 try {
@@ -178,6 +186,7 @@ let importedOptions = {};
 let metadataPreview = false;
 let accountAvatar = null;
 const $ = (selector) => document.querySelector(selector);
+function inImportedGraphMode() { return importedSemanticGraph !== null; }
 function updateAccessUI() {
   $(".form-note").textContent = access.authenticated
     ? "GitHub authenticated · Full analysis is available. Customization uses loaded data."
@@ -208,6 +217,61 @@ function updateAccessUI() {
         ? ""
         : "Sign in with GitHub to load contributor data.";
     }
+  }
+  const imported = inImportedGraphMode();
+  const sourceControlIds = [
+    "repo-source", "load-projects", "refresh-data", "load-organization",
+    "load-commit-field", "refresh-commit-field", "org-strategy",
+    "org-maxRepositories", "org-maxContributorsPerRepo", "project-constellation-start",
+    "node-mode", "max-repos", "forks", "show-other", "reset-project-filters",
+  ];
+  for (const id of sourceControlIds) {
+    const control = document.getElementById(id);
+    if (!control) continue;
+    if (imported) {
+      control.disabled = true;
+      control.title = "Unavailable while viewing an imported Semantic Graph. Enter a GitHub account and select Build constellation to switch to live data.";
+    } else if (["load-organization", "org-strategy", "org-maxRepositories", "org-maxContributorsPerRepo"].includes(id)) {
+      control.disabled = !access.capabilities.contributors || loading;
+      control.title = control.disabled ? "Sign in with GitHub to load contributor data." : "";
+    } else {
+      control.disabled = loading;
+      if (control.title.startsWith("Unavailable while viewing")) control.title = "";
+    }
+  }
+  for (const control of document.querySelectorAll('[id$="find-contributed-repositories"]')) {
+    control.disabled = imported || !access.capabilities.contributionDiscovery;
+    if (imported) control.title = "Unavailable while viewing an imported Semantic Graph. Load a GitHub account to switch to live data.";
+  }
+  const guided = document.getElementById("start-guided-setup");
+  if (guided) {
+    guided.disabled = imported;
+    guided.title = imported ? "Enter a GitHub account and select Build constellation to switch to live data." : "";
+  }
+  const help = document.getElementById("semantic-graph-mode-help");
+  if (help) help.hidden = !imported;
+  for (const control of document.querySelectorAll("#project-relationships, #project-family-label, #project-family-id, #project-family-members, #save-project-family")) {
+    control.disabled = imported;
+    if (imported) control.title = "Semantic editing is unavailable for an imported graph.";
+  }
+  for (const control of document.querySelectorAll("[data-filter], #language-filters input, #topic-filters input")) control.disabled = imported;
+  for (const id of ["copy-markdown", "copy-workflow", "save-constellation"]) {
+    const control = document.getElementById(id);
+    if (control) control.disabled = imported;
+  }
+  const workflowDownload = document.getElementById("download-workflow");
+  if (workflowDownload) {
+    workflowDownload.setAttribute("aria-disabled", String(imported));
+    workflowDownload.tabIndex = imported ? -1 : 0;
+    if (imported) workflowDownload.removeAttribute("href");
+  }
+  const arrangement = document.getElementById("arrangement");
+  if (arrangement && imported && importedSemanticGraph.subject.kind === "project") {
+    arrangement.disabled = true;
+    arrangement.title = "Project graph layout follows its structural graph.";
+  } else if (arrangement && arrangement.title === "Project graph layout follows its structural graph.") {
+    arrangement.disabled = false;
+    arrangement.title = "";
   }
 }
 updateAccessUI();
@@ -327,6 +391,132 @@ syncAccountMode();
 const status = $("#status");
 const preview = $("#preview");
 const download = $(".download");
+const graphDownload = $("#download-semantic-graph");
+const graphInput = $("#import-semantic-graph");
+const graphStatus = $("#semantic-graph-status");
+function setSemanticGraphArtifact(graph) {
+  const json = serializeSemanticGraph(graph);
+  const info = semanticGraphExportInfo(graph);
+  const nextUrl = URL.createObjectURL(new Blob([json], { type: info.mediaType }));
+  graphDownload.href = nextUrl;
+  graphDownload.download = info.filename;
+  graphStatus.textContent = `${graph.subject.kind === 'developer' ? 'Developer' : 'Project'}: ${graph.subject.id} · Semantic Graph v${info.version} · ${info.fingerprint}`;
+  if (graph.project?.provenance?.visibility === 'private') graphStatus.textContent += ' · This graph may contain names, paths, and structure derived from a private repository.';
+  if (semanticGraphUrl) URL.revokeObjectURL(semanticGraphUrl);
+  semanticGraphUrl = nextUrl;
+}
+const importedPresentationKeys = Object.freeze([
+  "theme", "colors", "visualStyle", "customCSS", "css", "layout", "animate",
+  "bridges", "connectionBasis", "connectionDensity", "arrangement", "semanticZoom",
+  "perspective", "hiddenNodes", "hiddenLabels", "nodeColors", "nodeShape",
+  "nodeSize", "sizingMode", "nodeColorMode", "nodeGlowMode", "ringAnimation",
+  "floatingAnimation", "starPositions", "labelOffsets", "ringPlacements",
+  "ringRotations", "ringRotation", "layers", "starfield", "exportProfile",
+  "transparentTheme", "title", "seed", "readmePresentation", "ringMeaning",
+  "semanticLegend",
+]);
+function importedGraphPresentationOptions(graph) {
+  const current = { ...importedOptions, ...studio?.read(), ...importedPresentationOverrides };
+  const options = Object.fromEntries(importedPresentationKeys.filter(key => Object.hasOwn(current, key)).map(key => [key, current[key]]));
+  options.layout = $("#layout")?.value || options.layout || "atlas";
+  options.animate = $("#animate")?.checked ?? options.animate ?? true;
+  options.visualStyle = structuredClone(visualStyle);
+  options.customCSS = $("#custom-css")?.value || options.customCSS || "";
+  options.css = `${visualCSS(visualStyle)}\n${options.customCSS}`;
+  if (graph.subject.kind === "project") {
+    delete options.arrangement;
+    delete options.ringMeaning;
+    delete options.readmePresentation;
+  }
+  return options;
+}
+function prepareImportedSemanticGraph(graph = importedSemanticGraph) {
+  if (!graph) throw new Error("No Semantic Graph is imported.");
+  const scene = projectSemanticGraphToScene(graph, importedGraphPresentationOptions(graph));
+  return { scene, svg: renderSceneSVG(scene) };
+}
+function renderImportedSemanticGraph(prepared = prepareImportedSemanticGraph()) {
+  const { scene, svg } = prepared;
+  const subject = importedSemanticGraph.subject;
+  const subjectLabel = `${subject.kind === "developer" ? "Developer" : "Project"}: ${subject.id}`;
+  const nextUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  mountLabelEditor(labelEditor, svg, () => {}, () => {}, true);
+  if (url) URL.revokeObjectURL(url);
+  url = nextUrl;
+  download.href = url;
+  download.download = `${subject.id.replace(/[^A-Za-z0-9._-]+/g, "-")}.svg`;
+  preview.replaceChildren(labelEditor);
+  preview.dataset.semanticSubject = subject.id;
+  preview.dataset.semanticSubjectKind = subject.kind;
+  preview.setAttribute("aria-label", `${subjectLabel} imported offline`);
+  capturedScene = scene;
+  studio?.scene(scene);
+  imageViewer?.update(svg, subject.id);
+  $("#graph-explorer").replaceChildren();
+  $("#map-title").textContent = subjectLabel;
+  $("#filter-summary").textContent = `Semantic Graph v1 · ${graphNodeCount(scene)} scene nodes · offline projection.`;
+  $("#organization-status").textContent = subjectLabel;
+  $("#repo-count").textContent = scene.nodes.length;
+  $("#language-count").textContent = scene.nodes.filter(node => node.metadata?.nodeKind === "language").length;
+  $("#star-count").textContent = "—";
+  $("#sample-badge").hidden = true;
+  $("#save-constellation").disabled = true;
+  $("#copy-markdown").disabled = true;
+  $("#download-config").disabled = true;
+  studioCommits?.update([]);
+  studio?.tour.refresh();
+  updateAccessUI();
+  message(`${subjectLabel} · Semantic Graph v1 · Imported offline. Enter a GitHub account and select Build constellation to switch to live data.`);
+  return true;
+}
+function graphNodeCount(scene) { return scene.nodes.length; }
+function activateImportedSemanticGraph(graph) {
+  const previous = importedSemanticGraph;
+  const previousOverrides = importedPresentationOverrides;
+  const previousScene = capturedScene;
+  const prepared = prepareImportedSemanticGraph(graph);
+  importedSemanticGraph = graph;
+  importedPresentationOverrides = {};
+  try {
+    setSemanticGraphArtifact(graph);
+    graphStatus.textContent += " · Imported offline";
+    renderImportedSemanticGraph(prepared);
+  } catch (error) {
+    importedSemanticGraph = previous;
+    importedPresentationOverrides = previousOverrides;
+    if (previous) {
+      setSemanticGraphArtifact(previous);
+      graphStatus.textContent += " · Imported offline";
+      renderImportedSemanticGraph();
+    } else if (previousScene) {
+      setSemanticGraphArtifact(semanticGraphFromScene(previousScene));
+      render();
+    }
+    throw error;
+  }
+}
+graphInput?.addEventListener('change', async () => {
+  const file = graphInput.files?.[0];
+  if (!file) return;
+  try {
+    if (file.size > 16 * 1024 * 1024) throw new Error('Semantic graph file exceeds 16 MiB.');
+    const source = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+    const graph = parseSemanticGraph(source);
+    activateImportedSemanticGraph(graph);
+  } catch (error) {
+    const detail = error.message || 'Invalid graph structure.';
+    const importError = detail.includes('Unsupported Semantic Graph version') ? detail
+      : detail.includes('16 MiB') ? detail
+      : /unsafe|secret-like/i.test(detail) ? `Unsafe or secret-like data: ${detail}`
+      : /evidence/i.test(detail) ? `Invalid evidence: ${detail}`
+      : /group/i.test(detail) ? `Contradictory or invalid groups: ${detail}`
+      : /endpoint/i.test(detail) ? `Missing edge endpoint: ${detail}`
+      : /project graph|project constellation/i.test(detail) ? `Invalid project graph: ${detail}`
+      : `Invalid semantic graph: ${detail}`;
+    if (inImportedGraphMode()) message(importError, true);
+    else graphStatus.textContent = importError;
+  } finally { graphInput.value = ''; }
+});
 const controls = [
   "#layout",
   "#max-repos",
@@ -736,7 +926,8 @@ $("#profile-dimension-clear").addEventListener("click", () => {
   applyProfileDimensionSelection();
 });
 
-function render({ requireVisibleNodes = false } = {}) {
+function render({ requireVisibleNodes = false, forceLive = false } = {}) {
+  if (inImportedGraphMode() && !forceLive) return renderImportedSemanticGraph();
   updateAccessUI();
   studioCommits?.update(isSample ? [] : repositories);
   placementAccounts.set(
@@ -1097,6 +1288,12 @@ function render({ requireVisibleNodes = false } = {}) {
     },
   );
   const svg = renderSceneSVG(scene);
+  if (forceLive || !inImportedGraphMode()) {
+    try { setSemanticGraphArtifact(semanticGraphFromScene(scene)); } catch {}
+  }
+  delete preview.dataset.semanticSubject;
+  delete preview.dataset.semanticSubjectKind;
+  preview.removeAttribute("aria-label");
   capturedScene = scene;
   updateProfileDimensionControls(scene);
   const currentScene = scene.kind === "time-lapse" ? scene.latest : scene;
@@ -1387,6 +1584,11 @@ function render({ requireVisibleNodes = false } = {}) {
 
 for (const control of controls) control.addEventListener("input", render);
 $("#repo-source").addEventListener("change", () => {
+  if (inImportedGraphMode()) {
+    $("#repo-source").value = loadedSource;
+    message("Repository source changes are unavailable while viewing an imported Semantic Graph.", true);
+    return;
+  }
   if (isSample) render();
   else loadAccount(account, false, $("#repo-source").value);
 });
@@ -1423,6 +1625,10 @@ $("#temporal-form").addEventListener("change", () => {
   render();
 });
 $("#node-mode").addEventListener("input", () => {
+  if (inImportedGraphMode()) {
+    render();
+    return;
+  }
   render();
   if ($("#node-mode").value === "commits") {
     if (!importedOptions.commitHistory) $("#repository-history-open").click();
@@ -1565,9 +1771,17 @@ async function loadAccount(
   refresh = false,
   source = $("#repo-source").value,
   explicitConfig,
-  { requireVisibleNodes = false, previewOnly = false } = {},
+  { requireVisibleNodes = false, previewOnly = false, explicitSwitch = false } = {},
 ) {
+  if (inImportedGraphMode() && !explicitSwitch) {
+    message("Unavailable while viewing an imported Semantic Graph. Enter a GitHub account and select Build constellation to switch to live data.", true);
+    return false;
+  }
   if (refresh && access.authenticated) requestCache.clear();
+  const importedBeforeLoad = importedSemanticGraph;
+  const importedOverridesBeforeLoad = importedPresentationOverrides;
+  const sourceBeforeLoad = { account, repositories, loadedSource, isSample, options: { ...importedOptions }, visualStyle: structuredClone(visualStyle) };
+  let liveStateApplied = false;
   const changedAccount = nextAccount.toLowerCase() !== account.toLowerCase();
   const restoring =
     explicitConfig ||
@@ -1632,6 +1846,7 @@ async function loadAccount(
           ? `${nextAccount}/.github`
           : `${nextAccount}/${nextAccount}`;
     studio?.flush();
+    liveStateApplied = true;
     account = nextAccount;
     repositories = nextRepositories;
     loadedSource = source;
@@ -1649,12 +1864,30 @@ async function loadAccount(
     syncAccountMode();
     $("#repo-source").value = source;
     $("#refresh-data").hidden = false;
-    if (!render({ requireVisibleNodes }))
+    if (!render({ requireVisibleNodes, forceLive: Boolean(importedBeforeLoad) }))
       throw new Error("This configuration could not render a populated graph.");
+    if (importedBeforeLoad) {
+      importedSemanticGraph = null;
+      importedPresentationOverrides = {};
+      updateAccessUI();
+    }
     if (previewOnly) showSavedPreview();
     else enterStudio();
     return true;
   } catch (error) {
+    if (importedBeforeLoad && liveStateApplied) {
+      account = sourceBeforeLoad.account;
+      repositories = sourceBeforeLoad.repositories;
+      loadedSource = sourceBeforeLoad.loadedSource;
+      isSample = sourceBeforeLoad.isSample;
+      importedSemanticGraph = importedBeforeLoad;
+      importedPresentationOverrides = importedOverridesBeforeLoad;
+      visualStyle = sourceBeforeLoad.visualStyle;
+      applyOptions(sourceBeforeLoad.options);
+      setSemanticGraphArtifact(importedBeforeLoad);
+      graphStatus.textContent += " · Imported offline";
+      renderImportedSemanticGraph();
+    }
     if (!isSample) $("#repo-source").value = loadedSource;
     let detail =
       error instanceof TypeError
@@ -1706,7 +1939,7 @@ form.addEventListener("submit", (event) => {
         false,
         "all",
         { account: name, options },
-        { previewOnly: document.documentElement.dataset.entry !== "studio" },
+        { previewOnly: document.documentElement.dataset.entry !== "studio", explicitSwitch: true },
       );
     } else if (mode === "paired") {
       if (!organization)
@@ -1732,10 +1965,10 @@ form.addEventListener("submit", (event) => {
             showOther: true,
           },
         },
-        { previewOnly: document.documentElement.dataset.entry !== "studio" },
+        { previewOnly: document.documentElement.dataset.entry !== "studio", explicitSwitch: true },
       );
     } else if (document.documentElement.dataset.entry === "studio")
-      loadAccount(name);
+      loadAccount(name, false, $("#repo-source").value, undefined, { explicitSwitch: true });
     else startGuided(name);
   } catch (error) {
     message(error.message, true);
@@ -1777,6 +2010,10 @@ function showSavedPreview() {
   heading.focus();
 }
 async function startGuided(name, {legacy = false} = {}) {
+  if (inImportedGraphMode()) {
+    message("Guided GitHub acquisition is unavailable while viewing an imported Semantic Graph. Enter an account and select Build constellation to switch to live data.", true);
+    return;
+  }
   if (loading) return;
   loading = true;
   form.querySelector("button").disabled = true;
@@ -2087,6 +2324,7 @@ $("#reset-visual").addEventListener("click", () => {
   render();
 });
 $("#copy-workflow").addEventListener("click", async () => {
+  if (inImportedGraphMode()) return;
   try {
     await navigator.clipboard.writeText($("#workflow").value);
     message(
@@ -2236,6 +2474,7 @@ async function findGuidedRepositories({
   repository,
   onProgress,
 }) {
+  if (inImportedGraphMode()) throw Error("Repository discovery is unavailable while viewing an imported Semantic Graph. Load a GitHub account to switch to live data.");
   if (loading) throw Error("Wait for your account to finish loading.");
   if (isSample)
     throw Error("Load your GitHub account first to find your team projects.");
@@ -2314,6 +2553,15 @@ studio = mountStudioDesign({
       fallback,
     } = {},
   ) => {
+    if (inImportedGraphMode()) {
+      importedPresentationOverrides = {
+        ...importedPresentationOverrides,
+        ...Object.fromEntries(importedPresentationKeys.filter(key => Object.hasOwn(config.options || {}, key)).map(key => [key, config.options[key]])),
+      };
+      if (config.options?.visualStyle) visualStyle = structuredClone(config.options.visualStyle);
+      render();
+      return true;
+    }
     if (loading)
       throw new Error(
         "Wait for the account to finish loading before applying a preset.",
@@ -2365,7 +2613,7 @@ studio = mountStudioDesign({
             false,
             config.options.repoSource || "all",
             config,
-            { requireVisibleNodes },
+            { requireVisibleNodes, explicitSwitch: true },
           ))
         )
           throw new Error(
@@ -2476,7 +2724,7 @@ mountConstellationLibrary({
       false,
       config.options.repoSource || "all",
       config,
-      { previewOnly: true },
+      { previewOnly: true, explicitSwitch: true },
     );
     if (loaded) studio.flush();
     return loaded;
@@ -2484,6 +2732,10 @@ mountConstellationLibrary({
 });
 const initialDraft = studio.store.draft(account);
 async function loadCommitFields(refresh = false) {
+  if (inImportedGraphMode()) {
+    message("Commit data is unavailable while viewing an imported Semantic Graph. Load a GitHub account to switch to live data.", true);
+    return;
+  }
   if (commitFieldLoading || isSample || !access.capabilities.commitActivity)
     return;
   const targets = selectRepositories(

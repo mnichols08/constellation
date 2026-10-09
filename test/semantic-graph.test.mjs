@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createScene } from '../src/constellation.mjs';
 import { createProjectConstellation } from '../src/project-constellation.mjs';
-import { semanticGraphFromScene, semanticGraphFromProjectConstellation, validateSemanticGraph, serializeSemanticGraph, parseSemanticGraph, semanticGraphFingerprint, projectSemanticGraphToScene } from '../src/semantic-graph.mjs';
+import { SEMANTIC_GRAPH_LIMITS, semanticGraphFromScene, semanticGraphFromProjectConstellation, validateSemanticGraph, serializeSemanticGraph, parseSemanticGraph, semanticGraphFingerprint, semanticGraphExportInfo, projectSemanticGraphToScene } from '../src/semantic-graph.mjs';
 import { validateScene } from '../src/scene.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
 import { repositories as recruiterRepositories } from './fixtures/recruiter.mjs';
 import { buildSemanticHierarchy, projectSemanticLevel, expandGroup } from '../src/semantic-groups.mjs';
+import { renderSemanticMarkdown } from '../src/semantic-markdown.mjs';
+import { renderSceneHTML } from '../src/renderer-html.mjs';
 
 test('developer semantic graphs ignore Scene presentation and ordering', () => {
   const scene=createScene('octocat',[{full_name:'octocat/alpha',name:'alpha',language:'JavaScript',topics:['tooling']},{full_name:'octocat/beta',name:'beta',language:'Rust',topics:[]}]);
@@ -16,6 +18,46 @@ test('developer semantic graphs ignore Scene presentation and ordering', () => {
   assert.deepEqual(semanticGraphFromScene(createScene('octocat',[{full_name:'octocat/beta',name:'beta',language:'Rust',topics:[]},{full_name:'octocat/alpha',name:'alpha',language:'JavaScript',topics:['tooling']} ])),graph);
   const projected=projectSemanticGraphToScene(graph); assert.equal(validateScene(projected).valid,true); assert.match(renderSceneSVG(projected),/<svg/);
   assert.equal(graph.nodes.some(n=>'geometry' in n||'style' in n),false);
+});
+
+test('developer portable artifact round trip preserves canonical bytes, Markdown and offline projections', () => {
+  const records=recruiterRepositories.slice(0,12);
+  const scene=createScene('alice',records,{projectFamilies:{studio:{label:'Studio',members:records.slice(0,4).map(r=>r.full_name)}},projectRelationships:[[records[0].full_name,records[1].full_name]]});
+  const graph=semanticGraphFromScene(scene), json=serializeSemanticGraph(graph), imported=parseSemanticGraph(json);
+  assert.equal(serializeSemanticGraph(imported),json);
+  assert.equal(semanticGraphFingerprint(imported),semanticGraphFingerprint(graph));
+  assert.deepEqual(imported.nodes.map(n=>n.id),graph.nodes.map(n=>n.id));
+  assert.deepEqual(imported.edges.map(e=>e.id),graph.edges.map(e=>e.id));
+  assert.deepEqual(imported.groups.map(g=>g.id),graph.groups.map(g=>g.id).sort());
+  assert.deepEqual(imported.evidence,graph.evidence);
+  assert.deepEqual(imported.subject,graph.subject);
+  assert.deepEqual(imported.statistics,graph.statistics);
+  for(const detail of ['summary','standard','detailed']) assert.equal(renderSemanticMarkdown(imported,{detail}),renderSemanticMarkdown(graph,{detail}));
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=()=>{throw new Error('network should not be used');};
+  try {
+    const projected=projectSemanticGraphToScene(imported);
+    assert.equal(validateScene(projected).valid,true);
+    assert.match(renderSceneSVG(projected),/<svg/);
+    assert.match(renderSceneHTML(projected),/<!doctype html/i);
+    assert.equal(semanticGraphFingerprint(imported),semanticGraphFingerprint(graph));
+  } finally { globalThis.fetch=originalFetch; }
+});
+
+test('portable artifact metadata and import errors are bounded and explicit', () => {
+  const graph=semanticGraphFromScene(createScene('alice',[{full_name:'alice/project',name:'Project',language:'Rust'},{full_name:'community/tool',name:'Tool',language:'Rust'}]));
+  const info=semanticGraphExportInfo(graph);
+  assert.equal(info.filename,'alice.semantic-graph.json');
+  assert.equal(info.mediaType,'application/json');
+  assert.equal(info.fingerprint,semanticGraphFingerprint(graph));
+  assert.throws(()=>parseSemanticGraph('{'),/JSON|position/i);
+  assert.throws(()=>parseSemanticGraph(JSON.stringify({kind:'constellation-semantic-graph',version:2})),/Unsupported Semantic Graph version/);
+  const secret=structuredClone(graph);secret.nodes[0].label='ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+  assert.throws(()=>parseSemanticGraph(JSON.stringify(secret)),/unsafe|secret-like/i);
+  const endpoint=structuredClone(graph);endpoint.edges[0].to='missing:node';
+  assert.throws(()=>parseSemanticGraph(JSON.stringify(endpoint)),/missing endpoint/i);
+  assert.throws(()=>parseSemanticGraph(' '.repeat(SEMANTIC_GRAPH_LIMITS.jsonBytes+1)),/16 MiB/);
+  assert.throws(()=>parseSemanticGraph('\uFEFF'+serializeSemanticGraph(graph)),/JSON|position/i);
 });
 
 test('canonical semantic truth survives collapsed, expanded, filtered and presentation projections', () => {
@@ -64,7 +106,9 @@ test('project graph preserves structural facts, ref, commit and truncation throu
   assert.equal(graph.project.provenance.ref,'main'); assert.equal(graph.project.provenance.commit,'abcdef1234567'); assert.equal(graph.project.provenance.visibility,'private');
   assert.ok(graph.nodes.some(n=>n.kind==='project-root')); assert.ok(graph.nodes.some(n=>n.kind==='package')); assert.ok(graph.edges.some(e=>e.kind==='entry-of'));
   const roundTrip=parseSemanticGraph(serializeSemanticGraph(graph)); assert.deepEqual(roundTrip,graph);
+  assert.equal(serializeSemanticGraph(roundTrip),serializeSemanticGraph(graph));
   assert.equal(semanticGraphFingerprint(roundTrip),semanticGraphFingerprint(graph));
+  assert.equal(renderSemanticMarkdown(roundTrip,{detail:'detailed'}),renderSemanticMarkdown(graph,{detail:'detailed'}));
   const projected=projectSemanticGraphToScene(graph); assert.equal(validateScene(projected).valid,true); assert.match(renderSceneSVG(projected),/<svg/);
   assert.equal(JSON.stringify(graph).includes('export default 1'),false);
   const bounded=createProjectConstellation({projectId:'owner/large',tree:[{path:'',type:'tree'},{path:'a',type:'tree'},{path:'b',type:'tree'}]},{nodes:2});

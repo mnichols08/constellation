@@ -104,7 +104,7 @@ export function validateSemanticGraph(graph) {
   const ids=new Set(); let memberTotal=0;
   for(const n of graph.nodes){ if(!obj(n)||!safeText(n.id)||ids.has(n.id)||!SEMANTIC_NODE_KINDS.includes(n.kind)||!safeText(n.label)||!obj(n.properties)||!Array.isArray(n.provenance)||n.provenance.length<1||n.provenance.length>16||n.provenance.some(p=>!validProvenance(p))||!Array.isArray(n.evidenceIds)||n.evidenceIds.length>64||new Set(n.evidenceIds).size!==n.evidenceIds.length||n.evidenceIds.some(id=>!safeText(id))) fail('Invalid or duplicate semantic node.'); else { ids.add(n.id); try{safeTree(n);}catch{fail('Unsafe semantic node data.');} } }
   const edgeIds=new Set();
-  for(const e of graph.edges||[]){ if(!obj(e)||!safeText(e.id)||edgeIds.has(e.id)||!SEMANTIC_EDGE_KINDS.includes(e.kind)||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to||!Array.isArray(e.provenance)||!e.provenance.length||e.provenance.some(p=>!validProvenance(p))||!(Array.isArray(e.evidence)||obj(e.evidence))) fail('Invalid or duplicate semantic edge.'); else {edgeIds.add(e.id);try{safeTree(e); }catch{fail('Unsafe semantic edge data.');}} }
+  for(const e of graph.edges||[]){ if(obj(e)&&(!ids.has(e.from)||!ids.has(e.to)))fail('Semantic edge references a missing endpoint.'); if(!obj(e)||!safeText(e.id)||edgeIds.has(e.id)||!SEMANTIC_EDGE_KINDS.includes(e.kind)||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to||!Array.isArray(e.provenance)||!e.provenance.length||e.provenance.some(p=>!validProvenance(p))||!(Array.isArray(e.evidence)||obj(e.evidence))) fail('Invalid or duplicate semantic edge.'); else {edgeIds.add(e.id);try{safeTree(e); }catch{fail('Unsafe semantic edge data.');}} }
   if(graph.evidence!==undefined && (!validateEvidence(graph.evidence,new Set([...ids,...(graph.evidence.subjects||[]).map(s=>s.id)])))) fail('Invalid Evidence v1 attachment.');
   const factIds=new Set(graph.evidence?.facts?.map(f=>f.id)||[]); for(const n of graph.nodes||[])if(n.evidenceIds?.some(id=>!factIds.has(id)))fail('Semantic node references missing evidence.');
   const stats=graph.statistics;
@@ -146,9 +146,17 @@ export function serializeSemanticGraph(graph) {
   const result=validateSemanticGraph(graph); if(!result.valid) throw new Error(`Invalid semantic graph: ${result.errors.join(' ')}`);
   const json=JSON.stringify(canonicalGraph(graph),null,2)+'\n'; if(new TextEncoder().encode(json).length>SEMANTIC_GRAPH_LIMITS.jsonBytes) throw new Error('Semantic graph exceeds 16 MiB.'); return json;
 }
+export function semanticGraphExportInfo(graph) {
+  const result=validateSemanticGraph(graph); if(!result.valid) throw new Error(`Invalid semantic graph: ${result.errors.join(' ')}`);
+  const subject=graph.subject.kind==='developer'?graph.subject.id:graph.subject.id.replace('/','-');
+  const safeSubject=subject.replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'')||'constellation';
+  return Object.freeze({filename:`${safeSubject}.semantic-graph.json`,mediaType:'application/json',fingerprint:semanticGraphFingerprint(graph),subject:{...graph.subject},version:SEMANTIC_GRAPH_VERSION});
+}
 export function parseSemanticGraph(json) {
   if(typeof json!=='string'||json.length>SEMANTIC_GRAPH_LIMITS.jsonBytes||new TextEncoder().encode(json).length>SEMANTIC_GRAPH_LIMITS.jsonBytes) throw new Error('Semantic graph JSON exceeds 16 MiB.');
-  const graph=JSON.parse(json); const result=validateSemanticGraph(graph); if(!result.valid) throw new Error(`Invalid semantic graph: ${result.errors.join(' ')}`); return canonicalGraph(graph);
+  const graph=JSON.parse(json);
+  if(obj(graph)&&graph.kind==='constellation-semantic-graph'&&graph.version!==SEMANTIC_GRAPH_VERSION) throw new Error('Unsupported Semantic Graph version.');
+  const result=validateSemanticGraph(graph); if(!result.valid) throw new Error(`Invalid semantic graph: ${result.errors.join(' ')}`); return canonicalGraph(graph);
 }
 export function semanticGraphFingerprint(graph) { let h=2166136261; for(const c of serializeSemanticGraph(graph)) h=Math.imul(h^c.codePointAt(0),16777619); return `sg1:${(h>>>0).toString(16).padStart(8,'0')}`; }
 

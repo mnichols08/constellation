@@ -101,7 +101,7 @@ const allowed = new Map([
     [`../src/${name}.mjs`, "text/javascript"],
   ]),
   ["/src/scaling.mjs", ["../src/scaling.mjs", "text/javascript"]],
-  ...["plugin-host", "json-feed-source", "theme-packs", "semantic-groups", "scene-framing"].map((name) => [
+  ...["plugin-host", "json-feed-source", "theme-packs", "semantic-groups", "semantic-graph", "scene-framing"].map((name) => [
     `/src/${name}.mjs`,
     [`../src/${name}.mjs`, "text/javascript"],
   ]),

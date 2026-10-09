@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.14.2 — Semantic Graph Import / Round Trip
+
+- Treat canonical Semantic Graph v1 JSON as a portable offline artifact with validated Studio import, export, and CLI projection.
+- Preserve exact canonical JSON bytes, fingerprints, provenance, Evidence v1, groups, project structure, visibility, and truncation across round trips.
+- Add bounded UTF-8 JSON import, a stable filename convention, import trust-boundary documentation, and offline projection checks.
+
 ## 3.14.1 — Semantic Markdown
 
 - Add a deterministic, bounded Markdown projection of Semantic Graph v1 for developer and project graphs, with provenance, private-repository warnings, and visible coverage limits.
