@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.14.2",
+  "version": "3.14.3",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -10,10 +10,11 @@
     "developer-topology.md",
     "evidence-provenance.md",
     "semantic-groups.md",
-    "project-constellations.md"
+    "project-constellations.md",
+    "portable-embed.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.14.2"
+    "@constellation/core": "3.14.3"
   },
   "license": "UNLICENSED"
 }

@@ -168,7 +168,7 @@ export function mountStudioLayout() {
   ])
     section(id, panel("nodes"));
   section("download-config", panel("save"));
-  panel("save").append($("#download-semantic-graph"));
+  panel("save").append($("#download-semantic-graph"), $("#download-semantic-markdown"));
   const layerControls = $("#layer-controls");
   const advancedLayout = fold("Advanced layout controls", advancedPanel, layerControls);
   advancedLayout.addEventListener("toggle", () => {

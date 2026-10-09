@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.14.3 — Portable Embed & Export Polish
+
+- Load validated Semantic Graph v1 values directly into the Web Component or from an explicit graph URL, preserving the current view when replacement fails.
+- Export standalone graph-backed HTML with subject, semantic fingerprint, coverage, and private-source disclosure.
+- Add deterministic CLI portable bundles containing canonical graph JSON, Semantic Markdown, SVG, HTML, and a versioned manifest.
+- Add direct Semantic Markdown download in Studio and align package versions at 3.14.3.
+
 ## 3.14.2 — Semantic Graph Import / Round Trip
 
 - Treat canonical Semantic Graph v1 JSON as a portable offline artifact with validated Studio import, export, and CLI projection.

@@ -34,6 +34,7 @@ export { createProjectConstellation, validateProjectConstellation, explainProjec
 export { createProjectConstellationScene, createProjectConstellationHierarchy } from "./project-constellation-scene.mjs";
 export { SEMANTIC_GRAPH_VERSION, SEMANTIC_GRAPH_LIMITS, SEMANTIC_NODE_KINDS, SEMANTIC_EDGE_KINDS, semanticGraphFromScene, semanticGraphFromProjectConstellation, validateSemanticGraph, serializeSemanticGraph, parseSemanticGraph, semanticGraphFingerprint, semanticGraphExportInfo, projectSemanticGraphToScene } from "./semantic-graph.mjs";
 export { SEMANTIC_MARKDOWN_VERSION, SEMANTIC_MARKDOWN_LIMITS, renderSemanticMarkdown } from "./semantic-markdown.mjs";
+export { EXPORT_MANIFEST_VERSION, createPortableExport } from "./portable-export.mjs";
 export {
   createTimeline,
   temporalMetadata,

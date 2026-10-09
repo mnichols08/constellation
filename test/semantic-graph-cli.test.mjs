@@ -21,6 +21,18 @@ test('CLI imports canonical graph files offline and rejects ambiguous acquisitio
     const markdown=run(['--semantic-graph',file,'--format','markdown']);
     assert.equal(markdown.status,0,markdown.stderr);
     assert.match(markdown.stdout,/alice/);
+    const missingBundleOutput=run(['--semantic-graph',file,'--format','bundle']);
+    assert.notEqual(missingBundleOutput.status,0);
+    assert.match(missingBundleOutput.stderr,/requires --output DIRECTORY/);
+    const bundleDir=join(directory,'bundle');
+    const bundle=run(['--semantic-graph',file,'--format','bundle','--output',bundleDir]);
+    assert.equal(bundle.status,0,bundle.stderr);
+    const { readFile: read, readdir } = await import('node:fs/promises');
+    const files=await readdir(bundleDir);
+    assert.deepEqual(files.sort(),['alice.semantic-graph.json','constellation.html','constellation.md','constellation.svg','manifest.json']);
+    assert.equal(await read(join(bundleDir,'alice.semantic-graph.json'),'utf8'),json);
+    assert.match(await read(join(bundleDir,'constellation.html'),'utf8'),/sg1:/);
+    assert.equal(JSON.parse(await read(join(bundleDir,'manifest.json'),'utf8')).fingerprint.startsWith('sg1:'),true);
     const ambiguous=run(['--semantic-graph',file,'--username','alice']);
     assert.notEqual(ambiguous.status,0);
     assert.match(ambiguous.stderr,/cannot be combined/);

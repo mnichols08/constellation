@@ -3,6 +3,33 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
+import { createScene } from '../src/constellation.mjs';
+import { semanticGraphFromScene, serializeSemanticGraph, semanticGraphFingerprint } from '../src/semantic-graph.mjs';
+
+test('component loads Semantic Graph offline and preserves the active graph after invalid replacement', { skip: !browser, timeout: 120000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}/examples/web-component.html`);
+  await waitFor(`Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('main')?.constellation)`);
+  const graph = semanticGraphFromScene(createScene('portable-alice', [{ full_name: 'portable-alice/tool', name: 'tool', language: 'Rust' }]));
+  const graphB = semanticGraphFromScene(createScene('portable-bob', [{ full_name: 'portable-bob/tool', name: 'tool', language: 'Rust' }]));
+  const json = serializeSemanticGraph(graph);
+  const jsonB = serializeSemanticGraph(graphB);
+  await evaluate(`window.graphInput=${json}; window.originalFetch=window.fetch; window.fetch=()=>{throw new Error('unexpected network')}; window.events=[]; const v=document.querySelector('#view'); v.addEventListener('semantic-graph-load',e=>events.push(e.detail)); v.addEventListener('semantic-graph-error',e=>events.push({error:e.detail.message})); window.graphBefore=structuredClone(graphInput); v.semanticGraph=graphInput;`);
+  assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), semanticGraphFingerprint(graph));
+  assert.equal(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('.star[data-repo="portable-alice/tool"]') !== null`), true);
+  assert.equal(await evaluate(`JSON.stringify(graphInput)===JSON.stringify(graphBefore)`), true);
+  assert.equal(await evaluate(`events.at(-1).fingerprint`), semanticGraphFingerprint(graph));
+  await evaluate(`const invalid=structuredClone(graphInput); invalid.version=2; document.querySelector('#view').semanticGraph=invalid; window.fetch=originalFetch`);
+  assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), semanticGraphFingerprint(graph));
+  assert.equal(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('.star[data-repo="portable-alice/tool"]') !== null`), true);
+  assert.match(await evaluate(`events.at(-1).error`), /Semantic Graph version|semantic graph version/i);
+  await evaluate(`window.fetchCalls=[]; window.fetch=(url,{signal})=>{const value=String(url);fetchCalls.push(value);if(value.endsWith('/a.json'))return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError'))));if(value.endsWith('/b.json'))return Promise.resolve(new Response(${JSON.stringify(jsonB)},{headers:{'content-type':'application/json'}}));if(value.includes('api.github.com'))throw new Error('GitHub must not be called');throw new Error('Unexpected graph URL '+value)}; window.urlView=document.querySelector('#view'); urlView.setAttribute('semantic-graph','https://graphs.example/a.json'); urlView.setAttribute('semantic-graph','https://graphs.example/b.json');`);
+  await waitFor(`document.querySelector('#view').semanticFingerprint === '${semanticGraphFingerprint(graphB)}'`);
+  assert.equal(await evaluate(`document.querySelector('#view').semanticGraph.subject.id`), 'portable-bob');
+  assert.equal(await evaluate(`fetchCalls.length`), 2);
+  assert.deepEqual(errors, []);
+});
 
 test('semantic zoom resets on canonical records replacement and evaluates Auto immediately', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');

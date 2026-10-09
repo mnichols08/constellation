@@ -32,6 +32,10 @@ await copyFile(
   new URL("../docs/project-constellations.md", import.meta.url),
   new URL("project-constellations.md", directory),
 );
+await copyFile(
+  new URL("../docs/portable-embed.md", import.meta.url),
+  new URL("portable-embed.md", directory),
+);
 await writeFile(
   new URL("package.json", directory),
   JSON.stringify(
@@ -48,6 +52,7 @@ await writeFile(
         "evidence-provenance.md",
         "semantic-groups.md",
         "project-constellations.md",
+        "portable-embed.md",
       ],
       dependencies: { "@constellation/core": version },
       license: "UNLICENSED",
