@@ -31,5 +31,6 @@ export function fitSceneViewport(scene, { nodeIds, padding = 0.1, maxExpansion =
   const width=Math.min(currentWidth*Math.max(1,Math.min(1.2,maxExpansion)),Math.max(120,requiredWidth));
   if(Math.abs(width-currentWidth)<currentWidth*0.005)return scene;
   const height=width/aspect;
-  return {...scene,viewport:{...scene.viewport,viewBox:[bounds.centerX-width/2,bounds.centerY-height/2,width,height]}};
+  const stable=value=>Math.round(value*1e6)/1e6;
+  return {...scene,viewport:{...scene.viewport,viewBox:[stable(bounds.centerX-width/2),stable(bounds.centerY-height/2),width,height]}};
 }

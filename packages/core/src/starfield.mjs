@@ -27,11 +27,11 @@ export function starfieldOptions(value) {
 
 // A separate random stream keeps decorative stars stable when graph data changes.
 // Increasing density extends the same point sequence instead of moving the sky.
-export function generateStarfield(seed, value, { width = 900, height = 560, detail = 1 } = {}) {
+export function generateStarfield(seed, value, { width = 900, height = 560, densityHeight = height, detail = 1 } = {}) {
   const options = starfieldOptions(value);
-  if (!Number.isFinite(width) || width < 12 || width > 4000 || !Number.isFinite(height) || height < 12 || height > 4000 || !Number.isFinite(detail) || detail < 0 || detail > 1) throw new Error('Invalid starfield bounds.');
+  if (!Number.isFinite(width) || width < 12 || width > 4000 || !Number.isFinite(height) || height < 12 || height > 4000 || !Number.isFinite(densityHeight) || densityHeight < 12 || densityHeight > 4000 || !Number.isFinite(detail) || detail < 0 || detail > 1) throw new Error('Invalid starfield bounds.');
   if (!['space', 'milky-way'].includes(options.mode)) return [];
-  const count = Math.min(500, Math.round(500 * options.density / 100 * Math.min(1, height / 560) * detail));
+  const count = Math.min(500, Math.round(500 * options.density / 100 * Math.min(1, densityHeight / 560) * detail));
   const random = seededRandom(`starfield-v1:${options.seed || seed}`);
   const points = [];
   for (let i = 0; i < count; i++) {
@@ -59,18 +59,19 @@ export const starfieldCSS = `
 @media(prefers-reduced-motion:reduce){.starfield-twinkle{animation:none}}
 `;
 
-export function renderStarfield(seed, value, { height = 560, detail = 1, animate = true, transparent = false } = {}) {
+export function renderStarfield(seed, value, { x = 0, y = 0, width = 900, height = 560, densityHeight = height, detail = 1, animate = true, transparent = false } = {}) {
   const options = starfieldOptions(value);
-  const stars = generateStarfield(seed, options, { height, detail });
+  const stars = generateStarfield(seed, options, { width, height, densityHeight, detail });
   if (!stars.length || !options.brightness) return '';
   const haze = options.mode === 'milky-way' && !transparent
-    ? `<defs><radialGradient id="starfield-haze"><stop stop-color="var(--sky-accent)" stop-opacity=".045"/><stop offset="1" stop-color="var(--sky-accent)" stop-opacity="0"/></radialGradient></defs>` + [0, 1, 2, 3, 4].map(i => `<ellipse cx="${90 + i * 180}" cy="${(height * (.5 + .2 * Math.sin((i + .5) / 5 * Math.PI * 1.4 - .7))).toFixed(1)}" rx="240" ry="${(height * .2).toFixed(1)}" fill="url(#starfield-haze)"/>`).join('') : '';
+    ? `<defs><radialGradient id="starfield-haze"><stop stop-color="var(--sky-accent)" stop-opacity=".045"/><stop offset="1" stop-color="var(--sky-accent)" stop-opacity="0"/></radialGradient></defs>` + [0, 1, 2, 3, 4].map(i => `<ellipse cx="${(x + width * (.1 + i * .2)).toFixed(1)}" cy="${(y + height * (.5 + .2 * Math.sin((i + .5) / 5 * Math.PI * 1.4 - .7))).toFixed(1)}" rx="${(width * (240 / 900)).toFixed(1)}" ry="${(height * .2).toFixed(1)}" fill="url(#starfield-haze)"/>`).join('') : '';
   const points = stars.map(star => {
     const opacity = star.opacity.toFixed(3);
     const motion = animate && star.twinkle;
-    const circle = `<circle class="starfield-point tone-${star.tone}${motion ? ' starfield-twinkle' : ''}" cx="${star.x.toFixed(1)}" cy="${star.y.toFixed(1)}" r="${star.radius.toFixed(2)}" opacity="${opacity}"${motion ? ` style="--sky-opacity:${opacity};--sky-duration:${star.duration.toFixed(1)}s;--sky-delay:${star.delay.toFixed(1)}s"` : ''}/>`;
-    const x = star.x, y = star.y, r = star.radius * 2;
-    const spark = star.sparkle ? `<path class="starfield-spark" opacity=".2" d="M${(x - r).toFixed(1)} ${y.toFixed(1)}l${(r * .8).toFixed(1)} -.3 .3 -${(r * .8).toFixed(1)} .3 ${ (r * .8).toFixed(1)} ${ (r * .8).toFixed(1)} .3 -${(r * .8).toFixed(1)} .3 -.3 ${ (r * .8).toFixed(1)} -.3 -${(r * .8).toFixed(1)}Z"/>` : '';
+    const px = x + star.x, py = y + star.y;
+    const circle = `<circle class="starfield-point tone-${star.tone}${motion ? ' starfield-twinkle' : ''}" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${star.radius.toFixed(2)}" opacity="${opacity}"${motion ? ` style="--sky-opacity:${opacity};--sky-duration:${star.duration.toFixed(1)}s;--sky-delay:${star.delay.toFixed(1)}s"` : ''}/>`;
+    const sx = px, sy = py, r = star.radius * 2;
+    const spark = star.sparkle ? `<path class="starfield-spark" opacity=".2" d="M${(sx - r).toFixed(1)} ${sy.toFixed(1)}l${(r * .8).toFixed(1)} -.3 .3 -${(r * .8).toFixed(1)} .3 ${ (r * .8).toFixed(1)} ${ (r * .8).toFixed(1)} .3 -${(r * .8).toFixed(1)} .3 -.3 ${ (r * .8).toFixed(1)} -.3 -${(r * .8).toFixed(1)}Z"/>` : '';
     return circle + spark;
   }).join('');
   return `<g class="dust starfield" aria-hidden="true" pointer-events="none"><g opacity="${options.brightness}">${haze}${points}</g></g>`;
