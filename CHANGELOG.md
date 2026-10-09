@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.14.1 — Semantic Markdown
+
+- Add a deterministic, bounded Markdown projection of Semantic Graph v1 for developer and project graphs, with provenance, private-repository warnings, and visible coverage limits.
+- Preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, Project Constellation v1, and Web Component API v1.
+
 ## 3.14.0 — Portable Semantic Graph
 
 - Added a bounded, deterministic renderer-independent Semantic Graph v1 with developer and Project Constellation adapters, provenance, evidence, completeness, serialization and Scene v1 projection.
