@@ -139,7 +139,7 @@ export function mountStudioLayout() {
     section(id, panel("motion"));
   field("animate", panel("motion"));
   section("repo-source", panel("projects"));
-  panel("projects").append($("label[for='import-semantic-graph']"), $("#import-semantic-graph"), $("#semantic-graph-status"));
+  panel("projects").append($("label[for='import-semantic-graph']"), $("#import-semantic-graph"), $("#semantic-graph-status"), $("#semantic-graph-mode-help"));
   section("project-families", panel("projects"));
   panel("projects").append($("#organization-controls"));
   section("history-mode", panel("projects"));

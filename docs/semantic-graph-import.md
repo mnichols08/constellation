@@ -10,9 +10,9 @@ After import, graph-to-Scene projection uses the existing Scene v1 path. Scene, 
 
 ## Studio
 
-Use **Import semantic graph** in the export panel to select a `.json` file. The file size and UTF-8 are checked before parsing; Core parsing and validation happen before the current preview or graph artifact is replaced. On success, Studio displays the imported Scene and offers the canonical graph download with its subject and semantic fingerprint. A failed import leaves the prior preview and artifact in place.
+Use **Content → Import semantic graph** to select a `.json` file. The file size and UTF-8 are checked before parsing; Core parsing and validation happen before the current preview or graph artifact is replaced. On success, Studio displays the imported Scene and offers the canonical graph download with its subject and semantic fingerprint. A failed import leaves the prior preview and artifact in place.
 
-Use **Export semantic graph** to download the canonical JSON. Visual presentation settings do not edit the graph artifact.
+Use **Export → Export semantic graph** to download the canonical JSON. Visual presentation settings do not edit the graph artifact.
 
 ## CLI
 
