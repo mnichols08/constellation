@@ -48,6 +48,7 @@ import { mountGraphExplorer } from "./graph-explorer.mjs";
 import { explainFilters } from "./filter-explanation.mjs";
 import { rustAvailable, identityPoints } from "./engine.mjs";
 import { needsContributorData } from "./organization/settings.mjs";
+import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, semanticGraphFromScene, projectSemanticGraphToScene } from "./semantic-graph.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
 import {
@@ -163,6 +164,8 @@ let commitFieldLoading = false,
   commitFieldDiagnostic = "";
 let loading = false;
 let studio, restoreForm, workspace, imageViewer, capturedScene, studioCommits;
+let importedSemanticGraph = null;
+let semanticGraphUrl = null;
 let guidedHost;
 let intentStorage;
 try {
@@ -327,6 +330,52 @@ syncAccountMode();
 const status = $("#status");
 const preview = $("#preview");
 const download = $(".download");
+const graphDownload = $("#download-semantic-graph");
+const graphInput = $("#import-semantic-graph");
+const graphStatus = $("#semantic-graph-status");
+function setSemanticGraphArtifact(graph) {
+  const json = serializeSemanticGraph(graph);
+  const info = semanticGraphExportInfo(graph);
+  const nextUrl = URL.createObjectURL(new Blob([json], { type: info.mediaType }));
+  graphDownload.href = nextUrl;
+  graphDownload.download = info.filename;
+  graphStatus.textContent = `${graph.subject.kind === 'developer' ? 'Developer' : 'Project'}: ${graph.subject.id} · Semantic Graph v${info.version} · ${info.fingerprint}`;
+  if (graph.project?.provenance?.visibility === 'private') graphStatus.textContent += ' · This graph may contain names, paths, and structure derived from a private repository.';
+  if (semanticGraphUrl) URL.revokeObjectURL(semanticGraphUrl);
+  semanticGraphUrl = nextUrl;
+}
+graphInput?.addEventListener('change', async () => {
+  const file = graphInput.files?.[0];
+  if (!file) return;
+  try {
+    if (file.size > 16 * 1024 * 1024) throw new Error('Semantic graph file exceeds 16 MiB.');
+    const source = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+    const graph = parseSemanticGraph(source);
+    const scene = projectSemanticGraphToScene(graph);
+    const svg = renderSceneSVG(scene);
+    const nextUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    importedSemanticGraph = graph;
+    capturedScene = scene;
+    setSemanticGraphArtifact(graph);
+    const image = new Image();
+    image.alt = `${graph.subject.id}'s imported constellation`;
+    image.src = nextUrl;
+    preview.replaceChildren(image);
+    download.href = nextUrl;
+    download.download = `${graph.subject.id.replace(/[^A-Za-z0-9._-]+/g, '-')}.svg`;
+    graphStatus.textContent += ' · Imported offline';
+  } catch (error) {
+    const detail = error.message || 'Invalid graph structure.';
+    graphStatus.textContent = detail.includes('Unsupported Semantic Graph version') ? detail
+      : detail.includes('16 MiB') ? detail
+      : /unsafe|secret-like/i.test(detail) ? `Unsafe or secret-like data: ${detail}`
+      : /evidence/i.test(detail) ? `Invalid evidence: ${detail}`
+      : /group/i.test(detail) ? `Contradictory or invalid groups: ${detail}`
+      : /endpoint/i.test(detail) ? `Missing edge endpoint: ${detail}`
+      : /project graph|project constellation/i.test(detail) ? `Invalid project graph: ${detail}`
+      : `Invalid semantic graph: ${detail}`;
+  } finally { graphInput.value = ''; }
+});
 const controls = [
   "#layout",
   "#max-repos",
@@ -1097,6 +1146,9 @@ function render({ requireVisibleNodes = false } = {}) {
     },
   );
   const svg = renderSceneSVG(scene);
+  if (!importedSemanticGraph) {
+    try { setSemanticGraphArtifact(semanticGraphFromScene(scene)); } catch {}
+  }
   capturedScene = scene;
   updateProfileDimensionControls(scene);
   const currentScene = scene.kind === "time-lapse" ? scene.latest : scene;

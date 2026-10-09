@@ -975,6 +975,10 @@
             <a class="download" download="constellation.svg"
               >Download SVG <span aria-hidden="true">↓</span></a
             >
+            <a id="download-semantic-graph" class="secondary" download="semantic-graph.json">Export semantic graph</a>
+            <label class="export-note" for="import-semantic-graph">Import semantic graph</label>
+            <input id="import-semantic-graph" type="file" accept="application/json,.json" />
+            <p id="semantic-graph-status" class="export-note" role="status" aria-live="polite"></p>
             <button type="button" id="copy-markdown" class="secondary">
               Copy README snippet
             </button>

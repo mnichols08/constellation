@@ -3,7 +3,7 @@ import { normalizeRecords, toGraphRecords } from "./data-pipeline.mjs";
 import { serializeScene, sceneStatistics } from "./scene.mjs";
 import { codingRhythmOptions, deriveCodingRhythm } from "./coding-rhythm.mjs";
 import { needsHistoryEvents } from "./history/settings.mjs";
-import { readFile, writeFile, mkdir, appendFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir, appendFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -18,6 +18,11 @@ import {
   createPluginHost,
   renderSceneSVG,
   renderSceneHTML,
+  parseSemanticGraph,
+  serializeSemanticGraph,
+  semanticGraphFingerprint,
+  projectSemanticGraphToScene,
+  renderSemanticMarkdown,
   migrateConfig,
   migrateWorkflow,
 } from "../packages/core/src/core-api.mjs";
@@ -59,6 +64,8 @@ async function main() {
       from: { type: "string" },
       workflow: { type: "string" },
       fixture: { type: "string" },
+      "semantic-graph": { type: "string" },
+      fingerprint: { type: "boolean" },
       "activity-fixture": { type: "string" },
       scene: { type: "boolean" },
       "scene-json": { type: "boolean" },
@@ -72,7 +79,7 @@ async function main() {
   });
   if (values.help) {
     console.log(
-      "Usage: constellation [build|validate|migrate] [options]\n\n  --format svg|html   Build static SVG or interactive HTML\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
+      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --format json|markdown|svg|html  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output FILE       Destination (migration defaults to stdout)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
     );
     return;
   }
@@ -82,6 +89,36 @@ async function main() {
         await readFile(new URL("../package.json", import.meta.url), "utf8"),
       ).version,
     );
+    return;
+  }
+  if (values["semantic-graph"]) {
+    const conflicting = [values.username, values.config, values.fixture, values.from, values.workflow, values["activity-fixture"], values["refresh-data"], values["reference-date"], values.scene, values["scene-json"], values.explain, values["dry-run"]].some(Boolean);
+    if (positionals.length || conflicting) throw new Error("--semantic-graph cannot be combined with GitHub, config, fixture, migration, or generation inputs.");
+    if (!['json','markdown','svg','html'].includes(values.format)) throw new Error("--format must be json, markdown, svg, or html for Semantic Graph input.");
+    const file = values["semantic-graph"];
+    const info = await stat(file);
+    if (info.size > 16 * 1024 * 1024) throw new Error("Semantic graph file exceeds 16 MiB.");
+    const bytes = await readFile(file);
+    let source;
+    try { source = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+    catch { throw new Error("Semantic graph file is not valid UTF-8."); }
+    const graph = parseSemanticGraph(source);
+    const result = values.format === 'json' ? serializeSemanticGraph(graph)
+      : values.format === 'markdown' ? renderSemanticMarkdown(graph)
+      : values.format === 'html' ? renderSceneHTML(projectSemanticGraphToScene(graph), { title: graph.subject.id + ' constellation' })
+      : renderSceneSVG(projectSemanticGraphToScene(graph));
+    if (values.output) {
+      if (/[\r\n]/.test(values.output)) throw new Error("Invalid output path.");
+      await mkdir(dirname(values.output), { recursive: true });
+      await writeFile(values.output, result);
+    } else if (['json','markdown'].includes(values.format)) process.stdout.write(result);
+    else {
+      const output = values.format === 'html' ? 'dist/constellation.html' : 'dist/constellation.svg';
+      await mkdir(dirname(output), { recursive: true });
+      await writeFile(output, result);
+      console.error(`Generated ${output} from Semantic Graph ${semanticGraphFingerprint(graph)}.`);
+    }
+    if (values.fingerprint) console.error(`Semantic fingerprint: ${semanticGraphFingerprint(graph)}`);
     return;
   }
   if (!rustAvailable)

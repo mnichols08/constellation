@@ -4,6 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
+import { createScene } from '../src/constellation.mjs';
+import { semanticGraphFromScene, serializeSemanticGraph } from '../src/semantic-graph.mjs';
 
 test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo and zero interaction requests', {skip:!browser,timeout:120000}, async t=>{
   const server=createPreviewServer();server.listen(0,'127.0.0.1');await once(server,'listening');
@@ -60,6 +62,21 @@ test('Semantic Studio: public entry, real tour, evidence, presets, locks, Undo a
   assert.deepEqual(await e(`Array.from(document.querySelector('#semantic-detail').options, option => option.textContent)`), ['Automatic','Groups','Projects']);
   await e(`{const control=document.querySelector('#semantic-detail');control.value='projects';control.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#copy-config').click();}`);
   assert.equal(JSON.parse(await e(`document.querySelector('#config-json').value`)).semanticZoom.mode, 'projects');
+  assert.equal(await e('apiCalls.length'),calls);
+  assert.ok(await e(`document.querySelector('#import-semantic-graph')`), `Studio import control should remain in the document: ${await e(`document.body.innerText.includes('Import semantic graph') + ' / ' + [...document.querySelectorAll('[id*=semantic]')].map(e=>e.id).join(',')`)}`);
+  const graphJSON=serializeSemanticGraph(semanticGraphFromScene(createScene('portable-alice',[{full_name:'portable-alice/offline',name:'Offline',language:'Rust'}])));
+  await e(`{const input=document.querySelector('#import-semantic-graph');const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(graphJSON)}],'portable-alice.semantic-graph.json',{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}`);
+  await wait(`document.querySelector('#semantic-graph-status').textContent.includes('Imported offline')`);
+  assert.match(await e(`document.querySelector('#semantic-graph-status').textContent`),/Developer: portable-alice.*sg1:/);
+  assert.equal(await e(`document.querySelector('#preview').querySelector('img')?.alt`),"portable-alice's imported constellation");
+  assert.equal(await e(`fetch(document.querySelector('#download-semantic-graph').href).then(r=>r.text())`),graphJSON);
+  await e(`{const control=document.querySelector('#semantic-detail');control.value='groups';control.dispatchEvent(new Event('change',{bubbles:true}));}`);
+  assert.equal(await e(`fetch(document.querySelector('#download-semantic-graph').href).then(r=>r.text())`),graphJSON);
+  const beforeInvalidPreview=await e(`document.querySelector('#preview').innerHTML`);
+  await e(`{const input=document.querySelector('#import-semantic-graph');const transfer=new DataTransfer();transfer.items.add(new File(['{'],'bad.json',{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}`);
+  await wait(`document.querySelector('#semantic-graph-status').textContent.startsWith('Invalid semantic graph:')`);
+  assert.equal(await e(`fetch(document.querySelector('#download-semantic-graph').href).then(r=>r.text())`),graphJSON);
+  assert.equal(await e(`document.querySelector('#preview').innerHTML`),beforeInvalidPreview);
   assert.equal(await e('apiCalls.length'),calls);
   await e(`document.querySelector('#builtin-preset').value='semantic-profile';document.querySelector('#apply-builtin-preset').click();document.querySelector('#explain-graphic').open=false;document.querySelector('#composition-menu').open=false;window.scrollTo(0,0);`);
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});

@@ -139,6 +139,7 @@ export function mountStudioLayout() {
     section(id, panel("motion"));
   field("animate", panel("motion"));
   section("repo-source", panel("projects"));
+  panel("projects").append($("label[for='import-semantic-graph']"), $("#import-semantic-graph"), $("#semantic-graph-status"));
   section("project-families", panel("projects"));
   panel("projects").append($("#organization-controls"));
   section("history-mode", panel("projects"));
@@ -167,6 +168,7 @@ export function mountStudioLayout() {
   ])
     section(id, panel("nodes"));
   section("download-config", panel("save"));
+  panel("save").append($("#download-semantic-graph"));
   const layerControls = $("#layer-controls");
   const advancedLayout = fold("Advanced layout controls", advancedPanel, layerControls);
   advancedLayout.addEventListener("toggle", () => {

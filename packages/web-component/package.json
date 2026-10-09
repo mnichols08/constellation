@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.14.1",
+  "version": "3.14.2",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -13,7 +13,7 @@
     "project-constellations.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.14.1"
+    "@constellation/core": "3.14.2"
   },
   "license": "UNLICENSED"
 }
