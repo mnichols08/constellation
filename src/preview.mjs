@@ -1434,7 +1434,11 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
       const nextGraph = semanticGraphFromScene(semanticSourceScene);
       if (nextGraph.subject.kind === 'developer') {
         const nextFingerprint = semanticGraphFingerprint(nextGraph);
-        if (!atlasState) { atlasState = createAtlasState(nextGraph); atlasHistory = createAtlasHistory(atlasState); }
+        if (!atlasState || atlasState.developerId !== nextGraph.subject.id) {
+          atlasProjectGraph = null;
+          atlasState = createAtlasState(nextGraph);
+          atlasHistory = createAtlasHistory(atlasState);
+        }
         else if (liveSemanticFingerprint !== nextFingerprint) {
           // The developer graph carries no repository-ref token that can prove a
           // previously scanned structure is still current after semantic refresh.
@@ -2015,7 +2019,7 @@ async function loadAccount(
     loadedSource = source;
     isSample = false;
     if (restoring || changedAccount) applyOptions(loadOptions);
-    if (importedBeforeLoad) { atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
+    if (importedBeforeLoad || changedAccount) { atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
     form.elements.username.value = loadOptions.organizationUser || account;
     $("#organization-account").value = loadOptions.organizationUser
       ? account

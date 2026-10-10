@@ -204,6 +204,34 @@ test('Atlas structure recovery prefers Project, then the entered Group, then Dev
   assert.notEqual(multiRecovered.groupId, groupA.id);
 });
 
+test('Atlas navigation resets when the developer subject changes despite a shared Project ID', () => {
+  const alice = semanticGraphFromScene(createScene('alice', [
+    { full_name: 'shared-org/tool', name: 'tool', language: 'Rust' },
+    { full_name: 'alice/other', name: 'other', language: 'Rust' },
+  ], { projectFamilies: { shared: { label: 'Shared work', members: ['shared-org/tool', 'alice/other'] } } }));
+  const bob = semanticGraphFromScene(createScene('bob', [
+    { full_name: 'shared-org/tool', name: 'tool', language: 'Rust' },
+    { full_name: 'bob/other', name: 'other', language: 'Rust' },
+  ], { projectFamilies: { shared: { label: 'Shared work', members: ['shared-org/tool', 'bob/other'] } } }));
+  const root = createAtlasState(alice);
+  const group = navigateAtlasToGroup(root, alice, alice.groups[0].id);
+  const project = navigateAtlasToProject(group, alice, 'shared-org/tool');
+  const history = createAtlasHistory(root);
+  history.push(group); history.push(project);
+
+  const reset = history.reconcile(project, bob);
+  assert.equal(reset.level, 'developer');
+  assert.equal(reset.developerId, 'bob');
+  assert.equal(reset.projectId, null);
+  assert.deepEqual(history.snapshot().entries, [reset]);
+  assert.equal(history.canBack, false);
+  const sharedRoute = serializeAtlasState(project);
+  const parsed = parseAtlasState(sharedRoute, bob);
+  assert.equal(parsed.level, 'developer');
+  assert.equal(parsed.developerId, 'bob');
+  assert.equal(parsed.projectId, null);
+});
+
 test('canonical project IDs disambiguate duplicate labels and survive repository reordering', () => {
   const duplicateLabels = semanticGraphFromScene(createScene('alice', [
     { full_name: 'owner-a/api', name: 'api', language: 'Rust' },

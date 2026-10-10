@@ -239,6 +239,7 @@ export function parseAtlasState(serialized, graph, projectGraph = null) {
   if (params.size > 7 || params.get('v') !== String(ATLAS_STATE_VERSION)) throw new Error('Unsupported Atlas share state.');
   const level = params.get('l'), developerId = params.get('d');
   let candidate = state(level, developerId, params.get('g'), params.get('p'), params.get('n'), params.get('r'));
+  if (candidate.developerId !== graph?.subject?.id || graph?.subject?.kind !== 'developer') return createAtlasState(graph);
   if (validateAtlasState(candidate, graph).valid) {
     if (candidate.level !== 'structure' || projectGraph?.subject?.id === candidate.projectId
       && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;

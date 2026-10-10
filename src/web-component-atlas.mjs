@@ -13,11 +13,16 @@ export class AtlasNavigation {
   get shareState() { return this.#state ? serializeAtlasState(this.#state) : null; }
   setGraph(graph) {
     const next = graph?.subject?.kind === 'developer' ? graph : null;
+    const developerChanged = next && this.#graph && next.subject.id !== this.#graph.subject.id;
     const sameTruth = next && this.#graph && semanticGraphFingerprint(next) === semanticGraphFingerprint(this.#graph);
     this.#graph = next;
     if (!next) { this.#state = null; this.#history = null; this.#projectGraph = null; return; }
     if (!this.#state || !this.#history) {
       this.#state = createAtlasState(next); this.#history = createAtlasHistory(this.#state); this.#projectGraph = null; return;
+    }
+    if (developerChanged) {
+      this.#state = createAtlasState(next); this.#history = createAtlasHistory(this.#state); this.#projectGraph = null;
+      return;
     }
     if (!sameTruth) this.#projectGraph = null;
     this.#state = this.#history.reconcile(this.#state, next, this.#projectGraph);

@@ -105,13 +105,23 @@ test('Developer Atlas exposes accessible breadcrumbs, group and project contexts
   assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), fingerprint);
   assert.equal(await evaluate(`atlasCalls.length`), 0);
   assert.ok(await evaluate(`atlasEvents.length >= 3`));
-  const otherDeveloper = semanticGraphFromScene(createScene('atlas-bob', [
-    { full_name: 'atlas-bob/one', name: 'one', language: 'Rust' },
-  ]));
-  await evaluate(`document.querySelector('#view').semanticGraph=${JSON.stringify(otherDeveloper)}`);
+  const aliceSharedGraph = semanticGraphFromScene(createScene('atlas-alice', [
+    { full_name: 'alice/other', name: 'other', language: 'Rust' },
+    { full_name: 'shared-org/tool', name: 'tool', language: 'Rust' },
+  ], { projectFamilies: { shared: { label: 'Shared work', members: ['alice/other', 'shared-org/tool'] } } }));
+  const bobSharedGraph = semanticGraphFromScene(createScene('atlas-bob', [
+    { full_name: 'atlas-bob/other', name: 'other', language: 'Rust' },
+    { full_name: 'shared-org/tool', name: 'tool', language: 'Rust' },
+  ], { projectFamilies: { shared: { label: 'Shared work', members: ['atlas-bob/other', 'shared-org/tool'] } } }));
+  await evaluate(`window.atlasSharedAlice=${JSON.stringify(aliceSharedGraph)}; window.atlasSharedBob=${JSON.stringify(bobSharedGraph)}; const sharedView=document.querySelector('#view'); sharedView.semanticGraph=atlasSharedAlice; sharedView.navigateAtlasGroup(atlasSharedAlice.groups[0].id); sharedView.navigateAtlasProject('shared-org/tool')`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.projectId`), 'shared-org/tool');
+  assert.equal(await evaluate(`document.querySelector('#view').atlasCanBack`), true);
+  await evaluate(`document.querySelector('#view').semanticGraph=atlasSharedBob`);
   assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'developer');
   assert.equal(await evaluate(`document.querySelector('#view').atlasState.developerId`), 'atlas-bob');
   assert.equal(await evaluate(`document.querySelector('#view').atlasState.projectId`), null);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasCanBack`), false);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasCanForward`), false);
   await evaluate('window.fetch=window.atlasFetch');
   assert.deepEqual(errors, []);
 });
