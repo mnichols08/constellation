@@ -52,6 +52,7 @@ import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, se
 import { createAtlasState, createAtlasHistory, navigateAtlasToGroup, navigateAtlasToProject, navigateAtlasToStructure, atlasBreadcrumbs, resolveAtlasContext, validateAtlasState, parseAtlasState, serializeAtlasState } from "./developer-atlas.mjs";
 import { projectDeveloperAtlasScene } from "./developer-atlas-scene.mjs";
 import { renderSemanticMarkdown } from "./semantic-markdown.mjs";
+import { generateStoryCandidates, recommendStoryCandidate } from "./story-candidates.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
 import {
@@ -102,6 +103,8 @@ const requestCache = previewFetch.requestCache;
 let projectStructureRequest = null;
 let atlasProjectGraph = null;
 let atlasAnnouncement = '';
+let storySelection = 'auto';
+let storyCandidates = [];
 let liveSemanticGraph = null;
 let liveSemanticFingerprint = null;
 const projectDialog = document.querySelector('#project-constellation-dialog');
@@ -414,6 +417,38 @@ const download = $(".download");
 const graphDownload = $("#download-semantic-graph");
 const graphInput = $("#import-semantic-graph");
 const graphStatus = $("#semantic-graph-status");
+const storyStatus = $("#story-recommendation");
+function updateStoryChoices(recommended, chosen) {
+  if (!storyStatus) return;
+  storyStatus.textContent = recommended ? `${recommended.label} is recommended from the available project evidence.` : 'Project view is the default story.';
+  for (const button of document.querySelectorAll('[data-story-choice]')) {
+    const id = button.dataset.storyChoice;
+    const candidate = storyCandidates.find(item => item.id === id);
+    button.setAttribute('aria-pressed', String((chosen?.id || 'projects') === id));
+    button.disabled = Boolean(candidate && candidate.available === false);
+    button.title = candidate?.reason || '';
+    const badge = button.querySelector('[data-recommended-badge]');
+    if (badge) badge.hidden = recommended?.id !== id;
+  }
+  const lab = document.querySelector('#quality-lab');
+  if (lab) {
+    lab.hidden = new URLSearchParams(location.search).get('debug') !== 'quality';
+    const list = lab.querySelector('#quality-results');
+    if (list) list.replaceChildren(...storyCandidates.map(candidate => {
+      const item = document.createElement('li');
+      if (!candidate.quality) { item.textContent = `${candidate.label} · unavailable: ${candidate.reason}`; return item; }
+      const dimensions = Object.entries(candidate.quality.dimensions).map(([key, value]) => `${key} ${value.toFixed(2)}`).join(' · ');
+      item.textContent = `${candidate.label} · ${candidate.quality.score.toFixed(2)}${candidate.id === recommended?.id ? ' · selected' : ''} · ${dimensions}${candidate.quality.diagnostics.length ? ` · ${candidate.quality.diagnostics.join(', ')}` : ''}`;
+      return item;
+    }));
+  }
+}
+document.querySelector('#story-choices')?.addEventListener('click', event => {
+  const button = event.target.closest('[data-story-choice]');
+  if (!button || button.disabled) return;
+  storySelection = button.dataset.storyChoice;
+  render();
+});
 function setSemanticGraphArtifact(graph) {
   const json = serializeSemanticGraph(graph);
   const info = semanticGraphExportInfo(graph);
@@ -1429,9 +1464,18 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   let atlasProjectionFailed = false;
   if (forceLive || !inImportedGraphMode()) {
     try {
-      const semanticSourceScene = canonicalScene.kind === 'time-lapse' ? canonicalScene.latest : canonicalScene;
+      const semanticSourceScene = createScene(account, repositories, {
+        ...options, generatedAt, nodeMode: 'repositories', showOther: true,
+        languages: undefined, topics: undefined, arrangement: 'rings',
+        temporalStack: undefined, timeline: undefined, timeLapse: false,
+        history: { ...options.history, mode: 'current', timeLapse: { ...options.history?.timeLapse, enabled: false } },
+      }, { pipeline: dataPipeline });
       canonicalLiveScene = semanticSourceScene;
-      const nextGraph = semanticGraphFromScene(semanticSourceScene);
+      const canonicalGraph = semanticGraphFromScene(canonicalScene);
+      const explicitEmptyCategorySelection = options.languages?.length === 0 || options.topics?.length === 0;
+      const nextGraph = canonicalGraph.nodes.some(node => node.kind === 'project')
+        ? canonicalGraph
+        : explicitEmptyCategorySelection ? canonicalGraph : semanticGraphFromScene(semanticSourceScene);
       if (nextGraph.subject.kind === 'developer') {
         const nextFingerprint = semanticGraphFingerprint(nextGraph);
         if (!atlasState || atlasState.developerId !== nextGraph.subject.id) {
@@ -1448,8 +1492,12 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
           if (!atlasHistory) atlasHistory = createAtlasHistory(atlasState);
         }
         liveSemanticGraph = nextGraph; liveSemanticFingerprint = nextFingerprint;
-        scene = atlasState.level === 'developer' ? canonicalScene : projectDeveloperAtlasScene(liveSemanticGraph, atlasState, options, atlasProjectGraph);
-      } else { liveSemanticGraph = null; liveSemanticFingerprint = null; atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
+        storyCandidates = generateStoryCandidates(liveSemanticGraph, options, { pipeline: dataPipeline });
+        const recommended = recommendStoryCandidate(storyCandidates);
+        const chosen = storySelection === 'auto' ? recommended : storyCandidates.find(candidate => candidate.id === storySelection && candidate.available !== false) || recommended;
+        scene = atlasState.level === 'developer' ? (chosen?.id === 'projects' ? canonicalScene : chosen?.scene || canonicalScene) : projectDeveloperAtlasScene(liveSemanticGraph, atlasState, options, atlasProjectGraph);
+        updateStoryChoices(recommended, chosen);
+      } else { liveSemanticGraph = null; liveSemanticFingerprint = null; atlasState = null; atlasHistory = null; atlasProjectGraph = null; storyCandidates = []; }
       setSemanticGraphArtifact(nextGraph);
     } catch (error) { atlasProjectionFailed = Boolean(atlasState && liveSemanticGraph); if (atlasProjectionFailed) message(`Developer Atlas projection failed: ${error.message}`, true); }
   }

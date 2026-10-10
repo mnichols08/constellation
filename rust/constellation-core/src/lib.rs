@@ -1,4 +1,5 @@
 mod geometry;
+mod graph_quality;
 mod graph;
 mod identity;
 mod physics;
@@ -53,6 +54,11 @@ pub fn developer_profile(input: &str) -> Result<String, String> {
     let input = serde_json::from_str(input)
         .map_err(|error| format!("Invalid developer profile: {error}"))?;
     serde_json::to_string(&profile_evidence::analyze(input)?).map_err(|error| error.to_string())
+}
+
+#[wasm_bindgen]
+pub fn graph_quality(input: &str) -> Result<String, String> {
+    graph_quality::evaluate(input)
 }
 
 #[wasm_bindgen]

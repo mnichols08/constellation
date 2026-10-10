@@ -142,6 +142,12 @@ export function analyzeDeveloperProfile(input) {
   return JSON.parse(core.developer_profile(JSON.stringify(input)));
 }
 
+export const GRAPH_QUALITY_VERSION = 1;
+export function evaluateGraphQuality(candidate) {
+  if (!core?.graph_quality) throw new Error('Graph Quality needs the rebuilt Rust engine.');
+  return JSON.parse(core.graph_quality(JSON.stringify(candidate)));
+}
+
 export function identityGeometry(metadata, variation = 0) {
   return Array.from(core.identity_geometry(metadata, variation));
 }
