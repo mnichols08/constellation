@@ -50,7 +50,7 @@ export class ConstellationView extends HTMLElement {
   get semanticGraph() { return this.#semanticGraph && structuredClone(this.#semanticGraph); }
   set semanticGraph(value) { this.loadSemanticGraph(value); }
   get semanticFingerprint() { return this.#semanticGraph ? semanticGraphFingerprint(this.#semanticGraph) : null; }
-  _atlasHandlers() { return { render: () => { this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#semanticFocus = null; const rendered = this.#render(); if (rendered) this.#runtime?.fit(); return rendered; }, changed: detail => this.dispatchEvent(new CustomEvent('atlas-change', { detail, bubbles: true, composed: true })) }; }
+  _atlasHandlers() { return{render:()=>{this.#semanticHierarchy=null;this.#expandedGroups.clear();this.#semanticFocus=null;return this.#render()},focus:()=>{const root=this.shadowRoot;root.querySelector('[aria-current=location]')?.focus();root.querySelector('[role=status]').textContent='Developer Atlas: '+this.atlasBreadcrumbs.at(-1).label},changed:detail=>this.dispatchEvent(new CustomEvent('atlas-change',{detail,bubbles:true,composed:true}))}; }
   loadSemanticGraph(value) {
     if (value === null) return this.#clearSemanticGraphMode();
     let previous;
@@ -59,7 +59,7 @@ export class ConstellationView extends HTMLElement {
       const scene = projectSemanticGraphToScene(graph);
       previous = { graph: this.#semanticGraph, scene: this.#scene, atlas: this._atlasNavigation };
       this.#request?.abort(); this.#semanticGraph = graph; this.#scene = scene;
-      this._atlasNavigation = new AtlasNavigation(); this._atlasNavigation.setGraph(graph);
+      this._atlasNavigation.setGraph(graph);
       this.#semanticMode = null; this.#resetSemanticNavigation();
       const rendered = !this.isConnected || !this.#visible || this.#render();
       if (!rendered) throw new Error('Unable to render Semantic Graph.');
@@ -366,6 +366,7 @@ export class ConstellationView extends HTMLElement {
       if (this._atlasNavigation.state && this.#semanticGraph?.subject.kind === 'developer') {
         const chrome = renderAtlasChrome(this.ownerDocument, this._atlasNavigation, {
           back: () => this.atlasBack(),
+          focus: () => this._atlasHandlers().focus(),
           group: id => this.navigateAtlasGroup(id), project: id => this.navigateAtlasProject(id),
           structure: id => this.navigateAtlasStructure(this._atlasNavigation.projectGraph, id),
           crumb: crumbs => { const handlers = this._atlasHandlers(); return this._atlasNavigation.navigateBreadcrumbs(crumbs, handlers.render, handlers.changed); },

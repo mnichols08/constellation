@@ -12,6 +12,7 @@ const compactComponent = component
   .replace(/;\s+/g, ";")
   .replace(/;(?=\s*})/g, "")
   .replace(/\) \{/g, "){")
+  .replace(/ =>/g, "=>")
   .replace(/=> \{/g, "=>{")
   .replace(/\b(if|for|while|catch|switch)\s+\(/g, "$1(");
 await writeFile(new URL("index.mjs", directory), compactComponent);

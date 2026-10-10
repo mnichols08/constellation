@@ -11,11 +11,12 @@ import { ATLAS_STATE_VERSION, createAtlasState, validateAtlasState, navigateAtla
 const records = [
   { full_name: 'alice/one', name: 'one', language: 'Rust' },
   { full_name: 'alice/two', name: 'two', language: 'Rust' },
+  { full_name: 'alice/three', name: 'three', language: 'Rust' },
   { full_name: 'bob/three', name: 'three', language: 'Rust' },
   { full_name: 'bob/four', name: 'four', language: 'Rust' },
 ];
 const graph = semanticGraphFromScene(createScene('alice', records, { projectFamilies: {
-  tools: { label: 'Tools', members: ['alice/one', 'alice/two'] },
+  tools: { label: 'Tools', members: ['alice/one', 'alice/two', 'alice/three'] },
 } }));
 const family = graph.groups.find(item => item.label === 'Tools');
 
@@ -95,4 +96,48 @@ test('Atlas structure, breadcrumbs, share fallback, and bounded history work wit
   assert.equal(semanticGraphFingerprint(graph), fingerprint);
   assert.equal(serializeSemanticGraph(graph), bytes);
   assert.equal(renderSemanticMarkdown(graph), markdown);
+});
+
+test('Atlas history reconciliation preserves valid entered routes and falls back to the nearest valid parent', () => {
+  const root = createAtlasState(graph);
+  const group = navigateAtlasToGroup(root, graph, family.id);
+  const project = navigateAtlasToProject(group, graph, 'alice/one');
+  const history = createAtlasHistory(root);
+  history.push(group); history.push(project);
+  const reordered = semanticGraphFromScene(createScene('alice', [...records].reverse(), { projectFamilies: {
+    tools: { label: 'Tools', members: ['alice/one', 'alice/two', 'alice/three'] },
+  } }));
+  const route = history.reconcile(project, reordered);
+  assert.equal(route.viaGroupId, family.id);
+  assert.equal(history.current.projectId, 'alice/one');
+  assert.equal(semanticGraphFingerprint(reordered), semanticGraphFingerprint(graph));
+
+  const withoutProject = semanticGraphFromScene(createScene('alice', records.filter(item => item.full_name !== 'alice/one'), { projectFamilies: {
+    tools: { label: 'Tools', members: ['alice/two', 'alice/three'] },
+  } }));
+  const recoveredGroup = history.reconcile(route, withoutProject);
+  assert.equal(recoveredGroup.level, 'group');
+  assert.equal(recoveredGroup.groupId, family.id);
+  assert.equal(history.current.level, 'group');
+  assert.equal(history.snapshot().entries.every(entry => validateAtlasState(entry, withoutProject).valid), true);
+
+  const withoutGroup = semanticGraphFromScene(createScene('alice', records.filter(item => item.full_name !== 'alice/one'), {}));
+  const recoveredRoot = history.reconcile(recoveredGroup, withoutGroup);
+  assert.equal(recoveredRoot.level, 'developer');
+  assert.equal(history.length, 1);
+});
+
+test('canonical project IDs disambiguate duplicate labels and survive repository reordering', () => {
+  const duplicateLabels = semanticGraphFromScene(createScene('alice', [
+    { full_name: 'owner-a/api', name: 'api', language: 'Rust' },
+    { full_name: 'owner-b/api', name: 'api', language: 'JavaScript' },
+  ]));
+  const first = navigateAtlasToProject(createAtlasState(duplicateLabels), duplicateLabels, 'owner-a/api');
+  const reordered = semanticGraphFromScene(createScene('alice', [
+    { full_name: 'owner-b/api', name: 'api', language: 'JavaScript' },
+    { full_name: 'owner-a/api', name: 'api', language: 'Rust' },
+  ]));
+  const history = createAtlasHistory(first);
+  assert.equal(history.reconcile(first, reordered).projectId, 'owner-a/api');
+  assert.equal(validateAtlasState(history.current, reordered).valid, true);
 });

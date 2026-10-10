@@ -101,6 +101,7 @@ const access = previewFetch.access;
 const requestCache = previewFetch.requestCache;
 let projectStructureRequest = null;
 let atlasProjectGraph = null;
+let atlasAnnouncement = '';
 let liveSemanticGraph = null;
 let liveSemanticFingerprint = null;
 const projectDialog = document.querySelector('#project-constellation-dialog');
@@ -482,6 +483,7 @@ function navigateStudioAtlas(next, push = true) {
     atlasState = next;
     if (!renderStudioAtlasState()) throw new Error('Atlas navigation could not be rendered.');
     if (push) atlasHistory?.push(next);
+    announceStudioAtlas();
     refreshStudioAtlasChrome();
     return true;
   } catch (error) { atlasState = previous; atlasProjectGraph = previousProjectGraph; try { renderStudioAtlasState(); } catch {} refreshStudioAtlasChrome(); message(error.message); return false; }
@@ -496,8 +498,12 @@ function travelStudioAtlas(direction) {
     finally { if (!committed) atlasState = previous; }
   });
   if (!result) { atlasState = previous; try { renderStudioAtlasState(); } catch {} refreshStudioAtlasChrome(); }
-  else refreshStudioAtlasChrome();
+  else { announceStudioAtlas(); refreshStudioAtlasChrome(); }
   return Boolean(result);
+}
+function announceStudioAtlas() {
+  const graph = activeStudioSemanticGraph();
+  if (atlasState && graph?.subject.kind === 'developer') atlasAnnouncement = `Developer Atlas: ${atlasBreadcrumbs(atlasState, graph, atlasProjectGraph).map(crumb => crumb.label).join(' · ')}`;
 }
 function studioAtlasChrome(graph = activeStudioSemanticGraph()) {
   const active = graph?.subject.kind === 'developer' && Boolean(atlasState);
@@ -507,11 +513,11 @@ function studioAtlasChrome(graph = activeStudioSemanticGraph()) {
   const nav = document.createElement('nav'); nav.className = 'developer-atlas'; nav.setAttribute('aria-label', 'Developer Atlas');
   const back = document.createElement('button'); back.type = 'button'; back.textContent = '← Back'; back.disabled = !atlasHistory?.canBack;
   back.setAttribute('aria-label', 'Back in Developer Atlas');
-  back.addEventListener('click', () => travelStudioAtlas('back')); nav.append(back);
+  back.addEventListener('click', () => { if (travelStudioAtlas('back')) focusStudioAtlasLocation(); }); nav.append(back);
   const forward = document.createElement('button'); forward.type = 'button'; forward.textContent = 'Forward →'; forward.disabled = !atlasHistory?.canForward;
   forward.setAttribute('aria-label', 'Forward in Developer Atlas');
-  forward.addEventListener('click', () => travelStudioAtlas('forward')); nav.append(forward);
-  nav.addEventListener('keydown', event => { if (event.key === 'Escape' && atlasHistory?.canBack) { event.preventDefault(); travelStudioAtlas('back'); } });
+  forward.addEventListener('click', () => { if (travelStudioAtlas('forward')) focusStudioAtlasLocation(); }); nav.append(forward);
+  nav.addEventListener('keydown', event => { if (event.key === 'Escape' && atlasHistory?.canBack) { event.preventDefault(); if (travelStudioAtlas('back')) focusStudioAtlasLocation(); } });
   const crumbs = atlasBreadcrumbs(atlasState, graph, atlasProjectGraph);
   crumbs.forEach((crumb, index) => {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = crumb.label; button.title = crumb.label;
@@ -520,13 +526,14 @@ function studioAtlasChrome(graph = activeStudioSemanticGraph()) {
     button.addEventListener('click', () => {
       let next = createAtlasState(graph);
       for (const item of crumbs.slice(1, index + 1)) next = item.level === 'group' ? navigateAtlasToGroup(next, graph, item.id) : item.level === 'project' ? navigateAtlasToProject(next, graph, item.id) : navigateAtlasToStructure(next, graph, atlasProjectGraph, item.id);
-      navigateStudioAtlas(next);
+      if (navigateStudioAtlas(next)) focusStudioAtlasLocation();
     });
     nav.append(button);
     if (index < crumbs.length - 1) { const separator = document.createElement('span'); separator.textContent = '›'; separator.setAttribute('aria-hidden', 'true'); nav.append(separator); }
   });
+  if (crumbs.length) nav.querySelector('[aria-current="location"]')?.setAttribute('aria-label', `Current location: ${crumbs.at(-1).label}`);
   const panel = document.createElement('section'); panel.className = 'developer-atlas-context'; panel.setAttribute('aria-label', 'Atlas context');
-  const heading = document.createElement('h2'); heading.textContent = context.subject?.label || crumbs.at(-1)?.label || 'Developer'; panel.append(heading);
+  const heading = document.createElement('h2'); heading.tabIndex = -1; heading.textContent = context.subject?.label || crumbs.at(-1)?.label || 'Developer'; panel.append(heading);
   const detail = document.createElement('p');
   if (context.level === 'group') detail.textContent = (context.provenance === 'user' ? 'User-authored' : 'Derived') + ' group · ' + context.members.length + ' projects · ' + ((context.basis || []).join(', ') || 'Canonical Semantic Group');
   else if (context.level === 'project') detail.textContent = [context.subject?.properties?.description, context.subject?.properties?.language, ...(context.subject?.properties?.topics || [])].filter(Boolean).join(' · ') || 'Project facts from Semantic Graph v1.';
@@ -547,7 +554,16 @@ function studioAtlasChrome(graph = activeStudioSemanticGraph()) {
   if (context.level === 'project' && !importedSemanticGraph) { const button = document.createElement('button'); button.type = 'button'; button.textContent = atlasProjectGraph?.subject.id === context.subject.id ? 'Explore structure' : 'Review bounded structure scan'; button.addEventListener('click', () => { if (atlasProjectGraph?.subject.id === context.subject.id) { const node = atlasProjectGraph.nodes.find(item => item.kind !== 'project-root'); if (node) navigateStudioAtlas(navigateAtlasToStructure(atlasState, graph, atlasProjectGraph, node.id)); } else openProjectStructure({ projectId: context.subject.id, label: context.subject.label, parentScene: canonicalLiveScene, onLoaded: (projectGraph, id) => { atlasProjectGraph = projectGraph; return navigateStudioAtlas(navigateAtlasToStructure(atlasState, graph, projectGraph, id)); } }); }); panel.append(button); }
   if (context.level === 'structure' && context.subject) { const p = document.createElement('p'); p.textContent = `${context.subject.kind} · ${context.evidence?.length || 0} evidence facts`; panel.append(p); }
   if (context.evidence?.length) { const note = document.createElement('p'); note.textContent = 'Evidence: ' + context.evidence.map(fact => fact.value).join(' · '); panel.append(note); }
+  if (atlasAnnouncement) {
+    const status = document.createElement('p'); status.className = 'sr-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.textContent = atlasAnnouncement; atlasAnnouncement = '';
+    return [nav, panel, status];
+  }
   return [nav, panel];
+}
+function focusStudioAtlasLocation() {
+  const current = preview.querySelector('.developer-atlas [aria-current="location"]');
+  const heading = preview.querySelector('.developer-atlas-context h2');
+  (current || heading)?.focus?.({ preventScroll: true });
 }
 function renderImportedSemanticGraph(prepared = prepareImportedSemanticGraph()) {
   const { scene, svg } = prepared;
@@ -1420,15 +1436,12 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
         const nextFingerprint = semanticGraphFingerprint(nextGraph);
         if (!atlasState) { atlasState = createAtlasState(nextGraph); atlasHistory = createAtlasHistory(atlasState); }
         else if (liveSemanticFingerprint !== nextFingerprint) {
-          const currentValid = validateAtlasState(atlasState, nextGraph).valid;
-          if (!currentValid) {
-            atlasState = parseAtlasState(serializeAtlasState(atlasState), nextGraph);
-            atlasHistory = createAtlasHistory(atlasState);
-          } else {
-            const snapshot = atlasHistory?.snapshot();
-            if (!snapshot || snapshot.entries.some(entry => !validateAtlasState(entry, nextGraph).valid)) atlasHistory = createAtlasHistory(atlasState);
-          }
-          if (atlasProjectGraph?.subject.id !== atlasState.projectId) atlasProjectGraph = null;
+          // The developer graph carries no repository-ref token that can prove a
+          // previously scanned structure is still current after semantic refresh.
+          atlasProjectGraph = null;
+          atlasState = atlasHistory?.reconcile(atlasState, nextGraph, atlasProjectGraph)
+            || parseAtlasState(serializeAtlasState(atlasState), nextGraph, atlasProjectGraph);
+          if (!atlasHistory) atlasHistory = createAtlasHistory(atlasState);
         }
         liveSemanticGraph = nextGraph; liveSemanticFingerprint = nextFingerprint;
         scene = atlasState.level === 'developer' ? canonicalScene : projectDeveloperAtlasScene(liveSemanticGraph, atlasState, options, atlasProjectGraph);
@@ -2002,6 +2015,7 @@ async function loadAccount(
     loadedSource = source;
     isSample = false;
     if (restoring || changedAccount) applyOptions(loadOptions);
+    if (importedBeforeLoad) { atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
     form.elements.username.value = loadOptions.organizationUser || account;
     $("#organization-account").value = loadOptions.organizationUser
       ? account

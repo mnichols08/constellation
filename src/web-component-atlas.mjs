@@ -1,4 +1,4 @@
-import { createAtlasState, createAtlasHistory, navigateAtlasToGroup, navigateAtlasToProject, navigateAtlasToStructure, atlasBreadcrumbs, resolveAtlasContext, serializeAtlasState, parseAtlasState } from '@constellation/core';
+import { createAtlasState, createAtlasHistory, navigateAtlasToGroup, navigateAtlasToProject, navigateAtlasToStructure, atlasBreadcrumbs, resolveAtlasContext, serializeAtlasState, parseAtlasState, semanticGraphFingerprint } from '@constellation/core';
 import { parseSemanticGraph, serializeSemanticGraph } from '@constellation/core';
 
 export class AtlasNavigation {
@@ -11,7 +11,17 @@ export class AtlasNavigation {
   get canBack() { return Boolean(this.#history?.canBack); }
   get canForward() { return Boolean(this.#history?.canForward); }
   get shareState() { return this.#state ? serializeAtlasState(this.#state) : null; }
-  setGraph(graph) { this.#graph = graph?.subject?.kind === 'developer' ? graph : null; this.#state = this.#graph ? createAtlasState(graph) : null; this.#history = this.#state ? createAtlasHistory(this.#state) : null; this.#projectGraph = null; }
+  setGraph(graph) {
+    const next = graph?.subject?.kind === 'developer' ? graph : null;
+    const sameTruth = next && this.#graph && semanticGraphFingerprint(next) === semanticGraphFingerprint(this.#graph);
+    this.#graph = next;
+    if (!next) { this.#state = null; this.#history = null; this.#projectGraph = null; return; }
+    if (!this.#state || !this.#history) {
+      this.#state = createAtlasState(next); this.#history = createAtlasHistory(this.#state); this.#projectGraph = null; return;
+    }
+    if (!sameTruth) this.#projectGraph = null;
+    this.#state = this.#history.reconcile(this.#state, next, this.#projectGraph);
+  }
   navigateGroup(id, render, changed) { return this.#commit(navigateAtlasToGroup(this.#state, this.#graph, id), render, changed); }
   navigateProject(id, render, changed) { return this.#commit(navigateAtlasToProject(this.#state, this.#graph, id), render, changed); }
   navigateBreadcrumbs(crumbs, render, changed) {
@@ -84,19 +94,23 @@ export function installAtlasAPI(componentClass) {
 
 export function renderAtlasChrome(document, controller, actions) {
   const nav = document.createElement('nav'); nav.setAttribute('aria-label', 'Developer Atlas');
-  nav.style.cssText = 'display:flex;align-items:center;gap:.5rem;overflow-x:auto;padding:.5rem 0;white-space:nowrap';
-  nav.addEventListener('keydown', event => { if (event.key === 'Escape' && controller.canBack) { event.preventDefault(); actions.back(); } });
-  const back = document.createElement('button'); back.type = 'button'; back.textContent = '← Back'; back.disabled = !controller.canBack; back.setAttribute('aria-label', 'Back in Developer Atlas'); back.addEventListener('click', actions.back); nav.append(back);
+  nav.style.cssText = 'display:flex;align-items:center;gap:.35rem;overflow-x:auto;padding:.5rem 0;white-space:nowrap;min-width:0;scrollbar-width:thin';
+  const focusCurrent = () => { if (actions.focus) actions.focus(); else { const root = nav.closest('main'); (root?.querySelector('[aria-current="location"]') || root?.querySelector('[aria-label="Atlas context"] h2'))?.focus?.({ preventScroll: true }); } };
+  const travel = direction => { if ((direction === 'back' ? actions.back() : actions.forward?.()) !== false) focusCurrent(); };
+  nav.addEventListener('keydown', event => { if (event.key === 'Escape' && controller.canBack) { event.preventDefault(); travel('back'); } });
+  const back = document.createElement('button'); back.type = 'button'; back.textContent = '← Back'; back.disabled = !controller.canBack; back.setAttribute('aria-label', 'Back in Developer Atlas'); back.addEventListener('click', () => travel('back')); nav.append(back);
+  const forward = document.createElement('button'); forward.type = 'button'; forward.textContent = 'Forward →'; forward.disabled = !controller.canForward; forward.setAttribute('aria-label', 'Forward in Developer Atlas'); forward.addEventListener('click', () => travel('forward')); nav.append(forward);
   const crumbs = controller.breadcrumbs;
+  const status = document.createElement('span'); status.dataset.atlasStatus = ''; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)'; nav.append(status);
   crumbs.forEach((crumb, index) => {
-    const button = document.createElement('button'); button.type = 'button'; button.textContent = crumb.label; button.title = crumb.label; button.setAttribute('aria-label', `Open ${crumb.level}: ${crumb.label}`);
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = crumb.label; button.title = crumb.label; button.style.cssText = 'min-height:2.75rem;max-width:min(18rem,45vw);overflow:hidden;text-overflow:ellipsis;flex:0 0 auto'; button.setAttribute('aria-label', `Open ${crumb.level}: ${crumb.label}`);
     if (index === crumbs.length - 1) button.setAttribute('aria-current', 'location');
-    button.addEventListener('click', () => actions.crumb(crumbs.slice(0, index + 1)));
+    button.addEventListener('click', () => { if (actions.crumb(crumbs.slice(0, index + 1)) !== false) focusCurrent(); });
     nav.append(button);
     if (index < crumbs.length - 1) { const separator = document.createElement('span'); separator.textContent = '›'; separator.setAttribute('aria-hidden', 'true'); nav.append(separator); }
   });
   const panel = document.createElement('section'); panel.setAttribute('aria-label', 'Atlas context'); panel.style.cssText = 'border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:.5rem;padding:.75rem;margin:.25rem 0 .75rem';
-  const context = controller.context, heading = document.createElement('h2'); heading.style.cssText = 'font:600 1rem/1.4 system-ui;margin:0 0 .4rem'; heading.textContent = context?.subject?.label || crumbs.at(-1)?.label || 'Developer'; panel.append(heading);
+  const context = controller.context, heading = document.createElement('h2'); heading.tabIndex = -1; heading.style.cssText = 'font:600 1rem/1.4 system-ui;margin:0 0 .4rem'; heading.textContent = context?.subject?.label || crumbs.at(-1)?.label || 'Developer'; panel.append(heading);
   const detail = document.createElement('p'); detail.style.cssText = 'font:.875rem/1.5 system-ui;margin:.2rem 0 .55rem;opacity:.85';
   if (context?.level === 'group') detail.textContent = `${context.provenance === 'user' ? 'User-authored' : 'Derived'} group · ${context.members.length} projects · ${(context.basis || []).join(', ') || 'Canonical Semantic Group'}`;
   else if (context?.level === 'project') detail.textContent = [context.subject?.properties?.description, context.subject?.properties?.language, ...(context.subject?.properties?.topics || [])].filter(Boolean).join(' · ') || 'Project details from the imported Semantic Graph.';
@@ -111,7 +125,7 @@ export function renderAtlasChrome(document, controller, actions) {
       : context?.level === 'structure' ? (context.children || []).map(item => ({ kind: 'structure', id: item.id, label: item.properties?.path || item.label })) : [];
   if (entries.length) {
     const list = document.createElement('div'); list.style.cssText = 'display:flex;flex-wrap:wrap;gap:.4rem';
-    for (const entry of entries) { const button = document.createElement('button'); button.type = 'button'; button.textContent = entry.kind === 'group' ? `Explore ${entry.label} · ${entry.provenance}` : `Explore ${entry.label}`; button.addEventListener('click', () => entry.kind === 'group' ? actions.group(entry.id) : entry.kind === 'structure' ? actions.structure(entry.id) : actions.project(entry.id)); list.append(button); }
+    for (const entry of entries) { const button = document.createElement('button'); button.type = 'button'; button.style.cssText = 'min-height:2.75rem;max-width:100%;overflow-wrap:anywhere'; button.textContent = entry.kind === 'group' ? `Explore ${entry.label} · ${entry.provenance}` : `Explore ${entry.label}`; button.addEventListener('click', () => { const result = entry.kind === 'group' ? actions.group(entry.id) : entry.kind === 'structure' ? actions.structure(entry.id) : actions.project(entry.id); if (result !== false) focusCurrent(); }); list.append(button); }
     panel.append(list);
   }
   if (context?.level === 'project' && !context.structureAvailable) { const note = document.createElement('p'); note.setAttribute('role', 'note'); note.textContent = 'Structural detail is not included in this portable graph.'; panel.append(note); }

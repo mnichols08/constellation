@@ -152,6 +152,33 @@ export function createAtlasHistory(initial, limit = ATLAS_HISTORY_LIMIT) {
     get canForward() { return index < entries.length - 1; },
     get length() { return entries.length; },
     push(next) { entries = [...entries.slice(0, index + 1), next].slice(-limit); index = entries.length - 1; return next; },
+    reconcile(current, graph, projectGraph = null) {
+      const usable = candidate => validateAtlasState(candidate, graph).valid
+        && (candidate.level !== 'structure' || projectGraph?.subject?.kind === 'project'
+          && projectGraph.subject.id === candidate.projectId
+          && nodeFor(projectGraph, candidate.structuralNodeId));
+      if (!usable(current)) {
+        const recovered = parseAtlasState(serializeAtlasState(current), graph, projectGraph);
+        entries = [recovered]; index = 0;
+        return recovered;
+      }
+      const oldIndex = index;
+      const retained = [];
+      let retainedIndex = -1;
+      for (let i = 0; i < entries.length; i++) {
+        if (!usable(entries[i])) continue;
+        if (i === oldIndex && JSON.stringify(entries[i]) === JSON.stringify(current)) retainedIndex = retained.length;
+        retained.push(entries[i]);
+      }
+      if (retainedIndex < 0) {
+        retained.push(current);
+        retainedIndex = retained.length - 1;
+      }
+      entries = retained.slice(-limit);
+      index = Math.max(0, retainedIndex - Math.max(0, retained.length - limit));
+      entries[index] = current;
+      return current;
+    },
     transact(direction, render) {
       const target = direction === 'back' ? index - 1 : direction === 'forward' ? index + 1 : index;
       if (target < 0 || target >= entries.length || typeof render !== 'function') return false;

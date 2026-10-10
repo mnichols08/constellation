@@ -40,8 +40,9 @@ test('Developer Atlas exposes accessible breadcrumbs, group and project contexts
   const source = createScene('atlas-alice', [
     { full_name: 'atlas-alice/one', name: 'one', language: 'Rust' },
     { full_name: 'atlas-alice/two', name: 'two', language: 'Rust' },
+    { full_name: 'atlas-alice/three', name: 'three', language: 'Rust' },
     { full_name: 'atlas-bob/other', name: 'other', language: 'JavaScript' },
-  ], { projectFamilies: { tools: { label: 'Developer Tools', members: ['atlas-alice/one', 'atlas-alice/two'] } } });
+  ], { projectFamilies: { tools: { label: 'Developer Tools', members: ['atlas-alice/one', 'atlas-alice/two', 'atlas-alice/three'] } } });
   const graph = semanticGraphFromScene(source); const fingerprint = semanticGraphFingerprint(graph);
   const projectGraph = semanticGraphFromProjectConstellation(createProjectConstellation({ projectId: 'atlas-alice/one', ref: 'main', tree: [
     { path: 'packages', type: 'tree' }, { path: 'packages/core', type: 'tree' }, { path: 'packages/core/package.json', type: 'blob' },
@@ -51,11 +52,34 @@ test('Developer Atlas exposes accessible breadcrumbs, group and project contexts
   await waitFor(`document.querySelector('#view').shadowRoot.querySelector('[aria-label="Developer Atlas"]')`);
   assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'developer');
   assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), fingerprint);
+  await evaluate(`document.querySelector('#view').shadowRoot.querySelector('[aria-label="Atlas context"] button').click()`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'group');
+  assert.equal(await evaluate(`document.querySelector('#view').shadowRoot.activeElement.getAttribute('aria-current')`), 'location');
+  assert.match(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('[role="status"]').textContent`), /Developer Atlas: Developer Tools/);
+  await evaluate(`document.querySelector('#view').shadowRoot.querySelector('[aria-label^="Open developer:"]').click()`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'developer');
   await evaluate(`document.querySelector('#view').navigateAtlasGroup(atlasGraph.groups.find(group=>group.label==='Developer Tools').id)`);
   assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'group');
   assert.match(await evaluate(`document.querySelector('#view').shadowRoot.querySelector('[aria-label="Atlas context"]').textContent`), /User-authored group/);
   await evaluate(`document.querySelector('#view').navigateAtlasProject('atlas-alice/one')`);
   assert.deepEqual(await evaluate(`document.querySelector('#view').atlasBreadcrumbs.map(item=>item.level)`), ['developer', 'group', 'project']);
+  const reorderedGraph = semanticGraphFromScene(createScene('atlas-alice', [
+    { full_name: 'atlas-bob/other', name: 'other', language: 'JavaScript' },
+    { full_name: 'atlas-alice/two', name: 'two', language: 'Rust' },
+    { full_name: 'atlas-alice/three', name: 'three', language: 'Rust' },
+    { full_name: 'atlas-alice/one', name: 'one', language: 'Rust' },
+  ], { projectFamilies: { tools: { label: 'Developer Tools', members: ['atlas-alice/one', 'atlas-alice/two', 'atlas-alice/three'] } } }));
+  await evaluate(`document.querySelector('#view').semanticGraph=${JSON.stringify(reorderedGraph)}`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.projectId`), 'atlas-alice/one');
+  const graphWithoutOne = semanticGraphFromScene(createScene('atlas-alice', [
+    { full_name: 'atlas-alice/two', name: 'two', language: 'Rust' },
+    { full_name: 'atlas-alice/three', name: 'three', language: 'Rust' },
+    { full_name: 'atlas-bob/other', name: 'other', language: 'JavaScript' },
+  ], { projectFamilies: { tools: { label: 'Developer Tools', members: ['atlas-alice/two', 'atlas-alice/three'] } } }));
+  await evaluate(`document.querySelector('#view').semanticGraph=${JSON.stringify(graphWithoutOne)}`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'group');
+  await evaluate(`document.querySelector('#view').semanticGraph=${JSON.stringify(graph)}`);
+  await evaluate(`document.querySelector('#view').navigateAtlasProject('atlas-alice/one')`);
   await evaluate(`document.querySelector('#view').navigateAtlasStructure(atlasProjectGraph, atlasPackageId)`);
   assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'structure');
   assert.equal((await evaluate(`document.querySelector('#view').atlasBreadcrumbs.at(-1).label`)), 'packages/core');
@@ -81,6 +105,13 @@ test('Developer Atlas exposes accessible breadcrumbs, group and project contexts
   assert.equal(await evaluate(`document.querySelector('#view').semanticFingerprint`), fingerprint);
   assert.equal(await evaluate(`atlasCalls.length`), 0);
   assert.ok(await evaluate(`atlasEvents.length >= 3`));
+  const otherDeveloper = semanticGraphFromScene(createScene('atlas-bob', [
+    { full_name: 'atlas-bob/one', name: 'one', language: 'Rust' },
+  ]));
+  await evaluate(`document.querySelector('#view').semanticGraph=${JSON.stringify(otherDeveloper)}`);
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.level`), 'developer');
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.developerId`), 'atlas-bob');
+  assert.equal(await evaluate(`document.querySelector('#view').atlasState.projectId`), null);
   await evaluate('window.fetch=window.atlasFetch');
   assert.deepEqual(errors, []);
 });
