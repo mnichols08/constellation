@@ -64,6 +64,7 @@ const guides = [
   "graph-quality",
   "story-candidates",
   "story-composition",
+  "story-clarity",
   "profile-story",
   "semantic-studio",
   "github-data-cache",
