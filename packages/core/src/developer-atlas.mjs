@@ -208,6 +208,26 @@ export function serializeAtlasState(value) {
   return result;
 }
 
+function nearestValidAtlasParent(candidate, graph, projectGraph) {
+  const project = nodeFor(graph, candidate.projectId, 'project');
+  if (project) {
+    const enteredGroupId = [candidate.viaGroupId, candidate.groupId].find(id =>
+      groupFor(graph, id) && membership(graph, candidate.projectId, id));
+    const projectState = state('project', graph.subject.id, enteredGroupId || null, candidate.projectId, null, enteredGroupId || null);
+    if (candidate.level !== 'structure' || projectGraph?.subject?.id === candidate.projectId
+      && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;
+    return projectState;
+  }
+
+  // Preserve the entered route even when its project has disappeared. For a
+  // direct Project route both fields are null, so recovery goes to Developer.
+  const enteredGroupId = ['structure', 'project', 'group'].includes(candidate.level)
+    ? [candidate.viaGroupId, candidate.groupId].find(id => groupFor(graph, id))
+    : null;
+  if (enteredGroupId) return state('group', graph.subject.id, enteredGroupId);
+  return createAtlasState(graph);
+}
+
 export function parseAtlasState(serialized, graph, projectGraph = null) {
   if (typeof serialized !== 'string' || serialized.length > 8192) throw new Error('Atlas share state is invalid or oversized.');
   const params = new URLSearchParams(serialized);
@@ -220,17 +240,8 @@ export function parseAtlasState(serialized, graph, projectGraph = null) {
   const level = params.get('l'), developerId = params.get('d');
   let candidate = state(level, developerId, params.get('g'), params.get('p'), params.get('n'), params.get('r'));
   if (validateAtlasState(candidate, graph).valid) {
-    if (candidate.level === 'structure') {
-      if (projectGraph?.subject?.id === candidate.projectId && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;
-      candidate = state('project', candidate.developerId, candidate.groupId, candidate.projectId, null, candidate.viaGroupId);
-    }
-    return candidate;
+    if (candidate.level !== 'structure' || projectGraph?.subject?.id === candidate.projectId
+      && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;
   }
-  if (candidate.level === 'structure' && nodeFor(graph, candidate.projectId, 'project')) {
-    const parent = state('project', graph.subject.id, groupFor(graph, candidate.groupId) && membership(graph, candidate.projectId, candidate.groupId) ? candidate.groupId : null, candidate.projectId, null, candidate.viaGroupId);
-    if (validateAtlasState(parent, graph).valid) return parent;
-  }
-  if (candidate.level === 'project' && nodeFor(graph, candidate.projectId, 'project')) return state('project', graph.subject.id, null, candidate.projectId);
-  if ((candidate.level === 'project' || candidate.level === 'group') && groupFor(graph, candidate.groupId)) return state('group', graph.subject.id, candidate.groupId);
-  return createAtlasState(graph);
+  return nearestValidAtlasParent(candidate, graph, projectGraph);
 }
