@@ -28,6 +28,7 @@ test("studio serves the Rust binary and its modules with usable MIME types", asy
   for (const path of [
     "engine.mjs",
     "graph-explorer.mjs",
+    "story-clarity.mjs",
     "scene-framing.mjs",
     "wasm/constellation_core.js",
   ]) {

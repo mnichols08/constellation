@@ -429,6 +429,7 @@ const status = $("#status");
 const preview = $("#preview");
 const download = $(".download");
 const profileStoryDownload = $("#download-profile-story");
+const profileStoryCompactDownload = $("#download-profile-story-compact");
 const graphDownload = $("#download-semantic-graph");
 const graphInput = $("#import-semantic-graph");
 const graphStatus = $("#semantic-graph-status");
@@ -445,6 +446,58 @@ function updateStoryChoices(recommended, chosen) {
       : `${chosen?.label || 'Projects'} story selected.`);
   if (storyCandidates.some(candidate => candidate.compositionFailed)) {
     storyStatus.textContent += ' Some project connections could not be composed; the bounded story remains available.';
+  }
+  const inspector = document.querySelector('#story-clarity-inspector');
+  if (inspector) {
+    const candidate = chosen || recommended;
+    const summary = inspector.querySelector('p');
+    const list = inspector.querySelector('ul');
+    inspector.hidden = !candidate?.scene || storyMode === 'manual';
+    if (!inspector.hidden) {
+      const featured = (candidate.scene.nodes || []).filter(node => node.metadata?.full_name && candidate.scene.presentation.options.projectShowcase?.[node.id]?.role === 'featured').map(node => node.metadata.name || node.id);
+      summary.textContent = featured.length
+        ? `Featured emphasis comes from your saved project roles: ${featured.join(', ')}.`
+        : 'No project has an authored Featured role; node size and position follow the selected layout and saved settings.';
+      const entries = [];
+      for (const edge of candidate.composition?.relationships || []) {
+        const endpoints = [edge.from, edge.to].join(' ↔ ');
+        const evidence = (edge.evidence || []).map(value => value.startsWith('language:') ? `shared language ${value.slice(9)}` : value.startsWith('topic:') ? `shared topic #${value.slice(6)}` : value.startsWith('family:') ? 'your authored project family' : value.startsWith('relationship:') ? 'your authored project relationship' : value).join(', ');
+        entries.push(`${endpoints}: ${evidence || 'supported relationship evidence'}.`);
+        if (entries.length >= 6) break;
+      }
+      const labels = new Map((candidate.scene.labels || []).map(label => [`label:${label.id}`, label.text || label.id]));
+      const messages = {
+        'label-collision': 'Estimated label overlap',
+        'label-out-of-bounds': 'Estimated label outside the presentation',
+        'featured-insufficient-prominence': 'Featured projects may need stronger visual emphasis',
+        'excessive-connection-density': 'Many relationships compete for attention',
+        'relationship-crosses-important-label': 'A relationship crosses a project label',
+        'overcrowded-technical-region': 'A technical region may be crowded',
+        'weak-featured-supporting-hierarchy': 'Featured and supporting emphasis is similar',
+        'unclear-relationship-differentiation': 'Some relationship styles may look alike',
+        'legend-overlaps-label': 'The legend overlaps a label',
+      };
+      for (const diagnostic of (candidate.clarity?.diagnostics || []).slice(0, 8)) {
+        const ids = (diagnostic.ids || []).map(id => labels.get(id) || id).join(', ');
+        entries.push(`${messages[diagnostic.code] || diagnostic.code}${ids ? `: ${ids}` : ''}.`);
+      }
+      for (const diagnostic of (candidate.composition?.diagnostics || []).slice(0, 6)) {
+        const reason = diagnostic.reason === 'endpoint-not-visible-in-this-story-view'
+          ? 'An authored relationship is omitted because an endpoint is not in this bounded story.'
+          : 'A relationship is omitted by the bounded composition budget.';
+        entries.push(`${reason} ${diagnostic.relationship_id || ''}`.trim());
+      }
+      for (const suggestion of (candidate.clarity?.suggestions || []).slice(0, 6)) {
+        if (suggestion.kind === 'suppress-or-offset-label') {
+          entries.push(`Compact export may suppress or offset ${labels.get(suggestion.labelId) || suggestion.labelId} to avoid an estimated collision; selected projects remain present.`);
+        }
+      }
+      if ((candidate.clarity?.diagnostics || []).length > 8) entries.push('Additional layout findings are summarized to keep this explanation concise.');
+      if (Object.keys(candidate.scene.presentation.options.starPositions || {}).length)
+        entries.push('Your manually positioned projects remain in place; automatic layout advice does not replace those choices.');
+      if (!entries.length) entries.push('The current scene has no detected label, density, or hierarchy issues. Relationships keep their source evidence in the SVG titles and Studio inspector.');
+      list.replaceChildren(...entries.map(text => { const item = document.createElement('li'); item.textContent = text; return item; }));
+    }
   }
   for (const button of document.querySelectorAll('[data-story-choice]')) {
     const id = button.dataset.storyChoice;
@@ -944,6 +997,7 @@ repositories = repositories.map((repo, index) => ({
 }));
 let url;
 let profileStoryUrl;
+let profileStoryCompactUrl;
 let workflowUrl;
 
 function updateNodeColorControls(selectedId) {
@@ -1616,7 +1670,25 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     } catch (error) { atlasProjectionFailed = Boolean(atlasState && liveSemanticGraph); if (atlasProjectionFailed) message(`Developer Atlas projection failed: ${error.message}`, true); }
   }
   if (atlasProjectionFailed) return false;
-  const svg = renderSceneSVG(scene);
+  const profileStoryForExport = targetWidth => {
+    if (!profileStoryCandidate?.scene) return null;
+    const source = profileStoryCandidate.scene;
+    const readmeScene = {
+      ...source,
+      presentation: {
+        ...source.presentation,
+        options: { ...source.presentation.options, exportProfile: 'readme' },
+      },
+    };
+    return renderSceneSVG(readmeScene, { targetWidth });
+  };
+  const profileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
+    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
+    ? profileStoryForExport(900)
+    : null;
+  const svg = displayedStoryCandidate && profileStorySvg
+    ? profileStorySvg
+    : renderSceneSVG(scene);
   delete preview.dataset.semanticSubject;
   delete preview.dataset.semanticSubjectKind;
   preview.removeAttribute("aria-label");
@@ -1640,21 +1712,31 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   )
     return false;
   if (profileStoryUrl) URL.revokeObjectURL(profileStoryUrl);
-  const profileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
-    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
-    ? renderSceneSVG(profileStoryCandidate.scene)
-    : null;
+  if (profileStoryCompactUrl) URL.revokeObjectURL(profileStoryCompactUrl);
   profileStoryUrl = profileStorySvg
     ? URL.createObjectURL(new Blob([profileStorySvg], { type: 'image/svg+xml' }))
     : null;
+  const compactProfileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
+    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
+    ? profileStoryForExport(480)
+    : null;
+  profileStoryCompactUrl = compactProfileStorySvg
+    ? URL.createObjectURL(new Blob([compactProfileStorySvg], { type: 'image/svg+xml' }))
+    : null;
   profileStoryDownload.hidden = !profileStoryUrl;
+  profileStoryCompactDownload.hidden = !profileStoryCompactUrl;
   if (profileStoryUrl) {
     profileStoryDownload.href = profileStoryUrl;
     profileStoryDownload.download = `${username(account)}.profile-story.svg`;
     profileStoryDownload.dataset.sceneFingerprint = profileStoryCandidate.sceneFingerprint;
+    profileStoryCompactDownload.href = profileStoryCompactUrl;
+    profileStoryCompactDownload.download = `${username(account)}.profile-story-480.svg`;
+    profileStoryCompactDownload.dataset.sceneFingerprint = profileStoryCandidate.sceneFingerprint;
   } else {
     profileStoryDownload.removeAttribute('href');
     delete profileStoryDownload.dataset.sceneFingerprint;
+    profileStoryCompactDownload.removeAttribute('href');
+    delete profileStoryCompactDownload.dataset.sceneFingerprint;
     if (liveSemanticGraph && !profileStoryUnavailableReason) profileStoryUnavailableReason = 'no valid bounded candidate is available for the current inputs.';
   }
   if (storyStatus && profileStoryUnavailableReason) storyStatus.textContent += ` Profile Story export unavailable: ${profileStoryUnavailableReason}`;

@@ -1,4 +1,6 @@
-import { composeStory as composeStoryRust, evaluateGraphQuality } from './engine.mjs';
+import { composeStory as composeStoryRust, evaluateGraphQuality, analyzeStoryClarity } from './engine.mjs';
+import { sceneClarityInput } from './story-clarity.mjs';
+export { sceneClarityInput };
 import { createScene } from './constellation.mjs';
 import { projectSemanticGraphToScene } from './semantic-graph.mjs';
 import { semanticActive } from './semantic-studio.mjs';
@@ -314,7 +316,9 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
     // project nodes entered scoring without exposing the full quality input.
     quality.evaluatedProjectIds = qualityInput.nodes.filter(node => node.kind === 'project').map(node => node.id).sort();
     quality.sceneFingerprint = fingerprint;
-    return Object.freeze({ ...candidate, bounded: true, compositionFailed: compositionState.failed, sceneFingerprint: fingerprint, quality: Object.freeze(quality) });
+    let clarity = null;
+    try { clarity = analyzeStoryClarity(sceneClarityInput(candidate.scene)); } catch { /* Keep existing candidates available if optional diagnostics fail. */ }
+    return Object.freeze({ ...candidate, bounded: true, compositionFailed: compositionState.failed, sceneFingerprint: fingerprint, clarity: clarity ? Object.freeze(clarity) : null, quality: Object.freeze(quality) });
   });
 }
 

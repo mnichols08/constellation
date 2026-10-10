@@ -45,6 +45,8 @@ import { renderTemporalStackSVG } from "./temporal-stack-svg.mjs";
 import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
 import { resolveSemanticZoomMode } from './semantic-zoom.mjs';
 import { aggregateEdgeStyle, applyStaticExportDensity, exportDensityPolicy, README_GROUP_THRESHOLD } from './export-density.mjs';
+import { analyzeStoryClarity } from './engine.mjs';
+import { sceneClarityInput } from './story-clarity.mjs';
 
 import { repositoryLanguages } from "./constellation.mjs";
 const hash = (value) => {
@@ -169,11 +171,29 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const nebulaRadiusX = legacyFrame ? 420 : frameWidth * 0.47;
   const frame = { left: frameX, top: frameY, right: frameRight, bottom: frameBottom, width: frameWidth, height };
   const compact = layout === "compact";
+  const baseProfile = profileDimensions(options.exportProfile, height);
+  const hasTargetWidth = Number.isFinite(renderOptions?.targetWidth) && renderOptions.targetWidth >= 320 && renderOptions.targetWidth <= 2400;
+  const targetWidth = hasTargetWidth ? Math.round(renderOptions.targetWidth) : visualScene.viewport.width;
   const profile = {
-    ...profileDimensions(options.exportProfile, height),
-    width: visualScene.viewport.width,
-    height: visualScene.viewport.height,
+    ...baseProfile,
+    width: targetWidth,
+    height: hasTargetWidth ? targetWidth * height / frameWidth : visualScene.viewport.height,
   };
+  let clarity = null;
+  if (staticReadme && projectScene) {
+    try { clarity = analyzeStoryClarity(sceneClarityInput(visualScene, { targetWidth })); } catch { /* Diagnostics do not block static export. */ }
+  }
+  const claritySuppressed = new Set((clarity?.suggestions || [])
+    .filter(item => item.kind === 'suppress-or-offset-label')
+    .map(item => item.labelId?.replace(/^label:/, '')));
+  const compactLabelBudget = targetWidth <= 500 ? 8 : Infinity;
+  const labelOrder = (visualScene.labels || []).filter(label => !label.hidden)
+    .sort((a, b) => {
+      const role = id => visualScene.presentation.options.projectShowcase?.[id]?.role;
+      const priority = id => ({ featured: 3, supporting: 2 }[role(id)] || 1);
+      return priority(b.id) - priority(a.id) || a.id.localeCompare(b.id);
+    });
+  const compactVisibleLabels = new Set(labelOrder.slice(0, compactLabelBudget).map(label => label.id));
   const readmeDensity = !renderOptions?.interactive && options.exportProfile === 'readme' && visualScene.semanticGroups?.level === 'groups' && visualScene.nodes.some(node => node.metadata.nodeKind === 'semantic-group');
   const densityPolicy = readmeDensity ? exportDensityPolicy({ profile: 'readme', width: profile.width, nodeCount: visualScene.nodes.filter(node => !node.interaction.hidden).length, groupCount: visualScene.nodes.filter(node => node.metadata.nodeKind === 'semantic-group' && !node.interaction.hidden).length }) : null;
   const centerY = compact ? 126 : 270,
@@ -250,7 +270,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const featuredTreatment = options.featuredTreatment || "label";
   const roleCSS = showcaseRoles.size
     ? `
-.repo-label[data-role="featured"]{fill:var(--sky-foreground);opacity:1;font-weight:700}.repo-label[data-role="supporting"]{opacity:.82}.repo-label[data-role="experimental"]{opacity:.72}.repo-label[data-role="historical"]{opacity:.55}
+.repo-label[data-role="featured"]{fill:var(--sky-foreground);opacity:1;font-weight:700;font-size:13px}.repo-label[data-role="supporting"]{opacity:.82;font-size:11px}.repo-label[data-role="experimental"]{opacity:.72}.repo-label[data-role="historical"]{opacity:.55}
 .star[data-role="featured"]{stroke:var(--sky-foreground);stroke-width:1.1}.star[data-role="supporting"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-role="experimental"]{opacity:.8}.star[data-role="historical"]{opacity:.65}${featuredTreatment === "star" ? '.repo-label[data-role="featured"]{font-weight:600;opacity:.76}' : ""}${featuredTreatment === "spotlight" ? ".showcase-spotlight{font-size:9px;pointer-events:none;fill:var(--sky-foreground)}.showcase-spotlight .spotlight-name{font-size:10px;font-weight:700}.showcase-spotlight .spotlight-detail{opacity:.78}" : ""}`
     : "";
   const spotlightIds = new Set();
@@ -369,7 +389,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
     if (evidenceLabelAnchors.some(point => Math.hypot(point[0] - anchor[0], point[1] - anchor[1]) < 96)) continue;
     evidenceLabelEdges.add(edge);
     evidenceLabelAnchors.push(anchor);
-    if (evidenceLabelEdges.size === 3) break;
+    if (evidenceLabelEdges.size === (targetWidth <= 500 ? 1 : 3)) break;
   }
   const edges = [...selectedEdges]
     .sort((a, b) => Number(backbone.has(a)) - Number(backbone.has(b)))
@@ -623,6 +643,8 @@ export function renderSceneSVG(visualScene, renderOptions) {
     .join("");
   const labels = visualScene.labels
     .map((label) => {
+      const manualLabel = Object.hasOwn(visualScene.presentation.options.labelPositions || {}, label.id);
+      if (claritySuppressed.has(label.id) || (targetWidth <= 500 && !compactVisibleLabels.has(label.id) && !manualLabel)) return '';
       const repo = visibleStars.find(
         (star) => star.repo.full_name === label.id,
       )?.repo;
@@ -631,9 +653,11 @@ export function renderSceneSVG(visualScene, renderOptions) {
           ?.role || "";
       const roleAttr = role ? ` data-role="${escape(role)}"` : "";
       const profileAttr = profileDimensionAttributes(label.id);
+      const compactFont = targetWidth <= 500 ? `font-size:${role === 'featured' ? 24 : role === 'supporting' ? 20 : 18}px` : '';
+      const fontStyle = [compactFont, label.focal ? 'font-weight:700' : '', label.hidden ? 'display:none' : ''].filter(Boolean).join(';');
       return label.focal
-        ? `<text class="repo-label organization-person-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}" style="font-size:15px;font-weight:700">${escape(label.text)}</text>`
-        : `<text class="repo-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}"${label.hidden ? ' style="display:none"' : ""}>${escape(label.text)}</text>`;
+        ? `<text class="repo-label organization-person-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}" style="${fontStyle || 'font-size:15px;font-weight:700'}">${escape(label.text)}</text>`
+        : `<text class="repo-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}"${fontStyle ? ` style="${fontStyle}"` : ""}>${escape(label.text)}</text>`;
     })
     .join("");
   if (
