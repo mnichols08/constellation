@@ -744,5 +744,3 @@ ${generatedLabel ? `<text class="generated-at" x="${frameX + 32}" y="${frameBott
     })),
   );
 }
-
-\n
