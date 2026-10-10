@@ -36,7 +36,9 @@ pub fn project(input: Input) -> Result<Projection, String> {
         return Err("Nodes must represent languages, topics or combined".into());
     }
     let cap = input.cap.unwrap_or(if combined { 256 } else { 100 });
-    if cap == 0 || cap > 2048 { return Err("Invalid node cap".into()); }
+    if cap == 0 || cap > 2048 {
+        return Err("Invalid node cap".into());
+    }
     if input.repos.len() > input.cap.unwrap_or(100) {
         return Err("At most 100 source repositories are supported".into());
     }

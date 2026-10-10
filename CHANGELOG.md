@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — Visual Storytelling
+
+- Add bounded Rust/WASM Story Composition v1 for evidence-ranked language, topic, authored-family, and explicit project connections across the existing three story candidates.
+- Annotate static SVG project links with semantic evidence, accessible line-pattern distinctions, and a compact multi-type legend; retain user-curated families and project roles.
+- Preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, and the 12-project Profile Story limit.
+
 ## 4.1.0 — Useful by Default
 
 - Generate bounded Projects, Technical Shape, and evidence-gated Journey views; recommend a deterministic, readable story while keeping Projects as the safe fallback.

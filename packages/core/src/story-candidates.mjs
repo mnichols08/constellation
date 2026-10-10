@@ -1,4 +1,4 @@
-import { evaluateGraphQuality } from './engine.mjs';
+import { composeStory as composeStoryRust, evaluateGraphQuality } from './engine.mjs';
 import { createScene } from './constellation.mjs';
 import { projectSemanticGraphToScene } from './semantic-graph.mjs';
 import { semanticActive } from './semantic-studio.mjs';
@@ -87,7 +87,7 @@ export function selectJourneyProjects(projects, limit = STORY_PROJECT_LIMIT, ref
   return chosen;
 }
 
-function projectCandidate(graph, options, runtime, mode, representativeProjects = null) {
+function projectCandidate(graph, options, runtime, mode, representativeProjects = null, compositionSink = null) {
   const copy = structuredClone(graph);
   let selectedTechnicalCategories = null;
   const projects = copy.nodes.filter(node => node.kind === 'project');
@@ -150,6 +150,7 @@ function projectCandidate(graph, options, runtime, mode, representativeProjects 
     scene.total = scene.nodes.length;
     scene.presentation.graph.nodeCount = scene.nodes.length;
   }
+  if (compositionSink) compositionSink.value = composeCandidateRelationships(scene, copy, options);
   if (scene.evidence) {
     const ids = new Set([...(scene.nodes || []).map(node => node.id), ...(scene.semanticGroups?.sourceNodeIds || [])]);
     const subjects = scene.evidence.subjects.filter(subject => ids.has(subject.id));
@@ -158,6 +159,52 @@ function projectCandidate(graph, options, runtime, mode, representativeProjects 
     if (scene.semanticGroups?.canonical) scene.semanticGroups.canonical.evidence = structuredClone(scene.evidence);
   }
   return scene;
+}
+
+function composeCandidateRelationships(scene, graph) {
+  const projectNodes = (scene.nodes || []).filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind));
+  const positions = new Map(projectNodes.map(node => [node.id, node.geometry]));
+  const projects = graph.nodes.filter(node => node.kind === 'project' && positions.has(node.id)).map(node => ({
+    id: node.id,
+    languages: node.properties.language ? [node.properties.language] : [],
+    topics: node.properties.topics || [],
+    featured: node.properties.curatedRole === 'featured',
+    position: [positions.get(node.id).x, positions.get(node.id).y],
+  }));
+  if (!projects.length) return null;
+  const ids = new Set(projects.map(node => node.id));
+  const families = graph.groups.filter(group => group.provenance === 'user').map(group => ({
+    id: group.id,
+    members: group.members.filter(id => ids.has(id)),
+  }));
+  const allProjectIds = new Set(graph.nodes.filter(node => node.kind === 'project').map(node => node.id));
+  const authoredRelationships = graph.edges.filter(edge => edge.kind === 'project-relationship' && allProjectIds.has(edge.from) && allProjectIds.has(edge.to));
+  const relationships = authoredRelationships.filter(edge => ids.has(edge.from) && ids.has(edge.to)).map(edge => ({ id: edge.id, from: edge.from, to: edge.to }));
+  const composition = composeStoryRust({ projects, families, relationships, edge_budget: Math.min(4096, Math.max(1, projects.length * 2)) });
+  const invisible = authoredRelationships.filter(edge => !ids.has(edge.from) || !ids.has(edge.to));
+  if (invisible.length) {
+    composition.diagnostics.push(...invisible.slice(0, 256).map(edge => ({ relationship_id: edge.id, reason: 'endpoint-not-visible-in-this-story-view' })));
+    composition.suppressed_count += invisible.length;
+  }
+  const existing = scene.edges || [];
+  const isProjectId = id => ids.has(id);
+  const retained = existing.filter(edge => !(isProjectId(edge.from) && isProjectId(edge.to)));
+  for (const relationship of composition.relationships) {
+    const from = positions.get(relationship.from), to = positions.get(relationship.to);
+    const evidence = relationship.evidence;
+    const sharedLanguages = evidence.filter(value => value.startsWith('language:')).map(value => value.slice(9));
+    const sharedTopics = evidence.filter(value => value.startsWith('topic:')).map(value => value.slice(6));
+    const shared = [...sharedLanguages, ...sharedTopics.map(value => `#${value}`), ...evidence.filter(value => !value.startsWith('language:') && !value.startsWith('topic:')).map(value => relationship.type === 'authored-family' ? 'project family' : 'user-authored relationship')];
+    retained.push({
+      id: relationship.id, from: relationship.from, to: relationship.to,
+      metadata: { key: relationship.id, shared, sharedLanguages, sharedTopics, sharedRepositories: [], strength: evidence.length, relationshipType: relationship.type, relationshipTypes: relationship.types, relationshipEvidence: evidence },
+      geometry: { distance: (from.x - to.x) ** 2 + (from.y - to.y) ** 2 },
+      style: { primary: relationship.type === 'authored-family' || relationship.type === 'explicit-relationship' },
+    });
+  }
+  scene.edges = retained;
+  if (scene.presentation) scene.presentation.totalConnections = retained.length;
+  return composition;
 }
 
 // Recovery path for a failed multi-candidate evaluation. It uses the same
@@ -196,8 +243,9 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
   const representativeProjects = selectRepresentativeProjects(allProjects);
   const referenceDate = options.referenceDate || options.generatedAt || new Date().toISOString();
   const journeyProjects = selectJourneyProjects(allProjects, STORY_PROJECT_LIMIT, referenceDate);
+  const projectsComposition = {};
   const candidates = [
-    { id: 'projects', label: 'Projects', question: 'What does this person build?', scene: projectCandidate(graph, options, runtime, 'projects', representativeProjects) },
+    { id: 'projects', label: 'Projects', question: 'What does this person build?', scene: projectCandidate(graph, options, runtime, 'projects', representativeProjects, projectsComposition), composition: projectsComposition.value },
   ];
   const selectedProjects = representativeProjects;
   const featureCounts = new Map();
@@ -207,7 +255,8 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
   const meaningfulFeatures = [...featureCounts].filter(([, count]) => count >= 2 && count < selectedProjects.length);
   const semanticLayoutActive = semanticActive(options);
   const technicalAvailable = selectedProjects.length >= 6 && meaningfulFeatures.length >= 2 && !semanticLayoutActive;
-  candidates.push({ id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: technicalAvailable, ...(technicalAvailable ? {} : { reason: semanticLayoutActive ? 'The current semantic ring presentation takes priority over category nodes.' : selectedProjects.length < 6 ? 'At least six representative projects are needed to form useful technical areas.' : 'The available language and topic evidence does not distinguish multiple project areas.' }), scene: projectCandidate(graph, options, runtime, 'technical-shape', representativeProjects) });
+  const technicalComposition = {};
+  candidates.push({ id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: technicalAvailable, ...(technicalAvailable ? {} : { reason: semanticLayoutActive ? 'The current semantic ring presentation takes priority over category nodes.' : selectedProjects.length < 6 ? 'At least six representative projects are needed to form useful technical areas.' : 'The available language and topic evidence does not distinguish multiple project areas.' }), scene: projectCandidate(graph, options, runtime, 'technical-shape', representativeProjects, technicalComposition), composition: technicalComposition.value });
   const projects = journeyProjects;
   const dated = projects.filter(node => /^\d{4}-\d{2}-\d{2}/.test(node.properties?.createdAt || ''));
   const years = new Set(dated.map(node => Number(node.properties.createdAt.slice(0, 4))));
@@ -234,7 +283,12 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
       candidates.push({ id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: false, reason: 'Temporal evidence is too sparse to show a reliable progression.' });
     } else {
     const scene = createScene(graph.subject.id, records, { ...options, nodeMode: 'repositories', showOther: true, languages: undefined, topics: undefined, referenceDate, arrangement: 'temporal-stack', maxRepos: records.length, includeRepos: records.map(item => item.full_name), temporalStack: { enabled: true, axis: 'year', yearStart: start, yearEnd: end, yearStep, connections: 'none', innerArrangement: 'rings' } }, runtime);
-    candidates.push({ id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: true, scene });
+    const journeyGraph = { nodes: projects, groups: graph.groups, edges: graph.edges };
+    for (const frame of scene.timeline?.frames || scene.temporalStack?.frames || []) {
+      composeCandidateRelationships(frame.scene, journeyGraph);
+    }
+    const journeyComposition = composeCandidateRelationships(scene, journeyGraph);
+    candidates.push({ id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: true, scene, composition: journeyComposition });
     }
   } else candidates.push({ id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: false, reason: 'Dates and evidence do not show enough distinct project periods.' });
   return candidates.slice(0, STORY_CANDIDATE_LIMIT).map(candidate => {

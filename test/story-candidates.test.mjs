@@ -144,6 +144,41 @@ test('scored project IDs match candidate scenes and their rendered SVGs', () => 
   }
 });
 
+test('Story Composition preserves authored relationships and exposes evidence in static SVG', () => {
+  const records = Array.from({ length: 6 }, (_, index) => ({
+    full_name: `sample/story-${index}`,
+    name: `Story Project ${index}`,
+    language: index < 4 ? 'Rust' : 'JavaScript',
+    topics: index < 3 ? ['wasm', 'tooling'] : index < 5 ? ['web'] : ['cli'],
+  }));
+  const options = {
+    nodeMode: 'repositories', showOther: true,
+    projectShowcase: { 'sample/story-0': { role: 'featured', priority: 1 } },
+    projectFamilies: { tooling: { label: 'Tooling family', members: ['sample/story-0', 'sample/story-1', 'sample/story-2'] } },
+    projectRelationships: [['sample/story-3', 'sample/story-4'], ['sample/story-0', 'sample/story-5']], seed: 'story-composition',
+  };
+  const graph = semanticGraphFromScene(createScene('sample', records, options));
+  const candidates = generateStoryCandidates(graph, options);
+  assert.deepEqual(candidates.map(candidate => candidate.id), ['projects', 'technical-shape', 'journey']);
+  const projects = candidates.find(candidate => candidate.id === 'projects');
+  assert.equal(projects.composition.version, 1);
+  assert.ok(projects.composition.relationships.some(edge => edge.type === 'explicit-relationship' && edge.evidence.some(item => item.startsWith('relationship:'))));
+  assert.ok(projects.composition.diagnostics.some(item => item.reason === 'endpoint-not-visible-in-this-story-view'));
+  assert.ok(projects.scene.semanticGroups.groups.some(group => group.provenance === 'user' && group.label === 'Tooling family'));
+  assert.ok(projects.composition.relationships.length <= 12);
+  const edgeIds = new Set(projects.scene.edges.map(edge => edge.id));
+  assert.ok(projects.composition.relationships.every(edge => edgeIds.has(edge.id)));
+  const svg = renderSceneSVG(projects.scene);
+  assert.match(svg, /data-relationship-type="explicit-relationship"/);
+  assert.match(svg, /Project connection types/);
+  assert.match(svg, /shared language/);
+  assert.match(svg, /<text class="relationship-evidence-label"[^>]*><textPath[^>]*>[^<]*JavaScript/);
+  const reordered = semanticGraphFromScene(createScene('sample', [...records].reverse(), options));
+  const reorderedProjects = generateStoryCandidates(reordered, options).find(candidate => candidate.id === 'projects');
+  assert.deepEqual(reorderedProjects.composition.relationships, projects.composition.relationships);
+  assert.deepEqual(reorderedProjects.scene.edges.map(edge => edge.id).sort(), projects.scene.edges.map(edge => edge.id).sort());
+});
+
 test('frontend, full-stack, and tooling fixtures produce bounded candidates', () => {
   for (const id of ['frontend-heavy', 'full-stack', 'polyglot-tooling', 'mostly-forks', 'organization-contributor']) {
     const profile = profiles.find(item => item.id === id);

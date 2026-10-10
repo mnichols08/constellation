@@ -4,18 +4,15 @@ import { overviewEdges } from "./scaling.mjs";
 let core;
 export let engineError;
 try {
+  const { base64 } = await import("./wasm/inline.mjs");
   const bindings = await import("./wasm/constellation_core.js");
-  const url = new URL("./wasm/constellation_core_bg.wasm", import.meta.url);
-  const module =
-    typeof process !== "undefined" && process.versions?.node
-      ? await (await import("node:fs/promises")).readFile(url)
-      : await (await fetch(url)).arrayBuffer();
+  const module = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
   await bindings.default({ module_or_path: module });
   core = bindings;
 } catch (error) {
   engineError = error;
   throw new Error(
-    "Constellation requires its bundled Rust/WASM engine. Restore the .wasm asset and allow WebAssembly in your browser policy.",
+    "Constellation requires its bundled Rust/WASM engine. Restore the generated inline WASM module and allow WebAssembly in your browser policy.",
     { cause: error },
   );
 }
@@ -146,6 +143,11 @@ export const GRAPH_QUALITY_VERSION = 1;
 export function evaluateGraphQuality(candidate) {
   if (!core?.graph_quality) throw new Error('Graph Quality needs the rebuilt Rust engine.');
   return JSON.parse(core.graph_quality(JSON.stringify(candidate)));
+}
+
+export function composeStory(input) {
+  if (!core?.compose_story) throw new Error('Story Composition needs the rebuilt Rust/WASM engine.');
+  return JSON.parse(core.compose_story(JSON.stringify(input)));
 }
 
 export function identityGeometry(metadata, variation = 0) {
