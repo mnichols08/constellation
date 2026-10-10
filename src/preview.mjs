@@ -103,7 +103,8 @@ const requestCache = previewFetch.requestCache;
 let projectStructureRequest = null;
 let atlasProjectGraph = null;
 let atlasAnnouncement = '';
-let storySelection = 'auto';
+let storyMode = 'auto';
+let selectedStoryId = 'projects';
 let storyCandidates = [];
 let liveSemanticGraph = null;
 let liveSemanticFingerprint = null;
@@ -414,17 +415,22 @@ syncAccountMode();
 const status = $("#status");
 const preview = $("#preview");
 const download = $(".download");
+const profileStoryDownload = $("#download-profile-story");
 const graphDownload = $("#download-semantic-graph");
 const graphInput = $("#import-semantic-graph");
 const graphStatus = $("#semantic-graph-status");
 const storyStatus = $("#story-recommendation");
 function updateStoryChoices(recommended, chosen) {
   if (!storyStatus) return;
-  storyStatus.textContent = recommended ? `${recommended.label} is recommended from the available project evidence.` : 'Project view is the default story.';
+  storyStatus.textContent = storyMode === 'manual'
+    ? 'Custom view. Your presentation controls own this view.'
+    : storyMode === 'auto'
+      ? `${recommended?.label || 'Projects'} is recommended from the available project evidence.`
+      : `${chosen?.label || 'Projects'} story selected.`;
   for (const button of document.querySelectorAll('[data-story-choice]')) {
     const id = button.dataset.storyChoice;
     const candidate = storyCandidates.find(item => item.id === id);
-    button.setAttribute('aria-pressed', String((chosen?.id || 'projects') === id));
+    button.setAttribute('aria-pressed', String(storyMode !== 'manual' && (chosen?.id || 'projects') === id));
     button.disabled = Boolean(candidate && candidate.available === false);
     button.title = candidate?.reason || '';
     const badge = button.querySelector('[data-recommended-badge]');
@@ -432,13 +438,13 @@ function updateStoryChoices(recommended, chosen) {
   }
   const lab = document.querySelector('#quality-lab');
   if (lab) {
-    lab.hidden = new URLSearchParams(location.search).get('debug') !== 'quality';
+    lab.hidden = new URLSearchParams(location.search).get('debug') !== 'quality' || storyMode === 'manual';
     const list = lab.querySelector('#quality-results');
     if (list) list.replaceChildren(...storyCandidates.map(candidate => {
       const item = document.createElement('li');
       if (!candidate.quality) { item.textContent = `${candidate.label} · unavailable: ${candidate.reason}`; return item; }
       const dimensions = Object.entries(candidate.quality.dimensions).map(([key, value]) => `${key} ${value.toFixed(2)}`).join(' · ');
-      item.textContent = `${candidate.label} · ${candidate.quality.score.toFixed(2)}${candidate.id === recommended?.id ? ' · selected' : ''} · ${dimensions}${candidate.quality.diagnostics.length ? ` · ${candidate.quality.diagnostics.join(', ')}` : ''}`;
+      item.textContent = `${candidate.label} · ${candidate.quality.score.toFixed(2)}${candidate.id === recommended?.id ? ' · recommended' : ''}${storyMode === 'story' && candidate.id === chosen?.id ? ' · displayed' : ''} · ${dimensions}${candidate.quality.diagnostics.length ? ` · ${candidate.quality.diagnostics.join(', ')}` : ''}`;
       return item;
     }));
   }
@@ -446,9 +452,19 @@ function updateStoryChoices(recommended, chosen) {
 document.querySelector('#story-choices')?.addEventListener('click', event => {
   const button = event.target.closest('[data-story-choice]');
   if (!button || button.disabled) return;
-  storySelection = button.dataset.storyChoice;
+  storyMode = 'story';
+  selectedStoryId = button.dataset.storyChoice;
   render();
 });
+function useCustomStoryForControl(event) {
+  if (event.target.closest('#story-choices')) return;
+  if (event.target.closest('.controls, .design-launcher') && event.target.closest('input, select, textarea, button')) storyMode = 'manual';
+}
+document.addEventListener('input', useCustomStoryForControl, true);
+document.addEventListener('change', useCustomStoryForControl, true);
+document.addEventListener('click', event => {
+  if (event.target.closest('.controls button')) useCustomStoryForControl(event);
+}, true);
 function setSemanticGraphArtifact(graph) {
   const json = serializeSemanticGraph(graph);
   const info = semanticGraphExportInfo(graph);
@@ -887,6 +903,7 @@ repositories = repositories.map((repo, index) => ({
   archived: index === 15,
 }));
 let url;
+let profileStoryUrl;
 let workflowUrl;
 
 function updateNodeColorControls(selectedId) {
@@ -1125,6 +1142,19 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     showOther: $("#show-other").checked,
     css: `${generatedCSS}\n${$("#custom-css").value}`,
   };
+  const historyMode = $('#history-mode').value;
+  options.history = {
+    ...options.history,
+    mode: historyMode,
+    year: historyMode === 'historical' ? Number($('#history-year').value) : null,
+    timeLapse: {
+      ...options.history?.timeLapse,
+      enabled: historyMode === 'time-lapse',
+      mode: $('#history-lapse').value,
+      duration: Number($('#history-duration').value),
+      loop: $('#history-loop').checked,
+    },
+  };
   options.accountData = isSample ? undefined : data.profile(account);
   if (options.accountSun === "avatar") {
     const key = account.toLowerCase();
@@ -1156,11 +1186,12 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     "automatic";
   $("#temporal-stack-controls").hidden =
     options.arrangement !== "temporal-stack";
+  const requestedTemporalAxis = $('#temporal-axis').value;
   if (options.arrangement === "temporal-stack") {
     options.temporalStack = {
       ...options.temporalStack,
       enabled: true,
-      axis: $("#temporal-axis").value,
+      axis: requestedTemporalAxis,
     };
     const layerValues = $("#temporal-layerValues")
       .value.split("\n")
@@ -1470,8 +1501,16 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
         temporalStack: undefined, timeline: undefined, timeLapse: false,
         history: { ...options.history, mode: 'current', timeLapse: { ...options.history?.timeLapse, enabled: false } },
       }, { pipeline: dataPipeline });
+      // Building the broad semantic source can normalize nested temporal options.
+      // Keep the user's axis when projecting/ranking story candidates below.
+      if (options.arrangement === 'temporal-stack')
+        options.temporalStack = { ...options.temporalStack, axis: requestedTemporalAxis };
       canonicalLiveScene = semanticSourceScene;
-      const canonicalGraph = semanticGraphFromScene(canonicalScene);
+      // A time-lapse Scene is a wrapper; Semantic Graph truth comes from its
+      // canonical latest frame, never from the wrapper or a bounded story.
+      const canonicalGraph = semanticGraphFromScene(
+        canonicalScene.kind === 'time-lapse' ? canonicalScene.latest : canonicalScene,
+      );
       const explicitEmptyCategorySelection = options.languages?.length === 0 || options.topics?.length === 0;
       const nextGraph = canonicalGraph.nodes.some(node => node.kind === 'project')
         ? canonicalGraph
@@ -1492,10 +1531,29 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
           if (!atlasHistory) atlasHistory = createAtlasHistory(atlasState);
         }
         liveSemanticGraph = nextGraph; liveSemanticFingerprint = nextFingerprint;
-        storyCandidates = generateStoryCandidates(liveSemanticGraph, options, { pipeline: dataPipeline });
+        if (storyMode !== 'manual' || !storyCandidates.length) try {
+          storyCandidates = generateStoryCandidates(liveSemanticGraph, options, { pipeline: dataPipeline });
+        } catch {
+            // Story evaluation is an enhancement. Keep the validated canonical
+            // Scene usable if a candidate is rejected or cannot be projected.
+            storyCandidates = [
+              { id: 'projects', label: 'Projects', question: 'What does this person build?', available: true, scene: canonicalScene },
+              { id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: false, reason: 'Candidate evaluation is unavailable for this configuration.' },
+              { id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: false, reason: 'Candidate evaluation is unavailable for this configuration.' },
+            ];
+            message('Story evaluation was unavailable for this configuration. Showing the Projects view.', false);
+        }
         const recommended = recommendStoryCandidate(storyCandidates);
-        const chosen = storySelection === 'auto' ? recommended : storyCandidates.find(candidate => candidate.id === storySelection && candidate.available !== false) || recommended;
-        scene = atlasState.level === 'developer' ? (chosen?.id === 'projects' ? canonicalScene : chosen?.scene || canonicalScene) : projectDeveloperAtlasScene(liveSemanticGraph, atlasState, options, atlasProjectGraph);
+        const chosen = storyMode === 'auto'
+          ? recommended
+          : storyMode === 'manual'
+            ? null
+            : storyCandidates.find(candidate => candidate.id === selectedStoryId && candidate.available !== false) || recommended;
+        scene = storyMode === 'manual'
+          ? canonicalScene
+          : atlasState.level === 'developer'
+            ? (chosen?.scene || canonicalScene)
+            : projectDeveloperAtlasScene(liveSemanticGraph, atlasState, options, atlasProjectGraph);
         updateStoryChoices(recommended, chosen);
       } else { liveSemanticGraph = null; liveSemanticFingerprint = null; atlasState = null; atlasHistory = null; atlasProjectGraph = null; storyCandidates = []; }
       setSemanticGraphArtifact(nextGraph);
@@ -1525,6 +1583,11 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
       svg.includes("No projects match these filters or historical year."))
   )
     return false;
+  const nextProfileStoryUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  if (profileStoryUrl) URL.revokeObjectURL(profileStoryUrl);
+  profileStoryUrl = nextProfileStoryUrl;
+  profileStoryDownload.href = profileStoryUrl;
+  profileStoryDownload.download = `${username(account)}.profile-story.svg`;
   displayedNodes = [...projected.nodes].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
@@ -1558,10 +1621,9 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
           ? "Shared topic"
           : "Shared language";
   const exportSelection = () => {
-    const captured = renderConstellation(account, repositories, {
-      ...options,
-      generatedAt,
-    });
+    // Preserve the exact scene chosen for the live canvas, including a bounded
+    // story candidate or a custom manual view, in the regular SVG export.
+    const captured = svg;
     const nextUrl = URL.createObjectURL(
       new Blob([captured], { type: "image/svg+xml" }),
     );
@@ -2067,6 +2129,8 @@ async function loadAccount(
     loadedSource = source;
     isSample = false;
     if (restoring || changedAccount) applyOptions(loadOptions);
+    if (restoring) { storyMode = 'manual'; selectedStoryId = 'projects'; }
+    else if (changedAccount) { storyMode = 'auto'; selectedStoryId = 'projects'; }
     if (importedBeforeLoad || changedAccount) { atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
     form.elements.username.value = loadOptions.organizationUser || account;
     $("#organization-account").value = loadOptions.organizationUser

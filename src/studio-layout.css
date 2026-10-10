@@ -119,6 +119,7 @@ html[data-entry="studio"] .masthead { height: 58px; }
   .studio-ready .chart-number { display: none; }
 }
 @media (max-width: 700px) {
+  .studio-ready .observatory:has(.customize-controls[open]) { overflow: visible; }
   .studio-ready .masthead, .studio-ready main, .studio-ready footer { width: calc(100% - 20px); }
   .studio-ready .masthead { height: 46px; }
   .studio-ready .intro { padding: 0 0 10px; }

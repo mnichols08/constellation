@@ -12,7 +12,25 @@ export function mountStudioHistory(host, changed) {
       const option = document.createElement('option'); option.value = value; option.textContent = text; input.append(option);
     } else input.type = type;
     body.append(label, input); controls.set(key, input);
-    input.addEventListener('input', () => { sync(); changed(); }); return input;
+    input.addEventListener('input', () => {
+      sync();
+      settings = {
+        ...settings,
+        history: {
+          ...settings.history,
+          mode: mode.value,
+          year: mode.value === 'historical' ? Number(year.value) : null,
+          timeLapse: {
+            ...settings.history.timeLapse,
+            enabled: mode.value === 'time-lapse',
+            mode: lapse.value,
+            duration: Number(duration.value),
+            loop: loop.checked,
+          },
+        },
+      };
+      changed();
+    }); return input;
   };
   const mode = field('mode', 'History mode', [['current', 'Current'], ['historical', 'Historical year'], ['time-lapse', 'Time-lapse']]);
   const year = field('year', 'Historical year', null, 'range'); year.min = '2008'; year.max = String(end); year.step = '1';

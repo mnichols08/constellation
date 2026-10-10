@@ -613,3 +613,5 @@
 - Give keyboard-selected studio nodes an explicit focus outline, including when glow is disabled. Node buttons support Enter, Space, Escape and Shift-selection.
 - Report omitted labels and their reasons in the studio filter summary. Rendering callers can receive `label-omitted` diagnostics through the fourth argument's `onDiagnostic` callback without changing SVG output.
 - Retain default SVG output when refinement is disabled.
+
+- Repair story rendering so the displayed and exported SVG is the bounded candidate that Graph Quality scored; manual presentation controls now suspend automatic story selection. Share representative selection across story views and cap Journey across three time periods. Add a direct Profile Story SVG export.

@@ -116,8 +116,6 @@ export function renderSceneSVG(visualScene, renderOptions) {
     return renderSceneSVG(projected, { ...renderOptions, semanticLevel: 'projects' });
   }
   if (visualScene.presentation.options.readmePresentation === "recruiter") return renderRecruiterSVG(visualScene);
-  if (visualScene.temporalStack)
-    return renderTemporalStackSVG(visualScene, renderOptions);
   if (visualScene.kind === "time-lapse") {
     const { account, repositories, options, reference } =
       visualScene.presentation;
@@ -146,6 +144,8 @@ export function renderSceneSVG(visualScene, renderOptions) {
       reference,
     );
   }
+  if (visualScene.temporalStack)
+    return renderTemporalStackSVG(visualScene, renderOptions);
   const { options, graph, sourceHasRepositories, nodeMode, hasHistory } =
     visualScene.presentation;
   const { account: name, seed } = visualScene.metadata;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createScene } from '../src/constellation.mjs';
 import { semanticGraphFromScene } from '../src/semantic-graph.mjs';
-import { generateStoryCandidates, recommendStoryCandidate } from '../src/story-candidates.mjs';
+import { generateStoryCandidates, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects } from '../src/story-candidates.mjs';
 
 const profiles = JSON.parse(await readFile(new URL('./fixtures/story-profiles.json', import.meta.url), 'utf8'));
 function graphFor(profile) {
@@ -66,6 +66,45 @@ test('representative projects are capped at twelve and preserve featured intent'
   const projects = candidates.find(item => item.id === 'projects').scene.nodes.filter(node => node.metadata?.full_name);
   assert.equal(projects.length, 12);
   assert.ok(projects.some(node => node.id === 'sample/repo-49'));
+});
+
+test('Technical Shape eligibility uses the same representatives as its scored scene', () => {
+  const records = Array.from({ length: 24 }, (_, i) => {
+    const category = i < 12 ? ['JavaScript', 'shared'] : i < 18 ? ['Rust', 'systems'] : ['Python', 'data'];
+    return { full_name: `sample/repo-${String(i).padStart(2, '0')}`, name: `Repo ${i}`, language: category[0], topics: [category[1]] };
+  });
+  const graph = semanticGraphFromScene(createScene('sample', records, { nodeMode: 'repositories', showOther: true }));
+  const selected = selectRepresentativeProjects(graph.nodes.filter(node => node.kind === 'project')).map(node => node.id).sort();
+  const candidates = generateStoryCandidates(graph);
+  const projects = candidates.find(item => item.id === 'projects');
+  const technical = candidates.find(item => item.id === 'technical-shape');
+  const projectIds = candidate => candidate.scene.nodes.filter(node => node.metadata?.full_name && (!node.metadata?.nodeKind || node.metadata.nodeKind === 'repository')).map(node => node.id).sort();
+  assert.deepEqual(projectIds(projects), selected);
+  assert.deepEqual(projectIds(technical), selected);
+  assert.equal(technical.available, true);
+});
+
+test('Journey is capped at twelve and represents early, middle, and recent periods', () => {
+  const profile = profiles.find(item => item.id === 'long-history');
+  const candidates = generateStoryCandidates(graphFor(profile), { seed: profile.id, referenceDate: '2026-01-01T00:00:00Z' });
+  const journey = candidates.find(item => item.id === 'journey');
+  const projects = journey.scene.nodes.filter(node => node.metadata?.full_name && (!node.metadata?.nodeKind || node.metadata.nodeKind === 'repository'));
+  const years = projects.map(node => Number(node.metadata.created_at.slice(0, 4)));
+  const allYears = graphFor(profile).nodes.filter(node => node.kind === 'project').map(node => Number(node.properties.createdAt.slice(0, 4))).filter(year => year <= 2026);
+  const minYear = Math.min(...allYears), span = Math.max(...allYears) - minYear + 1;
+  assert.ok(projects.length <= 12);
+  assert.deepEqual(new Set(years.map(year => Math.min(2, Math.floor((year - minYear) * 3 / span)))), new Set([0, 1, 2]));
+});
+
+test('Journey reserves each available period even when the portfolio is already under the cap', () => {
+  const projects = [2010, 2012, 2013, 2014, 2016, 2017, 2019, 2020, 2022].map((year, index) => ({
+    id: `sample/repo-${index}`,
+    properties: { createdAt: `${year}-04-01T00:00:00Z` },
+  }));
+  const selected = selectJourneyProjects(projects, 12, '2026-01-01T00:00:00Z');
+  const years = selected.map(node => Number(node.properties.createdAt.slice(0, 4)));
+  const span = Math.max(...years) - Math.min(...years) + 1;
+  assert.deepEqual(new Set(years.map(year => Math.min(2, Math.floor((year - Math.min(...years)) * 3 / span)))), new Set([0, 1, 2]));
 });
 
 test('frontend, full-stack, and tooling fixtures produce bounded candidates', () => {

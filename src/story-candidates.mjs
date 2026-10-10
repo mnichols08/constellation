@@ -5,23 +5,84 @@ import { semanticActive } from './semantic-studio.mjs';
 
 export const STORY_CANDIDATE_LIMIT = 3;
 export const STORY_TYPES = Object.freeze(['projects', 'technical-shape', 'journey']);
+export const STORY_PROJECT_LIMIT = 12;
 
-function projectCandidate(graph, options, runtime, mode) {
+function curatedPriority(node) {
+  return ({ featured: 4, supporting: 3, include: 2 }[node.properties.curatedRole] || (node.properties.pinned === true ? 3 : 0));
+}
+
+function evidenceValues(node) {
+  return [node.properties.language, ...(node.properties.topics || [])].filter(Boolean);
+}
+
+function marginalEvidence(node, chosen) {
+  const represented = new Set(chosen.flatMap(evidenceValues));
+  return evidenceValues(node).filter(value => !represented.has(value)).length;
+}
+
+function stablePick(pool, chosen) {
+  return [...pool].sort((a, b) => curatedPriority(b) - curatedPriority(a)
+    || marginalEvidence(b, chosen) - marginalEvidence(a, chosen)
+    || a.id.localeCompare(b.id))[0];
+}
+
+export function selectRepresentativeProjects(projects, limit = STORY_PROJECT_LIMIT) {
+  const pending = [...projects];
+  const chosen = [];
+  const targetCount = Math.min(limit, pending.length);
+  while (chosen.length < targetCount && pending.length) {
+    const next = stablePick(pending, chosen);
+    chosen.push(next);
+    pending.splice(pending.indexOf(next), 1);
+  }
+  return chosen;
+}
+
+export function selectJourneyProjects(projects, limit = STORY_PROJECT_LIMIT, referenceDate = new Date().toISOString()) {
+  const currentYear = new Date(referenceDate).getUTCFullYear();
+  const dated = projects.filter(node => /^\d{4}-\d{2}-\d{2}/.test(node.properties?.createdAt || '')
+    && Number(node.properties.createdAt.slice(0, 4)) <= currentYear);
+  const years = dated.map(node => Number(node.properties.createdAt.slice(0, 4)));
+  const minYear = Math.min(...years), maxYear = Math.max(...years);
+  const span = Math.max(1, maxYear - minYear + 1);
+  const buckets = new Map();
+  for (const node of dated) {
+    const bucket = Math.min(2, Math.floor((Number(node.properties.createdAt.slice(0, 4)) - minYear) * 3 / span));
+    if (!buckets.has(bucket)) buckets.set(bucket, []);
+    buckets.get(bucket).push(node);
+  }
+  const chosen = [];
+  const pending = new Map([...buckets].map(([bucket, nodes]) => [bucket, [...nodes]]));
+  const bucketIds = [...pending.keys()].sort((a, b) => a - b);
+  // Reserve a representative from each era before filling the remaining slots.
+  for (const bucket of bucketIds) {
+    if (chosen.length >= limit) break;
+    const pool = pending.get(bucket);
+    const next = stablePick(pool, chosen);
+    chosen.push(next);
+    pool.splice(pool.indexOf(next), 1);
+  }
+  while (chosen.length < Math.min(limit, dated.length)) {
+    let added = false;
+    for (const bucket of bucketIds) {
+      const pool = pending.get(bucket);
+      if (!pool.length || chosen.length >= limit) continue;
+      const next = stablePick(pool, chosen);
+      chosen.push(next);
+      pool.splice(pool.indexOf(next), 1);
+      added = true;
+    }
+    if (!added) break;
+  }
+  return chosen;
+}
+
+function projectCandidate(graph, options, runtime, mode, representativeProjects = null) {
   const copy = structuredClone(graph);
   let selectedTechnicalCategories = null;
   const projects = copy.nodes.filter(node => node.kind === 'project');
-  const evidenceFor = node => [node.properties.language, ...(node.properties.topics || [])].filter(Boolean);
-  const explicitPriority = node => ({ featured: 3, supporting: 2, include: 1 }[node.properties.curatedRole] || (node.properties.pinned === true ? 2 : 0));
-  if (projects.length > 12) {
-    const chosen = [];
-    const pending = [...projects].sort((a, b) => explicitPriority(b) - explicitPriority(a) || a.id.localeCompare(b.id));
-    while (chosen.length < 12 && pending.length) {
-      pending.sort((a, b) => {
-        const marginal = node => evidenceFor(node).filter(value => !chosen.some(existing => evidenceFor(existing).includes(value))).length;
-        return explicitPriority(b) - explicitPriority(a) || marginal(b) - marginal(a) || a.id.localeCompare(b.id);
-      });
-      chosen.push(pending.shift());
-    }
+  const chosen = representativeProjects || selectRepresentativeProjects(projects);
+  if (projects.length > chosen.length) {
     const ids = new Set(chosen.map(node => node.id));
     const groupIds = new Set(copy.groups.filter(group => group.members.filter(id => ids.has(id)).length >= 2).map(group => group.id));
     for (const group of copy.groups) if (groupIds.has(group.id)) group.members = group.members.filter(id => ids.has(id));
@@ -60,7 +121,16 @@ function projectCandidate(graph, options, runtime, mode) {
     copy.edges = copy.edges.filter(edge => edge.kind !== 'member-of' || authored.has(edge.to));
   }
   copy.statistics = { ...copy.statistics, nodeCount: copy.nodes.length, edgeCount: copy.edges.length };
-  const scene = projectSemanticGraphToScene(copy, { ...options, nodeMode: mode === 'technical-shape' ? 'combined' : 'repositories', showOther: true, languages: undefined, topics: undefined }, runtime);
+  const scene = projectSemanticGraphToScene(copy, {
+    ...options,
+    temporalStack: options.temporalStack ? { ...options.temporalStack } : options.temporalStack,
+    nodeMode: mode === 'technical-shape' ? 'combined' : 'repositories',
+    showOther: true,
+    languages: undefined,
+    topics: undefined,
+    maxRepos: Math.max(1, chosen.length),
+    includeRepos: chosen.map(node => node.id),
+  }, runtime);
   if (selectedTechnicalCategories) {
     const remove = new Set(scene.nodes.filter(node => ['language', 'topic'].includes(node.metadata?.nodeKind)
       && !selectedTechnicalCategories.has(`${node.metadata.nodeKind}:${node.metadata.name}`)).map(node => node.id));
@@ -101,10 +171,14 @@ function sceneQualityInput(scene, name) {
 
 export function generateStoryCandidates(graph, options = {}, runtime = {}) {
   if (graph?.subject?.kind !== 'developer') throw new Error('Story candidates require a developer Semantic Graph.');
+  const allProjects = graph.nodes.filter(node => node.kind === 'project');
+  const representativeProjects = selectRepresentativeProjects(allProjects);
+  const referenceDate = options.referenceDate || options.generatedAt || new Date().toISOString();
+  const journeyProjects = selectJourneyProjects(allProjects, STORY_PROJECT_LIMIT, referenceDate);
   const candidates = [
-    { id: 'projects', label: 'Projects', question: 'What does this person build?', scene: projectCandidate(graph, options, runtime, 'projects') },
+    { id: 'projects', label: 'Projects', question: 'What does this person build?', scene: projectCandidate(graph, options, runtime, 'projects', representativeProjects) },
   ];
-  const selectedProjects = graph.nodes.filter(node => node.kind === 'project').slice(0, 12);
+  const selectedProjects = representativeProjects;
   const featureCounts = new Map();
   for (const node of selectedProjects) for (const [kind, value] of [['language', node.properties.language], ...(node.properties.topics || []).map(topic => ['topic', topic])]) {
     if (value) featureCounts.set(`${kind}:${value}`, (featureCounts.get(`${kind}:${value}`) || 0) + 1);
@@ -112,8 +186,8 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
   const meaningfulFeatures = [...featureCounts].filter(([, count]) => count >= 2 && count < selectedProjects.length);
   const semanticLayoutActive = semanticActive(options);
   const technicalAvailable = selectedProjects.length >= 6 && meaningfulFeatures.length >= 2 && !semanticLayoutActive;
-  candidates.push({ id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: technicalAvailable, ...(technicalAvailable ? {} : { reason: semanticLayoutActive ? 'The current semantic ring presentation takes priority over category nodes.' : selectedProjects.length < 6 ? 'At least six representative projects are needed to form useful technical areas.' : 'The available language and topic evidence does not distinguish multiple project areas.' }), scene: projectCandidate(graph, options, runtime, 'technical-shape') });
-  const projects = graph.nodes.filter(node => node.kind === 'project');
+  candidates.push({ id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: technicalAvailable, ...(technicalAvailable ? {} : { reason: semanticLayoutActive ? 'The current semantic ring presentation takes priority over category nodes.' : selectedProjects.length < 6 ? 'At least six representative projects are needed to form useful technical areas.' : 'The available language and topic evidence does not distinguish multiple project areas.' }), scene: projectCandidate(graph, options, runtime, 'technical-shape', representativeProjects) });
+  const projects = journeyProjects;
   const dated = projects.filter(node => /^\d{4}-\d{2}-\d{2}/.test(node.properties?.createdAt || ''));
   const years = new Set(dated.map(node => Number(node.properties.createdAt.slice(0, 4))));
   const firstYear = Math.min(...years);
@@ -130,8 +204,7 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
   const temporalChange = periods.size >= 3 && [...periods.values()].every(items => items.length >= 2)
     && new Set(periodEvidence).size >= 2 && periodEvidence.every(Boolean);
   if (dated.length >= 6 && years.size >= 3 && temporalChange) {
-    const records = projects.slice(0, 100).map(node => ({ full_name: node.id, name: node.label, description: node.properties.description || '', language: node.properties.language || null, topics: node.properties.topics || [], created_at: node.properties.createdAt || null }));
-    const referenceDate = options.referenceDate || options.generatedAt || new Date().toISOString();
+    const records = projects.map(node => ({ full_name: node.id, name: node.label, description: node.properties.description || '', language: node.properties.language || null, topics: node.properties.topics || [], created_at: node.properties.createdAt || null }));
     const currentYear = new Date(referenceDate).getUTCFullYear();
     const start = Math.min(...[...years].filter(year => year <= currentYear));
     const end = Math.min(Math.max(...years), currentYear);
