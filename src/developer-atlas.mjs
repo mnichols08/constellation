@@ -152,6 +152,33 @@ export function createAtlasHistory(initial, limit = ATLAS_HISTORY_LIMIT) {
     get canForward() { return index < entries.length - 1; },
     get length() { return entries.length; },
     push(next) { entries = [...entries.slice(0, index + 1), next].slice(-limit); index = entries.length - 1; return next; },
+    reconcile(current, graph, projectGraph = null) {
+      const usable = candidate => validateAtlasState(candidate, graph).valid
+        && (candidate.level !== 'structure' || projectGraph?.subject?.kind === 'project'
+          && projectGraph.subject.id === candidate.projectId
+          && nodeFor(projectGraph, candidate.structuralNodeId));
+      if (!usable(current)) {
+        const recovered = parseAtlasState(serializeAtlasState(current), graph, projectGraph);
+        entries = [recovered]; index = 0;
+        return recovered;
+      }
+      const oldIndex = index;
+      const retained = [];
+      let retainedIndex = -1;
+      for (let i = 0; i < entries.length; i++) {
+        if (!usable(entries[i])) continue;
+        if (i === oldIndex && JSON.stringify(entries[i]) === JSON.stringify(current)) retainedIndex = retained.length;
+        retained.push(entries[i]);
+      }
+      if (retainedIndex < 0) {
+        retained.push(current);
+        retainedIndex = retained.length - 1;
+      }
+      entries = retained.slice(-limit);
+      index = Math.max(0, retainedIndex - Math.max(0, retained.length - limit));
+      entries[index] = current;
+      return current;
+    },
     transact(direction, render) {
       const target = direction === 'back' ? index - 1 : direction === 'forward' ? index + 1 : index;
       if (target < 0 || target >= entries.length || typeof render !== 'function') return false;
@@ -181,6 +208,26 @@ export function serializeAtlasState(value) {
   return result;
 }
 
+function nearestValidAtlasParent(candidate, graph, projectGraph) {
+  const project = nodeFor(graph, candidate.projectId, 'project');
+  if (project) {
+    const enteredGroupId = [candidate.viaGroupId, candidate.groupId].find(id =>
+      groupFor(graph, id) && membership(graph, candidate.projectId, id));
+    const projectState = state('project', graph.subject.id, enteredGroupId || null, candidate.projectId, null, enteredGroupId || null);
+    if (candidate.level !== 'structure' || projectGraph?.subject?.id === candidate.projectId
+      && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;
+    return projectState;
+  }
+
+  // Preserve the entered route even when its project has disappeared. For a
+  // direct Project route both fields are null, so recovery goes to Developer.
+  const enteredGroupId = ['structure', 'project', 'group'].includes(candidate.level)
+    ? [candidate.viaGroupId, candidate.groupId].find(id => groupFor(graph, id))
+    : null;
+  if (enteredGroupId) return state('group', graph.subject.id, enteredGroupId);
+  return createAtlasState(graph);
+}
+
 export function parseAtlasState(serialized, graph, projectGraph = null) {
   if (typeof serialized !== 'string' || serialized.length > 8192) throw new Error('Atlas share state is invalid or oversized.');
   const params = new URLSearchParams(serialized);
@@ -192,18 +239,10 @@ export function parseAtlasState(serialized, graph, projectGraph = null) {
   if (params.size > 7 || params.get('v') !== String(ATLAS_STATE_VERSION)) throw new Error('Unsupported Atlas share state.');
   const level = params.get('l'), developerId = params.get('d');
   let candidate = state(level, developerId, params.get('g'), params.get('p'), params.get('n'), params.get('r'));
+  if (candidate.developerId !== graph?.subject?.id || graph?.subject?.kind !== 'developer') return createAtlasState(graph);
   if (validateAtlasState(candidate, graph).valid) {
-    if (candidate.level === 'structure') {
-      if (projectGraph?.subject?.id === candidate.projectId && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;
-      candidate = state('project', candidate.developerId, candidate.groupId, candidate.projectId, null, candidate.viaGroupId);
-    }
-    return candidate;
+    if (candidate.level !== 'structure' || projectGraph?.subject?.id === candidate.projectId
+      && nodeFor(projectGraph, candidate.structuralNodeId)) return candidate;
   }
-  if (candidate.level === 'structure' && nodeFor(graph, candidate.projectId, 'project')) {
-    const parent = state('project', graph.subject.id, groupFor(graph, candidate.groupId) && membership(graph, candidate.projectId, candidate.groupId) ? candidate.groupId : null, candidate.projectId, null, candidate.viaGroupId);
-    if (validateAtlasState(parent, graph).valid) return parent;
-  }
-  if (candidate.level === 'project' && nodeFor(graph, candidate.projectId, 'project')) return state('project', graph.subject.id, null, candidate.projectId);
-  if ((candidate.level === 'project' || candidate.level === 'group') && groupFor(graph, candidate.groupId)) return state('group', graph.subject.id, candidate.groupId);
-  return createAtlasState(graph);
+  return nearestValidAtlasParent(candidate, graph, projectGraph);
 }

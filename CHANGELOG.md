@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.1 — Atlas Continuity & Navigation Polish
+
+- Preserve valid Atlas routes and entered group paths across compatible semantic refreshes; recover to the nearest valid parent and prune invalid history.
+- Keep saved project selections tied to canonical GitHub repository identity across reordering and duplicate display labels.
+- Reuse the current project's validated structure during the active session and clear it when semantic refresh cannot verify its scanned ref.
+- Improve keyboard focus, route announcements, and narrow-screen Atlas navigation while keeping navigation separate from transient view state.
+- Preserve Semantic Graph v1, Atlas State v1, Scene v1, Config v7, Evidence v1, Project Constellation v1, and Web Component API v1.
+
 ## 4.0.0 — Developer Atlas
 
 - Add separate, versioned Atlas navigation state across Developer, canonical Semantic Groups, Projects, and loaded Project Constellation structure.

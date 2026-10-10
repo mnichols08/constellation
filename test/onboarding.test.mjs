@@ -97,6 +97,22 @@ test("saved project selections resolve GitHub names case-insensitively", () => {
     /Some selected projects are unavailable/,
   );
 });
+test("saved projects resolve by canonical owner/repository after reorder and duplicate labels", () => {
+  const repos = [
+    { full_name: "owner-a/api", name: "api", language: "Rust" },
+    { full_name: "owner-b/api", name: "api", language: "JavaScript" },
+    { full_name: "alice/site", name: "site", language: "HTML" },
+  ];
+  const answers = {
+    ...defaultIntent(repos),
+    projects: ["owner-a/api", "alice/site"],
+  };
+  const before = generateGuidedDesign("alice", repos, answers, { seed: "saved-identity", year: 2026 });
+  const after = generateGuidedDesign("alice", [repos[2], repos[1], repos[0]], answers, { seed: "saved-identity", year: 2026 });
+  assert.deepEqual(before.config.options.includeRepos, ["owner-a/api", "alice/site"]);
+  assert.deepEqual(after.config.options.includeRepos, ["owner-a/api", "alice/site"]);
+  assert.equal(after.config.options.includeRepos.includes("owner-b/api"), false);
+});
 test("guided generation is deterministic and preserves explicit constraints across seeds", () => {
   for (const history of ["current", "history", "3d", "surprise"])
     for (const activity of [
