@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createScene } from '../src/constellation.mjs';
 import { semanticGraphFromScene } from '../src/semantic-graph.mjs';
-import { generateStoryCandidates, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects, sceneQualityInput } from '../src/story-candidates.mjs';
+import { generateStoryCandidates, generateBoundedProjectsFallback, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects, sceneQualityInput } from '../src/story-candidates.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
 import { evaluateGraphQuality } from '../src/engine.mjs';
 
@@ -22,6 +22,21 @@ function graphFor(profile) {
 test('representative profile fixture inventory is deterministic and broad', () => {
   assert.equal(profiles.length, 10);
   assert.deepEqual(profiles.map(item => item.id), ['frontend-heavy','full-stack','polyglot-tooling','one-language-specialist','many-tiny-repos','sparse-metadata','long-history','mostly-forks','organization-contributor','small-portfolio']);
+});
+
+test('safe Projects fallback shares deterministic representatives and the hard export cap', () => {
+  for (const count of [5, 30]) {
+    const graph = graphFor({ id: `fallback-${count}`, projects: count, languages: ['Rust', 'JavaScript'], topics: ['tools'] });
+    const before = JSON.stringify(graph);
+    const fallbackOptions = { seed: 'stable', referenceDate: '2026-01-01T00:00:00Z' };
+    const fallback = generateBoundedProjectsFallback(graph, fallbackOptions);
+    const ids = fallback.scene.nodes.filter(node => node.metadata?.full_name && (!node.metadata?.nodeKind || node.metadata.nodeKind === 'repository')).map(node => node.id).sort();
+    assert.ok(ids.length <= 12);
+    assert.deepEqual(ids, selectRepresentativeProjects(graph.nodes.filter(node => node.kind === 'project')).map(node => node.id).sort());
+    assert.equal(fallback.bounded, true);
+    assert.equal(JSON.stringify(graph), before, 'projection does not mutate the semantic source');
+    assert.equal(fallback.sceneFingerprint, generateBoundedProjectsFallback(graph, fallbackOptions).sceneFingerprint);
+  }
 });
 
 test('one-language evidence keeps Projects as a safe recommendation', () => {

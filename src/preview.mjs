@@ -52,7 +52,7 @@ import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, se
 import { createAtlasState, createAtlasHistory, navigateAtlasToGroup, navigateAtlasToProject, navigateAtlasToStructure, atlasBreadcrumbs, resolveAtlasContext, validateAtlasState, parseAtlasState, serializeAtlasState } from "./developer-atlas.mjs";
 import { projectDeveloperAtlasScene } from "./developer-atlas-scene.mjs";
 import { renderSemanticMarkdown } from "./semantic-markdown.mjs";
-import { generateStoryCandidates, recommendStoryCandidate } from "./story-candidates.mjs";
+import { generateStoryCandidates, generateBoundedProjectsFallback, recommendStoryCandidate } from "./story-candidates.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
 import {
@@ -107,8 +107,20 @@ let storyMode = 'auto';
 let selectedStoryId = 'projects';
 let storyCandidates = [];
 let storyCandidatesFingerprint = null;
+let profileStoryUnavailableReason = '';
 let liveSemanticGraph = null;
 let liveSemanticFingerprint = null;
+function stableStoryOptions(value) {
+  if (Array.isArray(value)) return value.map(stableStoryOptions);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined && typeof value[key] !== 'function').map(key => [key, stableStoryOptions(value[key])]));
+  return value;
+}
+function storyOptionsFingerprint(options) {
+  const text = JSON.stringify(stableStoryOptions(options));
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193); }
+  return `story-options-v1:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
 const projectDialog = document.querySelector('#project-constellation-dialog');
 const projectDialogStatus = document.querySelector('#project-constellation-status');
 const projectDialogScope = document.querySelector('#project-constellation-scope');
@@ -424,13 +436,13 @@ const storyStatus = $("#story-recommendation");
 function updateStoryChoices(recommended, chosen) {
   if (!storyStatus) return;
   const atlasOwnsView = atlasState && atlasState.level !== 'developer';
-  storyStatus.textContent = storyMode === 'manual'
+  storyStatus.textContent = (storyMode === 'manual'
     ? 'Custom view. Your presentation controls own this view.'
     : atlasOwnsView
       ? 'Developer Atlas navigation is active. Story recommendations apply to the full developer view.'
     : storyMode === 'auto'
       ? `${recommended?.label || 'Projects'} is recommended from the available project evidence.`
-      : `${chosen?.label || 'Projects'} story selected.`;
+      : `${chosen?.label || 'Projects'} story selected.`);
   for (const button of document.querySelectorAll('[data-story-choice]')) {
     const id = button.dataset.storyChoice;
     const candidate = storyCandidates.find(item => item.id === id);
@@ -438,8 +450,15 @@ function updateStoryChoices(recommended, chosen) {
       ? storyMode === 'auto'
       : storyMode === 'story' && !atlasOwnsView && chosen?.id === id;
     button.setAttribute('aria-pressed', String(selected));
-    button.disabled = Boolean(candidate && candidate.available === false);
-    button.title = candidate?.reason || '';
+    const unavailable = Boolean(candidate && candidate.available === false);
+    button.setAttribute('aria-disabled', String(unavailable));
+    const explanation = button.querySelector('[data-story-unavailable]');
+    if (explanation) {
+      explanation.hidden = !unavailable;
+      explanation.textContent = unavailable ? `Unavailable: ${candidate.reason}` : '';
+    }
+    if (candidate?.reason && unavailable) button.setAttribute('aria-describedby', `${id}-unavailable`);
+    else button.removeAttribute('aria-describedby');
     const badge = button.querySelector('[data-recommended-badge]');
     if (badge) badge.hidden = recommended?.id !== id;
   }
@@ -458,7 +477,7 @@ function updateStoryChoices(recommended, chosen) {
 }
 document.querySelector('#story-choices')?.addEventListener('click', event => {
   const button = event.target.closest('[data-story-choice]');
-  if (!button || button.disabled) return;
+  if (!button || button.getAttribute('aria-disabled') === 'true') return;
   if (button.dataset.storyChoice === 'auto') {
     storyMode = 'auto';
   } else {
@@ -1536,13 +1555,14 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
         ? canonicalGraph
         : explicitEmptyCategorySelection ? canonicalGraph : semanticGraphFromScene(semanticSourceScene);
       if (nextGraph.subject.kind === 'developer') {
-        const nextFingerprint = semanticGraphFingerprint(nextGraph);
+        const graphFingerprint = semanticGraphFingerprint(nextGraph);
+        const nextFingerprint = `${graphFingerprint}|${storyOptionsFingerprint(options)}`;
         if (!atlasState || atlasState.developerId !== nextGraph.subject.id) {
           atlasProjectGraph = null;
           atlasState = createAtlasState(nextGraph);
           atlasHistory = createAtlasHistory(atlasState);
         }
-        else if (liveSemanticFingerprint !== nextFingerprint) {
+        else if (liveSemanticFingerprint !== graphFingerprint) {
           // The developer graph carries no repository-ref token that can prove a
           // previously scanned structure is still current after semantic refresh.
           atlasProjectGraph = null;
@@ -1550,20 +1570,27 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
             || parseAtlasState(serializeAtlasState(atlasState), nextGraph, atlasProjectGraph);
           if (!atlasHistory) atlasHistory = createAtlasHistory(atlasState);
         }
-        liveSemanticGraph = nextGraph; liveSemanticFingerprint = nextFingerprint;
+        liveSemanticGraph = nextGraph; liveSemanticFingerprint = graphFingerprint;
         if (storyMode !== 'manual' || !storyCandidates.length || storyCandidatesFingerprint !== nextFingerprint) try {
           storyCandidates = generateStoryCandidates(liveSemanticGraph, options, { pipeline: dataPipeline });
           storyCandidatesFingerprint = nextFingerprint;
+          profileStoryUnavailableReason = '';
         } catch {
-            // Story evaluation is an enhancement. Keep the validated canonical
-            // Scene usable if a candidate is rejected or cannot be projected.
+          try {
+            const projectsFallback = generateBoundedProjectsFallback(liveSemanticGraph, options, { pipeline: dataPipeline });
+            storyCandidates = [projectsFallback,
+              { id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: false, reason: 'Candidate evaluation is unavailable for this configuration.' },
+              { id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: false, reason: 'Candidate evaluation is unavailable for this configuration.' }];
+            profileStoryUnavailableReason = '';
+          } catch {
             storyCandidates = [
-              { id: 'projects', label: 'Projects', question: 'What does this person build?', available: true, scene: canonicalScene },
+              { id: 'projects', label: 'Projects', question: 'What does this person build?', available: false, reason: 'A bounded Projects view could not be constructed for the current configuration.' },
               { id: 'technical-shape', label: 'Technical Shape', question: 'What technical areas connect this work?', available: false, reason: 'Candidate evaluation is unavailable for this configuration.' },
               { id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: false, reason: 'Candidate evaluation is unavailable for this configuration.' },
             ];
-            storyCandidatesFingerprint = nextFingerprint;
-            message('Story evaluation was unavailable for this configuration. Showing the Projects view.', false);
+            profileStoryUnavailableReason = 'a bounded candidate could not be built for the current inputs.';
+          }
+          storyCandidatesFingerprint = nextFingerprint;
         }
         const recommended = recommendStoryCandidate(storyCandidates);
         const chosen = storyMode === 'auto'
@@ -1611,6 +1638,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     return false;
   if (profileStoryUrl) URL.revokeObjectURL(profileStoryUrl);
   const profileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
+    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
     ? renderSceneSVG(profileStoryCandidate.scene)
     : null;
   profileStoryUrl = profileStorySvg
@@ -1624,7 +1652,9 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   } else {
     profileStoryDownload.removeAttribute('href');
     delete profileStoryDownload.dataset.sceneFingerprint;
+    if (liveSemanticGraph && !profileStoryUnavailableReason) profileStoryUnavailableReason = 'no valid bounded candidate is available for the current inputs.';
   }
+  if (storyStatus && profileStoryUnavailableReason) storyStatus.textContent += ` Profile Story export unavailable: ${profileStoryUnavailableReason}`;
   for (const [element, candidate] of [[preview, displayedStoryCandidate], [download, displayedStoryCandidate]]) {
     if (candidate?.sceneFingerprint) element.dataset.sceneFingerprint = candidate.sceneFingerprint;
     else delete element.dataset.sceneFingerprint;

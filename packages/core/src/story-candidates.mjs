@@ -160,6 +160,17 @@ function projectCandidate(graph, options, runtime, mode, representativeProjects 
   return scene;
 }
 
+// Recovery path for a failed multi-candidate evaluation. It uses the same
+// curated representative selection and scene projection as normal Projects.
+export function generateBoundedProjectsFallback(graph, options = {}, runtime = {}) {
+  if (graph?.subject?.kind !== 'developer') throw new Error('Story candidates require a developer Semantic Graph.');
+  const scene = projectCandidate(graph, options, runtime, 'projects', selectRepresentativeProjects(graph.nodes.filter(node => node.kind === 'project')));
+  const projectIds = scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind));
+  if (projectIds.length > STORY_PROJECT_LIMIT) throw new Error('Projects fallback exceeded the profile story limit.');
+  const fingerprint = storySceneFingerprint(scene);
+  return Object.freeze({ id: 'projects', label: 'Projects', question: 'What does this person build?', available: true, bounded: true, scene, sceneFingerprint: fingerprint, quality: null });
+}
+
 export function sceneQualityInput(scene, name) {
   const semanticGroups = scene.semanticGroups?.groups || [];
   const categoryGroups = (scene.nodes || []).filter(node => ['language', 'topic'].includes(node.metadata?.nodeKind)).map(node => ({ id: node.id, members: node.metadata.members || [], evidence: [`category:${node.metadata.nodeKind}:${node.metadata.name || node.id}`] }));

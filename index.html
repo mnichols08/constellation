@@ -235,12 +235,12 @@
         </section>
         </details>
         <section class="story-choices" aria-labelledby="story-heading">
-          <div><h2 id="story-heading">Your work, at a glance</h2><p id="story-recommendation" role="status" aria-live="polite">Enter a GitHub username to find the clearest story in the available project evidence.</p></div>
+          <div><h2 id="story-heading">Your work, at a glance</h2><p id="story-recommendation">Enter a GitHub username to find the clearest story in the available project evidence.</p></div>
           <div id="story-choices" role="group" aria-label="Choose a story view">
             <button type="button" data-story-choice="auto" aria-pressed="true">Use recommendation</button>
-            <button type="button" data-story-choice="projects" aria-pressed="false">Projects <span data-recommended-badge hidden>Recommended</span></button>
-            <button type="button" data-story-choice="technical-shape" aria-pressed="false">Technical Shape <span data-recommended-badge hidden>Recommended</span></button>
-            <button type="button" data-story-choice="journey" aria-pressed="false" disabled title="Temporal evidence is required.">Journey <span data-recommended-badge hidden>Recommended</span></button>
+            <button type="button" data-story-choice="projects" aria-pressed="false">Projects <span data-recommended-badge hidden>Recommended</span><span id="projects-unavailable" data-story-unavailable hidden></span></button>
+            <button type="button" data-story-choice="technical-shape" aria-pressed="false">Technical Shape <span data-recommended-badge hidden>Recommended</span><span id="technical-shape-unavailable" data-story-unavailable hidden></span></button>
+            <button type="button" data-story-choice="journey" aria-pressed="false" aria-disabled="true" aria-describedby="journey-unavailable">Journey <span data-recommended-badge hidden>Recommended</span><span id="journey-unavailable" data-story-unavailable>Unavailable: Temporal evidence is required.</span></button>
           </div>
         </section>
         <details id="quality-lab" class="quality-lab" hidden><summary>Candidate Quality Lab · development</summary><ol id="quality-results"></ol></details>

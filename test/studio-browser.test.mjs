@@ -1277,6 +1277,10 @@ test(
       await delay(50);
     }
     assert.equal(apiCalls, 3);
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="journey"]').disabled`), false, 'unavailable choices remain keyboard focusable');
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="journey"]').getAttribute('aria-disabled')`), 'true');
+    assert.match(await evaluate(`document.getElementById('journey-unavailable').textContent`), /Unavailable:/);
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="journey"]').getAttribute('aria-describedby')`), 'journey-unavailable');
     await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
     assert.equal(await evaluate(`(async()=>{const links=[document.querySelector('.download').href,document.querySelector('#download-profile-story').href];const [shown,story]=await Promise.all(links.map(async href=>await(await fetch(href)).text()));return shown===story;})()`), true, 'profile story export matches the selected displayed SVG');
@@ -1284,6 +1288,10 @@ test(
     await evaluate(`input('node-mode','languages');`);
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
     assert.ok(await evaluate(`(async()=>{const text=await(await fetch(document.querySelector('#download-profile-story').href)).text();return new Set([...text.matchAll(/data-repo="([^"]+)"/g)].map(match=>match[1])).size<=12;})()`), 'manual profile export remains within the story cap');
+    const manualStoryBeforeTheme = await evaluate(`document.querySelector('#download-profile-story').dataset.sceneFingerprint`);
+    await evaluate(`document.querySelector('#design-visualTheme').value='deep-space';document.querySelector('#design-visualTheme').dispatchEvent(new Event('change',{bubbles:true}));`);
+    const manualStoryAfterTheme = await evaluate(`document.querySelector('#download-profile-story').dataset.sceneFingerprint`);
+    assert.notEqual(manualStoryAfterTheme, manualStoryBeforeTheme, 'manual mode regenerates presentation candidates when the theme changes');
     await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
     await evaluate(`document.querySelector('#story-choices [data-story-choice="auto"]').click()`);
@@ -1457,11 +1465,10 @@ test(
       `document.querySelector('.design-launcher').style.paddingBottom='48px';`,
     );
     await delay(100);
+    const mobileReachability = await evaluate(`(()=>{const c=document.querySelector('.controls').getBoundingClientRect();return {scrollHeight:document.documentElement.scrollHeight,controlsBottom:c.bottom,scrollY,rootPadding:getComputedStyle(document.documentElement).paddingBottom,bodyPadding:getComputedStyle(document.body).paddingBottom};})()`);
     assert.ok(
-      await evaluate(
-        `document.documentElement.scrollHeight>=document.querySelector('.controls').getBoundingClientRect().bottom+scrollY`,
-      ),
-      "mobile controls remain reachable when toolbar height changes",
+      mobileReachability.scrollHeight >= mobileReachability.controlsBottom + mobileReachability.scrollY,
+      `mobile controls remain reachable when toolbar height changes: ${JSON.stringify(mobileReachability)}`,
     );
     const mobilePreviewTop = await evaluate(
       `document.querySelector('#preview').getBoundingClientRect().top`,
