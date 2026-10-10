@@ -18,6 +18,20 @@ export function generateGuidedDesign(
     throw Error(
       "Some selected projects are unavailable. Edit your project selection.",
     );
+  // Persist and render GitHub's canonical spelling so later exact-match
+  // filters and showcase metadata refer to the same repositories.
+  intent.projects = selected.map((repo) => repo.full_name);
+  if (intent.projectShowcase) {
+    const canonicalNames = new Map(
+      selected.map((repo) => [repo.full_name.toLowerCase(), repo.full_name]),
+    );
+    intent.projectShowcase = Object.fromEntries(
+      Object.entries(intent.projectShowcase).map(([name, role]) => [
+        canonicalNames.get(name.toLowerCase()) || name,
+        role,
+      ]),
+    );
+  }
   const span = temporalEligibility(selected, [], year);
   const code = `v6:m${intent.motion === "still" ? "000" : "7ff"}-y${year}-f${span.firstYear}-e${Number(span.eligible)}-${seed}`;
   let options = randomizeV6(code, { repositories: selected });

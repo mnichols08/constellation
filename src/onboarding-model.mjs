@@ -29,9 +29,14 @@ export function recommendProjects(
     .map((repo) => repo.full_name);
 }
 export function choicesFor(repositories, projects, year) {
-  const selected = repositories.filter((repo) =>
-    projects.includes(repo.full_name),
+  // GitHub treats owner/repository names case-insensitively. Saved intents can
+  // outlive a capitalization change, so resolve against canonical API names.
+  const byName = new Map(
+    repositories.map((repo) => [repo.full_name.toLowerCase(), repo]),
   );
+  const selected = projects
+    .map((project) => byName.get(project.toLowerCase()))
+    .filter(Boolean);
   return {
     selected,
     languages: [...new Set(selected.flatMap(repositoryLanguages))].sort(),

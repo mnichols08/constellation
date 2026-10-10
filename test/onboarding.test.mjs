@@ -64,6 +64,39 @@ test("outcome actions normalize only their promised state and preserve curated c
   assert.equal(generated.config.options.layout, "compact");
   assert.equal(generated.config.options.legend, false);
 });
+test("saved project selections resolve GitHub names case-insensitively", () => {
+  for (const outcome of ["project-map", "technical-focus"]) {
+    const intent = applyOutcome(
+      {
+        ...defaultIntent(repos),
+        projects: ["ALICE/R1", "alice/R2"],
+        projectShowcase: { "ALICE/R1": { role: "featured", priority: 1 } },
+      },
+      outcome,
+    );
+    const generated = generateGuidedDesign("alice", repos, intent, {
+      seed: `case-${outcome}`,
+      year: 2026,
+    });
+    assert.deepEqual(generated.config.options.includeRepos, [
+      "alice/r1",
+      "alice/r2",
+    ]);
+    assert.deepEqual(generated.config.options.projectShowcase, {
+      "alice/r1": { role: "featured", priority: 1 },
+    });
+  }
+  assert.throws(
+    () =>
+      generateGuidedDesign(
+        "alice",
+        repos,
+        { ...defaultIntent(repos), projects: ["alice/deleted"] },
+        { seed: "missing", year: 2026 },
+      ),
+    /Some selected projects are unavailable/,
+  );
+});
 test("guided generation is deterministic and preserves explicit constraints across seeds", () => {
   for (const history of ["current", "history", "3d", "surprise"])
     for (const activity of [

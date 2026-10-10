@@ -1,10 +1,11 @@
 {
   "name": "@constellation/web-component",
-  "version": "3.14.3",
+  "version": "4.0.0",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
     "index.mjs",
+    "web-component-atlas.mjs",
     "README.md",
     "temporal-stack.md",
     "developer-topology.md",
@@ -14,7 +15,7 @@
     "portable-embed.md"
   ],
   "dependencies": {
-    "@constellation/core": "3.14.3"
+    "@constellation/core": "4.0.0"
   },
   "license": "UNLICENSED"
 }

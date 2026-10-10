@@ -78,6 +78,9 @@ export function createPreviewFetch({
     if (!access.authenticated && target.origin === "https://api.github.com") {
       const path = target.pathname;
       const metadata = /^\/repos\/[^/]+\/[^/]+$/.test(path);
+      // The explicit project-structure workflow is separately bounded by
+      // fetchGitHubProjectConstellation (tree, manifest, and file byte limits).
+      const projectStructure = /^\/repos\/[\w.-]{1,100}\/[\w.-]{1,100}\/(?:commits\/[^/]{1,256}|git\/trees\/[a-f\d]{40}|contents\/.+)$/.test(path);
       const profile = /^\/(users|orgs)\/[^/]+$/.test(path);
       const listing =
         /^\/(users|orgs)\/[^/]+\/repos$/.test(path) &&
@@ -85,7 +88,7 @@ export function createPreviewFetch({
         Number(target.searchParams.get("per_page") || 30) <= 100;
       if (
         (options.method && options.method !== "GET") ||
-        !(metadata || profile || listing)
+        !(metadata || profile || listing || projectStructure)
       )
         return Promise.reject(
           new Error("Sign in with GitHub to load this data."),

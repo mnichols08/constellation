@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.0 — Developer Atlas
+
+- Add separate, versioned Atlas navigation state across Developer, canonical Semantic Groups, Projects, and loaded Project Constellation structure.
+- Add Studio and Web Component breadcrumbs, bounded Back/Forward history, accessible context announcements, and route-preserving multi-group project navigation.
+- Project group and focus scenes from existing Semantic Graph truth; preserve graph fingerprints, canonical JSON, provenance, Evidence v1, and Semantic Markdown during navigation.
+- Keep imported graph navigation offline and show an explicit missing-structure notice without hidden network acquisition.
+- Preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, Semantic Markdown v1, Project Constellation v1, and Web Component API v1.
+
 ## 3.14.3 — Portable Embed & Export Polish
 
 - Load validated Semantic Graph v1 values directly into the Web Component or from an explicit graph URL, preserving the current view when replacement fails.

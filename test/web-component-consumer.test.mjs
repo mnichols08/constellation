@@ -53,6 +53,7 @@ test(
       "project-constellations.md",
       "semantic-groups.md",
       "temporal-stack.md",
+      "web-component-atlas.mjs",
     ]);
     assert.ok((await stat(join(directory, "index.mjs"))).size < 24 * 1024);
     const coreFiles = await readdir(

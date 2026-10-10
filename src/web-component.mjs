@@ -1,5 +1,7 @@
 import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost, buildSemanticHierarchy, projectSemanticLevel, parseSemanticGraph, serializeSemanticGraph, projectSemanticGraphToScene, semanticGraphFingerprint } from '@constellation/core';
 import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, shortest_path, neighbors, createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_MODES } from '@constellation/core/browser-runtime';
+import { projectDeveloperAtlasScene } from '@constellation/core';
+import { AtlasNavigation, renderAtlasChrome, installAtlasAPI } from './web-component-atlas.mjs';
 
 export const WEB_COMPONENT_API_VERSION = 1;
 export class ConstellationView extends HTMLElement {
@@ -27,7 +29,7 @@ export class ConstellationView extends HTMLElement {
   #sourceMode = true;
   #sourceCache = new Map();
   constructor() {
-    super(); this.attachShadow({ mode: 'open' });
+    super(); this._atlasNavigation = new AtlasNavigation(); this.attachShadow({ mode: 'open' });
     this.addEventListener('camera-change', this.#scheduleSemanticZoom);
     this.addEventListener('node-select', this.#semanticSelectionChanged);
   }
@@ -48,14 +50,16 @@ export class ConstellationView extends HTMLElement {
   get semanticGraph() { return this.#semanticGraph && structuredClone(this.#semanticGraph); }
   set semanticGraph(value) { this.loadSemanticGraph(value); }
   get semanticFingerprint() { return this.#semanticGraph ? semanticGraphFingerprint(this.#semanticGraph) : null; }
+  _atlasHandlers() { return { render: () => { this.#semanticHierarchy = null; this.#expandedGroups.clear(); this.#semanticFocus = null; const rendered = this.#render(); if (rendered) this.#runtime?.fit(); return rendered; }, changed: detail => this.dispatchEvent(new CustomEvent('atlas-change', { detail, bubbles: true, composed: true })) }; }
   loadSemanticGraph(value) {
     if (value === null) return this.#clearSemanticGraphMode();
     let previous;
     try {
       const graph = parseSemanticGraph(typeof value === 'string' ? value : serializeSemanticGraph(value));
       const scene = projectSemanticGraphToScene(graph);
-      previous = { graph: this.#semanticGraph, scene: this.#scene };
+      previous = { graph: this.#semanticGraph, scene: this.#scene, atlas: this._atlasNavigation };
       this.#request?.abort(); this.#semanticGraph = graph; this.#scene = scene;
+      this._atlasNavigation = new AtlasNavigation(); this._atlasNavigation.setGraph(graph);
       this.#semanticMode = null; this.#resetSemanticNavigation();
       const rendered = !this.isConnected || !this.#visible || this.#render();
       if (!rendered) throw new Error('Unable to render Semantic Graph.');
@@ -63,13 +67,13 @@ export class ConstellationView extends HTMLElement {
       this.dispatchEvent(new CustomEvent('semantic-graph-load', { detail, bubbles: true, composed: true }));
       return true;
     } catch (error) {
-      if (previous) { this.#semanticGraph = previous.graph; this.#scene = previous.scene; this.#resetSemanticNavigation(); if (this.isConnected && this.#visible && previous.scene) this.#render(); }
+      if (previous) { this.#semanticGraph = previous.graph; this.#scene = previous.scene; this._atlasNavigation = previous.atlas; this.#resetSemanticNavigation(); if (this.isConnected && this.#visible && previous.scene) this.#render(); }
       this.#error(error, 'semantic-graph-error'); return false;
     }
   }
   #clearSemanticGraphMode() {
     if (!this.#semanticGraph) return false;
-    this.#request?.abort(); this.#semanticGraph = null; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation();
+    this.#request?.abort(); this.#semanticGraph = null; this.#scene = null; this._atlasNavigation = new AtlasNavigation(); this.#semanticMode = null; this.#resetSemanticNavigation();
     this.#runtime?.destroy(); this.#runtime = null; this.shadowRoot.replaceChildren();
     return this.isConnected && this.#visible ? this.#refresh() : true;
   }
@@ -117,14 +121,14 @@ export class ConstellationView extends HTMLElement {
   setConfig(value) {
     try {
       const config = parseConfig(value); normalizeConfig(config.options);
-      this.#request?.abort(); this.#semanticGraph = null; this.#sourceMode = false; this.#config = config; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
+      this.#request?.abort(); this.#semanticGraph = null; this._atlasNavigation = new AtlasNavigation(); this.#sourceMode = false; this.#config = config; this.#scene = null; this.#semanticMode = null; this.#resetSemanticNavigation(); return this.#refresh(false);
     } catch (error) { this.#error(error); return Promise.resolve(false); }
   }
   loadScene(value) {
     try {
       const scene = parseScene(typeof value === 'string' ? value : serializeScene(value));
       this.#request?.abort(); const previous = this.#scene;
-      this.#sourceMode = false; this.#semanticGraph = null; this.#scene = scene; this.#config = null; this.#semanticMode = null; this.#resetSemanticNavigation();
+      this.#sourceMode = false; this.#semanticGraph = null; this._atlasNavigation = new AtlasNavigation(); this.#scene = scene; this.#config = null; this.#semanticMode = null; this.#resetSemanticNavigation();
       const rendered = this.#render();
       if (!rendered && this.isConnected && this.#visible) this.#scene = previous;
       return rendered;
@@ -332,10 +336,13 @@ export class ConstellationView extends HTMLElement {
     try {
       const previousSelection = this.#runtime?.selectionState, previousCamera = this.#runtime?.camera;
       const effectiveLevel = this.#effectiveLevel();
-      if ((this.semanticLevel !== 'projects' || this.#expandedGroups.size) && !this.#semanticHierarchy) this.#semanticHierarchy = buildSemanticHierarchy(this.#scene);
-      const viewScene = (effectiveLevel !== 'projects' || this.#expandedGroups.size) && this.#semanticHierarchy
-        ? projectSemanticLevel(this.#scene, 'groups', { hierarchy: this.#semanticHierarchy, expanded: [...this.#expandedGroups] })
+      const atlasScene = this.#semanticGraph?.subject.kind === 'developer' && this._atlasNavigation.state
+        ? projectDeveloperAtlasScene(this.#semanticGraph, this._atlasNavigation.state, {}, this._atlasNavigation.projectGraph)
         : this.#scene;
+      if ((this.semanticLevel !== 'projects' || this.#expandedGroups.size) && !this.#semanticHierarchy) this.#semanticHierarchy = buildSemanticHierarchy(atlasScene);
+      const viewScene = (effectiveLevel !== 'projects' || this.#expandedGroups.size) && this.#semanticHierarchy
+        ? projectSemanticLevel(atlasScene, 'groups', { hierarchy: this.#semanticHierarchy, expanded: [...this.#expandedGroups] })
+        : atlasScene;
       this.#viewScene = viewScene;
       // Validate custom styling before inserting renderer-owned SVG markup.
       const chapterScenes = [this.#scene, ...this.#scene.story?.chapters.map(chapter => chapter.scene) || []];
@@ -355,6 +362,17 @@ export class ConstellationView extends HTMLElement {
         main.setAttribute('aria-label', `${label}: ${graph.subject.id} · Semantic Graph v${graph.version} · ${semanticGraphFingerprint(graph)}`);
         const notes = [graph.statistics.truncated && 'Source coverage is incomplete.', graph.project?.provenance?.visibility === 'private' && 'Source visibility is private; this graph may disclose repository names, paths, and structure.'].filter(Boolean);
         if (notes.length) main.setAttribute('aria-description', notes.join(' '));
+      }
+      if (this._atlasNavigation.state && this.#semanticGraph?.subject.kind === 'developer') {
+        const chrome = renderAtlasChrome(this.ownerDocument, this._atlasNavigation, {
+          back: () => this.atlasBack(),
+          group: id => this.navigateAtlasGroup(id), project: id => this.navigateAtlasProject(id),
+          structure: id => this.navigateAtlasStructure(this._atlasNavigation.projectGraph, id),
+          crumb: crumbs => { const handlers = this._atlasHandlers(); return this._atlasNavigation.navigateBreadcrumbs(crumbs, handlers.render, handlers.changed); },
+        });
+        main.prepend(chrome.panel, chrome.nav);
+        const announcement = main.querySelector('[data-status]');
+        if (announcement) announcement.textContent = `Developer Atlas: ${this.atlasBreadcrumbs.map(crumb => crumb.label).join(' › ')}`;
       }
       this.#runtime = mountStory(this.shadowRoot.querySelector('main'), viewScene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(viewScene), storyArtifacts: storyArtifacts(viewScene), frameSVGs: viewScene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
       if (previousCamera) this.#runtime.setCamera?.(previousCamera);
@@ -378,6 +396,8 @@ export class ConstellationView extends HTMLElement {
     } catch (error) { this.#error(error); return false; }
   }
 }
+
+installAtlasAPI(ConstellationView);
 
 export function defineConstellationView(name = 'constellation-view', registry = customElements) {
   if (registry.get(name)) return registry.get(name);
