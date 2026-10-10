@@ -443,6 +443,9 @@ function updateStoryChoices(recommended, chosen) {
     : storyMode === 'auto'
       ? `${recommended?.label || 'Projects'} is recommended from the available project evidence.`
       : `${chosen?.label || 'Projects'} story selected.`);
+  if (storyCandidates.some(candidate => candidate.compositionFailed)) {
+    storyStatus.textContent += ' Some project connections could not be composed; the bounded story remains available.';
+  }
   for (const button of document.querySelectorAll('[data-story-choice]')) {
     const id = button.dataset.storyChoice;
     const candidate = storyCandidates.find(item => item.id === id);

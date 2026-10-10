@@ -7,6 +7,8 @@ import { pathToFileURL } from 'node:url';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createScene } from '../src/core-api.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
+import { semanticGraphFromScene } from '../src/semantic-graph.mjs';
+import { generateStoryCandidates } from '../src/story-candidates.mjs';
 
 test('README grouped SVG keeps group, label and weighted-edge hierarchy when rasterized to PNG', { skip: !browser, timeout: 120000 }, async t => {
   const repositories = Array.from({ length: 24 }, (_, i) => ({ full_name: `raster/project-${i}`, name: `project-${i}`, language: 'Rust', topics: ['readme'], stargazers_count: i * 100 }));
@@ -25,4 +27,21 @@ test('README grouped SVG keeps group, label and weighted-edge hierarchy when ras
   assert.equal(raster.groupNodes, 6);
   assert.equal(raster.groupLabels, 6);
   assert.equal(raster.legend, true);
+});
+
+test('Profile Story relationship labels stay bounded and the legend remains inside the static SVG at README widths', { skip: !browser, timeout: 120000 }, async t => {
+  const repositories = Array.from({ length: 12 }, (_, i) => ({ full_name: `story/project-${i}`, name: i < 2 ? `A deliberately long project name ${i}` : `Project ${i}`, language: ['Rust', 'TypeScript', 'Python'][i % 3], topics: ['shared-topic', 'shared-language', i % 2 ? 'tooling' : 'visualization'] }));
+  const families = { first: { label: 'First family', members: repositories.slice(0, 6).map(repo => repo.full_name) }, second: { label: 'Second family', members: repositories.slice(6).map(repo => repo.full_name) } };
+  const options = { nodeMode: 'repositories', showOther: true, animate: false, projectFamilies: families, projectRelationships: [[repositories[0].full_name, repositories[1].full_name], [repositories[8].full_name, repositories[9].full_name]] };
+  const graph = semanticGraphFromScene(createScene('story', repositories, options));
+  const scene = generateStoryCandidates(graph, options).find(candidate => candidate.id === 'projects').scene;
+  const directory = await mkdtemp(join(tmpdir(), 'constellation-story-svg-'));
+  const file = join(directory, 'story.svg');
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await writeFile(file, renderSceneSVG(scene));
+  const { evaluate } = await openBrowser(t, pathToFileURL(file).href);
+  const result = await evaluate(`(()=>{const svg=document.documentElement;const widths=[480,900];return widths.map(width=>{svg.style.width=width+'px';svg.style.height='auto';const legend=svg.querySelector('.story-relationship-legend');const labels=svg.querySelectorAll('.relationship-evidence-label');if(!legend)return{width,hasLegend:false,labelCount:labels.length};const root=svg.getBoundingClientRect(),box=legend.getBoundingClientRect();return{width,hasLegend:true,labelCount:labels.length,inside:box.left>=root.left-1&&box.right<=root.right+1&&box.top>=root.top-1&&box.bottom<=root.bottom+1}})})()`);
+  assert.deepEqual(result.map(item => item.width), [480, 900]);
+  assert.ok(result.every(item => item.hasLegend && item.inside), JSON.stringify(result));
+  assert.ok(result.every(item => item.labelCount <= 3), JSON.stringify(result));
 });

@@ -4,9 +4,19 @@ import { overviewEdges } from "./scaling.mjs";
 let core;
 export let engineError;
 try {
-  const { base64 } = await import("./wasm/inline.mjs");
   const bindings = await import("./wasm/constellation_core.js");
-  const module = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+  let module;
+  if (typeof process === "undefined" || !process.versions?.node) {
+    try {
+      const response = await fetch(new URL("./wasm/constellation_core_bg.wasm", import.meta.url));
+      const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+      if (response.ok && contentType === "application/wasm") module = response;
+    } catch {}
+  }
+  if (!module) {
+    const { base64 } = await import("./wasm/inline.mjs");
+    module = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+  }
   await bindings.default({ module_or_path: module });
   core = bindings;
 } catch (error) {

@@ -54,3 +54,30 @@ console.log(JSON.stringify({
   projectsSvgBytes: Buffer.byteLength(renderSceneSVG(candidate.scene)),
   projectsEdges: candidate.scene.edges.length,
 }));
+
+for (const count of [6, 12]) {
+  const boundedRecords = records.slice(0, count);
+  const boundedOptions = { nodeMode: 'repositories', showOther: true, seed: `candidate-benchmark-${count}` };
+  const boundedGraph = semanticGraphFromScene(createScene('benchmark', boundedRecords, boundedOptions));
+  const generationTimes = [], serializationTimes = [];
+  let projectsCandidate;
+  for (let index = 0; index < 12; index++) {
+    const start = performance.now();
+    projectsCandidate = generateStoryCandidates(boundedGraph, boundedOptions).find(item => item.id === 'projects');
+    const generated = performance.now();
+    const serializedScene = JSON.stringify(projectsCandidate.scene);
+    const serialized = performance.now();
+    if (index >= 2) {
+      generationTimes.push(generated - start);
+      serializationTimes.push(serialized - generated);
+    }
+  }
+  console.log(JSON.stringify({
+    candidateProjects: count,
+    meanCandidateGenerationMs: Number((generationTimes.reduce((sum, value) => sum + value, 0) / generationTimes.length).toFixed(3)),
+    meanSceneSerializationMs: Number((serializationTimes.reduce((sum, value) => sum + value, 0) / serializationTimes.length).toFixed(3)),
+    sceneBytes: Buffer.byteLength(JSON.stringify(projectsCandidate.scene)),
+    svgBytes: Buffer.byteLength(renderSceneSVG(projectsCandidate.scene)),
+    relationships: projectsCandidate.composition.relationships.length,
+  }));
+}

@@ -2,7 +2,7 @@
 
 Developer Semantic Graph v1 can produce three bounded story views:
 
-- **Projects** keeps project names prominent and removes automatically derived group abstraction while retaining user-authored families.
+- **Projects** keeps project names prominent and removes automatically derived group abstraction while retaining user-authored families as evidence-backed links between visible projects.
 - **Technical Shape** projects existing evidence-backed groups and relationships.
 - **Journey** uses the existing temporal stack when at least six projects span three or more years, with three populated periods and changing language/topic evidence. Otherwise it is unavailable with a plain reason.
 

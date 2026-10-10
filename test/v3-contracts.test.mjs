@@ -72,7 +72,7 @@ test('Studio reports a blocked required WASM asset accessibly', { skip: !browser
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { cdp, evaluate, waitFor } = await openBrowser(t, 'about:blank');
-  await cdp('Network.enable'); await cdp('Network.setBlockedURLs', { urls: ['*wasm/inline.mjs'] });
+  await cdp('Network.enable'); await cdp('Network.setBlockedURLs', { urls: ['*wasm/inline.mjs', '*wasm/constellation_core_bg.wasm'] });
   await cdp('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` });
   await waitFor(`document.querySelector('#status')?.getAttribute('role') === 'alert'`);
   assert.match(await evaluate(`document.querySelector('#status').textContent`), /requires its bundled Rust\/WASM/);
