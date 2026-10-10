@@ -26,6 +26,8 @@ test('Studio imported Developer Atlas drills into a canonical group and project 
   assert.equal(await evaluate(`document.querySelector('#preview').querySelector('[aria-label="Atlas context"]').textContent.includes('Developer Tools')`), true);
   await evaluate(`[...document.querySelectorAll('.developer-atlas-actions button')].find(button=>button.textContent.includes('Developer Tools')).click()`);
   await waitFor(`document.querySelector('#preview').querySelector('[aria-label="Atlas context"]').textContent.includes('User-authored group')`);
+  assert.equal(await evaluate(`document.querySelector('#preview').querySelector('.developer-atlas [aria-current="location"]')===document.activeElement`), true);
+  assert.match(await evaluate(`document.querySelector('#preview').querySelector('[role="status"]').textContent`), /Developer Atlas: atlas-alice · Developer Tools/);
   await evaluate(`[...document.querySelectorAll('.developer-atlas-actions button')].find(button=>button.textContent.includes('one')).click()`);
   await waitFor(`document.querySelector('#preview').querySelector('[aria-label="Atlas context"]').textContent.includes('Structural detail is not included')`);
   assert.deepEqual(await evaluate(`Array.from(document.querySelector('#preview').querySelectorAll('.developer-atlas button[aria-current="location"]'),button=>button.textContent)`), ['one']);
@@ -102,5 +104,12 @@ test('live Project structure is explicit, bounded, and failure atomic', { skip: 
   assert.equal(await evaluate(`document.querySelector('#project-constellation-dialog').open`), false);
   assert.equal(await evaluate(`document.querySelector('#preview').getAttribute('aria-label')`), `Developer Atlas: ${graph.subject.id} › ${project.label} › src › src/index.js`);
   assert.equal(await evaluate(`(window.atlasScanCalls?.length || 0) >= 4`), true);
+  const completedScanCalls = await evaluate(`window.atlasScanCalls.length`);
+  await evaluate(`document.querySelector('#preview').querySelector('.developer-atlas button[aria-label="Back in Developer Atlas"]').click()`);
+  await waitFor(`document.querySelector('#preview').getAttribute('aria-label')===${JSON.stringify('Developer Atlas: ' + graph.subject.id + ' › ' + project.label)}`);
+  assert.equal(await evaluate(`document.querySelector('#preview').querySelector('.developer-atlas-context button').textContent`), 'Explore structure');
+  await evaluate(`document.querySelector('#preview').querySelector('.developer-atlas-context button').click()`);
+  await waitFor(`document.querySelector('#preview').getAttribute('aria-label').endsWith('src/index.js')`);
+  assert.equal(await evaluate(`window.atlasScanCalls.length`), completedScanCalls, 'loaded structure re-entry uses the session graph without a second scan');
   assert.deepEqual(errors, []);
 });
