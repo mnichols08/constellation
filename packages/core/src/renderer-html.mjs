@@ -2,7 +2,7 @@ import { renderSceneSVG } from './renderer-svg.mjs';
 import { serializeScene } from './scene.mjs';
 import { mountInteractive, interactiveStyles } from './interactive-runtime.mjs';
 import { contentBounds, fitSceneViewport } from './scene-framing.mjs';
-import { bindings, base64 } from './wasm/inline.mjs';
+const { bindings, base64 } = await import('./wasm/inline.mjs').catch(() => ({}));
 import { mountTimeline } from './timeline-runtime.mjs';
 import { replaceInteractiveSVG, transitionCamera } from './scene-transition.mjs';
 import { mountHierarchy } from './hierarchy-runtime.mjs';
