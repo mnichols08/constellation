@@ -1289,9 +1289,13 @@ test(
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
     assert.ok(await evaluate(`(async()=>{const text=await(await fetch(document.querySelector('#download-profile-story').href)).text();return new Set([...text.matchAll(/data-repo="([^"]+)"/g)].map(match=>match[1])).size<=12;})()`), 'manual profile export remains within the story cap');
     const manualStoryBeforeTheme = await evaluate(`document.querySelector('#download-profile-story').dataset.sceneFingerprint`);
+    const manualStorySvgBeforeTheme = await evaluate(`fetch(document.querySelector('#download-profile-story').href).then(response=>response.text())`);
+    const manualMainSvgBeforeTheme = await evaluate(`fetch(document.querySelector('.download').href).then(response=>response.text())`);
     await evaluate(`document.querySelector('#design-visualTheme').value='deep-space';document.querySelector('#design-visualTheme').dispatchEvent(new Event('change',{bubbles:true}));`);
     const manualStoryAfterTheme = await evaluate(`document.querySelector('#download-profile-story').dataset.sceneFingerprint`);
     assert.notEqual(manualStoryAfterTheme, manualStoryBeforeTheme, 'manual mode regenerates presentation candidates when the theme changes');
+    assert.notEqual(await evaluate(`fetch(document.querySelector('#download-profile-story').href).then(response=>response.text())`), manualStorySvgBeforeTheme, 'Profile Story SVG updates with the theme, beyond its fingerprint');
+    assert.notEqual(await evaluate(`fetch(document.querySelector('.download').href).then(response=>response.text())`), manualMainSvgBeforeTheme, 'main manual SVG remains current after the theme change');
     await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
     await evaluate(`document.querySelector('#story-choices [data-story-choice="auto"]').click()`);
