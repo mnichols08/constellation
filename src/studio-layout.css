@@ -132,7 +132,7 @@ html[data-entry="studio"] .masthead { height: 58px; }
   .studio-ready .design-code-menu { margin-left: 0; }
   .studio-ready .design-code-menu > .control-section-body { left: 0; right: auto; width: min(320px, calc(100vw - 44px)); }
   .studio-ready .design-launcher > .download { margin-left: auto; }
-  .studio-ready .studio-body { display: grid; height: var(--studio-height, max(300px, calc(100dvh - 268px))); grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(170px, 40%) minmax(0, 1fr); }
+  .studio-ready .studio-body { display: grid; height: max(420px, var(--studio-height, calc(100dvh - 268px))); max-height: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(280px, 58%) minmax(0, 1fr); }
   .studio-ready .studio-body.preview-only { grid-template-rows: minmax(0, 1fr); }
   .studio-ready .controls { border-left: 0; border-top: 1px solid var(--line); }
   .studio-ready .sky-legend { display: none; }

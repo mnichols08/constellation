@@ -237,7 +237,8 @@
         <section class="story-choices" aria-labelledby="story-heading">
           <div><h2 id="story-heading">Your work, at a glance</h2><p id="story-recommendation" role="status" aria-live="polite">Enter a GitHub username to find the clearest story in the available project evidence.</p></div>
           <div id="story-choices" role="group" aria-label="Choose a story view">
-            <button type="button" data-story-choice="projects" aria-pressed="true">Projects <span data-recommended-badge hidden>Recommended</span></button>
+            <button type="button" data-story-choice="auto" aria-pressed="true">Use recommendation</button>
+            <button type="button" data-story-choice="projects" aria-pressed="false">Projects <span data-recommended-badge hidden>Recommended</span></button>
             <button type="button" data-story-choice="technical-shape" aria-pressed="false">Technical Shape <span data-recommended-badge hidden>Recommended</span></button>
             <button type="button" data-story-choice="journey" aria-pressed="false" disabled title="Temporal evidence is required.">Journey <span data-recommended-badge hidden>Recommended</span></button>
           </div>
@@ -247,7 +248,7 @@
           <div class="sky-panel">
             <div id="preview" aria-busy="false"></div>
             <a class="download" download="constellation.svg">Export SVG <span aria-hidden="true">↓</span></a>
-            <a id="download-profile-story" class="download secondary" download="profile-story.svg" aria-label="Export the selected or recommended bounded profile story as SVG">Export Profile Story (SVG) <span aria-hidden="true">↓</span></a>
+            <a id="download-profile-story" class="download secondary" download="profile-story.svg" aria-label="Export the selected or recommended bounded profile story as SVG" hidden>Export Profile Story (SVG) <span aria-hidden="true">↓</span></a>
             <div
               id="graph-explorer"
               class="graph-explorer"

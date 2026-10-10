@@ -7,6 +7,16 @@ export const STORY_CANDIDATE_LIMIT = 3;
 export const STORY_TYPES = Object.freeze(['projects', 'technical-shape', 'journey']);
 export const STORY_PROJECT_LIMIT = 12;
 
+function storySceneFingerprint(scene) {
+  const serialized = JSON.stringify(scene);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < serialized.length; index++) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `story-scene-v1:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
 function curatedPriority(node) {
   return ({ featured: 4, supporting: 3, include: 2 }[node.properties.curatedRole] || (node.properties.pinned === true ? 3 : 0));
 }
@@ -150,7 +160,7 @@ function projectCandidate(graph, options, runtime, mode, representativeProjects 
   return scene;
 }
 
-function sceneQualityInput(scene, name) {
+export function sceneQualityInput(scene, name) {
   const semanticGroups = scene.semanticGroups?.groups || [];
   const categoryGroups = (scene.nodes || []).filter(node => ['language', 'topic'].includes(node.metadata?.nodeKind)).map(node => ({ id: node.id, members: node.metadata.members || [], evidence: [`category:${node.metadata.nodeKind}:${node.metadata.name || node.id}`] }));
   const isProject = node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind);
@@ -216,7 +226,17 @@ export function generateStoryCandidates(graph, options = {}, runtime = {}) {
     candidates.push({ id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: true, scene });
     }
   } else candidates.push({ id: 'journey', label: 'Journey', question: 'How has the visible work changed over time?', available: false, reason: 'Dates and evidence do not show enough distinct project periods.' });
-  return candidates.slice(0, STORY_CANDIDATE_LIMIT).map(candidate => Object.freeze({ ...candidate, quality: candidate.scene ? evaluateGraphQuality(sceneQualityInput(candidate.scene, candidate.id)) : null }));
+  return candidates.slice(0, STORY_CANDIDATE_LIMIT).map(candidate => {
+    if (!candidate.scene) return Object.freeze({ ...candidate, quality: null });
+    const qualityInput = sceneQualityInput(candidate.scene, candidate.id);
+    const quality = evaluateGraphQuality(qualityInput);
+    const fingerprint = storySceneFingerprint(candidate.scene);
+    // Keep a small structural trace so callers and tests can verify which
+    // project nodes entered scoring without exposing the full quality input.
+    quality.evaluatedProjectIds = qualityInput.nodes.filter(node => node.kind === 'project').map(node => node.id).sort();
+    quality.sceneFingerprint = fingerprint;
+    return Object.freeze({ ...candidate, bounded: true, sceneFingerprint: fingerprint, quality: Object.freeze(quality) });
+  });
 }
 
 export function recommendStoryCandidate(candidates) {

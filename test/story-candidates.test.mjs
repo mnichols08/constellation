@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createScene } from '../src/constellation.mjs';
 import { semanticGraphFromScene } from '../src/semantic-graph.mjs';
-import { generateStoryCandidates, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects } from '../src/story-candidates.mjs';
+import { generateStoryCandidates, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects, sceneQualityInput } from '../src/story-candidates.mjs';
+import { renderSceneSVG } from '../src/renderer-svg.mjs';
+import { evaluateGraphQuality } from '../src/engine.mjs';
 
 const profiles = JSON.parse(await readFile(new URL('./fixtures/story-profiles.json', import.meta.url), 'utf8'));
 function graphFor(profile) {
@@ -105,6 +107,26 @@ test('Journey reserves each available period even when the portfolio is already 
   const years = selected.map(node => Number(node.properties.createdAt.slice(0, 4)));
   const span = Math.max(...years) - Math.min(...years) + 1;
   assert.deepEqual(new Set(years.map(year => Math.min(2, Math.floor((year - Math.min(...years)) * 3 / span)))), new Set([0, 1, 2]));
+});
+
+test('scored project IDs match candidate scenes and their rendered SVGs', () => {
+  for (const profile of profiles.filter(item => ['long-history', 'full-stack', 'organization-contributor'].includes(item.id))) {
+    const candidates = generateStoryCandidates(graphFor(profile), { seed: profile.id, referenceDate: '2026-01-01T00:00:00Z' });
+    for (const candidate of candidates.filter(item => item.scene)) {
+      const sourceIds = candidate.scene.nodes
+        .filter(node => node.metadata?.full_name && (!node.metadata?.nodeKind || node.metadata.nodeKind === 'repository'))
+        .map(node => node.id).sort();
+      const scoredInput = sceneQualityInput(candidate.scene, candidate.id);
+      const scoredIds = scoredInput.nodes.filter(node => node.kind === 'project').map(node => node.id).sort();
+      const renderedIds = [...new Set([...renderSceneSVG(candidate.scene).matchAll(/<circle\b(?=[^>]*class="star\b)(?=[^>]*data-kind="repository")[^>]*data-repo="([^"]+)"/g)].map(match => match[1]))].sort();
+      assert.ok(sourceIds.length <= 12, `${candidate.id} scene stays bounded`);
+      assert.equal(candidate.quality.sceneFingerprint, candidate.sceneFingerprint, `${candidate.id} score trace identifies the candidate scene`);
+      assert.deepEqual(candidate.quality.evaluatedProjectIds, scoredIds, `${candidate.id} score trace`);
+      assert.deepEqual(scoredIds, sourceIds, `${candidate.id} score input and scene`);
+      assert.deepEqual(renderedIds, sourceIds, `${candidate.id} SVG and scene`);
+      assert.ok(Math.abs(candidate.quality.score - evaluateGraphQuality(scoredInput).score) < 1e-12, `${candidate.id} score comes from the exposed structural projection`);
+    }
+  }
 });
 
 test('frontend, full-stack, and tooling fixtures produce bounded candidates', () => {

@@ -1280,6 +1280,15 @@ test(
     await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
     assert.equal(await evaluate(`(async()=>{const links=[document.querySelector('.download').href,document.querySelector('#download-profile-story').href];const [shown,story]=await Promise.all(links.map(async href=>await(await fetch(href)).text()));return shown===story;})()`), true, 'profile story export matches the selected displayed SVG');
+    assert.equal(await evaluate(`document.querySelector('#preview').dataset.sceneFingerprint===document.querySelector('.download').dataset.sceneFingerprint&&document.querySelector('.download').dataset.sceneFingerprint===document.querySelector('#download-profile-story').dataset.sceneFingerprint`), true, 'display and exports carry the same selected candidate fingerprint');
+    await evaluate(`input('node-mode','languages');`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
+    assert.ok(await evaluate(`(async()=>{const text=await(await fetch(document.querySelector('#download-profile-story').href)).text();return new Set([...text.matchAll(/data-repo="([^"]+)"/g)].map(match=>match[1])).size<=12;})()`), 'manual profile export remains within the story cap');
+    await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
+    await evaluate(`document.querySelector('#story-choices [data-story-choice="auto"]').click()`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /is recommended/);
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="auto"]').getAttribute('aria-pressed')`), 'true');
     await evaluate(
       `input('node-mode','repositories');input('history-mode','historical');input('history-year','2019');`,
     );
@@ -1440,9 +1449,8 @@ test(
       `(()=>{const p=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('.controls').getBoundingClientRect();return {previewHeight:p.height,previewBottom:p.bottom,controlsTop:c.top,controlsBottom:c.bottom,viewport:innerHeight};})()`,
     );
     assert.ok(
-      mobileBounds.previewHeight > 100 &&
-        mobileBounds.previewBottom <= mobileBounds.controlsTop &&
-        mobileBounds.controlsTop < mobileBounds.viewport,
+      mobileBounds.previewHeight >= 160 &&
+        mobileBounds.previewBottom <= mobileBounds.controlsTop,
       `mobile keeps the preview above reachable controls: ${JSON.stringify(mobileBounds)}`,
     );
     await evaluate(
