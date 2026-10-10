@@ -1,6 +1,6 @@
 mod geometry;
-mod graph_quality;
 mod graph;
+mod graph_quality;
 mod identity;
 mod physics;
 mod profile_evidence;
@@ -9,13 +9,17 @@ mod refinement;
 mod scene;
 mod semantic;
 mod stable;
+mod story_composition;
 
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn semantic_layout(input: &str) -> Result<String, String> {
-    if input.len() > 1_000_000 { return Err("Semantic input exceeds 1 MiB".into()); }
-    let input = serde_json::from_str(input).map_err(|error| format!("Invalid semantic input: {error}"))?;
+    if input.len() > 1_000_000 {
+        return Err("Semantic input exceeds 1 MiB".into());
+    }
+    let input =
+        serde_json::from_str(input).map_err(|error| format!("Invalid semantic input: {error}"))?;
     serde_json::to_string(&semantic::layout(input)?).map_err(|error| error.to_string())
 }
 
@@ -59,6 +63,14 @@ pub fn developer_profile(input: &str) -> Result<String, String> {
 #[wasm_bindgen]
 pub fn graph_quality(input: &str) -> Result<String, String> {
     graph_quality::evaluate(input)
+}
+
+#[wasm_bindgen]
+pub fn compose_story(input: &str) -> Result<String, String> {
+    if input.len() > 1_000_000 {
+        return Err("Story Composition input exceeds 1 MiB".into());
+    }
+    story_composition::compose_json(input)
 }
 
 #[wasm_bindgen]
@@ -107,7 +119,11 @@ mod profile_api_tests {
             .contains("Invalid developer profile"));
         let oversized = " ".repeat(1_000_001);
         assert!(developer_profile(&oversized).unwrap_err().contains("1 MiB"));
-        assert!(super::semantic_layout("{").unwrap_err().contains("Invalid semantic"));
-        assert!(super::semantic_layout(&oversized).unwrap_err().contains("1 MiB"));
+        assert!(super::semantic_layout("{")
+            .unwrap_err()
+            .contains("Invalid semantic"));
+        assert!(super::semantic_layout(&oversized)
+            .unwrap_err()
+            .contains("1 MiB"));
     }
 }

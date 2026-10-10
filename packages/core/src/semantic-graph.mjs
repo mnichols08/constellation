@@ -170,7 +170,7 @@ export function parseSemanticGraph(json) {
 }
 export function semanticGraphFingerprint(graph) { let h=2166136261; for(const c of serializeSemanticGraph(graph)) h=Math.imul(h^c.codePointAt(0),16777619); return `sg1:${(h>>>0).toString(16).padStart(8,'0')}`; }
 
-export function projectSemanticGraphToScene(graph, options={}, runtime={}) {
+export function projectSemanticGraphToScene(graph, options={}, runtime={}, { preserveProjects = false } = {}) {
   const result=validateSemanticGraph(graph); if(!result.valid) throw new Error(`Invalid semantic graph: ${result.errors.join(' ')}`);
   let scene;
   if(graph.subject.kind==='project'){
@@ -185,7 +185,7 @@ export function projectSemanticGraphToScene(graph, options={}, runtime={}) {
     const relationships=graph.edges.filter(edge=>edge.kind==='project-relationship'&&projectIds.has(edge.from)&&projectIds.has(edge.to)).slice(0,6).map(edge=>[edge.from,edge.to]);
     const base=createScene(developer?.label||graph.subject.id,records,{...options,maxRepos:Math.max(1,records.length),includeRepos:records.map(r=>r.full_name),projectFamilies:families,projectRelationships:relationships},runtime);
     const groups=(graph.groups||[]).map(group=>({...group,version:1,members:group.members.filter(id=>projectIds.has(id))})).filter(group=>group.members.length>=2);
-    scene=groups.length?projectSemanticLevel(base,'groups',{hierarchy:{groups,projectIds:[...projectIds],source:base}}):base;
+    scene=groups.length&&!preserveProjects?projectSemanticLevel(base,'groups',{hierarchy:{groups,projectIds:[...projectIds],source:base}}):base;
     if(graph.evidence)scene.evidence=retainEvidenceForProjectedScene(scene,graph.evidence);
   }
   const validation=validateScene(scene); if(!validation.valid) throw new Error(`Projected Scene invalid: ${validation.errors.join(' ')}`); return scene;

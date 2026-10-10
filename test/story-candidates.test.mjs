@@ -144,6 +144,83 @@ test('scored project IDs match candidate scenes and their rendered SVGs', () => 
   }
 });
 
+test('Story Composition preserves authored relationships and exposes evidence in static SVG', () => {
+  const records = Array.from({ length: 6 }, (_, index) => ({
+    full_name: `sample/story-${index}`,
+    name: `Story Project ${index}`,
+    language: index < 4 ? 'Rust' : 'JavaScript',
+    topics: index < 3 ? ['wasm', 'tooling'] : index < 5 ? ['web'] : ['cli'],
+  }));
+  const options = {
+    nodeMode: 'repositories', showOther: true,
+    projectShowcase: { 'sample/story-0': { role: 'featured', priority: 1 } },
+    projectFamilies: {
+      tooling: { label: 'Tooling family', members: ['sample/story-0', 'sample/story-1', 'sample/story-2'] },
+      maintainers: { label: 'Maintainers family', members: ['sample/story-3', 'sample/story-4', 'sample/story-5'] },
+    },
+    projectRelationships: [['sample/story-3', 'sample/story-4'], ['sample/story-0', 'sample/story-5']], seed: 'story-composition',
+  };
+  const graph = semanticGraphFromScene(createScene('sample', records, options));
+  const candidates = generateStoryCandidates(graph, options);
+  assert.deepEqual(candidates.map(candidate => candidate.id), ['projects', 'technical-shape', 'journey']);
+  const projects = candidates.find(candidate => candidate.id === 'projects');
+  const visibleProjectIds = projects.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).map(node => node.id).sort();
+  assert.equal(projects.composition.version, 1);
+  assert.ok(projects.composition.relationships.some(edge => edge.type === 'explicit-relationship' && edge.evidence.some(item => item.startsWith('relationship:'))));
+  assert.ok(projects.composition.relationships.every(edge => visibleProjectIds.includes(edge.from) && visibleProjectIds.includes(edge.to)), 'composed relationships resolve to visible project identities');
+  assert.ok(projects.composition.relationships.some(edge => edge.type === 'authored-family' && edge.evidence.some(value => value.includes('tooling'))));
+  assert.deepEqual(visibleProjectIds, records.map(record => record.full_name).sort(), 'authored families do not hide the bounded story project identities');
+  assert.ok(projects.composition.relationships.some(edge => edge.type === 'authored-family'));
+  assert.ok(projects.composition.relationships.length <= 12);
+  const edgeIds = new Set(projects.scene.edges.map(edge => edge.id));
+  assert.ok(projects.composition.relationships.every(edge => edgeIds.has(edge.id)));
+  const svg = renderSceneSVG(projects.scene);
+  assert.deepEqual([...new Set([...svg.matchAll(/<circle\b(?=[^>]*class="star\b)(?=[^>]*data-kind="repository")[^>]*data-repo="([^"]+)"/g)].map(match => match[1]))].sort(), visibleProjectIds, 'static SVG retains the selected project identities');
+  assert.match(svg, /data-relationship-type="explicit-relationship"/);
+  assert.match(svg, /Project connection types/);
+  assert.match(svg, /shared language/);
+  assert.ok(projects.composition.relationships.every(edge => edge.evidence.length > 0), 'every composed connection has evidence');
+  assert.ok([...svg.matchAll(/class="relationship-evidence-label"/g)].length <= 3, 'visible evidence labels are bounded to avoid collisions');
+  const reordered = semanticGraphFromScene(createScene('sample', [...records].reverse(), options));
+  const reorderedProjects = generateStoryCandidates(reordered, options).find(candidate => candidate.id === 'projects');
+  assert.deepEqual(reorderedProjects.composition.relationships, projects.composition.relationships);
+  assert.deepEqual(reorderedProjects.scene.edges.map(edge => edge.id).sort(), projects.scene.edges.map(edge => edge.id).sort());
+});
+
+test('composition failures leave a bounded, evidence-derived scene and recover on the next render', async () => {
+  const records = Array.from({ length: 18 }, (_, index) => ({
+    full_name: `sample/failure-${index}`,
+    name: `Failure Project ${index}`,
+    language: index % 2 ? 'Rust' : 'JavaScript',
+    topics: [index % 3 ? 'tooling' : 'visualization'],
+  }));
+  const options = { nodeMode: 'repositories', showOther: true, seed: 'compose-failure' };
+  const graph = semanticGraphFromScene(createScene('sample', records, options));
+  const canonicalBefore = JSON.stringify(graph);
+  const injectedFailures = [
+    { composeStory() { throw new Error('internal binding detail must not reach the user'); } },
+    { composeStory(input) { return { version: 1, relationships: [
+      { id: 'partial-edge', from: input.projects[0].id, to: input.projects[1].id, type: 'explicit-relationship', evidence: ['relationship:test'] },
+      { id: 'invalid-edge', from: input.projects[0].id, to: 'missing-project', type: 'shared-topic', evidence: ['topic:test'] },
+    ], diagnostics: [], suppressed_count: 0, candidate_count: 2 }; } },
+  ];
+  for (const runtime of injectedFailures) {
+    const candidates = generateStoryCandidates(graph, options, runtime);
+    const projects = candidates.find(candidate => candidate.id === 'projects');
+    const projectIds = projects.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository').map(node => node.id);
+    assert.ok(projectIds.length <= 12);
+    assert.equal(projects.composition, null);
+    assert.ok(candidates.filter(candidate => candidate.scene).every(candidate => candidate.compositionFailed));
+    assert.equal(JSON.stringify(graph), canonicalBefore, 'failed optional composition never mutates the canonical graph');
+    assert.ok(projects.scene.edges.every(edge => !edge.id.includes('partial-edge') && !edge.metadata?.relationshipType), 'no partially composed relationship reaches the scene');
+    assert.doesNotMatch(renderSceneSVG(projects.scene), /internal binding detail/);
+  }
+  const recovered = generateStoryCandidates(graph, options).find(candidate => candidate.id === 'projects');
+  assert.ok(recovered.composition.relationships.length > 0);
+  assert.ok(recovered.composition.relationships.every(edge => recovered.scene.edges.some(sceneEdge => sceneEdge.id === edge.id)));
+  assert.deepEqual(JSON.parse(JSON.stringify(graph)), JSON.parse(canonicalBefore));
+});
+
 test('frontend, full-stack, and tooling fixtures produce bounded candidates', () => {
   for (const id of ['frontend-heavy', 'full-stack', 'polyglot-tooling', 'mostly-forks', 'organization-contributor']) {
     const profile = profiles.find(item => item.id === id);

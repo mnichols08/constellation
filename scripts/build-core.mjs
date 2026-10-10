@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, copyFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir, copyFile, rm } from "node:fs/promises";
 import { dirname, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,10 @@ async function copyModule(path) {
 }
 await copyModule(resolve(source, "core-api.mjs"));
 await copyModule(resolve(source, "browser-runtime.mjs"));
+// The generated inline module contains the same WASM bytes and serves both
+// regular Core initialization and single-file HTML exports. Do not ship a
+// second raw copy in the package.
+await rm(resolve(target, "src/wasm/constellation_core_bg.wasm"), { force: true });
 const { version } = JSON.parse(
   await readFile(resolve(root, "package.json"), "utf8"),
 );
@@ -59,6 +63,7 @@ const guides = [
   "developer-atlas",
   "graph-quality",
   "story-candidates",
+  "story-composition",
   "profile-story",
   "semantic-studio",
   "github-data-cache",

@@ -61,7 +61,7 @@ test('Source API v2 preserves normalized metrics and coexists with legacy source
 test('missing WASM fails explicitly instead of selecting a JavaScript rendering fallback', async t => {
   const root = await mkdtemp(join(tmpdir(), 'constellation-no-wasm-')); t.after(() => rm(root, { recursive: true, force: true }));
   await cp(new URL('../packages/core/', import.meta.url), root, { recursive: true });
-  await rm(join(root, 'src', 'wasm', 'constellation_core_bg.wasm'));
+  await rm(join(root, 'src', 'wasm', 'inline.mjs'));
   const entry = join(root, 'probe.mjs');
   await writeFile(entry, `await import(${JSON.stringify(pathToFileURL(join(root, 'src/core-api.mjs')).href)});`);
   const result = spawnSync(process.execPath, [entry], { encoding: 'utf8', windowsHide: true });
@@ -72,7 +72,7 @@ test('Studio reports a blocked required WASM asset accessibly', { skip: !browser
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const { cdp, evaluate, waitFor } = await openBrowser(t, 'about:blank');
-  await cdp('Network.enable'); await cdp('Network.setBlockedURLs', { urls: ['*constellation_core_bg.wasm'] });
+  await cdp('Network.enable'); await cdp('Network.setBlockedURLs', { urls: ['*wasm/inline.mjs', '*wasm/constellation_core_bg.wasm'] });
   await cdp('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` });
   await waitFor(`document.querySelector('#status')?.getAttribute('role') === 'alert'`);
   assert.match(await evaluate(`document.querySelector('#status').textContent`), /requires its bundled Rust\/WASM/);
