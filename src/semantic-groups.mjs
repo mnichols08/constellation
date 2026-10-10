@@ -148,7 +148,7 @@ export function projectSemanticLevel(scene, level = 'groups', { hierarchy = null
     const metadata = node.metadata || {};
     const optional = { name: safeOptional(metadata.name), description: safeOptional(metadata.description), url: safeOptional(metadata.html_url), language: safeOptional(metadata.language), source: safeOptional(metadata.pluginSource || metadata.source, 80), family: safeOptional(metadata.projectFamily) };
     const topics = (Array.isArray(metadata.topics) ? metadata.topics : []).filter(value => safeEvidenceText(value, 160)).slice(0, 32);
-    return { id: node.id, ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)), ...(topics.length ? { topics } : {}) };
+    return { id: node.id, ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)), ...(safeOptional(metadata.created_at) ? { created_at: safeOptional(metadata.created_at) } : {}), ...(safeOptional(metadata.updated_at) ? { updated_at: safeOptional(metadata.updated_at) } : {}), ...(topics.length ? { topics } : {}) };
   });
   const projectIds = new Set(sourceProjects.map(project => project.id));
   const canonical = {

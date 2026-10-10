@@ -187,6 +187,8 @@
             ><span id="sample-badge" class="badge">DEMO</span>
           </div>
         </div>
+        <details class="project-filters">
+          <summary>Projects · include and filter</summary>
         <section class="graph-filters" aria-label="Choose languages and topics">
           <div class="filter-heading">
             <h2>Make your own star graph</h2>
@@ -231,9 +233,22 @@
           </fieldset>
           <p id="filter-summary" role="status"></p>
         </section>
+        </details>
+        <section class="story-choices" aria-labelledby="story-heading">
+          <div><h2 id="story-heading">Your work, at a glance</h2><p id="story-recommendation">Enter a GitHub username to find the clearest story in the available project evidence.</p></div>
+          <div id="story-choices" role="group" aria-label="Choose a story view">
+            <button type="button" data-story-choice="auto" aria-pressed="true">Use recommendation</button>
+            <button type="button" data-story-choice="projects" aria-pressed="false">Projects <span data-recommended-badge hidden>Recommended</span><span id="projects-unavailable" data-story-unavailable hidden></span></button>
+            <button type="button" data-story-choice="technical-shape" aria-pressed="false">Technical Shape <span data-recommended-badge hidden>Recommended</span><span id="technical-shape-unavailable" data-story-unavailable hidden></span></button>
+            <button type="button" data-story-choice="journey" aria-pressed="false" aria-disabled="true" aria-describedby="journey-unavailable">Journey <span data-recommended-badge hidden>Recommended</span><span id="journey-unavailable" data-story-unavailable>Unavailable: Temporal evidence is required.</span></button>
+          </div>
+        </section>
+        <details id="quality-lab" class="quality-lab" hidden><summary>Candidate Quality Lab · development</summary><ol id="quality-results"></ol></details>
         <div class="studio-body">
           <div class="sky-panel">
             <div id="preview" aria-busy="false"></div>
+            <a class="download" download="constellation.svg">Export SVG <span aria-hidden="true">↓</span></a>
+            <a id="download-profile-story" class="download secondary" download="profile-story.svg" aria-label="Export the selected or recommended bounded profile story as SVG" hidden>Export Profile Story (SVG) <span aria-hidden="true">↓</span></a>
             <div
               id="graph-explorer"
               class="graph-explorer"
@@ -249,6 +264,7 @@
               ><span><i class="legend-bridge"></i> Visual bridge</span>
             </div>
           </div>
+          <details class="customize-controls"><summary>Customize</summary>
           <aside class="controls" aria-label="Customize your constellation">
             <p class="eyebrow">MAKE IT YOURS</p>
             <h2>Your constellation</h2>
@@ -972,9 +988,6 @@
                 <strong id="star-count">—</strong><span>GitHub stars</span>
               </div>
             </div>
-            <a class="download" download="constellation.svg"
-              >Download SVG <span aria-hidden="true">↓</span></a
-            >
             <a id="download-semantic-graph" class="secondary" download="semantic-graph.json">Export semantic graph</a>
             <a id="download-semantic-markdown" class="secondary" download="constellation.md">Export semantic Markdown</a>
             <label class="export-note" for="import-semantic-graph">Import semantic graph</label>
@@ -988,6 +1001,7 @@
               Made for your README.<br />Beautiful anywhere.
             </p>
           </aside>
+          </details>
         </div>
         <section
           class="preview-actions"

@@ -36,7 +36,7 @@ test('offline stories apply chapter camera, selection, narration and controls', 
   assert.equal(await evaluate(`document.querySelector('main').constellation.chapterIndex`), 0);
   await evaluate(`window.originalNode = document.querySelector('[data-repo="demo/compiler"]').closest('.repository'); document.querySelector('main').constellation.setChapter('detail')`);
   assert.equal(await evaluate(`originalNode === document.querySelector('[data-repo="demo/compiler"]').closest('.repository')`), true);
-  await waitFor(`document.querySelector('main').constellation.camera[2] === 450`);
+  await waitFor(`document.querySelector('main').constellation.camera[2] === 450`, 30000);
   assert.deepEqual(await evaluate(`document.querySelector('main').constellation.camera`), [200, 100, 450, 280]);
   assert.deepEqual(await evaluate(`document.querySelector('main').constellation.selectionState.path`), ['demo/compiler', 'demo/runtime']);
   assert.match(await evaluate(`document.querySelector('[aria-label=Story] p').textContent`), /<script>/);

@@ -65,3 +65,9 @@ Expose groups, filters, relationships, focus, placement, clustering, and ranking
 ## 10. Explainability is a product feature
 
 Constellation should be able to explain why a repository is included, why it belongs to a group, why nodes connect, why a rule failed, and what evidence was used.
+
+## 11. Useful by default
+
+A Constellation feature is successful when it helps a viewer understand a developer's work more quickly, with less effort and without unsupported inference.
+
+The default output must be useful without configuration. Advanced controls may improve or personalize it, but must never be required to rescue it.

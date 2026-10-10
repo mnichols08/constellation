@@ -76,6 +76,6 @@ export async function openBrowser(t, url) {
   cdp = (method, params = {}, sessionId) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, { resolve, reject, timer: setTimeout(() => { pending.delete(id); reject(Error(`CDP timeout: ${method}`)); }, 10000) }); socket.send(JSON.stringify({ id, method, params, ...(sessionId ? {sessionId} : {}) })); });
   const evaluate = async expression => { const value = await cdp('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (value.exceptionDetails) throw Error(value.exceptionDetails.exception?.description || value.exceptionDetails.text); return value.result.value; };
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Page.navigate', { url });
-  const waitFor = async expression => { for (let i=0;i<100;i++) { if (await evaluate(expression)) return; await delay(100); } throw Error('Browser condition timed out: '+expression); };
+  const waitFor = async (expression, timeoutMs = 10000) => { const deadline = Date.now() + timeoutMs; while (Date.now() < deadline) { if (await evaluate(expression)) return; await delay(100); } throw Error('Browser condition timed out: '+expression); };
   return { cdp, evaluate, errors, waitFor };
 }

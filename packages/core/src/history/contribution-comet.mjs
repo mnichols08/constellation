@@ -46,7 +46,7 @@ export const cometCSS = `
 .comet-burst.comet-motion .comet-flight{display:inline;animation:comet-arrival 3.8s ease-out both}
 .comet-burst.comet-motion .comet-shard{animation:comet-scatter 3.8s cubic-bezier(.16,1,.3,1) both}
 .comet-burst.comet-motion .comet-shockwave{transform-box:fill-box;transform-origin:center;animation:comet-wave 3.8s ease-out both}
-@keyframes comet-cruise{0%{transform:translate(-760px,36px) rotate(-8deg);opacity:0}10%,90%{opacity:1}50%{transform:translate(-205px,0) rotate(0deg)}100%{transform:translate(350px,36px) rotate(8deg);opacity:0}}
+@keyframes comet-cruise{0%{transform:translate(-760px,36px) rotate(-8deg);opacity:0}10%,90%{opacity:1}50%{transform:translate(0,0) rotate(0deg)}100%{transform:translate(760px,36px) rotate(8deg);opacity:0}}
 @keyframes comet-arrival{0%{transform:translate(-760px,36px) rotate(-8deg);opacity:0}6%{opacity:1}30%{transform:translate(0,0) rotate(0deg);opacity:1}35%,100%{transform:translate(0,0);opacity:0}}
 @keyframes comet-scatter{0%,30%{transform:translate(calc(-1 * var(--shard-x)),calc(-1 * var(--shard-y)));opacity:0}34%{opacity:1}85%,100%{transform:translate(0,0);opacity:.55}}
 @keyframes comet-wave{0%,30%{transform:scale(.02);opacity:0}35%{opacity:.85}100%{transform:scale(1);opacity:.15}}

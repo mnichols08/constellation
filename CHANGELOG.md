@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.1.0 — Useful by Default
+
+- Generate bounded Projects, Technical Shape, and evidence-gated Journey views; recommend a deterministic, readable story while keeping Projects as the safe fallback.
+- Add deterministic Rust Graph Quality v1 evaluation of visualization legibility, differentiation, evidence coverage, narrative structure, and unique project contribution.
+- Simplify Studio's first view around the recommended story, with project filters and specialist controls behind Customize.
+- Add a recruiter-focused story view using actual project names and source-backed technologies, with temporal storytelling disabled when dates do not support it.
+- Preserve advanced presentation controls and user-authored project families; do not infer skills, seniority, or employability.
+- Preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, Semantic Markdown v1, Project Constellation v1, Atlas State v1, and Web Component API v1.
+
 ## 4.0.1 — Atlas Continuity & Navigation Polish
 
 - Preserve valid Atlas routes and entered group paths across compatible semantic refreshes; recover to the nearest valid parent and prune invalid history.
@@ -604,3 +613,5 @@
 - Give keyboard-selected studio nodes an explicit focus outline, including when glow is disabled. Node buttons support Enter, Space, Escape and Shift-selection.
 - Report omitted labels and their reasons in the studio filter summary. Rendering callers can receive `label-omitted` diagnostics through the fourth argument's `onDiagnostic` callback without changing SVG output.
 - Retain default SVG output when refinement is disabled.
+
+- Repair story rendering so the displayed and exported SVG is the bounded candidate that Graph Quality scored; manual presentation controls now suspend automatic story selection. Share representative selection across story views and cap Journey across three time periods. Add a direct Profile Story SVG export.

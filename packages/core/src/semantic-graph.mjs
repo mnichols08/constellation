@@ -51,7 +51,7 @@ function projectMetadataFromScene(scene) {
   const canonical=scene.semanticGroups?.canonical;
   const hierarchy=canonical?null:buildSemanticHierarchy(scene);
   const account=canonical?.account || scene.metadata?.account || scene.presentation?.graph?.focus || 'unknown';
-  const projects=canonical?.projects || scene.nodes.filter(n=>n.metadata?.nodeKind==='repository'||n.metadata?.full_name?.includes('/')).map(n=>({id:n.metadata.full_name,name:n.metadata.name,description:n.metadata.description,url:n.metadata.html_url,language:n.metadata.language,topics:n.metadata.topics,source:n.metadata.pluginSource||n.metadata.source,family:n.metadata.projectFamily}));
+  const projects=canonical?.projects || scene.nodes.filter(n=>n.metadata?.nodeKind==='repository'||n.metadata?.full_name?.includes('/')).map(n=>({id:n.metadata.full_name,name:n.metadata.name,description:n.metadata.description,url:n.metadata.html_url,created_at:n.metadata.created_at,updated_at:n.metadata.updated_at,language:n.metadata.language,topics:n.metadata.topics,source:n.metadata.pluginSource||n.metadata.source,family:n.metadata.projectFamily}));
   const rawGroups=canonical?.groups || hierarchy.groups.map(g=>({id:g.id,kind:g.kind,label:g.label,provenance:g.provenance,basis:g.basis,members:g.members}));
   const groups=rawGroups.map(g=>({id:g.id,kind:g.kind,label:safeEvidenceText(g.label,160)?g.label:(g.kind==='project-family'?'Project family':'Repository owner group'),provenance:g.provenance,basis:(g.basis||[]).filter(value=>safeEvidenceText(value,160)).slice(0,16),members:[...g.members].sort()}));
   const {evidence,subjectFacts}=portableEvidence(canonical?.evidence || scene.evidence);
@@ -59,8 +59,9 @@ function projectMetadataFromScene(scene) {
   const safeProjects=projects.map(p=>{
     const id=p.id;
     const optional=(value,max=160)=>safeEvidenceText(value,max)?value:undefined;
+    const curatedRole=optional(scene.presentation?.options?.projectShowcase?.[id]?.role,32);
     const language=optional(p.language), topics=(Array.isArray(p.topics)?p.topics:[]).filter(value=>safeEvidenceText(value,160)).slice(0,32);
-    return {id,label:optional(p.name)||id,properties:{...(optional(p.description)?{description:optional(p.description)}:{}),...(optional(p.url)?{url:optional(p.url)}:{}),...(language?{language}:{}),...(topics.length?{topics}:{}),...(optional(p.family)?{family:optional(p.family)}:{})},source:optional(p.source,80)||'github'};
+    return {id,label:optional(p.name)||id,properties:{...(optional(p.description)?{description:optional(p.description)}:{}),...(optional(p.url)?{url:optional(p.url)}:{}),...(optional(p.created_at)?{createdAt:optional(p.created_at)}:{}),...(optional(p.updated_at)?{updatedAt:optional(p.updated_at)}:{}),...(curatedRole?{curatedRole}:{}),...(language?{language}:{}),...(topics.length?{topics}:{}),...(optional(p.family)?{family:optional(p.family)}:{})},source:optional(p.source,80)||'github'};
   }).sort((a,b)=>a.id.localeCompare(b.id));
   for(const p of safeProjects){
     const {id,label,properties,source}=p;
@@ -94,6 +95,15 @@ export function semanticGraphFromProjectConstellation(model) {
 function projectModelFromGraph(graph){
   const p=graph.project;
   return {version:p.version,projectId:p.projectId,manifestPaths:p.manifestPaths,provenance:p.provenance,statistics:p.statistics,nodes:graph.nodes.map(n=>({id:n.id,path:n.properties.path,kind:n.kind,label:n.label,parent:n.properties.parent,source:n.properties.source,metadata:n.properties.metadata||{}})),edges:graph.edges.map(e=>({id:e.id,from:e.from,to:e.to,kind:e.kind,evidence:e.evidence}))};
+}
+
+function retainEvidenceForProjectedScene(scene, evidence) {
+  const represented = new Set([...(scene.nodes || []).map(node => node.id), ...(scene.semanticGroups?.sourceNodeIds || [])]);
+  const subjects = evidence.subjects.filter(subject => represented.has(subject.id));
+  const facts = new Set(subjects.flatMap(subject => subject.facts));
+  const retained = { version: evidence.version, facts: evidence.facts.filter(fact => facts.has(fact.id)), subjects: subjects.map(subject => ({ ...subject, facts: subject.facts.filter(id => facts.has(id)) })) };
+  if (scene.semanticGroups?.canonical) scene.semanticGroups.canonical.evidence = clone(retained);
+  return retained;
 }
 
 export function validateSemanticGraph(graph) {
@@ -169,14 +179,14 @@ export function projectSemanticGraphToScene(graph, options={}, runtime={}) {
     scene=createProjectConstellationScene(model,options,runtime).scene;
   } else {
     const developer=graph.nodes.find(n=>n.kind==='developer');
-    const records=graph.nodes.filter(n=>n.kind==='project').sort((a,b)=>a.id.localeCompare(b.id)).slice(0,100).map(n=>({full_name:n.id,name:n.label,description:n.properties.description||'',language:n.properties.language||null,topics:n.properties.topics||[]}));
+    const records=graph.nodes.filter(n=>n.kind==='project').sort((a,b)=>a.id.localeCompare(b.id)).slice(0,100).map(n=>({full_name:n.id,name:n.label,description:n.properties.description||'',language:n.properties.language||null,topics:n.properties.topics||[],created_at:n.properties.createdAt||null,updated_at:n.properties.updatedAt||null}));
     const projectIds=new Set(records.map(record=>record.full_name));
     const families=Object.fromEntries((graph.groups||[]).filter(group=>group.provenance==='user').map(group=>[group.id.startsWith('group:user:')?group.id.slice('group:user:'.length):group.id,{label:group.label,members:group.members.filter(id=>projectIds.has(id))}]).filter(([,family])=>family.members.length>=2));
     const relationships=graph.edges.filter(edge=>edge.kind==='project-relationship'&&projectIds.has(edge.from)&&projectIds.has(edge.to)).slice(0,6).map(edge=>[edge.from,edge.to]);
     const base=createScene(developer?.label||graph.subject.id,records,{...options,maxRepos:Math.max(1,records.length),includeRepos:records.map(r=>r.full_name),projectFamilies:families,projectRelationships:relationships},runtime);
     const groups=(graph.groups||[]).map(group=>({...group,version:1,members:group.members.filter(id=>projectIds.has(id))})).filter(group=>group.members.length>=2);
     scene=groups.length?projectSemanticLevel(base,'groups',{hierarchy:{groups,projectIds:[...projectIds],source:base}}):base;
-    if(graph.evidence){scene.evidence=clone(graph.evidence);if(scene.semanticGroups?.canonical)scene.semanticGroups.canonical.evidence=clone(graph.evidence);}
+    if(graph.evidence)scene.evidence=retainEvidenceForProjectedScene(scene,graph.evidence);
   }
   const validation=validateScene(scene); if(!validation.valid) throw new Error(`Projected Scene invalid: ${validation.errors.join(' ')}`); return scene;
 }

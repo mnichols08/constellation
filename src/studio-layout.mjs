@@ -251,20 +251,18 @@ export function mountStudioLayout() {
   window.addEventListener("resize", fitWorkspace);
   fitWorkspace();
   function reveal(element) {
+    const targetPanel = element?.closest?.('[role="tabpanel"]');
     const match = [...panels].find(([, value]) =>
-      value.panel.contains(element),
+      value.panel === targetPanel || value.panel.contains(element),
     );
     if (!match) return;
     activate(match[0]);
-    for (
-      let parent = element;
-      parent && parent !== sidebar;
-      parent = parent.parentElement
-    ) {
+    for (let parent = element; parent; parent = parent.parentElement) {
       if (parent.tagName === "DETAILS") parent.open = true;
       if (advancedPanel.contains(element) && parent === advancedLayout)
         advancedPanel.hidden = false;
     }
+    element?.focus?.({ preventScroll: true });
   }
   document.addEventListener("click", (event) => {
     if (!event.target.closest('a[href="#token-help"]')) return;

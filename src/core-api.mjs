@@ -17,6 +17,7 @@ export { explainFilters } from "./filter-explanation.mjs";
 export { EVIDENCE_VERSION, explainNode, explainEdge, explainVisual, evidenceForNode, validateEvidence } from "./evidence.mjs";
 export { SEMANTIC_GROUP_VERSION, SEMANTIC_LEVELS, MAX_SEMANTIC_GROUPS, MAX_GROUP_MEMBERS, buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGroup, explainGroup } from "./semantic-groups.mjs";
 export { rustAvailable, engineError } from "./engine.mjs";
+export { GRAPH_QUALITY_VERSION, evaluateGraphQuality } from "./engine.mjs";
 export { analyzeDeveloperProfile } from "./engine.mjs";
 export { layoutStatistics } from "./engine.mjs";
 export { layoutCacheStatistics } from "./engine.mjs";
@@ -36,6 +37,7 @@ export { SEMANTIC_GRAPH_VERSION, SEMANTIC_GRAPH_LIMITS, SEMANTIC_NODE_KINDS, SEM
 export { SEMANTIC_MARKDOWN_VERSION, SEMANTIC_MARKDOWN_LIMITS, renderSemanticMarkdown } from "./semantic-markdown.mjs";
 export { ATLAS_STATE_VERSION, ATLAS_LEVELS, ATLAS_HISTORY_LIMIT, createAtlasState, validateAtlasState, navigateAtlasToGroup, navigateAtlasToProject, navigateAtlasToStructure, parentAtlasState, atlasBreadcrumbs, resolveAtlasContext, createAtlasHistory, serializeAtlasState, parseAtlasState } from "./developer-atlas.mjs";
 export { projectDeveloperAtlasScene } from "./developer-atlas-scene.mjs";
+export { STORY_CANDIDATE_LIMIT, STORY_TYPES, generateStoryCandidates, recommendStoryCandidate } from "./story-candidates.mjs";
 export { EXPORT_MANIFEST_VERSION, createPortableExport } from "./portable-export.mjs";
 export {
   createTimeline,

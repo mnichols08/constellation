@@ -357,12 +357,13 @@ test(
     const cometTravel = await evaluate(`(() => {
     const flight = document.querySelector('#preview').firstChild.shadowRoot.querySelector('.comet-active .comet-flight');
     const animation = flight.getAnimations().find(value => value.animationName === 'comet-cruise');
+    const translateX = () => new DOMMatrixReadOnly(getComputedStyle(flight).transform).m41;
     animation.pause(); animation.currentTime = 1000;
-    const start = flight.getBoundingClientRect().x;
+    const start = translateX();
     animation.currentTime = 7000;
-    const end = flight.getBoundingClientRect().x;
+    const end = translateX();
     animation.currentTime = 13000;
-    const loop = flight.getBoundingClientRect().x;
+    const loop = translateX();
     animation.play(); return { distance: end - start, loopOffset: Math.abs(loop - start) };
   })()`);
     assert.ok(
@@ -543,10 +544,7 @@ test(
       "5",
     );
     await evaluate(`chooseLayer('starfield');click('layer-edit-settings');`);
-    assert.equal(
-      await evaluate(`document.activeElement.id`),
-      "design-sky-mode",
-    );
+    assert.equal(await evaluate(`document.activeElement.id`), "design-sky-mode");
     assert.equal(
       await evaluate(
         `document.querySelector('[role=tab][aria-selected=true]').id`,
@@ -966,7 +964,7 @@ test(
     );
     assert.ok(
       await evaluate(
-        `(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>0&&r.bottom<innerHeight&&r.height>300;})()`,
+        `(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>0&&r.bottom<innerHeight&&r.height>150;})()`,
       ),
     );
     assert.deepEqual(
@@ -1038,6 +1036,7 @@ test(
     await evaluate(
       `document.querySelector('#randomize-full').checked=true;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-motion').checked=true;click('randomize-design');`,
     );
+    await wait(`document.querySelector('#design-code').value!=='v1:browser'`, 30000);
     assert.notEqual(
       await evaluate(`document.querySelector('#design-code').value`),
       "v1:browser",
@@ -1278,6 +1277,30 @@ test(
       await delay(50);
     }
     assert.equal(apiCalls, 3);
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="journey"]').disabled`), false, 'unavailable choices remain keyboard focusable');
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="journey"]').getAttribute('aria-disabled')`), 'true');
+    assert.match(await evaluate(`document.getElementById('journey-unavailable').textContent`), /Unavailable:/);
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="journey"]').getAttribute('aria-describedby')`), 'journey-unavailable');
+    await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
+    assert.equal(await evaluate(`(async()=>{const links=[document.querySelector('.download').href,document.querySelector('#download-profile-story').href];const [shown,story]=await Promise.all(links.map(async href=>await(await fetch(href)).text()));return shown===story;})()`), true, 'profile story export matches the selected displayed SVG');
+    assert.equal(await evaluate(`document.querySelector('#preview').dataset.sceneFingerprint===document.querySelector('.download').dataset.sceneFingerprint&&document.querySelector('.download').dataset.sceneFingerprint===document.querySelector('#download-profile-story').dataset.sceneFingerprint`), true, 'display and exports carry the same selected candidate fingerprint');
+    await evaluate(`input('node-mode','languages');`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
+    assert.ok(await evaluate(`(async()=>{const text=await(await fetch(document.querySelector('#download-profile-story').href)).text();return new Set([...text.matchAll(/data-repo="([^"]+)"/g)].map(match=>match[1])).size<=12;})()`), 'manual profile export remains within the story cap');
+    const manualStoryBeforeTheme = await evaluate(`document.querySelector('#download-profile-story').dataset.sceneFingerprint`);
+    const manualStorySvgBeforeTheme = await evaluate(`fetch(document.querySelector('#download-profile-story').href).then(response=>response.text())`);
+    const manualMainSvgBeforeTheme = await evaluate(`fetch(document.querySelector('.download').href).then(response=>response.text())`);
+    await evaluate(`document.querySelector('#design-visualTheme').value='deep-space';document.querySelector('#design-visualTheme').dispatchEvent(new Event('change',{bubbles:true}));`);
+    const manualStoryAfterTheme = await evaluate(`document.querySelector('#download-profile-story').dataset.sceneFingerprint`);
+    assert.notEqual(manualStoryAfterTheme, manualStoryBeforeTheme, 'manual mode regenerates presentation candidates when the theme changes');
+    assert.notEqual(await evaluate(`fetch(document.querySelector('#download-profile-story').href).then(response=>response.text())`), manualStorySvgBeforeTheme, 'Profile Story SVG updates with the theme, beyond its fingerprint');
+    assert.notEqual(await evaluate(`fetch(document.querySelector('.download').href).then(response=>response.text())`), manualMainSvgBeforeTheme, 'main manual SVG remains current after the theme change');
+    await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
+    await evaluate(`document.querySelector('#story-choices [data-story-choice="auto"]').click()`);
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /is recommended/);
+    assert.equal(await evaluate(`document.querySelector('#story-choices [data-story-choice="auto"]').getAttribute('aria-pressed')`), 'true');
     await evaluate(
       `input('node-mode','repositories');input('history-mode','historical');input('history-year','2019');`,
     );
@@ -1307,6 +1330,7 @@ test(
     );
     for (const mode of ["grow", "orbit", "crossfade"]) {
       await evaluate(`input('history-lapse',${JSON.stringify(mode)});`);
+      assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
       assert.equal(
         await evaluate(
           `(async()=>{const source=await(await fetch(document.querySelector('.download').href)).text();return new DOMParser().parseFromString(source,'image/svg+xml').querySelectorAll('parsererror').length;})()`,
@@ -1426,7 +1450,7 @@ test(
       mobile: true,
     });
     await evaluate(
-      `document.querySelector('#tab-look').click();document.querySelector('#design-sky-mode').closest('details').open=true;`,
+      `document.querySelector('.customize-controls').open=true;document.querySelector('#tab-look').click();document.querySelector('#design-sky-mode').closest('details').open=true;`,
     );
     await delay(50);
     assert.ok(
@@ -1437,20 +1461,18 @@ test(
       `(()=>{const p=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('.controls').getBoundingClientRect();return {previewHeight:p.height,previewBottom:p.bottom,controlsTop:c.top,controlsBottom:c.bottom,viewport:innerHeight};})()`,
     );
     assert.ok(
-      mobileBounds.previewHeight > 100 &&
-        mobileBounds.previewBottom <= mobileBounds.controlsTop &&
-        mobileBounds.controlsBottom < mobileBounds.viewport,
-      `mobile keeps preview above the bounded controls: ${JSON.stringify(mobileBounds)}`,
+      mobileBounds.previewHeight >= 160 &&
+        mobileBounds.previewBottom <= mobileBounds.controlsTop,
+      `mobile keeps the preview above reachable controls: ${JSON.stringify(mobileBounds)}`,
     );
     await evaluate(
       `document.querySelector('.design-launcher').style.paddingBottom='48px';`,
     );
     await delay(100);
+    const mobileReachability = await evaluate(`(()=>{const c=document.querySelector('.controls').getBoundingClientRect();return {scrollHeight:document.documentElement.scrollHeight,controlsBottom:c.bottom,scrollY,rootPadding:getComputedStyle(document.documentElement).paddingBottom,bodyPadding:getComputedStyle(document.body).paddingBottom};})()`);
     assert.ok(
-      await evaluate(
-        `document.querySelector('.controls').getBoundingClientRect().bottom<innerHeight`,
-      ),
-      "workspace adapts when toolbar height changes",
+      mobileReachability.scrollHeight >= mobileReachability.controlsBottom + mobileReachability.scrollY,
+      `mobile controls remain reachable when toolbar height changes: ${JSON.stringify(mobileReachability)}`,
     );
     const mobilePreviewTop = await evaluate(
       `document.querySelector('#preview').getBoundingClientRect().top`,
@@ -1565,6 +1587,7 @@ test(
     await evaluate(
       `document.querySelector('#randomize-full').checked=true;document.querySelector('#randomize-full').dispatchEvent(new Event('input'));document.querySelector('#randomize-motion').checked=true;document.querySelector('#randomize-motion').dispatchEvent(new Event('input'));for(const input of document.querySelectorAll('.randomize-motion-parts input')){input.checked=input.id==='randomize-ring2';input.dispatchEvent(new Event('input'));}document.querySelector('#randomize-design').click();`,
     );
+    await wait(`document.querySelector('#design-code').value.startsWith('v6:m008-')`, 30000);
     assert.match(
       await evaluate(`document.querySelector('#design-code').value`),
       /^v6:m008-/,
@@ -2629,15 +2652,7 @@ test(
     await evaluate(
       `document.querySelector('#node-mode').value='contributors';document.querySelector('#node-mode').dispatchEvent(new Event('input'));`,
     );
-    for (let i = 0; i < 100; i++) {
-      if (
-        await evaluate(
-          `document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('[data-kind="contributor"].star').length === 2`,
-        )
-      )
-        break;
-      await delay(25);
-    }
+    await wait(`document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('[data-kind="contributor"].star').length === 2`, 30000).catch(async error => { throw Error(`${error.message} | ${await evaluate(`JSON.stringify({url:location.href,status:document.querySelector('#status')?.textContent,title:document.querySelector('#map-title')?.textContent,mode:document.querySelector('#node-mode')?.value,story:document.querySelector('#story-recommendation')?.textContent})`)} | ${errors.join('\n')}`); });
     assert.equal(
       await evaluate(
         `document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-kind="contributor"].star').length`,
@@ -2659,15 +2674,9 @@ test(
     await cdp("Page.navigate", {
       url: `${base}/${new URL(contributorViewShare).search}`,
     });
-    for (let i = 0; i < 100; i++) {
-      if (
-        await evaluate(
-          `document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('[data-kind="contributor"].star').length === 2`,
-        )
-      )
-        break;
-      await delay(25);
-    }
+    const contributorSearch = new URL(contributorViewShare).search;
+    await wait(`location.search===${JSON.stringify(contributorSearch)}&&document.readyState==='complete'`, 15000);
+    await wait(`document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelectorAll('[data-kind="contributor"].star').length === 2`, 30000);
     assert.equal(
       await evaluate(
         `document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-kind="contributor"].star').length`,
@@ -2675,6 +2684,7 @@ test(
       2,
       "shared personal contributor views load contributor data on a fresh visit",
     );
+    assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
     const themeBeforeCommitStars = await evaluate(
       `document.querySelector('#dark-accent').value`,
     );

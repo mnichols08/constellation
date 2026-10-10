@@ -72,6 +72,9 @@ test('Studio live constellation activates the shared Atlas and keeps semantic ex
   const after = await evaluate(`Promise.all(['#download-semantic-graph','#download-semantic-markdown'].map(selector=>fetch(document.querySelector(selector).href).then(response=>response.text())))`);
   assert.deepEqual(after, before);
   assert.equal(await evaluate(`window.liveAtlasFetches.length`), 0, 'Developer to Group to Project remains local after account data is loaded');
+  await evaluate(`document.querySelector('#story-choices [data-story-choice="projects"]').click()`);
+  await waitFor(`document.querySelector('#preview').getAttribute('aria-label')===${JSON.stringify(`Developer Atlas: ${graph.subject.id}`)} && document.querySelector('#story-recommendation').textContent.includes('story selected')`);
+  assert.equal(await evaluate(`(async()=>{const [shown,story]=await Promise.all([document.querySelector('.download').href,document.querySelector('#download-profile-story').href].map(href=>fetch(href).then(response=>response.text())));return shown===story;})()`), true, 'story selection exits Atlas navigation and restores candidate SVG parity');
   assert.deepEqual(errors, []);
 });
 
