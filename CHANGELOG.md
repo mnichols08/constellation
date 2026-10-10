@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — Visual Storytelling
+## Unreleased — Story Clarity (v4.3.x)
+
+- Add bounded Rust/WASM Story Clarity v1 diagnostics for final-scene labels, hierarchy, evidence-backed relationships, technical groups, and legends. Diagnostics are deterministic and advisory; they do not score or select candidates.
+- Export the same bounded Profile Story at compact 480px and wide 900px targets. Compact output prioritizes authored featured/supporting projects and reduces secondary labels and annotations without dropping selected projects.
+- Add a Studio composition inspector for authored project emphasis, relationship evidence, and presentation diagnostics; retain manual layout ownership and accessible SVG pathway patterns.
+
+## 4.2.0 — Visual Storytelling
 
 - Add bounded Rust/WASM Story Composition v1 for evidence-ranked language, topic, authored-family, and explicit project connections across the existing three story candidates.
 - Annotate static SVG project links with semantic evidence, accessible line-pattern distinctions, and a compact multi-type legend; retain user-curated families and project roles.
