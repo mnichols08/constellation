@@ -1,5 +1,6 @@
 // One prebuilt Rust module runs in the browser and in the Node action.
 import { overviewEdges } from "./scaling.mjs";
+import { evidenceNavigatorAdapter } from "./evidence-navigator.mjs";
 // Supported rendering always uses the bundled Rust/WASM engine.
 let core;
 export let engineError;
@@ -164,6 +165,18 @@ export const STORY_CLARITY_VERSION = 1;
 export function analyzeStoryClarity(input) {
   if (!core?.analyze_story_clarity) throw new Error('Story Clarity needs the rebuilt Rust/WASM engine.');
   return JSON.parse(core.analyze_story_clarity(JSON.stringify(input)));
+}
+
+// Evidence Navigation v1: build the retained Rust index once per graph, then
+// navigate per interaction. Pass a graph from evidenceNavigationGraph().
+export function createEvidenceNavigator(graph) {
+  if (!core?.EvidenceNavigator) throw new Error('Evidence Navigation needs the rebuilt Rust/WASM engine.');
+  return evidenceNavigatorAdapter(core.EvidenceNavigator, graph);
+}
+export function navigateEvidence(graph, projectId, { depth = 1 } = {}) {
+  if (!core?.EvidenceNavigator) throw new Error('Evidence Navigation needs the rebuilt Rust/WASM engine.');
+  const index = new core.EvidenceNavigator(JSON.stringify(graph));
+  try { return JSON.parse(index.navigate(JSON.stringify({ projectId, depth }))); } finally { index.free(); }
 }
 
 export function identityGeometry(metadata, variation = 0) {

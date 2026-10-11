@@ -102,7 +102,7 @@ const allowed = new Map([
     [`../src/${name}.mjs`, "text/javascript"],
   ]),
   ["/src/scaling.mjs", ["../src/scaling.mjs", "text/javascript"]],
-  ...["plugin-host", "json-feed-source", "theme-packs", "semantic-groups", "semantic-graph", "semantic-markdown", "developer-atlas", "developer-atlas-scene", "story-candidates", "story-clarity", "scene-framing"].map((name) => [
+  ...["plugin-host", "json-feed-source", "theme-packs", "semantic-groups", "semantic-graph", "semantic-markdown", "developer-atlas", "developer-atlas-scene", "story-candidates", "story-clarity", "evidence-navigation", "evidence-navigator", "interactive-focus", "scene-framing"].map((name) => [
     `/src/${name}.mjs`,
     [`../src/${name}.mjs`, "text/javascript"],
   ]),

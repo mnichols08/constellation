@@ -19,6 +19,8 @@ export { SEMANTIC_GROUP_VERSION, SEMANTIC_LEVELS, MAX_SEMANTIC_GROUPS, MAX_GROUP
 export { rustAvailable, engineError } from "./engine.mjs";
 export { GRAPH_QUALITY_VERSION, evaluateGraphQuality } from "./engine.mjs";
 export { STORY_CLARITY_VERSION, analyzeStoryClarity } from "./engine.mjs";
+export { createEvidenceNavigator, navigateEvidence } from "./engine.mjs";
+export { EVIDENCE_NAVIGATION_VERSION, EVIDENCE_NAVIGATION_RELATIONSHIP_TYPES, evidenceNavigationGraph, evidenceNavigationGraphFromScene } from "./evidence-navigation.mjs";
 export { analyzeDeveloperProfile } from "./engine.mjs";
 export { layoutStatistics } from "./engine.mjs";
 export { layoutCacheStatistics } from "./engine.mjs";
