@@ -9,3 +9,19 @@ export { storyArtifacts } from './renderer-html.mjs';
 export { interactiveMarkup } from './renderer-html.mjs';
 // The core entry initializes these bindings before a component mounts.
 export { shortest_path, neighbors } from './wasm/constellation_core.js';
+import { shortest_path, neighbors, EvidenceNavigator } from './wasm/constellation_core.js';
+import { evidenceNavigationGraphFromScene } from './evidence-navigation.mjs';
+import { evidenceNavigatorAdapter } from './evidence-navigator.mjs';
+export { installFocusAPI } from './interactive-focus.mjs';
+
+// Engine for mounted runtimes: graph paths plus one retained Evidence Navigation
+// index per scene object, released with the scene.
+const navigators = new WeakMap();
+export const interactiveEngine = Object.freeze({
+  shortest_path, neighbors,
+  navigatorFor(scene) {
+    if (!scene || typeof scene !== 'object') return null;
+    if (!navigators.has(scene)) navigators.set(scene, evidenceNavigatorAdapter(EvidenceNavigator, evidenceNavigationGraphFromScene(scene)));
+    return navigators.get(scene);
+  },
+});
