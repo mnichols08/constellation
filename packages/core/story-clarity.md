@@ -61,6 +61,10 @@ suppressed:
    shown.
 4. Story Clarity sees only the protected and budget-selected labels, and its
    suppression suggestions apply only to automatic labels.
+5. Automatic labels are kept inside the frame at their rendered role font
+   size (Featured, Supporting, and ordinary labels are larger at 480px), using
+   a conservative glyph width that covers wide fallback fonts. Story Clarity
+   analyzes those same positions. Manual label positions are never moved.
 
 Project nodes are never removed to satisfy the label budget. When protected
 manual labels overlap each other, the renderer keeps the user's choices and
