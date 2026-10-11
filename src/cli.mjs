@@ -109,6 +109,8 @@ async function main() {
     throw Error('Profile Story width must be 480 or 900 and requires --story.');
   if (requestedStory && values.format !== 'svg')
     throw Error('Profile Story publishing supports static SVG only.');
+  if (requestedStory && (values['semantic-graph'] || values.scene || values['scene-json']))
+    throw Error('Profile Story output requires developer evidence generation, not graph import or scene inspection.');
   if (values.help) {
     console.log('Profile Story SVG: --story auto|projects|technical-shape|journey [--target-width 480|900]');
     console.log(

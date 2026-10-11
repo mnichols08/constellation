@@ -17,7 +17,7 @@ export function describePublishingSVG(svg) {
   };
 }
 
-export function updatePublishingPreviews(host, variants, scene, clarity) {
+export function updatePublishingPreviews(host, variants, scene) {
   host.replaceChildren();
   for (const { width, svg, url, fingerprint } of variants) {
     const info = describePublishingSVG(svg);
@@ -44,10 +44,17 @@ export function updatePublishingPreviews(host, variants, scene, clarity) {
     ];
     if (info.manualOverlap)
       messages.push('Manual labels may overlap. Their positions and visibility have not been changed; this estimate is advisory, not an accessibility failure.');
+    if (scene.presentation.options.customCSS || scene.presentation.options.css)
+      messages.push('Custom CSS is preserved. Label lists describe renderer output before custom CSS; inspect the actual image for stylesheet-specific visibility or animation.');
     for (const edge of (scene.edges || []).filter(edge => edge.metadata?.relationshipEvidence?.length).slice(0, 8))
       messages.push(`${edge.from} connects to ${edge.to}: ${edge.metadata.relationshipEvidence.join(', ')}.`);
-    for (const diagnostic of (clarity?.diagnostics || []).slice(0, 8))
-      messages.push(`Advisory Story Clarity: ${diagnostic.code} (${(diagnostic.ids || []).join(', ')}). Deterministic estimate, not a publishing blocker.`);
+    try {
+      const clarity = analyzeStoryClarity(sceneClarityInput(scene, { targetWidth: width }));
+      for (const diagnostic of (clarity.diagnostics || []).slice(0, 8))
+        messages.push(`Advisory Story Clarity at ${width}px: ${diagnostic.code} (${(diagnostic.ids || []).join(', ')}). Deterministic estimate, not a publishing blocker.`);
+    } catch (error) {
+      messages.push(`Story Clarity could not be analyzed: ${error.message}. Inspect the actual image before publishing.`);
+    }
     list.replaceChildren(...messages.map(text => {
       const item = document.createElement('li');
       item.textContent = text;
@@ -62,3 +69,5 @@ export function updatePublishingPreviews(host, variants, scene, clarity) {
     host.append(note);
   }
 }
+import { analyzeStoryClarity } from './engine.mjs';
+import { sceneClarityInput } from './story-clarity.mjs';

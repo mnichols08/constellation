@@ -10,12 +10,17 @@ Turn GitHub project data into an interactive map, an embeddable experience, or a
 
 ### Make a profile graphic
 
-1. Open the [Constellation Studio](https://mnichols08.github.io/constellation/) and explore a public account or sign in with GitHub. Generate the suggested project map, then choose **Create a README graphic** or customize it.
-2. Open **Export → Daily GitHub workflow**.
+1. Open the [Constellation Studio](https://mnichols08.github.io/constellation/) and enter a public account or sign in with GitHub. Accept **Use recommendation** or choose what to communicate, then personalize the preview in Simple Studio.
+2. Choose **Prepare publishing** or **Preview and prepare publishing**, select your destination, and review the actual compact/wide SVG previews and setup requirements.
 3. Add the workflow to your profile repository (`YOUR_USERNAME/YOUR_USERNAME`) and run **Actions → Daily constellation → Run workflow**.
 4. Copy the README snippet from the workflow summary.
 
 The workflow publishes `constellation.svg` to an `output` branch. GitHub supplies its token automatically; you do not need to create a personal access token. For setup details and troubleshooting, see [Daily profile graphic](docs/README.md#publish-a-profile-graphic).
+
+Simple and Advanced Studio share one configuration; switching modes preserves
+manual settings. Generating setup does not publish anything. See
+[Guided setup](docs/guided-setup.md) and [Publishing](docs/publishing.md) for
+ownership, restoration, portfolio exports, and automatic refresh behavior.
 
 ### Download a one-time graphic
 

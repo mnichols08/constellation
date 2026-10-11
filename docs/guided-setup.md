@@ -37,7 +37,12 @@ theme control. They change appearance, not layout, project selections, or
 authored relationships. Full design recipes, randomization, and design-code
 controls remain in Advanced mode.
 
-Account loading now leads with **Generate my project map**, a deterministic, editable starting point using the existing recommended repository selection and default project-map recipe. No layout, mapping, palette, motion or topology choices are required. Once it renders, choose **Use this constellation**, **Show my technical focus**, **Show my project history**, **Create a README graphic**, or **Customize the design**. These choices reuse existing generator settings and do not add a new configuration format.
+## Optional advanced generator
+
+**More ways to start** retains **Generate my project map**, a deterministic,
+editable starting point using the existing recommended repository selection
+and default project-map recipe. The existing questionnaire and outcome actions
+below are optional, not the required first-time experience.
 
 The default uses an account-stable seed, so reloading does not reshape the design; **Generate another** intentionally draws a fresh design. Outcome buttons reset only the settings needed for their promised view, while keeping saved project selections, roles, filters and relationship choices. Project history appears only when enough repository creation-date evidence is available. README output uses the existing compact, clean profile.
 
