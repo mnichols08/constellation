@@ -46,6 +46,36 @@ disabled. Reduced-motion preferences do not remove static information.
 Suggestions are presentation guidance. They do not change evidence, semantic
 selection, project identity, or user-authored layout.
 
+### Label ownership
+
+The SVG renderer applies one deterministic label policy wherever labels are
+suppressed:
+
+1. Explicitly hidden labels stay hidden at every width.
+2. Visible labels with a manual position are protected. They are never removed
+   by the compact budget or by Story Clarity `suppress-or-offset-label`
+   suggestions, and they do not count against the compact budget.
+3. Remaining labels are automatic. They are ranked Featured, then Supporting,
+   then ordinary, with the project ID as the tie-breaker, so input order does
+   not matter. At 480px and narrower, only the first eight automatic labels are
+   shown.
+4. Story Clarity sees only the protected and budget-selected labels, and its
+   suppression suggestions apply only to automatic labels.
+
+Project nodes are never removed to satisfy the label budget. When protected
+manual labels overlap each other, the renderer keeps the user's choices and
+reports the limitation with `data-label-limitation="manual-labels-overlap"` on
+the root `<svg>`.
+
+### Fingerprints
+
+Both exports carry the candidate's `sceneFingerprint`, which identifies the
+source scene: the selected projects, evidence, and composition. Because the
+480px and 900px exports come from the same source scene, they share this
+fingerprint by design. The SVG text itself is specific to each output and can
+differ between widths (for example, in which labels are visible). Compare the
+SVG bytes, not the scene fingerprint, to identify a particular output file.
+
 ## Human comprehension review
 
 The automated geometry checks establish that labels and legends fit; they do
