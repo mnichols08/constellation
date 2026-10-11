@@ -34,6 +34,7 @@ export function mountStudioLayout() {
   }
   function setMode(value) {
     body.dataset.studioMode = value;
+    document.documentElement.dataset.studioMode = value;
     tabs.hidden = value === 'simple';
     scroll.hidden = value === 'simple';
     simple.hidden = value !== 'simple';
@@ -317,6 +318,22 @@ export function mountStudioLayout() {
     $("label[for='design-visualTheme']"), $("#design-visualTheme"),
     $(".showcase-curation-list").previousElementSibling, $(".showcase-curation-list"),
   ]) moveToSimple(element);
+  const presets = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.textContent = 'Quick visual styles';
+  presets.append(legend);
+  for (const [value, label] of [['deep-space', 'Cosmic'], ['github-dark', 'GitHub dark'], ['monochrome', 'Minimal']]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      const theme = $('#design-visualTheme');
+      theme.value = value;
+      theme.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    presets.append(button);
+  }
+  simple.append(presets);
   const publish = document.createElement('button');
   publish.type = 'button';
   publish.dataset.experienceControl = '';
