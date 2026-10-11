@@ -22,6 +22,7 @@ import {
   parseSemanticGraph,
   serializeSemanticGraph,
   semanticGraphFingerprint,
+  semanticGraphFromScene,
   projectSemanticGraphToScene,
   renderSemanticMarkdown,
   createPortableExport,
@@ -53,6 +54,8 @@ import { commitHistoryOptions } from "./commit-constellation.mjs";
 import { createCliRequestCache } from "./cli-request-cache.mjs";
 import { loadAccountAvatar } from "./account-sun.mjs";
 import { validatePublicationArtifact } from './publication-integrity.mjs';
+import { generateStoryCandidates, recommendStoryCandidate } from './story-candidates.mjs';
+import { renderProfileStorySVG } from './profile-story-export.mjs';
 
 async function writeArtifactAtomically(path, content, format) {
   const bytes = Buffer.from(content, 'utf8');
@@ -84,6 +87,8 @@ async function main() {
       workflow: { type: "string" },
       fixture: { type: "string" },
       "semantic-graph": { type: "string" },
+      story: { type: 'string' },
+      "target-width": { type: 'string' },
       fingerprint: { type: "boolean" },
       "activity-fixture": { type: "string" },
       scene: { type: "boolean" },
@@ -96,6 +101,14 @@ async function main() {
       version: { type: "boolean" },
     },
   });
+  const requestedStory = values.story || process.env.CONSTELLATION_STORY || '';
+  const requestedWidth = values['target-width'] || process.env.CONSTELLATION_TARGET_WIDTH || '';
+  if (requestedStory && !['auto', 'projects', 'technical-shape', 'journey'].includes(requestedStory))
+    throw Error('Choose a supported Profile Story.');
+  if (requestedWidth && (!requestedStory || !['480', '900'].includes(requestedWidth)))
+    throw Error('Profile Story width must be 480 or 900 and requires --story.');
+  if (requestedStory && values.format !== 'svg')
+    throw Error('Profile Story publishing supports static SVG only.');
   if (values.help) {
     console.log(
       "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --format json|markdown|svg|html|bundle  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (migration defaults to stdout; bundle requires a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
@@ -474,10 +487,19 @@ async function main() {
     commitFieldData,
     generatedAt,
   });
-  const svg =
+  let svg =
     values.format === "html"
       ? renderSceneHTML(scene, { title: account + " constellation" })
       : renderSceneSVG(scene);
+  if (requestedStory) {
+    const graph = semanticGraphFromScene(scene.kind === 'time-lapse' ? scene.latest : scene);
+    const candidates = generateStoryCandidates(graph, scene.presentation.options);
+    const candidate = requestedStory === 'auto'
+      ? recommendStoryCandidate(candidates)
+      : candidates.find(item => item.id === requestedStory && item.available !== false);
+    if (!candidate) throw Error('The selected story is unavailable for the current evidence.');
+    svg = renderProfileStorySVG(candidate, Number(requestedWidth || 900));
+  }
   if (values.explain)
     console.log(
       JSON.stringify({

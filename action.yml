@@ -25,6 +25,12 @@ inputs:
   config-json:
     description: Inline JSON settings including CSS, as exported by the controller; use instead of config
     default: ''
+  story:
+    description: Optional bounded Profile Story (auto, projects, technical-shape, journey)
+    default: ''
+  target-width:
+    description: Profile Story SVG width (480 or 900); requires story
+    default: ''
 outputs:
   svg:
     description: Generated SVG path
@@ -47,6 +53,8 @@ runs:
         CONSTELLATION_OUTPUT: ${{ inputs.output }}
         CONSTELLATION_CONFIG: ${{ inputs.config }}
         CONSTELLATION_CONFIG_JSON: ${{ inputs.config-json }}
+        CONSTELLATION_STORY: ${{ inputs.story }}
+        CONSTELLATION_TARGET_WIDTH: ${{ inputs.target-width }}
         GITHUB_TOKEN: ${{ inputs.token }}
       run: node "$CONSTELLATION_ACTION_PATH/src/cli.mjs"
     - id: publish

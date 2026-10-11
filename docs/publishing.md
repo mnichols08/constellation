@@ -8,6 +8,29 @@ Studio's **Publish your constellation** panel prepares one of three destinations
 
 ## GitHub README setup
 
+### Before-you-publish previews
+
+Open **Before you publish** for actual 480px and 900px Profile Story SVGs.
+Their image URLs are the same blobs as the corresponding downloads, not
+independent layouts. Included identities, featured projects, visible labels,
+automatic suppression, authored hidden labels, relationship evidence, and
+advisory clarity findings are listed. Manual label overlap is explained, not
+silently repaired or treated as proof of inaccessibility. Preview does not
+mutate configuration or change the source-scene fingerprint.
+
+Select **SVG presentation** to publish the current view, compact Profile Story,
+or wide Profile Story. Bounded story workflows pass story and target-width
+inputs to the same candidate and SVG pipeline in the CLI. Auto refreshes
+reconsider current evidence; explicit stories remain explicit and fail safely
+if evidence no longer supports them. The existing last-known-good publisher
+still validates the artifact before output mutation.
+
+The new optional story inputs require the v4.6 implementation on `main`;
+generated bounded-story workflows reference `main` until a release ref is
+authorized. They are not ready to install from this feature PR before merge.
+Existing current-view workflow generation retains its existing action ref.
+No release/tag is created by preparing setup.
+
 Choose a profile or repository README, keep **Static SVG** selected, enter the README repository, and copy the generated workflow into `.github/workflows/constellation.yml`. Review and commit that file, run **Daily constellation** once, then copy the Markdown image snippet into the README. The workflow has `contents: write` so it can update its output branch; it uses the repository's automatic `GITHUB_TOKEN`, with no personal access token.
 
 The workflow checks out the repository, loads the embedded normalized configuration, fetches the evidence needed by that configuration, generates a temporary SVG, validates it, then updates the output branch. Concurrent runs are serialized per repository. Existing files on the output branch are preserved. The publisher never force-pushes.

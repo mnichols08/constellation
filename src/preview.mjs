@@ -4,6 +4,7 @@ import { createGitHubOAuth } from "./github-oauth.mjs";
 import { mountOnboarding } from "./onboarding-ui.mjs";
 import { experienceStore } from "./guided-experience.mjs";
 import { updatePublishingPreviews } from "./publishing-preview.mjs";
+import { renderProfileStorySVG } from "./profile-story-export.mjs";
 import { mountConstellationLibrary } from "./constellation-library.mjs";
 import { parseConfig } from "./config-schema.mjs";
 import { defaultIntent, intentStore } from "./onboarding-model.mjs";
@@ -1686,15 +1687,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   if (atlasProjectionFailed) return false;
   const profileStoryForExport = targetWidth => {
     if (!profileStoryCandidate?.scene) return null;
-    const source = profileStoryCandidate.scene;
-    const readmeScene = {
-      ...source,
-      presentation: {
-        ...source.presentation,
-        options: { ...source.presentation.options, exportProfile: 'readme' },
-      },
-    };
-    return renderSceneSVG(readmeScene, { targetWidth });
+    return renderProfileStorySVG(profileStoryCandidate, targetWidth);
   };
   const profileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
     && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
@@ -1814,9 +1807,11 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     download.download = "constellation.svg";
     const artifactFormat = $("#publish-format").value;
     const filename = $("#publish-filename").value.trim();
+    const presentation = $('#publish-presentation').value;
     const publishedContent = artifactFormat === 'html'
       ? renderSceneHTML(scene, { title: `${account} constellation` })
-      : captured;
+      : presentation === '480' ? compactProfileStorySvg : presentation === '900' ? profileStorySvg : captured;
+    if (!publishedContent) throw Error('This Profile Story is unavailable. Select the current artifact or choose a supported story.');
     if (publishArtifactUrl) URL.revokeObjectURL(publishArtifactUrl);
     publishArtifactUrl = URL.createObjectURL(new Blob([publishedContent], { type: artifactFormat === 'html' ? 'text/html;charset=utf-8' : 'image/svg+xml' }));
     $("#download-publish-artifact").href = publishArtifactUrl;
@@ -1824,6 +1819,11 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     $("#download-publish-artifact").textContent = `Download ${artifactFormat === 'html' ? 'interactive HTML' : 'static SVG'}`;
     $("#workflow").value = renderWorkflow(isSample ? null : account, options, {
       filename: artifactFormat === 'svg' && /^[a-z\d][a-z\d._-]{0,120}\.svg$/i.test(filename) ? filename : 'constellation.svg',
+      ...(artifactFormat === 'svg' && presentation !== 'current' ? {
+        story: storyMode === 'auto' ? 'auto' : profileStoryCandidate.id,
+        targetWidth: Number(presentation),
+        sourceAccount: !isSample,
+      } : {}),
     });
     updateSnippet();
     studio?.update(account, options, captured);
@@ -2805,6 +2805,7 @@ $("#preview-publish-artifact").addEventListener('click', () => {
   window.open(publishArtifactUrl, '_blank', 'noopener,noreferrer');
 });
 $("#publish-filename").addEventListener('input', () => { updateSnippet(); render(); });
+$('#publish-presentation').addEventListener('change', () => { updateSnippet(); render(); });
 $("#publish-destination").addEventListener('change', () => {
   if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
     $("#publish-format").value = 'svg';

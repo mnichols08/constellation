@@ -1165,6 +1165,12 @@
             <option value="svg">Static SVG</option>
             <option value="html">Interactive standalone HTML</option>
           </select>
+          <label for="publish-presentation">SVG presentation</label>
+          <select id="publish-presentation">
+            <option value="current">Current view</option>
+            <option value="480">Compact Profile Story (480px)</option>
+            <option value="900">Wide Profile Story (900px)</option>
+          </select>
           <label for="publish-filename">Output filename</label>
           <input id="publish-filename" value="constellation.svg" autocomplete="off" spellcheck="false" aria-describedby="publish-status" />
           <p id="publish-status" role="status" aria-live="polite">SVG works in GitHub READMEs and portfolio sites.</p>
