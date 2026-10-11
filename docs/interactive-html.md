@@ -8,7 +8,7 @@ node src/cli.mjs build --username octocat --fixture repositories.json --format h
 
 Use your own repository JSON array as the fixture, or omit `--fixture` to load GitHub data. Existing config, source, transform, mapping and layer options apply. SVG remains the default format and the GitHub Action's existing output.
 
-Drag the canvas to pan, scroll to zoom, or use the labelled zoom controls. Select a node to focus it; Fit frames the visible nodes and Reset restores the original view. Tab reaches the canvas, controls and nodes. Arrow keys navigate nodes, Home/End select the first/last keyboard target, Enter/Space select, Escape clears selection, and +/- zoom.
+Drag the canvas to pan, scroll to zoom, or use the labelled zoom controls. Select a node to focus it; Fit frames the visible nodes and Reset restores the original view. Tab reaches the canvas, controls and nodes. Arrow keys navigate nodes, Home/End select the first/last keyboard target, Enter/Space select, Escape steps back one focus level (relationship → project → overview), and +/- zoom.
 
 The renderer embeds compiled scene data and a small DOM runtime. It does not fetch data or recalculate layouts when opened. A status region announces selection and actual semantic detail transitions. When `semanticZoom.mode` is `auto`, camera zoom crosses deterministic hysteresis thresholds and switches between precomputed grouped and project detail. Project expansion is available only when the bounded offline artifacts fit; otherwise the grouped view remains usable and explains that automatic project detail is unavailable. Existing reduced-motion rules remain in effect.
 

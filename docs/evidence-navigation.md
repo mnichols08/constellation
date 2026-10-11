@@ -45,6 +45,12 @@ Interactive HTML exports and `<constellation-view>` use Evidence Navigation for 
 
 Focus never moves projects, changes manual layout settings, or edits config, Scene, or the graph. Without a navigation graph (for example time-lapse or Temporal Stack scenes) selection keeps its previous behavior. Shift-select path tracing is unchanged.
 
+## Keyboard, touch, and announcements
+
+Selecting a project by pointer, Enter, or Space enters project focus; connection and project buttons in the inspector are native buttons with visible focus. **Escape** steps back one level wherever focus is in the view: relationship → project (keyboard focus returns to the connection you opened) → overview (keyboard focus returns to the project node). Escape in the overview does nothing, and focus is never trapped. Opening a relationship moves focus to its heading so the explanation is read next. Programmatic focus does not move keyboard focus.
+
+The status region announces project focus with its connection count, relationship focus with its reasons, and the return to the overview. Inspector buttons and disclosure summaries are at least 44 px tall, and project nodes use their whole bounding box as the hit target. Dimming uses a short opacity transition that is removed under reduced motion.
+
 ## Web Component API
 
 Web Component API v1 gains additive members: `focusProject(id, { focus })`, `focusRelationship(projectId, relatedId)`, `returnToOverview()`, and the `focusState` getter (`{ mode, project, related, connections }`, where `mode` is `overview`, `project`, `relationship`, or `path`). The view emits `focus-change` with `{ mode, projectId, relatedId, connections, source }` (`source` is `user` or `api`). `selectNode`, `clearSelection`, `selection`, and `node-select` keep their existing behavior; selecting a project also enters project focus. An unknown or hidden project, or a pair without an evidence-backed relationship, throws a descriptive error.

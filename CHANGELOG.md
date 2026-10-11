@@ -4,6 +4,7 @@
 
 - Add bounded Rust/WASM Evidence Navigation v1: a retained index over Semantic Graph v1 that returns a project's direct connections with evidence references for explicit, authored-family, shared-language, and shared-topic relationships, an optional bounded second degree, stable ordering, and structured diagnostics. Derived owner groups never become connections.
 - Add project and relationship focus to interactive HTML and `<constellation-view>`: selecting a project dims unrelated projects without moving anything and lists evidence-backed connections; a relationship explains each reason and its origin and is never presented as a verified dependency.
+- Make focus keyboard- and touch-friendly: Escape steps back one level with predictable focus restoration, focus changes are announced, inspector targets are at least 44 px, and dimming respects reduced motion.
 
 ## Unreleased — Story Clarity (v4.3.x)
 
