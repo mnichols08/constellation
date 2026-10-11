@@ -95,13 +95,23 @@ export async function publishOutput({ cwd = process.cwd(), file, branch = 'outpu
         const priorInfo = await lstat(priorPath);
         if (priorInfo.isFile() && !priorInfo.isSymbolicLink() && priorInfo.size <= 12 * 1024 * 1024) priorArtifact = await readFile(priorPath);
       } catch { /* New destination or first publication. */ }
-      if (priorArtifact && priorArtifact.equals(artifact)) {
-        return { status: 'skipped', changed: false, digest: artifactInfo.digest, manifestValid: Boolean(previousManifest) };
+      const artifactUnchanged = Boolean(priorArtifact && priorArtifact.equals(artifact));
+      const manifestMatchesArtifact = Boolean(previousManifest
+        && previousManifest.artifact.format === 'svg'
+        && previousManifest.artifact.filename === filename
+        && previousManifest.artifact.digest === artifactInfo.digest
+        && previousManifest.artifact.bytes === artifactInfo.bytes
+        && previousManifest.destination.identity === destination);
+      if (artifactUnchanged && manifestMatchesArtifact) {
+        return { status: 'skipped', changed: false, digest: artifactInfo.digest, manifestValid: true };
       }
-      // Replace only this image; unrelated Metrics and other output files survive.
-      // Remove a prior file/symlink first so copying cannot follow a symlink.
-      await rm(join(worktree, filename), { force: true });
-      await copyFile(source, join(worktree, filename));
+      // Preserve identical validated bytes during metadata recovery. Otherwise,
+      // replace only this image; unrelated output files survive and symlinks
+      // are removed before copying so the copy cannot follow them.
+      if (!artifactUnchanged) {
+        await rm(join(worktree, filename), { force: true });
+        await copyFile(source, join(worktree, filename));
+      }
       const manifestPath = join(worktree, MANIFEST_PATH);
       try {
         const sidecarInfo = await lstat(manifestPath);

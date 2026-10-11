@@ -22,7 +22,7 @@ Choose **Portfolio website**, select SVG or interactive HTML, and download the a
 
 On the output branch, `.constellation/publication-manifest.json` is an internal sidecar (it is not part of Scene v1). Version 1 records source repository and commit when available, selected account, configuration and evidence digests when available, UTC reference date, artifact format/name/SHA-256/size, destination, revision, generation result, and bounded diagnostics. It contains no credentials or source contents. Missing evidence identity remains unknown; it is never interpreted as proof that the source is unchanged.
 
-Publication comparison uses the actual artifact digest. An unchanged artifact creates no commit even if the workflow source commit or run date changed. Volatile fields are not removed from output; if they change the artifact bytes, the artifact is published. A missing or corrupt prior sidecar does not prevent a validated artifact from being published. A malformed new artifact is rejected before the output branch is touched.
+Publication comparison uses the actual artifact digest. An unchanged artifact creates no commit even if the workflow source commit or run date changed. Volatile fields are not removed from output; if they change the artifact bytes, the artifact is published. If the artifact is unchanged but its sidecar is missing, corrupt, or does not describe those bytes, the publisher repairs the sidecar without rewriting the artifact; the next identical run is a no-op. A malformed new artifact is rejected before the output branch is touched.
 
 ## Limits
 
