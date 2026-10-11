@@ -191,10 +191,24 @@ export function renderSceneSVG(visualScene, renderOptions) {
     .sort((a, b) => labelPriority(b.id) - labelPriority(a.id) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const compactLabelBudget = targetWidth <= 500 ? 8 : Infinity;
   const budgetLabels = new Set(automaticLabels.slice(0, compactLabelBudget).map(label => label.id));
+  // Scene placement estimates 10px text; static Profile Story role labels are
+  // larger. Keep automatic labels inside the frame at their rendered size
+  // (0.75em per glyph covers wide bold fallbacks). Manual labels never move.
+  const placedLabels = new Map();
+  if (staticReadme && projectScene) for (const label of visualScene.labels || []) {
+    if (protectedLabels.has(label.id) || label.focal) continue;
+    const size = (targetWidth <= 500 ? { 3: 24, 2: 20, 1: 18 } : { 3: 13, 2: 11, 1: 10 })[labelPriority(label.id)];
+    const half = Math.min(frameWidth / 2 - 6, [...String(label.text)].length * size * 0.375);
+    placedLabels.set(label.id, {
+      x: Math.max(frameX + 6 + half, Math.min(frameRight - 6 - half, label.x)),
+      y: Math.max(frameY + size + 4, Math.min(frameBottom - size * 0.3 - 4, label.y)),
+    });
+  }
+  const placed = label => placedLabels.has(label.id) ? { ...label, ...placedLabels.get(label.id) } : label;
   let clarity = null;
   if (staticReadme && projectScene) {
     try {
-      const input = sceneClarityInput(visualScene, { targetWidth });
+      const input = sceneClarityInput({ ...visualScene, labels: (visualScene.labels || []).map(placed) }, { targetWidth });
       // Labels already dropped by the budget must not cause collisions.
       for (const label of input.labels) if (!protectedLabels.has(label.projectId) && !budgetLabels.has(label.projectId)) label.visible = false;
       clarity = analyzeStoryClarity(input);
@@ -656,6 +670,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
     })
     .join("");
   const labels = visualScene.labels
+    .map(placed)
     .map((label) => {
       if (!label.hidden && !protectedLabels.has(label.id) && !autoLabelVisible(label.id)) return '';
       const repo = visibleStars.find(
