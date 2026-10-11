@@ -18,6 +18,37 @@ const scene = createScene(
   fixture.cases[0].options,
 );
 
+// Small JavaScript scanner: reports string/template literals that contain a line
+// break. Regex literals in the runtime contain no quotes or backticks.
+function multiLineLiterals(source) {
+  const found = [], stack = [];
+  let state = "code";
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i], next = source[i + 1];
+    if (state === "code") {
+      if (c === "/" && next === "/") state = "line";
+      else if (c === "/" && next === "*") state = "block";
+      else if (c === '"' || c === "'") state = c;
+      else if (c === "`") state = "template";
+      else if (c === "{" && stack.length) stack[stack.length - 1]++;
+      else if (c === "}" && stack.length) {
+        if (stack.at(-1) === 0) { stack.pop(); state = "template"; } else stack[stack.length - 1]--;
+      }
+    } else if (state === "line") { if (c === "\n") state = "code"; }
+    else if (state === "block") { if (c === "*" && next === "/") { state = "code"; i++; } }
+    else if (state === '"' || state === "'") {
+      if (c === "\\") { if (next === "\n") found.push("string"); i++; }
+      else if (c === state || c === "\n") state = "code";
+    } else if (state === "template") {
+      if (c === "\\") i++;
+      else if (c === "`") state = "code";
+      else if (c === "$" && next === "{") { stack.push(0); state = "code"; i++; }
+      else if (c === "\n") found.push("template");
+    }
+  }
+  return [...new Set(found)];
+}
+
 test("HTML export is deterministic and embeds escaped scene data", () => {
   const html = renderSceneHTML(scene, { title: "<safe>" });
   assert.equal(html, renderSceneHTML(scene, { title: "<safe>" }));
@@ -31,6 +62,12 @@ test("HTML export is deterministic and embeds escaped scene data", () => {
   assert.match(output, /Content-Security-Policy/);
   const size = htmlBundleStatistics(scene);
   assert.ok(size.runtimeBytes < 1024 * 1024);
+  // The export drops leading indentation from the embedded runtime. That is only
+  // lossless while no string or template literal spans a line break.
+  const runtime = html.slice(html.indexOf('<script type="module">') + 22, html.lastIndexOf("</script>"));
+  assert.deepEqual(multiLineLiterals(runtime), []);
+  assert.deepEqual(multiLineLiterals("const a = `x\n  y`;"), ["template"], "the guard detects multi-line templates");
+  assert.deepEqual(multiLineLiterals("const a = 'x\\\n  y';"), ["string"], "the guard detects line continuations");
   assert.ok(size.wasmBytes > 100000);
   for (const mutate of [
     (value) => {

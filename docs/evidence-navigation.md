@@ -1,6 +1,6 @@
-# Evidence Navigation
+# Evidence Navigation and Interactive Focus
 
-Evidence Navigation v1 answers which projects relate to a selected project and why, using only the evidence already recorded in Semantic Graph v1. Static SVG is unchanged.
+Evidence Navigation v1 lets a visitor explore a constellation without Studio: select a project, see which projects relate to it and why, inspect a single relationship, and return to the overview. It works in standalone interactive HTML and in `<constellation-view>`. Static SVG is unchanged and needs no runtime.
 
 ## What counts as a relationship
 
@@ -34,3 +34,17 @@ A result contains `version`, `status` (`ok` or `unavailable`), `project`, `depth
 ## Determinism and limits
 
 Results are independent of node and edge order. Graph input is bounded to 4 MB, 4,096 nodes, and 16,384 edges; requests to 8 KiB and depth 1–2. Each degree returns at most 256 projects, each relationship type at most 32 evidence references, and each second-degree project at most 16 listed intermediates (with the full `viaCount`). Second-degree traversal stops after 262,144 hub-member visits and reports `traversal-budget-exhausted`. The navigator caches at most 64 recent results.
+
+## Interactive focus
+
+Interactive HTML exports and `<constellation-view>` use Evidence Navigation for three focus levels:
+
+- **Overview** shows the complete constellation.
+- **Project focus** (select a project) highlights the project and the projects it has evidence-backed connections with, emphasizes drawn connections between them, and dims unrelated projects without removing them. The inspector keeps the existing project details (name, description, language, safe repository link, and *Why is this here?*) and appends a compact **Connections** list, a **Two steps away** disclosure computed only when opened, and **Back to overview**.
+- **Relationship focus** (choose a connection, or click a drawn connection) narrows emphasis to the two projects and explains each reason with its origin, for example *Shared primary language: Rust · repository metadata* or *Same project family, defined by the author: Toolchain · author-defined*. The panel states that connections reflect shared repository metadata or author-defined links and are not verified dependencies.
+
+Focus never moves projects, changes manual layout settings, or edits config, Scene, or the graph. Without a navigation graph (for example time-lapse or Temporal Stack scenes) selection keeps its previous behavior. Shift-select path tracing is unchanged.
+
+## Web Component API
+
+Web Component API v1 gains additive members: `focusProject(id, { focus })`, `focusRelationship(projectId, relatedId)`, `returnToOverview()`, and the `focusState` getter (`{ mode, project, related, connections }`, where `mode` is `overview`, `project`, `relationship`, or `path`). The view emits `focus-change` with `{ mode, projectId, relatedId, connections, source }` (`source` is `user` or `api`). `selectNode`, `clearSelection`, `selection`, and `node-select` keep their existing behavior; selecting a project also enters project focus. An unknown or hidden project, or a pair without an evidence-backed relationship, throws a descriptive error.
