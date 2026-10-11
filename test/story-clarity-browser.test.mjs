@@ -114,16 +114,18 @@ test('compact label ownership survives real 480px and 900px browser rendering', 
   for (const width of [480, 900]) for (const theme of ['light', 'midnight']) {
     await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
     await cdp('Page.navigate', { url: `${base}/${width}/${theme}` });
+    // Measure only the committed, fully parsed document after fonts settle.
     for (let i = 0; i < 100; i++) {
-      if (await evaluate('Boolean(document.querySelector("svg")?.querySelector(".star"))')) break;
+      if (await evaluate(`location.pathname==='/${width}/${theme}'&&document.readyState==='complete'&&Boolean(document.querySelector('.star'))`)) break;
       await new Promise(resolve => setTimeout(resolve, 50));
     }
+    await evaluate('document.fonts.ready.then(() => true)');
     const report = await evaluate(`(() => {
       const svg=document.documentElement;
       if (svg.localName!=='svg' || document.querySelector('parsererror')) return null;
       const rect=svg.getBoundingClientRect();
       const inside=b=>b.left>=rect.left-1&&b.right<=rect.right+1&&b.top>=rect.top-1&&b.bottom<=rect.bottom+1;
-      const labels=[...svg.querySelectorAll('text.repo-label')].map(el=>{const b=el.getBoundingClientRect();return {id:el.dataset.repo,role:el.dataset.role||'',shown:getComputedStyle(el).display!=='none'&&b.width>0&&b.height>0,inside:inside(b)}});
+      const labels=[...svg.querySelectorAll('text.repo-label')].map(el=>{const b=el.getBoundingClientRect();return {box:[b.left-rect.left,b.top-rect.top,rect.right-b.right,rect.bottom-b.bottom].map(Math.round),id:el.dataset.repo,role:el.dataset.role||'',shown:getComputedStyle(el).display!=='none'&&b.width>0&&b.height>0,inside:inside(b)}});
       const legend=svg.querySelector('.story-relationship-legend');
       const paths=[...svg.querySelectorAll('path[data-relationship-type]')];
       const stars=[...svg.querySelectorAll('circle.star[data-kind="repository"]')];
@@ -138,7 +140,7 @@ test('compact label ownership survives real 480px and 900px browser rendering', 
     for (const id of Object.keys(manual)) assert.ok(shown.has(id), `${width}px ${theme}: manual label ${id} is present`);
     for (const id of hiddenLabels) assert.equal(shown.has(id), false, `${width}px ${theme}: ${id} stays hidden`);
     const automatic = report.labels.filter(x => x.shown && !Object.hasOwn(manual, x.id));
-    assert.ok(automatic.every(x => x.inside), `${width}px ${theme}: automatic labels stay inside the viewBox`);
+    assert.deepEqual(automatic.filter(x => !x.inside).map(x => `${x.id} margins ${x.box.join(',')}`), [], `${width}px ${theme}: automatic labels stay inside the viewBox`);
     assert.equal(report.legendInside, true, `${width}px ${theme}: legend stays inside the viewBox`);
     const rankedAutomatic = Object.keys(ownershipShowcase).filter(id => !Object.hasOwn(manual, id) && !hiddenLabels.includes(id));
     const ordinaryShown = automatic.filter(x => !ownershipShowcase[x.id]);
