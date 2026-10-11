@@ -48,17 +48,33 @@ Optimization PRs should include before/after measurements.
 Measured locally on Node.js 22.12.0 with the generated Rust/WASM engine, using
 `scripts/benchmark-story-composition.mjs` (five iterations per size):
 
-| Projects | Mean composition | Input | Output |
-|---:|---:|---:|---:|
-| 6 | 0.24 ms | 1,048 B | 3,135 B |
-| 12 | 0.71 ms | 1,932 B | 10,178 B |
-| 128 | 34.7 ms | 16,371 B | 90,650 B |
-| 512 | 442.1 ms | 64,360 B | 292,068 B |
+| Projects | v4.2 mean | v4.3 mean | Input | Output |
+|---:|---:|---:|---:|---:|
+| 6 | 0.214 ms | 0.211 ms | 1,048 B | 3,135 B |
+| 12 | 0.697 ms | 0.609 ms | 1,932 B | 10,178 B |
+| 128 | 33.613 ms | 34.527 ms | 16,371 B | 90,650 B |
+| 512 | 428.497 ms | 452.851 ms | 64,360 B | 292,068 B |
+
+Story Clarity v1 runs as a separate analyzer over composed scenes. Local
+measurements on Node.js 22.12.0, five iterations per size:
+
+| Projects | Analyzer mean | Input | Diagnostics | Suggestions | Output |
+|---:|---:|---:|---:|---:|---:|
+| 6 | 0.374 ms | 4,010 B | 18 | 9 | 3,138 B |
+| 12 | 0.674 ms | 13,125 B | 94 | 14 | 13,568 B |
+| 128 | 82.922 ms | 640,102 B | 256 (cap) | 129 | 90,973 B |
+| 512 | 291.060 ms | 737,244 B | 256 (cap) | 256 (cap) | 54,447 B |
+
+These local runs are directional single-machine measurements, not CI budgets.
+The 512-project analyzer case approaches its 1 MiB input and output caps; normal
+Profile Story export is limited to 12 projects. The 512-project composition
+case is also a stress bound rather than an expected workload.
 
 The 512-project stress case hits the 32,768 family-pair generation-work bound;
 its latency is a stress bound, not the expected Profile Story workload. The
-12-project candidate SVG in the benchmark was 34,430 bytes with 24 composed
-edges. Current raw WASM is 545,123 bytes (748,281 bytes as base64 inline); the
-previous main baseline raw WASM was 450,637 bytes. The Core package measures
-1,741,608 bytes after removing the duplicate raw WASM copy. Browser startup cost
-was not measured in the baseline, so no before/after startup claim is made.
+12-project candidate SVG in the v4.2 benchmark was 34,430 bytes with 24
+composed edges. The v4.2 raw WASM was 545,123 bytes (748,281 bytes as base64
+inline); the previous main baseline raw WASM was 450,637 bytes. v4.3 raw WASM
+is 657,467 bytes (899,173 bytes inline), and the generated Core package totals
+1,909,607 bytes. Browser startup and compressed WASM were not measured, so no
+before/after startup or compression claim is made.

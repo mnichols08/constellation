@@ -10,6 +10,7 @@ mod scene;
 mod semantic;
 mod stable;
 mod story_composition;
+mod story_clarity;
 
 use wasm_bindgen::prelude::*;
 
@@ -71,6 +72,11 @@ pub fn compose_story(input: &str) -> Result<String, String> {
         return Err("Story Composition input exceeds 1 MiB".into());
     }
     story_composition::compose_json(input)
+}
+
+#[wasm_bindgen]
+pub fn analyze_story_clarity(input: &str) -> Result<String, String> {
+    story_clarity::analyze(input)
 }
 
 #[wasm_bindgen]

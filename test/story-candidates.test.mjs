@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createScene } from '../src/constellation.mjs';
 import { semanticGraphFromScene } from '../src/semantic-graph.mjs';
-import { generateStoryCandidates, generateBoundedProjectsFallback, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects, sceneQualityInput } from '../src/story-candidates.mjs';
+import { generateStoryCandidates, generateBoundedProjectsFallback, recommendStoryCandidate, selectRepresentativeProjects, selectJourneyProjects, sceneQualityInput, sceneClarityInput } from '../src/story-candidates.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
-import { evaluateGraphQuality } from '../src/engine.mjs';
+import { evaluateGraphQuality, analyzeStoryClarity, STORY_CLARITY_VERSION } from '../src/engine.mjs';
 
 const profiles = JSON.parse(await readFile(new URL('./fixtures/story-profiles.json', import.meta.url), 'utf8'));
 function graphFor(profile) {
@@ -72,6 +72,40 @@ test('small portfolios do not require thematic groups', () => {
   assert.equal(projects.scene.nodes.filter(node => node.metadata?.full_name).length, 4);
   assert.equal(candidates.find(item => item.id === 'technical-shape').available, false);
   assert.equal(recommendStoryCandidate(candidates).id, 'projects');
+});
+
+test('Story Clarity is a deterministic final-scene diagnostic at compact and wide targets', () => {
+  const graph = graphFor(profiles.find(item => item.id === 'full-stack'));
+  const candidate = generateStoryCandidates(graph, { seed: 'clarity', referenceDate: '2026-01-01T00:00:00Z' }).find(item => item.id === 'projects');
+  assert.equal(candidate.clarity.version, STORY_CLARITY_VERSION);
+  assert.deepEqual(candidate.clarity, analyzeStoryClarity(sceneClarityInput(candidate.scene)));
+  const compact = sceneClarityInput(candidate.scene);
+  compact.width = 480;
+  const wide = sceneClarityInput(candidate.scene);
+  wide.width = 900;
+  for (const input of [compact, wide]) {
+    const first = analyzeStoryClarity(input);
+    assert.deepEqual(first, analyzeStoryClarity(input));
+    assert.ok(first.diagnostics.every(item => typeof item.code === 'string' && Array.isArray(item.ids)));
+  }
+  assert.deepEqual(candidate.clarity, generateStoryCandidates(graph, { seed: 'clarity', referenceDate: '2026-01-01T00:00:00Z' }).find(item => item.id === 'projects').clarity);
+});
+
+test('adaptive Profile Story SVG keeps the same projects at 480px and 900px', () => {
+  const showcase = { 'sample/readme-0': { role: 'featured', priority: 1 }, 'sample/readme-1': { role: 'supporting', priority: 1 } };
+  const records = Array.from({ length: 12 }, (_, index) => ({ full_name: `sample/readme-${index}`, name: `Long project name ${index}`, language: ['Rust', 'JavaScript', 'Python'][index % 3], topics: [`area-${index % 3}`] }));
+  const graph = semanticGraphFromScene(createScene('sample', records, { nodeMode: 'repositories', showOther: true, projectShowcase: showcase, seed: 'adaptive-readme' }));
+  const candidate = generateStoryCandidates(graph, { projectShowcase: showcase, seed: 'adaptive-readme' }).find(item => item.id === 'projects');
+  const readmeScene = { ...candidate.scene, presentation: { ...candidate.scene.presentation, options: { ...candidate.scene.presentation.options, exportProfile: 'readme' } } };
+  const compact = renderSceneSVG(readmeScene, { targetWidth: 480 });
+  const wide = renderSceneSVG(readmeScene, { targetWidth: 900 });
+  const projectIds = svg => [...new Set([...svg.matchAll(/class="star[^\"]*"[^>]*data-repo="([^\"]+)"/g)].map(match => match[1]))].sort();
+  assert.match(compact, /<svg[^>]*width="480"/);
+  assert.match(wide, /<svg[^>]*width="900"/);
+  assert.deepEqual(projectIds(compact), projectIds(wide));
+  assert.ok((compact.match(/class="repo-label"/g) || []).length <= 8);
+  assert.match(compact, /data-role="featured"/);
+  assert.match(wide, /data-relationship-type=/);
 });
 
 test('representative projects are capped at twelve and preserve featured intent', () => {

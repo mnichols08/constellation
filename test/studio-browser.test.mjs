@@ -1285,6 +1285,11 @@ test(
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Projects story selected/);
     assert.equal(await evaluate(`(async()=>{const links=[document.querySelector('.download').href,document.querySelector('#download-profile-story').href];const [shown,story]=await Promise.all(links.map(async href=>await(await fetch(href)).text()));return shown===story;})()`), true, 'profile story export matches the selected displayed SVG');
     assert.equal(await evaluate(`document.querySelector('#preview').dataset.sceneFingerprint===document.querySelector('.download').dataset.sceneFingerprint&&document.querySelector('.download').dataset.sceneFingerprint===document.querySelector('#download-profile-story').dataset.sceneFingerprint`), true, 'display and exports carry the same selected candidate fingerprint');
+    const widthPair = await evaluate(`(async()=>{const wide=document.querySelector('#download-profile-story'),compact=document.querySelector('#download-profile-story-compact');const [w,c]=await Promise.all([wide.href,compact.href].map(async href=>await(await fetch(href)).text()));const ids=text=>[...new Set([...text.matchAll(/<circle class="star[^"]*"[^>]*data-repo="([^"]+)"/g)].map(m=>m[1]))].sort().join('|');return {sameSource:wide.dataset.sceneFingerprint===compact.dataset.sceneFingerprint,wideIds:ids(w),compactIds:ids(c),distinctOutput:w!==c};})()`);
+    assert.equal(widthPair.sameSource, true, '480px and 900px exports share the source-scene fingerprint by design');
+    assert.ok(widthPair.wideIds.length > 0);
+    assert.equal(widthPair.compactIds, widthPair.wideIds, 'compact export keeps every selected project identity');
+    assert.equal(widthPair.distinctOutput, true, 'the SVG output itself is width-specific');
     await evaluate(`input('node-mode','languages');`);
     assert.match(await evaluate(`document.querySelector('#story-recommendation').textContent`), /Custom view/);
     assert.ok(await evaluate(`(async()=>{const text=await(await fetch(document.querySelector('#download-profile-story').href)).text();return new Set([...text.matchAll(/data-repo="([^"]+)"/g)].map(match=>match[1])).size<=12;})()`), 'manual profile export remains within the story cap');
