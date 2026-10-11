@@ -18,6 +18,7 @@ import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.
 import { createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_POLICY } from './semantic-zoom.mjs';
 import { evidenceNavigationGraphFromScene } from './evidence-navigation.mjs';
 import { evidenceNavigatorAdapter } from './evidence-navigator.mjs';
+import { mountFocusHistory } from './interactive-focus.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const scriptJSON = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
@@ -40,6 +41,7 @@ const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})
 const navigator = (${evidenceNavigatorAdapter.toString()})(EvidenceNavigator, JSON.parse(document.getElementById('constellation-navigation').textContent));
 const runtimeOptions = { engine: { shortest_path, neighbors }, navigator, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) };
 let experience = (${mountStory.toString()})(document.getElementById('constellation'), scene, runtimeOptions, mountExperience);
+const focusHistory = (${mountFocusHistory.toString()})(document.getElementById('constellation'), { runtime: () => experience });
 if (semanticArtifacts.some(item => item.id)) {
   const root = document.getElementById('constellation');
   const baseSVG = JSON.parse(document.getElementById('constellation-semantic-base').textContent);
@@ -136,7 +138,8 @@ if (semanticArtifacts.some(item => item.id)) {
   }
 }
 const initialChapter = JSON.parse(document.getElementById('constellation-initial').textContent);
-if (initialChapter > 0) experience.setChapter(initialChapter);`.replace(/\r\n?/g, '\n')
+if (initialChapter > 0) experience.setChapter(initialChapter);
+focusHistory.restore();`.replace(/\r\n?/g, '\n')
   // Embedded sources contain no multi-line string or template literal (guarded by
   // test/interactive-html.test.mjs), so dropping leading indentation is lossless.
   .replace(/\n[ \t]+/g, '\n');

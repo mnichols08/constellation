@@ -536,7 +536,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     if (related && !endpoint) {
       const previous = related;
       selectNode(selected, { focus: false, source });
-      if (inside) [...details.querySelectorAll("[data-focus-relationship]")].find((button) => button.dataset.focusRelationship === previous)?.focus();
+      if (inside) [...(details?.querySelectorAll("[data-focus-relationship]") || [])].find((button) => button.dataset.focusRelationship === previous)?.focus();
       return true;
     }
     const previous = selected;
@@ -563,7 +563,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     svg.removeAttribute("data-exploring");
     highlight();
     showDetails(null);
-    announce(had && navigator ? "Overview. All projects shown." : "Selection cleared.");
+    announce(had && navigator ? "Returned to the overview." : "Selection cleared.");
     emit("node-select", { id: null, node: null });
     emit("focus-change", focusDetail(source));
   }
@@ -1091,6 +1091,23 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     focusProject: (id, { focus = false } = {}) => selectNode(id, { focus }),
     focusRelationship: (projectId, relatedId) => focusRelationship(projectId, relatedId),
     returnToOverview: () => clearSelection(),
+    // Applies shared or history focus; unavailable projects fall back to the overview.
+    restoreFocus({ project = null, related: other = null } = {}, { source = "history", invalid = false } = {}) {
+      try {
+        if (!project) {
+          if (selected) clearSelection({ source });
+          if (invalid) announce("The shared view could not be read. Showing the overview.");
+          return !invalid;
+        }
+        if (other) focusRelationship(project, other, { source });
+        else selectNode(project, { focus: false, source });
+        return true;
+      } catch {
+        if (selected) clearSelection({ source });
+        announce("The shared project is not available in this view. Showing the overview.");
+        return false;
+      }
+    },
     get focusState() {
       return { mode: focusMode(), project: selected, related, connections: navigation?.connections.map((item) => item.projectId) || [] };
     },
