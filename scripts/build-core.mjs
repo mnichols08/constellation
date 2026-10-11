@@ -65,6 +65,7 @@ const guides = [
   "story-candidates",
   "story-composition",
   "story-clarity",
+  "evidence-navigation",
   "profile-story",
   "semantic-studio",
   "github-data-cache",

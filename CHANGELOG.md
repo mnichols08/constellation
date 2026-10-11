@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Interactive Exploration (v4.4.x)
+
+- Add bounded Rust/WASM Evidence Navigation v1: a retained index over Semantic Graph v1 that returns a project's direct connections with evidence references for explicit, authored-family, shared-language, and shared-topic relationships, an optional bounded second degree, stable ordering, and structured diagnostics. Derived owner groups never become connections.
+
 ## Unreleased — Story Clarity (v4.3.x)
 
 - Add bounded Rust/WASM Story Clarity v1 diagnostics for final-scene labels, hierarchy, evidence-backed relationships, technical groups, and legends. Diagnostics are deterministic and advisory; they do not score or select candidates.
