@@ -3,17 +3,23 @@
 // out of config and scenes. Dependency-free: standalone HTML embeds this source.
 export function mountFocusHistory(target, { key = 'focus', runtime = () => target.constellation, win = window } = {}) {
   const abort = new AbortController();
-  const withKey = `${key}.with`, limit = 512;
+  const withKey = `${key}.with`, limit = 512, hashLimit = 16384;
   const valid = value => typeof value === 'string' && value.length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/.test(value);
-  const params = () => { try { return win.location.hash.length > 16384 ? new URLSearchParams() : new URLSearchParams(win.location.hash.slice(1)); } catch { return new URLSearchParams(); } };
+  // A hash beyond the bound is never parsed: it is unreadable, not an empty overview.
+  const params = text => { if (text.length > hashLimit) return null; try { return new URLSearchParams(text.slice(1)); } catch { return null; } };
+  const invalid = { project: null, related: null, invalid: true };
   function read() {
-    const hash = params(), project = hash.get(key), related = hash.get(withKey);
-    if (project === null) return { project: null, related: null, invalid: related !== null };
-    if (!valid(project) || (related !== null && !valid(related))) return { project: null, related: null, invalid: true };
-    return { project, related, invalid: false };
+    const hash = params(win.location.hash);
+    if (!hash) return invalid;
+    const projects = hash.getAll(key), related = hash.getAll(withKey);
+    if (!projects.length) return { project: null, related: null, invalid: related.length > 0 };
+    // Duplicate parameters are ambiguous, so they fail closed rather than picking one.
+    if (projects.length > 1 || related.length > 1 || !valid(projects[0]) || (related.length && !valid(related[0]))) return invalid;
+    return { project: projects[0], related: related[0] ?? null, invalid: false };
   }
   function urlFor(state) {
-    const url = new URL(win.location.href), hash = new URLSearchParams(url.hash.slice(1));
+    // An unreadable hash is dropped whole instead of being carried into the next entry.
+    const url = new URL(win.location.href), hash = params(url.hash) || new URLSearchParams();
     hash.delete(key); hash.delete(withKey);
     if (state.project) hash.set(key, state.project);
     if (state.project && state.related) hash.set(withKey, state.related);

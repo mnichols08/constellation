@@ -144,6 +144,11 @@ test('shared focus links restore safely and fail closed', { skip: !browser, time
     `#focus=${'x'.repeat(600)}`,
     '#focus.with=fixture%2Fproject-0',
     '#focus=%E0%A4%A',
+    '#focus=',
+    '#focus=fixture%2Fproject-0&focus=fixture%2Fproject-2',
+    '#focus=fixture%2Fproject-0&focus.with=fixture%2Fproject-2&focus.with=fixture%2Fproject-1',
+    `#focus=${'x'.repeat(17000)}`,
+    `#focus=fixture%2Fproject-2&pad=${'y'.repeat(17000)}`,
   ]) {
     const { evaluate, waitFor, errors } = await openBrowser(t, href + hash);
     await waitFor('Boolean(document.querySelector("main")?.constellation)');
@@ -153,6 +158,38 @@ test('shared focus links restore safely and fail closed', { skip: !browser, time
     assert.equal(await evaluate('Boolean(window.injected) || Boolean(document.querySelector("main script"))'), false);
     assert.deepEqual(errors, []);
   }
+  // Unrelated hash parameters survive both a valid restore and an invalid cleanup.
+  for (const [hash, mode, after] of [
+    ['#keep=1&focus=fixture%2Fproject-2', 'project', '#keep=1&focus=fixture%2Fproject-2'],
+    ['#keep=1&focus=fixture%2Fremoved&focus.with=fixture%2Fproject-0', 'overview', '#keep=1'],
+  ]) {
+    const { evaluate, waitFor, errors } = await openBrowser(t, href + hash);
+    await waitFor('Boolean(document.querySelector("main")?.constellation)');
+    assert.equal(await evaluate('document.querySelector("main").constellation.focusState.mode'), mode, hash);
+    assert.equal(await evaluate('location.hash'), after, hash);
+    assert.deepEqual(errors, []);
+  }
+  // After an oversized link is cleaned, history holds only real focus states.
+  const { evaluate, waitFor, errors, cdp } = await openBrowser(t, `${href}#focus=${'x'.repeat(17000)}`);
+  await waitFor('Boolean(document.querySelector("main")?.constellation)');
+  assert.equal(await evaluate('location.hash'), '');
+  const length = await evaluate('history.length');
+  // User-activated clicks, so Chromium keeps the entries for Back/Forward.
+  const click = id => cdp('Runtime.evaluate', { userGesture: true, expression: `[...document.querySelectorAll('.repository')].find(group => group.querySelector('.star')?.dataset.repo === ${JSON.stringify(id)}).dispatchEvent(new MouseEvent('click', { bubbles: true }))` });
+  await click('fixture/project-1');
+  await click('fixture/project-2');
+  assert.equal(await evaluate('location.hash'), '#focus=fixture%2Fproject-2');
+  assert.equal(await evaluate('history.length'), length + 2, 'cleanup replaced its entry; each user focus change added one');
+  await evaluate('history.back()');
+  await waitFor('document.querySelector("main").constellation.focusState.project === "fixture/project-1"');
+  assert.equal(await evaluate('location.hash'), '#focus=fixture%2Fproject-1');
+  await evaluate('history.back()');
+  await waitFor('document.querySelector("main").constellation.focusState.mode === "overview"');
+  assert.equal(await evaluate('location.hash'), '', 'Back never returns to the oversized link');
+  await evaluate('history.forward()');
+  await waitFor('document.querySelector("main").constellation.focusState.project === "fixture/project-1"');
+  assert.equal(await evaluate('location.hash'), '#focus=fixture%2Fproject-1');
+  assert.deepEqual(errors, []);
 });
 
 test('reduced motion removes focus transitions', { skip: !browser, timeout: 120000 }, async t => {
@@ -217,5 +254,44 @@ test('<constellation-view> exposes focus, events, history and lifecycle cleanup'
   await evaluate('history.replaceState(null, "", location.pathname); document.querySelector("#view").focusProject("example/compiler")');
   assert.equal(await evaluate('location.hash'), '');
   assert.equal(await evaluate('document.querySelector("#view").focusState.project'), 'example/compiler');
+  assert.deepEqual(errors, []);
+});
+
+test('multiple <constellation-view> elements keep independent focus URL state and fail closed', { skip: !browser, timeout: 120000 }, async t => {
+  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const { evaluate, waitFor, errors } = await openBrowser(t, `${origin}/examples/web-component.html`);
+  await waitFor('Boolean(document.querySelector("#view")?.shadowRoot?.querySelector("main")?.constellation)');
+  await evaluate(`(async () => {
+    history.replaceState(null, '', '#alpha.focus=example%2Fcompiler&beta.focus=example%2Fremoved&keep=1');
+    for (const id of ['alpha', 'beta']) {
+      const view = document.createElement('constellation-view');
+      view.id = id; view.setAttribute('history', '');
+      view.records = ['compiler', 'runtime', 'studio'].map((name, i) => ({ name, full_name: 'example/' + name, language: ['Rust', 'Rust', 'Go'][i], topics: ['wasm'], html_url: 'https://github.com/example/' + name }));
+      document.body.append(view);
+      await view.setConfig({ version: 7, account: 'example', options: { referenceDate: '2026-09-01T00:00:00Z' } });
+    }
+    return true;
+  })()`);
+  const state = id => evaluate(`document.querySelector('#${id}').focusState`);
+  await waitFor('document.querySelector("#alpha").focusState.project === "example/compiler"');
+  const params = () => evaluate('[...new URLSearchParams(location.hash.slice(1))].map(pair => pair.join("=")).sort()');
+  await waitFor('Boolean(document.querySelector("#beta").shadowRoot.querySelector("main")?.constellation) && !location.hash.includes("beta.focus")');
+  assert.deepEqual(await params(), ['alpha.focus=example/compiler', 'keep=1']);
+  assert.equal((await state('beta')).mode, 'overview', 'a removed project in one view does not affect the other');
+  // Focus in one view never rewrites the other's parameter.
+  await evaluate('document.querySelector("#beta").focusProject("example/studio")');
+  assert.deepEqual(await params(), ['alpha.focus=example/compiler', 'beta.focus=example/studio', 'keep=1']);
+  assert.equal((await state('alpha')).project, 'example/compiler');
+  // An oversized component-prefixed request fails closed for every view and clears the hash.
+  await evaluate(`location.hash = 'alpha.focus=' + 'x'.repeat(17000)`);
+  await waitFor('location.hash === ""');
+  await waitFor('document.querySelector("#alpha").focusState.mode === "overview" && document.querySelector("#beta").focusState.mode === "overview"');
+  assert.match(await evaluate('document.querySelector("#alpha").shadowRoot.querySelector("[data-status]").textContent'), /Showing the overview\./);
+  // Back returns to the last real state, which restores both views.
+  await evaluate('history.back()');
+  await waitFor('document.querySelector("#beta").focusState.project === "example/studio" && document.querySelector("#alpha").focusState.project === "example/compiler"');
+  assert.deepEqual(await params(), ['alpha.focus=example/compiler', 'beta.focus=example/studio', 'keep=1']);
   assert.deepEqual(errors, []);
 });
