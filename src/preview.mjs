@@ -2,6 +2,8 @@ import { PUBLIC_MODE_MESSAGE, publicLimitMessage } from "./github-access.mjs";
 import { loadAccountAvatar } from "./account-sun.mjs";
 import { createGitHubOAuth } from "./github-oauth.mjs";
 import { mountOnboarding } from "./onboarding-ui.mjs";
+import { experienceStore } from "./guided-experience.mjs";
+import { updatePublishingPreviews } from "./publishing-preview.mjs";
 import { mountConstellationLibrary } from "./constellation-library.mjs";
 import { parseConfig } from "./config-schema.mjs";
 import { defaultIntent, intentStore } from "./onboarding-model.mjs";
@@ -214,6 +216,12 @@ try {
   intentStorage = window.localStorage;
 } catch {}
 const intents = intentStore(intentStorage);
+const experiences = experienceStore(intentStorage, text => message(text, true));
+function restoreExperience(options) {
+  const saved = experiences.read(account, options);
+  storyMode = saved?.storyMode || 'manual';
+  selectedStoryId = saved?.selectedStoryId || 'projects';
+}
 function enterStudio() {
   if (!workspace) workspace = mountStudioLayout();
   document.documentElement.dataset.entry = "studio";
@@ -531,14 +539,13 @@ function updateStoryChoices(recommended, chosen) {
     }));
   }
 }
-document.querySelector('#story-choices')?.addEventListener('click', event => {
-  const button = event.target.closest('[data-story-choice]');
-  if (!button || button.getAttribute('aria-disabled') === 'true') return;
-  if (button.dataset.storyChoice === 'auto') {
+function chooseStory(id) {
+  if (id === null) return;
+  if (id === 'auto') {
     storyMode = 'auto';
   } else {
     storyMode = 'story';
-    selectedStoryId = button.dataset.storyChoice;
+    selectedStoryId = id;
   }
   // Story choices always present the full developer candidate; clear any
   // deeper Atlas location so the selected candidate and its score stay aligned.
@@ -548,9 +555,15 @@ document.querySelector('#story-choices')?.addEventListener('click', event => {
     atlasProjectGraph = null;
   }
   render();
+}
+document.querySelector('#story-choices')?.addEventListener('click', event => {
+  const button = event.target.closest('[data-story-choice]');
+  if (!button || button.getAttribute('aria-disabled') === 'true') return;
+  chooseStory(button.dataset.storyChoice);
 });
 function useCustomStoryForControl(event) {
-  if (event.target.closest('#story-choices')) return;
+  if (event.target.closest('#story-choices, #guided-setup, [data-experience-control], .studio-tabs, .developer-atlas, #panel-save')) return;
+  if (!event.target.closest('.controls, .graph-filters, .design-launcher, .customization')) return;
   if (event.target.closest('input, select, textarea, button') && !event.target.closest('a, [data-export], .developer-atlas')) storyMode = 'manual';
 }
 document.addEventListener('input', useCustomStoryForControl, true);
@@ -1741,6 +1754,13 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     if (liveSemanticGraph && !profileStoryUnavailableReason) profileStoryUnavailableReason = 'no valid bounded candidate is available for the current inputs.';
   }
   if (storyStatus && profileStoryUnavailableReason) storyStatus.textContent += ` Profile Story export unavailable: ${profileStoryUnavailableReason}`;
+  const previewVariants = profileStorySvg && compactProfileStorySvg ? [
+    { width: 480, svg: compactProfileStorySvg, url: profileStoryCompactUrl, fingerprint: profileStoryCandidate.sceneFingerprint },
+    { width: 900, svg: profileStorySvg, url: profileStoryUrl, fingerprint: profileStoryCandidate.sceneFingerprint },
+  ] : [];
+  const publishPreview = $('#before-publish-preview');
+  publishPreview.onToggle = () => updatePublishingPreviews($('#publication-previews'), previewVariants, profileStoryCandidate?.scene, profileStoryCandidate?.clarity);
+  if (publishPreview.open) publishPreview.onToggle();
   for (const [element, candidate] of [[preview, displayedStoryCandidate], [download, displayedStoryCandidate]]) {
     if (candidate?.sceneFingerprint) element.dataset.sceneFingerprint = candidate.sceneFingerprint;
     else delete element.dataset.sceneFingerprint;
@@ -1807,6 +1827,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     });
     updateSnippet();
     studio?.update(account, options, captured);
+    experiences.save(account, options, { storyMode, selectedStoryId });
     imageViewer?.update(captured, account);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(
@@ -2298,7 +2319,7 @@ async function loadAccount(
     loadedSource = source;
     isSample = false;
     if (restoring || changedAccount) applyOptions(loadOptions);
-    if (restoring) { storyMode = 'manual'; selectedStoryId = 'projects'; }
+    if (restoring) restoreExperience(loadOptions);
     else if (changedAccount) { storyMode = 'auto'; selectedStoryId = 'projects'; }
     if (importedBeforeLoad || changedAccount) { atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
     form.elements.username.value = loadOptions.organizationUser || account;
@@ -2504,8 +2525,12 @@ async function startGuided(name, {legacy = false} = {}) {
     loadedSource = "all";
     $("#output-repository").value =
       `${account}/${data.profile(account)?.type === "Organization" ? ".github" : account}`;
-    applyOptions(options);
+    applyOptions(previousDraft?.options || options);
+    if (previousDraft) restoreExperience(previousDraft.options);
+    else { storyMode = 'auto'; selectedStoryId = 'projects'; }
     if (!workspace) workspace = mountStudioLayout();
+    if (!legacy && !render({ requireVisibleNodes: true }))
+      throw Error('No projects are visible with these saved settings. Open Studio to adjust your filters.');
     guidedHost ??= document.createElement("section");
     guidedHost.id = "guided-setup";
     guidedHost.setAttribute("aria-label", "Create your constellation");
@@ -2524,6 +2549,18 @@ async function startGuided(name, {legacy = false} = {}) {
         }
       : null);
     mountOnboarding(guidedHost, {
+      experience: legacy ? null : {
+        candidates: () => storyCandidates,
+        current: () => storyMode === 'auto' ? 'auto' : storyMode === 'story' ? selectedStoryId : null,
+        choose: chooseStory,
+        restart: () => startGuided(account),
+        account: () => {
+          guidedHost.hidden = true;
+          document.documentElement.dataset.entry = 'landing';
+          form.elements.username.focus();
+        },
+        publish: () => { enterStudio(); workspace.reveal($('#publish-destination')); },
+      },
       enterPath: legacy ? null : (path) => {
         metadataPreview = true;
         if (previousDraft) applyOptions(previousDraft.options);
@@ -2587,8 +2624,8 @@ async function startGuided(name, {legacy = false} = {}) {
         render();
       },
       useDesign: () => {
-        document.documentElement.dataset.entry = "install";
-        workspace.reveal($("#download-config"));
+        enterStudio();
+        workspace.reveal($("#publish-destination"));
       },
       generate: async (intent, refreshActivity = false, seedOverride) => {
         loading = true;
@@ -2755,6 +2792,14 @@ function updateSnippet() {
   }
 }
 $("#output-repository").addEventListener("input", updateSnippet);
+$('#before-publish-preview').addEventListener('toggle', event => {
+  if (event.target.open) event.target.onToggle?.();
+});
+$('#return-to-editing').addEventListener('click', () => {
+  enterStudio();
+  workspace.setMode('simple');
+  $('#studio-mode-simple').focus();
+});
 $("#preview-publish-artifact").addEventListener('click', () => {
   if (!publishArtifactUrl) return;
   window.open(publishArtifactUrl, '_blank', 'noopener,noreferrer');

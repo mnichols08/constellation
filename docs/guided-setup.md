@@ -1,5 +1,37 @@
 # Guided setup
 
+## Intent-driven first visit (v4.6)
+
+Enter a public GitHub account or use your authenticated session. The existing
+bounded acquisition and rate-limit handling load evidence. Accept **Use
+recommendation**, **Show my projects**, **Show how my work connects**, or
+**Show my development journey**. The last two use the actual candidate
+availability, not guessed technical or temporal narratives. Unavailable
+options remain keyboard-focusable with visible, accessible explanations.
+
+The next screen presents the meaningful preview before publishing. Choose
+**Personalize and continue** for featured projects and appearance, or **Prepare
+publishing** for the existing Publishing Wizard. There are two required
+decisions before preview: account and accepting/changing the recommendation.
+The optional questionnaire remains under **More ways to start**.
+
+Returning drafts retain their settings and manual ownership. Continue the
+saved design without selecting a new story, or explicitly return to Auto
+using current evidence. Story ownership is stored separately per account,
+linked to normalized configuration; imported or unmatched configurations are
+manual. Named saves are never overwritten by entering setup.
+
+## Simple and Advanced Studio
+
+Simple mode exposes the existing featured-project editor and theme control,
+with the shared story selector, preset menu, preview, and export entry. Advanced
+mode retains all five Studio sections and every existing control. These are
+the same DOM controls, moved rather than copied; mode switches neither read nor
+rewrite configuration, regenerate the scene, nor acquire data. Manual positions,
+labels, colors, CSS, animations, families, relationships, visibility, and
+imported settings stay intact. Reveal actions open the appropriate Advanced
+section when an advanced control is requested.
+
 Account loading now leads with **Generate my project map**, a deterministic, editable starting point using the existing recommended repository selection and default project-map recipe. No layout, mapping, palette, motion or topology choices are required. Once it renders, choose **Use this constellation**, **Show my technical focus**, **Show my project history**, **Create a README graphic**, or **Customize the design**. These choices reuse existing generator settings and do not add a new configuration format.
 
 The default uses an account-stable seed, so reloading does not reshape the design; **Generate another** intentionally draws a fresh design. Outcome buttons reset only the settings needed for their promised view, while keeping saved project selections, roles, filters and relationship choices. Project history appears only when enough repository creation-date evidence is available. README output uses the existing compact, clean profile.
