@@ -28,7 +28,9 @@ export function experienceStore(storage, report) {
   return {
     read(account, options) {
       try {
-        const value = JSON.parse(storage?.getItem(key(account)) || 'null');
+        const source = storage?.getItem(key(account)) || 'null';
+        if (source.length > 4096) throw Error('Saved experience exceeds its size limit.');
+        const value = JSON.parse(source);
         if (!value) return null;
         if (value.identity !== experienceIdentity(options)) return null;
         if (!['auto', 'story', 'manual'].includes(value.storyMode)
@@ -72,12 +74,15 @@ export function mountIntentChoices(host, candidates, choose, current = 'auto') {
     button.type = 'button';
     button.textContent = id === 'auto' ? 'Use recommendation' : storyIntentLabels[id];
     button.setAttribute('aria-pressed', String(current === id));
-    const unavailable = id !== 'auto' && (!candidate?.scene || candidate.available === false);
+    const hasProjects = item => item?.scene?.nodes.some(node => node.metadata?.full_name);
+    const unavailable = id === 'auto'
+      ? !candidates.some(item => item.available !== false && hasProjects(item))
+      : !hasProjects(candidate) || candidate.available === false;
     button.setAttribute('aria-disabled', String(unavailable));
     if (unavailable) {
       const reason = document.createElement('span');
       reason.id = `guided-${id}-reason`;
-      reason.textContent = `Unavailable: ${candidate?.reason || 'No project evidence is available.'}`;
+      reason.textContent = `Unavailable: ${candidate?.reason || 'No visible project evidence is available. Open Studio to adjust your saved filters.'}`;
       button.setAttribute('aria-describedby', reason.id);
       button.append(reason);
     }

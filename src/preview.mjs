@@ -111,6 +111,7 @@ let selectedStoryId = 'projects';
 let storyCandidates = [];
 let storyCandidatesFingerprint = null;
 let profileStoryUnavailableReason = '';
+let refreshPublication = () => {};
 let liveSemanticGraph = null;
 let liveSemanticFingerprint = null;
 function stableStoryOptions(value) {
@@ -243,6 +244,7 @@ function publishingChoices() {
 }
 function enterStudio() {
   if (!workspace) workspace = mountStudioLayout();
+  if (isSample) workspace.setMode('advanced');
   document.documentElement.dataset.entry = "studio";
   if (guidedHost) guidedHost.hidden = true;
 }
@@ -1707,8 +1709,8 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     if (!profileStoryCandidate?.scene) return null;
     return renderProfileStorySVG(profileStoryCandidate, targetWidth);
   };
-  const profileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
-    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
+  const exportProjectCount = profileStoryCandidate?.scene?.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length || 0;
+  const profileStorySvg = profileStoryCandidate?.bounded && exportProjectCount > 0 && exportProjectCount <= 12
     ? profileStoryForExport(900)
     : null;
   const svg = displayedStoryCandidate && profileStorySvg
@@ -1741,8 +1743,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   profileStoryUrl = profileStorySvg
     ? URL.createObjectURL(new Blob([profileStorySvg], { type: 'image/svg+xml' }))
     : null;
-  const compactProfileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
-    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
+  const compactProfileStorySvg = profileStoryCandidate?.bounded && exportProjectCount > 0 && exportProjectCount <= 12
     ? profileStoryForExport(480)
     : null;
   profileStoryCompactUrl = compactProfileStorySvg
@@ -1770,7 +1771,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     { width: 900, svg: profileStorySvg, url: profileStoryUrl, fingerprint: profileStoryCandidate.sceneFingerprint },
   ] : [];
   const publishPreview = $('#before-publish-preview');
-  publishPreview.onToggle = () => updatePublishingPreviews($('#publication-previews'), previewVariants, profileStoryCandidate?.scene, profileStoryCandidate?.clarity);
+  publishPreview.onToggle = () => updatePublishingPreviews($('#publication-previews'), previewVariants, profileStoryCandidate?.scene);
   if (publishPreview.open) publishPreview.onToggle();
   for (const [element, candidate] of [[preview, displayedStoryCandidate], [download, displayedStoryCandidate]]) {
     if (candidate?.sceneFingerprint) element.dataset.sceneFingerprint = candidate.sceneFingerprint;
@@ -1823,18 +1824,32 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     url = nextUrl;
     download.href = url;
     download.download = "constellation.svg";
+    studio?.update(account, options, captured);
+    experiences.save(account, options, { storyMode, selectedStoryId, publishing: publishingChoices() });
+    imageViewer?.update(captured, account);
     const artifactFormat = $("#publish-format").value;
     const filename = $("#publish-filename").value.trim();
     const presentation = $('#publish-presentation').value;
     const publishedContent = artifactFormat === 'html'
       ? renderSceneHTML(scene, { title: `${account} constellation` })
       : presentation === '480' ? compactProfileStorySvg : presentation === '900' ? profileStorySvg : captured;
-    if (!publishedContent) throw Error('This Profile Story is unavailable. Select the current artifact or choose a supported story.');
+    if (!publishedContent) {
+      $('#publish-status').textContent = 'This Profile Story is unavailable. Select the current artifact or choose a supported story.';
+      $('#download-publish-artifact').removeAttribute('href');
+      $('#download-publish-artifact').setAttribute('aria-disabled', 'true');
+      $('#workflow').value = '';
+      $('#download-workflow').removeAttribute('href');
+      $('#copy-workflow').disabled = true;
+      $('#copy-markdown').disabled = true;
+      for (const id of ['#install-workflow', '#run-workflow']) $(id).hidden = true;
+      return;
+    }
     if (publishArtifactUrl) URL.revokeObjectURL(publishArtifactUrl);
     publishArtifactUrl = URL.createObjectURL(new Blob([publishedContent], { type: artifactFormat === 'html' ? 'text/html;charset=utf-8' : 'image/svg+xml' }));
     $("#download-publish-artifact").href = publishArtifactUrl;
     $("#download-publish-artifact").download = filename;
     $("#download-publish-artifact").textContent = `Download ${artifactFormat === 'html' ? 'interactive HTML' : 'static SVG'}`;
+    $('#copy-workflow').disabled = false;
     $("#workflow").value = renderWorkflow(isSample ? null : account, options, {
       filename: artifactFormat === 'svg' && /^[a-z\d][a-z\d._-]{0,120}\.svg$/i.test(filename) ? filename : 'constellation.svg',
       ...(artifactFormat === 'svg' && presentation !== 'current' ? {
@@ -1844,15 +1859,13 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
       } : {}),
     });
     updateSnippet();
-    studio?.update(account, options, captured);
-    experiences.save(account, options, { storyMode, selectedStoryId, publishing: publishingChoices() });
-    imageViewer?.update(captured, account);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(
       new Blob([$("#workflow").value], { type: "text/yaml;charset=utf-8" }),
     );
     $("#download-workflow").href = workflowUrl;
   };
+  refreshPublication = exportSelection;
   const movedOptions = (repo, pair) => {
     const ringPlacements = {
       ...options.ringPlacements,
@@ -2546,8 +2559,9 @@ async function startGuided(name, {legacy = false} = {}) {
     applyOptions(previousDraft?.options || options);
     if (previousDraft) restoreExperience(previousDraft.options);
     else { storyMode = 'auto'; selectedStoryId = 'projects'; }
+    metadataPreview = true;
     if (!workspace) workspace = mountStudioLayout();
-    if (!legacy && !render({ requireVisibleNodes: true }))
+    if (!legacy && !render({ requireVisibleNodes: !previousDraft }))
       throw Error('No projects are visible with these saved settings. Open Studio to adjust your filters.');
     guidedHost ??= document.createElement("section");
     guidedHost.id = "guided-setup";
@@ -2646,6 +2660,7 @@ async function startGuided(name, {legacy = false} = {}) {
         workspace.reveal($("#publish-destination"));
       },
       generate: async (intent, refreshActivity = false, seedOverride) => {
+        storyMode = 'manual';
         loading = true;
         form.querySelector("button").disabled = true;
         try {
@@ -2829,14 +2844,14 @@ $("#preview-publish-artifact").addEventListener('click', () => {
   if (!publishArtifactUrl) return;
   window.open(publishArtifactUrl, '_blank', 'noopener,noreferrer');
 });
-$("#publish-filename").addEventListener('input', () => { updateSnippet(); render(); });
-$('#publish-presentation').addEventListener('change', () => { updateSnippet(); render(); });
+$("#publish-filename").addEventListener('input', () => { updateSnippet(); refreshPublication(); });
+$('#publish-presentation').addEventListener('change', () => { updateSnippet(); refreshPublication(); });
 $("#publish-destination").addEventListener('change', () => {
   if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
     $("#publish-format").value = 'svg';
     $("#publish-filename").value = $("#publish-filename").value.replace(/\.html$/i, '.svg');
   }
-  updateSnippet(); render();
+  updateSnippet(); refreshPublication();
 });
 $("#publish-format").addEventListener('change', () => {
   if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
@@ -2846,7 +2861,7 @@ $("#publish-format").addEventListener('change', () => {
   }
   const input = $("#publish-filename");
   if (/^constellation\.(svg|html)$/i.test(input.value)) input.value = input.value.replace(/\.(svg|html)$/i, `.${$("#publish-format").value}`);
-  updateSnippet(); render();
+  updateSnippet(); refreshPublication();
 });
 
 $("#copy-markdown").addEventListener("click", async () => {

@@ -617,7 +617,7 @@ export function mountOnboarding(
     heading.focus({ preventScroll: true });
   }
   if (enterPath && experience) {
-    heading.textContent = 'What would you like to communicate?';
+    heading.textContent = 'What would you like to make?';
     progress.textContent = `Step 2 of 3 · @${account} · ${repositories().length} public projects loaded`;
     const note = document.createElement('p');
     note.textContent = initial
@@ -647,8 +647,14 @@ export function mountOnboarding(
     const extra = document.createElement('div');
     extra.className = 'guided-actions';
     button(extra, 'Quick guided generator', draw);
+    for (const [label, outcome] of [
+      ['Generate my project map', 'project-map'],
+      ['Show my technical focus', 'technical-focus'],
+      ...(available().history.eligible ? [['Show my project history', 'project-history']] : []),
+    ]) button(extra, label, () => { applyOutcome(intent, outcome); run(); });
     button(extra, 'Open full Studio', () => enterPath('studio'));
     button(extra, 'Open a saved constellation', () => enterPath('saved'));
+    button(extra, 'Take the Studio tour', () => enterPath('tour'));
     more.append(summary, extra);
     body.append(more);
     heading.focus();
