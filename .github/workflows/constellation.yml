@@ -6,7 +6,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: constellation-output
+  group: constellation-output-${{ github.repository }}
   cancel-in-progress: false
 jobs:
   generate:
