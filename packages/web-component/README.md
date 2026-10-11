@@ -30,7 +30,7 @@ For semantic detail, set `view.semanticLevel` to `'auto'`, `'groups'` or `'proje
 
 `await setConfig(config)` returns whether a connected view was rendered successfully. `loadScene(sceneOrJSON)` validates and renders synchronously, returning the same boolean. Assigning data while disconnected stages it for connection. These update methods report errors through the event rather than an unhandled promise rejection.
 
-Selecting a project also enters evidence-backed focus. Additive focus members are `focusProject(id, { focus })`, `focusRelationship(projectId, relatedId)`, `returnToOverview()`, the `focusState` getter, and the `focus-change` event. See [Evidence Navigation and Interactive Focus](evidence-navigation.md).
+Selecting a project also enters evidence-backed focus. Additive focus members are `focusProject(id, { focus })`, `focusRelationship(projectId, relatedId)`, `returnToOverview()`, the `focusState` getter, and the `focus-change` event. With the `history` attribute and a unique `id`, focus is shareable as `#<id>.focus=` URL state with Back/Forward support. See [Evidence Navigation and Interactive Focus](evidence-navigation.md).
 
 Listen on the element for `scene-ready` (first render per connection), `scene-change` (subsequent renders), `node-select`, `node-hover`, and `error`. Events bubble and cross the Shadow DOM boundary. Scene events include an isolated scene in `detail.scene`; selection includes `id`, node metadata, start/end and path; hover includes `id`; errors include `message`. Handlers may immediately use the imperative API. Programmatic selection uses the same event path as keyboard and pointer interaction.
 

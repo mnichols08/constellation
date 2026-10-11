@@ -20,7 +20,7 @@ export function mountTimeline(root, source, options, mount) {
       toggle.textContent = stacked ? 'Open Timeline' : 'Return to Temporal Stack'; root.constellation = api;
     }
     const api = { get selection() { return runtime.selection; }, get selectionState() { return runtime.selectionState; }, get camera() { return runtime.camera; }, get filter() { return runtime.filter; }, get theme() { return runtime.theme; }, get focusState() { return runtime.focusState; }, get navigation() { return runtime.navigation; }, get frameIndex() { return runtime.frameIndex; }, destroy() { runtime.destroy(); controls.remove(); } };
-    for (const method of ['selectNode', 'clearSelection', 'focusProject', 'focusRelationship', 'returnToOverview', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme']) api[method] = (...args) => runtime[method](...args);
+    for (const method of ['selectNode', 'clearSelection', 'focusProject', 'focusRelationship', 'returnToOverview', 'restoreFocus', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme']) api[method] = (...args) => runtime[method](...args);
     for (const method of ['setFrame', 'setDate', 'compareWithNow']) api[method] = (...args) => { switchMode(false); return runtime[method](...args); };
     for (const method of ['setTemporalView', 'focusLayer', 'focusYear', 'focusTemporalNode', 'resetTemporalView']) api[method] = (...args) => { switchMode(true); return runtime[method](...args); };
     toggle.addEventListener('click', () => switchMode(!stacked));
@@ -88,7 +88,7 @@ export function mountTimeline(root, source, options, mount) {
     setFrame(nearest);
   }
   const api = { setFrame, setDate, compareWithNow, get frameIndex() { return index; }, get selection() { return runtime.selection; }, get selectionState() { return runtime.selectionState; }, get camera() { return runtime.camera; }, get filter() { return runtime.filter; }, get theme() { return runtime.theme; }, get focusState() { return runtime.focusState; }, get navigation() { return runtime.navigation; }, destroy() { abort.abort(); disposeTransition?.(); runtime?.destroy(); controls.remove(); summary.remove(); comparison.remove(); viewports.removeAttribute('data-comparing'); } };
-  for (const method of ['selectNode', 'clearSelection', 'focusProject', 'focusRelationship', 'returnToOverview', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme']) api[method] = (...args) => runtime[method](...args);
+  for (const method of ['selectNode', 'clearSelection', 'focusProject', 'focusRelationship', 'returnToOverview', 'restoreFocus', 'fit', 'reset', 'setCamera', 'setFilter', 'setTheme']) api[method] = (...args) => runtime[method](...args);
   previous.addEventListener('click', () => setFrame(index - 1), { signal: abort.signal });
   next.addEventListener('click', () => setFrame(index + 1), { signal: abort.signal });
   scrub.addEventListener('input', () => setFrame(Number(scrub.value)), { signal: abort.signal });

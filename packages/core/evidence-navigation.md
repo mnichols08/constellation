@@ -51,6 +51,33 @@ Selecting a project by pointer, Enter, or Space enters project focus; connection
 
 The status region announces project focus with its connection count, relationship focus with its reasons, and the return to the overview. Inspector buttons and disclosure summaries are at least 44 px tall, and project nodes use their whole bounding box as the hit target. Dimming uses a short opacity transition that is removed under reduced motion.
 
+## Shareable focus
+
+Focus is mirrored into the URL hash as navigation state, separate from configuration: `#focus=<project ID>` and, for relationship focus, `&focus.with=<project ID>`. Values are canonical project IDs, are bounded to 512 characters, and are only ever compared against IDs in the loaded scene; they are never inserted as markup. Opening a link restores that focus. A missing or removed project, an unsupported relationship, or a malformed value returns to the overview, announces that the shared view is not available, and removes the parameters from the URL. User focus changes create history entries so Back and Forward replay them; programmatic changes replace the current entry. Other hash parameters, such as hierarchy navigation, are preserved.
+
+Standalone HTML always enables shareable focus. `<constellation-view>` follows its existing opt-in: add the `history` attribute and a unique element `id`, and the component uses `#<id>.focus=…`. Without them it never reads or writes the URL.
+
 ## Web Component API
 
-Web Component API v1 gains additive members: `focusProject(id, { focus })`, `focusRelationship(projectId, relatedId)`, `returnToOverview()`, and the `focusState` getter (`{ mode, project, related, connections }`, where `mode` is `overview`, `project`, `relationship`, or `path`). The view emits `focus-change` with `{ mode, projectId, relatedId, connections, source }` (`source` is `user` or `api`). `selectNode`, `clearSelection`, `selection`, and `node-select` keep their existing behavior; selecting a project also enters project focus. An unknown or hidden project, or a pair without an evidence-backed relationship, throws a descriptive error.
+Web Component API v1 gains additive members: `focusProject(id, { focus })`, `focusRelationship(projectId, relatedId)`, `returnToOverview()`, and the `focusState` getter (`{ mode, project, related, connections }`, where `mode` is `overview`, `project`, `relationship`, or `path`). The view emits `focus-change` with `{ mode, projectId, relatedId, connections, source }` (`source` is `user`, `api`, or `history`). `selectNode`, `clearSelection`, `selection`, and `node-select` keep their existing behavior; selecting a project also enters project focus. An unknown or hidden project, or a pair without an evidence-backed relationship, throws a descriptive error.
+
+## Performance
+
+`node scripts/benchmark-evidence-navigation.mjs` measures index construction and query latency on synthetic graphs. Local run (Node.js 22.12.0, release WASM):
+
+| Projects | Graph JSON | Index build | Depth 1 mean | Depth 2 mean | Depth 2 max |
+|---:|---:|---:|---:|---:|---:|
+| 12 | 12 KB | 0.7 ms | 0.13 ms | 0.10 ms | 0.36 ms |
+| 128 | 105 KB | 2.3 ms | 0.60 ms | 1.27 ms | 1.35 ms |
+| 512 | 415 KB | 8.4 ms | 1.76 ms | 4.86 ms | 7.42 ms |
+| 2,048 | 1.66 MB | 34.3 ms | 3.14 ms | 6.64 ms | 9.54 ms |
+
+`node --test scripts/benchmark-focus-browser.mjs` measures a standalone export in headless Chromium, from the focus call to forced layout (navigation, highlighting, and inspector rendering):
+
+| Projects | Project focus mean / max | Relationship focus mean / max | Two steps away mean / max | Back to overview mean / max |
+|---:|---:|---:|---:|---:|
+| 12 | 1.2 / 1.4 ms | 0.7 / 1.0 ms | 0.7 / 1.0 ms | 0.5 / 0.7 ms |
+| 100 | 5.1 / 5.5 ms | 2.7 / 3.2 ms | 4.1 / 6.0 ms | 2.9 / 3.7 ms |
+| 256 | 7.8 / 14.2 ms | 4.2 / 7.1 ms | 7.7 / 9.9 ms | 4.4 / 6.6 ms |
+
+The index is built once per scene; focus interactions run one depth-1 query, and the second degree is queried only when its disclosure is opened. These are single-machine measurements, not CI budgets.

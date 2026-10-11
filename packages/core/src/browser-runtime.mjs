@@ -12,7 +12,7 @@ export { shortest_path, neighbors } from './wasm/constellation_core.js';
 import { shortest_path, neighbors, EvidenceNavigator } from './wasm/constellation_core.js';
 import { evidenceNavigationGraphFromScene } from './evidence-navigation.mjs';
 import { evidenceNavigatorAdapter } from './evidence-navigator.mjs';
-export { installFocusAPI } from './interactive-focus.mjs';
+export { mountFocusHistory, installFocusAPI } from './interactive-focus.mjs';
 
 // Engine for mounted runtimes: graph paths plus one retained Evidence Navigation
 // index per scene object, released with the scene.

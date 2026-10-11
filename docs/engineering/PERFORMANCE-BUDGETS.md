@@ -78,3 +78,19 @@ inline); the previous main baseline raw WASM was 450,637 bytes. v4.3 raw WASM
 is 657,467 bytes (899,173 bytes inline), and the generated Core package totals
 1,909,607 bytes. Browser startup and compressed WASM were not measured, so no
 before/after startup or compression claim is made.
+
+Evidence Navigation v1 (v4.4) adds a retained navigation index to the same WASM
+module. The release profile now uses `codegen-units = 1`, which reduced the
+binary by about 40 KB with no measured change to the layout, scene, refinement,
+scaling, Graph Quality, Story Composition, or Story Clarity benchmarks
+(`opt-level = "z"` was rejected: 10-25% slower composition and analysis). The
+navigation module avoids generic sort, map, and serializer instantiations.
+v4.4 raw WASM is 670,680 bytes (207,871 bytes gzip -9), against v4.3's 657,467
+bytes (199,930 gzip). Standalone HTML strips leading indentation from its
+embedded runtime; the 45-node export runtime is 1,039,944 bytes of its
+1,048,576-byte budget. The generated Core package totals 1,966,297 bytes and
+the Web Component entry 24,572 of 24,576 bytes. Both inline budgets have little
+remaining headroom; the next feature that grows the WASM or embedded runtime
+should first reduce it. Navigation latency is recorded in
+[Evidence Navigation](../evidence-navigation.md) and measured by
+`scripts/benchmark-evidence-navigation.mjs`.

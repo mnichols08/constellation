@@ -1,6 +1,55 @@
+// Shareable focus: mirrors the interactive runtime's focus state into bounded URL
+// hash parameters and restores it on load and Back/Forward. Navigation state stays
+// out of config and scenes. Dependency-free: standalone HTML embeds this source.
+export function mountFocusHistory(target, { key = 'focus', runtime = () => target.constellation, win = window } = {}) {
+  const abort = new AbortController();
+  const withKey = `${key}.with`, limit = 512;
+  const valid = value => typeof value === 'string' && value.length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/.test(value);
+  const params = () => { try { return win.location.hash.length > 16384 ? new URLSearchParams() : new URLSearchParams(win.location.hash.slice(1)); } catch { return new URLSearchParams(); } };
+  function read() {
+    const hash = params(), project = hash.get(key), related = hash.get(withKey);
+    if (project === null) return { project: null, related: null, invalid: related !== null };
+    if (!valid(project) || (related !== null && !valid(related))) return { project: null, related: null, invalid: true };
+    return { project, related, invalid: false };
+  }
+  function urlFor(state) {
+    const url = new URL(win.location.href), hash = new URLSearchParams(url.hash.slice(1));
+    hash.delete(key); hash.delete(withKey);
+    if (state.project) hash.set(key, state.project);
+    if (state.project && state.related) hash.set(withKey, state.related);
+    const text = hash.toString();
+    url.hash = text ? `#${text}` : '';
+    return url.href;
+  }
+  function write(state, mode) {
+    const next = urlFor(state);
+    if (next === win.location.href) return;
+    try { win.history[mode === 'push' ? 'pushState' : 'replaceState'](win.history.state, '', next); } catch { /* Focus still works where history is unavailable. */ }
+  }
+  function restore() {
+    const state = read(), active = runtime();
+    if (!active?.restoreFocus) return;
+    // Hash navigation fires both popstate and hashchange; apply each state once.
+    const current = active.focusState;
+    if (!state.invalid && current && current.project === state.project && (current.related || null) === state.related) return;
+    const applied = active.restoreFocus(state, { source: 'history', invalid: state.invalid });
+    // An unavailable project leaves an understandable overview and a clean URL.
+    if (!applied && (state.project || state.invalid)) write({ project: null }, 'replace');
+  }
+  target.addEventListener('focus-change', event => {
+    const detail = event.detail || {};
+    if (detail.source === 'history') return;
+    write({ project: detail.projectId || null, related: detail.relatedId || null }, detail.source === 'user' ? 'push' : 'replace');
+  }, { signal: abort.signal });
+  win.addEventListener('popstate', restore, { signal: abort.signal });
+  win.addEventListener('hashchange', restore, { signal: abort.signal });
+  return { restore, read, shareURL: () => urlFor(runtime()?.focusState || {}), destroy: () => abort.abort() };
+}
+
 // Adds the focus API to a <constellation-view>-style element whose shadow root
 // hosts the interactive runtime. Kept in Core so the component entry stays within
-// its size budget.
+// its size budget. URL history is opt-in through the existing `history` attribute
+// and a unique element ID, and uses the `<id>.focus` hash parameter.
 export function installFocusAPI(View) {
   const runtime = view => view.shadowRoot?.querySelector('main')?.constellation;
   const active = view => {
@@ -18,4 +67,20 @@ export function installFocusAPI(View) {
     configurable: true,
     get() { return runtime(this)?.focusState || { mode: 'overview', project: null, related: null, connections: [] }; },
   });
+  const connected = View.prototype.connectedCallback, disconnected = View.prototype.disconnectedCallback;
+  const histories = new WeakMap();
+  View.prototype.connectedCallback = function () {
+    if (this.hasAttribute('history') && this.id && !histories.has(this)) {
+      const abort = new AbortController();
+      const history = mountFocusHistory(this, { key: `${this.id}.focus`, runtime: () => runtime(this) });
+      // Restore after the first render of each connection; later renders keep user focus.
+      this.addEventListener('scene-ready', () => history.restore(), { signal: abort.signal });
+      histories.set(this, () => { abort.abort(); history.destroy(); });
+    }
+    return connected?.call(this);
+  };
+  View.prototype.disconnectedCallback = function () {
+    histories.get(this)?.(); histories.delete(this);
+    return disconnected?.call(this);
+  };
 }

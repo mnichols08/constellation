@@ -90,6 +90,7 @@ test('project and relationship focus explain evidence and return to the overview
   const emphasized = await evaluate('[...document.querySelectorAll(".shared-language[data-related]")].map(edge => [edge.dataset.from, edge.dataset.to].sort().join(" "))');
   assert.ok(emphasized.length > 0 && emphasized.every(pair => pair === 'fixture/project-0 fixture/project-2'));
   assert.equal(await evaluate(`${project('fixture/project-1')}.hasAttribute('data-related')`), false, 'relationship focus narrows emphasis to one pair');
+  assert.match(await evaluate('location.hash'), /^#focus=fixture%2Fproject-0&focus\.with=fixture%2Fproject-2$/);
 
   // Escape steps back one level at a time and restores keyboard focus.
   await key(cdp, 'Escape');
@@ -99,11 +100,21 @@ test('project and relationship focus explain evidence and return to the overview
   assert.equal(await evaluate('document.querySelector("main").dataset.focus'), 'overview');
   assert.equal(await evaluate('document.activeElement.querySelector(".star")?.dataset.repo'), 'fixture/project-0');
   assert.equal(await evaluate('document.querySelector("svg").hasAttribute("data-interactive-selection")'), false);
-  assert.equal(await evaluate('document.querySelector("[data-status]").textContent'), 'Overview. All projects shown.');
+  assert.equal(await evaluate('document.querySelector("[data-status]").textContent'), 'Returned to the overview.');
   await key(cdp, 'Escape');
   assert.equal(await evaluate('document.activeElement.querySelector(".star")?.dataset.repo'), 'fixture/project-0', 'Escape in the overview does not move or trap focus');
 
+  // Browser history replays focus states.
+  await evaluate('history.back()');
+  await waitFor('document.querySelector("main").dataset.focus === "project"');
+  await evaluate('history.back()');
+  await waitFor('document.querySelector("main").dataset.focus === "relationship"');
+  assert.equal(await evaluate('document.querySelector("main").constellation.focusState.related'), 'fixture/project-2');
+  await evaluate('history.forward()');
+  await waitFor('document.querySelector("main").dataset.focus === "project"');
+
   // Second degree is loaded on demand and lists only bounded, evidence-backed paths.
+  await evaluate('document.querySelector("[data-focus-overview]").click()');
   await evaluate(`${project('fixture/project-1')}.dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
   await evaluate('document.querySelector("[data-second-degree] summary").click()');
   await waitFor('document.querySelectorAll("[data-second-degree] li").length > 0');
@@ -111,6 +122,37 @@ test('project and relationship focus explain evidence and return to the overview
   await evaluate('document.querySelector("[data-second-degree] button").click()');
   assert.equal(await evaluate('document.querySelector("main").constellation.focusState.project'), 'fixture/project-2');
   assert.deepEqual(errors, []);
+});
+
+test('shared focus links restore safely and fail closed', { skip: !browser, timeout: 120000 }, async t => {
+  const href = await exportFile(t, (() => { const value = structuredClone(scene); value.nodes.find(node => node.id === 'fixture/project-2').metadata.description = '<img src=x onerror="window.injected=true">'; return value; })());
+  for (const [hash, expected] of [
+    ['#focus=fixture%2Fproject-2', { mode: 'project', project: 'fixture/project-2', related: null }],
+    ['#focus=fixture%2Fproject-0&focus.with=fixture%2Fproject-1', { mode: 'relationship', project: 'fixture/project-0', related: 'fixture/project-1' }],
+  ]) {
+    const { evaluate, waitFor, errors } = await openBrowser(t, href + hash);
+    await waitFor('Boolean(document.querySelector("main")?.constellation)');
+    const state = await evaluate('document.querySelector("main").constellation.focusState');
+    assert.deepEqual({ mode: state.mode, project: state.project, related: state.related }, expected);
+    assert.equal(await evaluate('Boolean(window.injected) || Boolean(document.querySelector("[data-details] img"))'), false);
+    assert.deepEqual(errors, []);
+  }
+  for (const hash of [
+    '#focus=fixture%2Fremoved',
+    '#focus=fixture%2Fproject-0&focus.with=fixture%2Fproject-3',
+    `#focus=${encodeURIComponent('<script>window.injected=true</script>')}`,
+    `#focus=${'x'.repeat(600)}`,
+    '#focus.with=fixture%2Fproject-0',
+    '#focus=%E0%A4%A',
+  ]) {
+    const { evaluate, waitFor, errors } = await openBrowser(t, href + hash);
+    await waitFor('Boolean(document.querySelector("main")?.constellation)');
+    assert.equal(await evaluate('document.querySelector("main").constellation.focusState.mode'), 'overview', hash.slice(0, 40));
+    assert.match(await evaluate('document.querySelector("[data-status]").textContent'), /Showing the overview\./);
+    assert.equal(await evaluate('location.hash'), '', 'the invalid share state is removed from the URL');
+    assert.equal(await evaluate('Boolean(window.injected) || Boolean(document.querySelector("main script"))'), false);
+    assert.deepEqual(errors, []);
+  }
 });
 
 test('reduced motion removes focus transitions', { skip: !browser, timeout: 120000 }, async t => {
@@ -121,7 +163,7 @@ test('reduced motion removes focus transitions', { skip: !browser, timeout: 1200
   assert.equal(await evaluate('getComputedStyle(document.querySelector(".repository")).transitionDuration'), '0s');
 });
 
-test('<constellation-view> exposes focus and events', { skip: !browser, timeout: 120000 }, async t => {
+test('<constellation-view> exposes focus, events, history and lifecycle cleanup', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -129,7 +171,7 @@ test('<constellation-view> exposes focus and events', { skip: !browser, timeout:
   await waitFor('Boolean(document.querySelector("#view")?.shadowRoot?.querySelector("main")?.constellation)');
   const setup = `(async () => {
     const view = document.createElement('constellation-view');
-    view.id = 'focused';
+    view.id = 'focused'; view.setAttribute('history', '');
     window.focusEvents = [];
     view.addEventListener('focus-change', event => window.focusEvents.push(event.detail));
     view.records = ['compiler', 'runtime', 'studio', 'notes'].map((name, i) => ({ name, full_name: 'example/' + name, language: ['Rust', 'Rust', 'TypeScript', 'Go'][i], topics: i < 3 ? ['wasm'] : [], html_url: 'https://github.com/example/' + name }));
@@ -144,6 +186,7 @@ test('<constellation-view> exposes focus and events', { skip: !browser, timeout:
   const state = await evaluate('document.querySelector("#focused").focusState');
   assert.equal(state.mode, 'project');
   assert.deepEqual(state.connections, ['example/runtime', 'example/studio']);
+  assert.match(await evaluate('location.hash'), /focused\.focus=example%2Fcompiler/);
   await evaluate('document.querySelector("#focused").focusRelationship("example/compiler", "example/runtime")');
   assert.match(await evaluate('document.querySelector("#focused").shadowRoot.querySelector(".focus-reasons").textContent'), /Same project family, defined by the author: Tools/);
   assert.match(await evaluate(`(() => { try { document.querySelector('#focused').focusRelationship('example/compiler', 'example/notes'); return 'no error'; } catch (error) { return error.message; } })()`), /No evidence-backed relationship/);
@@ -162,6 +205,17 @@ test('<constellation-view> exposes focus and events', { skip: !browser, timeout:
   assert.equal(await evaluate('document.querySelector("#focused").selection.start'), 'example/studio');
   assert.deepEqual(await evaluate('document.querySelector("#focused").focusState.connections'), ['example/compiler', 'example/notes', 'example/runtime']);
   await evaluate('document.querySelector("#focused").returnToOverview()');
-  assert.equal(await evaluate('document.querySelector("#focused").focusState.mode'), 'overview');
+  assert.equal(await evaluate('location.hash'), '');
+  // Detached views stop following the URL; reattached views follow it again.
+  await evaluate('window.detachedView = document.querySelector("#focused"); detachedView.remove(); location.hash = "focused.focus=example%2Fruntime";');
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate('document.body.append(detachedView)');
+  await waitFor('document.querySelector("#focused").focusState.project === "example/runtime"');
+  await evaluate('history.back()');
+  await waitFor('document.querySelector("#focused").focusState.mode === "overview"');
+  // Views without the history attribute never touch the URL.
+  await evaluate('history.replaceState(null, "", location.pathname); document.querySelector("#view").focusProject("example/compiler")');
+  assert.equal(await evaluate('location.hash'), '');
+  assert.equal(await evaluate('document.querySelector("#view").focusState.project'), 'example/compiler');
   assert.deepEqual(errors, []);
 });
