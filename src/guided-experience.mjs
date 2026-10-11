@@ -33,6 +33,13 @@ export function experienceStore(storage, report) {
         if (value.identity !== experienceIdentity(options)) return null;
         if (!['auto', 'story', 'manual'].includes(value.storyMode)
           || !Object.hasOwn(storyIntentLabels, value.selectedStoryId)) throw Error('Invalid guided experience state.');
+        if (value.publishing && (
+          !['profile', 'repository', 'portfolio'].includes(value.publishing.destination)
+          || !['svg', 'html'].includes(value.publishing.format)
+          || !['current', '480', '900'].includes(value.publishing.presentation)
+          || typeof value.publishing.repository !== 'string' || value.publishing.repository.length > 200
+          || typeof value.publishing.filename !== 'string' || value.publishing.filename.length > 130
+        )) throw Error('Invalid saved publishing setup.');
         return value;
       } catch (error) {
         report(`Saved experience could not be restored: ${error.message}`);
@@ -45,6 +52,7 @@ export function experienceStore(storage, report) {
           identity: experienceIdentity(options),
           storyMode: state.storyMode,
           selectedStoryId: state.selectedStoryId,
+          ...(state.publishing ? { publishing: state.publishing } : {}),
         }));
       } catch (error) {
         report(`Experience progress could not be saved: ${error.message}`);

@@ -222,6 +222,24 @@ function restoreExperience(options) {
   const saved = experiences.read(account, options);
   storyMode = saved?.storyMode || 'manual';
   selectedStoryId = saved?.selectedStoryId || 'projects';
+  if (saved?.publishing) {
+    for (const [id, value] of Object.entries({
+      'publish-destination': saved.publishing.destination,
+      'publish-format': saved.publishing.format,
+      'publish-presentation': saved.publishing.presentation,
+      'output-repository': saved.publishing.repository,
+      'publish-filename': saved.publishing.filename,
+    })) document.getElementById(id).value = value;
+  }
+}
+function publishingChoices() {
+  return {
+    destination: $('#publish-destination').value,
+    format: $('#publish-format').value,
+    presentation: $('#publish-presentation').value,
+    repository: $('#output-repository').value.slice(0, 200),
+    filename: $('#publish-filename').value.slice(0, 130),
+  };
 }
 function enterStudio() {
   if (!workspace) workspace = mountStudioLayout();
@@ -1827,7 +1845,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     });
     updateSnippet();
     studio?.update(account, options, captured);
-    experiences.save(account, options, { storyMode, selectedStoryId });
+    experiences.save(account, options, { storyMode, selectedStoryId, publishing: publishingChoices() });
     imageViewer?.update(captured, account);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(
@@ -2726,6 +2744,10 @@ function updateSnippet() {
   const format = $("#publish-format").value;
   const filename = $("#publish-filename").value.trim();
   const portfolio = destination === 'portfolio';
+  $('#publish-presentation').disabled = format !== 'svg';
+  $('#publishing-completion').textContent = portfolio
+    ? 'Setup only: download, upload, and test the hosted artifact. Remote deployment has not been verified. Future updates require another upload.'
+    : 'Setup only: commit the workflow, run it, inspect the Actions summary, then add the README snippet. Installation and remote publication have not been verified. Failed refreshes preserve the last known-good artifact.';
   const validName = /^[a-z\d][a-z\d._-]{0,120}\.(svg|html)$/i.test(filename) && filename.toLowerCase().endsWith(`.${format}`);
   $("#github-publish-controls").hidden = portfolio;
   $("#workflow-install-note").hidden = portfolio;
@@ -2790,6 +2812,9 @@ function updateSnippet() {
     $("#copy-markdown").disabled = true;
     $("#repository-help").textContent = error.message;
   }
+  const current = studio?.config();
+  if (current?.account === account)
+    experiences.save(account, current.options, { storyMode, selectedStoryId, publishing: publishingChoices() });
 }
 $("#output-repository").addEventListener("input", updateSnippet);
 $('#before-publish-preview').addEventListener('toggle', event => {
