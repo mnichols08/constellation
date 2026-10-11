@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Interactive Exploration (v4.4.x)
+
+- Add bounded Rust/WASM Evidence Navigation v1: a retained index over Semantic Graph v1 that returns a project's direct connections with evidence references for explicit, authored-family, shared-language, and shared-topic relationships, an optional bounded second degree, stable ordering, and structured diagnostics. Derived owner groups never become connections.
+- Add project and relationship focus to interactive HTML and `<constellation-view>`: selecting a project dims unrelated projects without moving anything and lists evidence-backed connections; a relationship explains each reason and its origin and is never presented as a verified dependency.
+- Make focus keyboard- and touch-friendly: Escape steps back one level with predictable focus restoration, focus changes are announced, inspector targets are at least 44 px, and dimming respects reduced motion.
+- Add shareable focus as bounded `#focus=` URL state with Back/Forward support and safe fallback to the overview for removed, invalid, duplicated, or oversized focus links, which are removed from the URL. Web Component API v1 gains additive `focusProject`, `focusRelationship`, `returnToOverview`, `focusState`, and `focus-change`; URL state remains opt-in through `history` and an element ID.
+- Reduce the WASM release binary with `codegen-units = 1` and keep standalone HTML within its 1 MiB runtime budget. Static SVG is unchanged. Preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, Semantic Markdown v1, Project Constellation v1, Atlas State v1, and Web Component API v1.
+
 ## Unreleased — Story Clarity (v4.3.x)
 
 - Add bounded Rust/WASM Story Clarity v1 diagnostics for final-scene labels, hierarchy, evidence-backed relationships, technical groups, and legends. Diagnostics are deterministic and advisory; they do not score or select candidates.

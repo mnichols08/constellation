@@ -1,6 +1,6 @@
 {
   "name": "constellation",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "private": true,
   "bin": {
     "constellation": "src/cli.mjs"
@@ -17,6 +17,7 @@
     "benchmark:graph-quality": "node scripts/benchmark-graph-quality.mjs",
     "benchmark:story-composition": "node scripts/benchmark-story-composition.mjs",
     "benchmark:story-clarity": "node scripts/benchmark-story-clarity.mjs",
+    "benchmark:evidence-navigation": "node scripts/benchmark-evidence-navigation.mjs",
     "generate": "node src/cli.mjs",
     "test": "node --test --test-concurrency=1",
     "preview": "node scripts/serve.mjs",

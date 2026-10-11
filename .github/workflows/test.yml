@@ -27,6 +27,7 @@ jobs:
           node scripts/benchmark-timeline.mjs
           node scripts/benchmark-hierarchy.mjs
           node scripts/benchmark-story.mjs
+          node scripts/benchmark-evidence-navigation.mjs
           npm test
       - uses: ./
         with:

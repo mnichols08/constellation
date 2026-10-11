@@ -16,6 +16,9 @@ import { temporalMotion } from './temporal-motion.mjs';
 import { createExplanationHelpers, EVIDENCE_VERSION, dimensionName, layoutSummary, safeEvidenceText } from './evidence.mjs';
 import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
 import { createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_POLICY } from './semantic-zoom.mjs';
+import { evidenceNavigationGraphFromScene } from './evidence-navigation.mjs';
+import { evidenceNavigatorAdapter } from './evidence-navigator.mjs';
+import { mountFocusHistory } from './interactive-focus.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const scriptJSON = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
@@ -35,8 +38,10 @@ const applyTemporalGeometryDrawing = ${applyTemporalGeometryDrawing.toString()};
 const mountTemporalStack = ${mountTemporalStack.toString()};
 const mountScene = (root, scene, options) => (${mountTimeline.toString()})(root, scene, { ...options, semanticGroupActions: semanticArtifacts.length > 0 }, (root, scene, options) => (${mountInteractive.toString()})(root, scene, options, explanationAPI, ((contentBounds) => (${fitSceneViewport.toString()}))(${contentBounds.toString()})));
 const mountExperience = (root, scene, options) => (${mountHierarchy.toString()})(root, scene, options, mountScene);
-const runtimeOptions = { engine: { shortest_path, neighbors }, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) };
+const navigator = (${evidenceNavigatorAdapter.toString()})(EvidenceNavigator, JSON.parse(document.getElementById('constellation-navigation').textContent));
+const runtimeOptions = { engine: { shortest_path, neighbors }, navigator, history: true, replaceSVG: ${replaceInteractiveSVG.toString()}, transitionCamera: ${transitionCamera.toString()}, frameSVGs: JSON.parse(document.getElementById('constellation-frames').textContent), hierarchyArtifacts: JSON.parse(document.getElementById('constellation-hierarchy').textContent), storyArtifacts: JSON.parse(document.getElementById('constellation-story').textContent) };
 let experience = (${mountStory.toString()})(document.getElementById('constellation'), scene, runtimeOptions, mountExperience);
+const focusHistory = (${mountFocusHistory.toString()})(document.getElementById('constellation'), { runtime: () => experience });
 if (semanticArtifacts.some(item => item.id)) {
   const root = document.getElementById('constellation');
   const baseSVG = JSON.parse(document.getElementById('constellation-semantic-base').textContent);
@@ -133,7 +138,11 @@ if (semanticArtifacts.some(item => item.id)) {
   }
 }
 const initialChapter = JSON.parse(document.getElementById('constellation-initial').textContent);
-if (initialChapter > 0) experience.setChapter(initialChapter);`.replace(/\r\n?/g, '\n');
+if (initialChapter > 0) experience.setChapter(initialChapter);
+focusHistory.restore();`.replace(/\r\n?/g, '\n')
+  // Embedded sources contain no multi-line string or template literal (guarded by
+  // test/interactive-html.test.mjs), so dropping leading indentation is lossless.
+  .replace(/\n[ \t]+/g, '\n');
 const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runtimeScript));
 const scriptHash = btoa(String.fromCharCode(...new Uint8Array(digest)));
 export const htmlPolicy = `default-src 'none'; script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`;
@@ -188,6 +197,7 @@ ${interactiveMarkup(svg)}
 <script type="application/json" id="constellation-hierarchy">${scriptJSON(hierarchyArtifacts(view))}</script>
 <script type="application/json" id="constellation-story">${scriptJSON(storyArtifacts(view))}</script>
 <script type="application/json" id="constellation-initial">${scriptJSON(initialChapter)}</script>
+<script type="application/json" id="constellation-navigation">${scriptJSON(evidenceNavigationGraphFromScene(scene))}</script>
 <script type="module">${runtimeScript}</script>
 </body></html>\n`;
 }

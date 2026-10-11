@@ -1,6 +1,5 @@
-import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost, buildSemanticHierarchy, projectSemanticLevel, parseSemanticGraph, serializeSemanticGraph, projectSemanticGraphToScene, semanticGraphFingerprint } from '@constellation/core';
-import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, shortest_path, neighbors, createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_MODES } from '@constellation/core/browser-runtime';
-import { projectDeveloperAtlasScene } from '@constellation/core';
+import { createScene, parseScene, serializeScene, parseConfig, normalizeConfig, renderSceneSVG, createDataPipeline, createLayoutHost, buildSemanticHierarchy, projectSemanticLevel, parseSemanticGraph, serializeSemanticGraph, projectSemanticGraphToScene, semanticGraphFingerprint, projectDeveloperAtlasScene } from '@constellation/core';
+import { mountInteractive, mountTimeline, mountHierarchy, mountStory, storyArtifacts, hierarchyArtifacts, replaceInteractiveSVG, transitionCamera, interactiveStyles, interactiveMarkup, interactiveEngine, installFocusAPI, createSemanticZoomState, resolveSemanticZoomMode, SEMANTIC_ZOOM_MODES } from '@constellation/core/browser-runtime';
 import { AtlasNavigation, renderAtlasChrome, installAtlasAPI } from './web-component-atlas.mjs';
 
 export const WEB_COMPONENT_API_VERSION = 1;
@@ -375,7 +374,7 @@ export class ConstellationView extends HTMLElement {
         const announcement = main.querySelector('[data-status]');
         if (announcement) announcement.textContent = `Developer Atlas: ${this.atlasBreadcrumbs.map(crumb => crumb.label).join(' › ')}`;
       }
-      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), viewScene, { engine: { shortest_path, neighbors }, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(viewScene), storyArtifacts: storyArtifacts(viewScene), frameSVGs: viewScene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
+      this.#runtime = mountStory(this.shadowRoot.querySelector('main'), viewScene, { engine: interactiveEngine, replaceSVG: replaceInteractiveSVG, transitionCamera, emitReady: false, history: this.hasAttribute('history') && Boolean(this.id), historyKey: `constellation.${this.id}`, hierarchyArtifacts: hierarchyArtifacts(viewScene), storyArtifacts: storyArtifacts(viewScene), frameSVGs: viewScene.timeline?.frames.map(frame => renderSceneSVG(frame.scene)) || [] }, (root, scene, options) => mountHierarchy(root, scene, options, (root, scene, options) => mountTimeline(root, scene, options, mountInteractive)));
       if (previousCamera) this.#runtime.setCamera?.(previousCamera);
       if (previousSelection?.start) {
         let selection = previousSelection.start;
@@ -399,6 +398,7 @@ export class ConstellationView extends HTMLElement {
 }
 
 installAtlasAPI(ConstellationView);
+installFocusAPI(ConstellationView);
 
 export function defineConstellationView(name = 'constellation-view', registry = customElements) {
   if (registry.get(name)) return registry.get(name);

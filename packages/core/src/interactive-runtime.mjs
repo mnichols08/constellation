@@ -45,6 +45,49 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     dragging = null,
     moved = false;
   let semanticContext = null;
+  // Evidence Navigation: an optional retained Rust index explains why projects
+  // connect. Focus never changes geometry, config, or the underlying graph.
+  const navigator = options.navigator || options.engine?.navigatorFor?.(scene) || null;
+  let navigation = null,
+    related = null;
+  const focusMode = () =>
+    !selected ? "overview" : endpoint ? "path" : related ? "relationship" : "project";
+  const projectName = (id) =>
+    records.get(id)?.metadata.name ||
+    navigation?.connections.find((item) => item.projectId === id)?.label ||
+    id;
+  const make = (tag, text, attributes = {}) => {
+    const node = document.createElement(tag);
+    if (text != null) node.textContent = text;
+    for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+    return node;
+  };
+  // Plain-language reasons; shared metadata is never presented as a dependency.
+  function reasons(connection) {
+    return connection.relationships.map((item) => {
+      const labels = [...new Set(item.evidence.map((entry) => entry.label).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const more = item.evidenceCount > item.evidence.length ? ` (+${item.evidenceCount - item.evidence.length} more)` : "";
+      const text = {
+        "explicit-relationship": "Project relationship defined by the author",
+        "authored-family": `Same project family, defined by the author: ${labels.join(", ")}`,
+        "shared-language": `Shared primary language: ${labels.join(", ")}`,
+        "shared-topic": `Shared repository topic${labels.length > 1 ? "s" : ""}: ${labels.join(", ")}`,
+      }[item.type];
+      const authored = item.evidence.some((entry) => entry.provenance.includes("user"));
+      return { type: item.type, labels, text: text + more, origin: authored ? "author-defined" : "repository metadata" };
+    });
+  }
+  const connectionSummary = (connection) =>
+    reasons(connection)
+      .map((item) => item.type === "explicit-relationship" ? "linked by author" : item.type === "authored-family" ? `family ${item.labels.join(", ")}` : item.type === "shared-topic" ? item.labels.map((label) => `#${label}`).join(" ") : item.labels.join(", "))
+      .join(" · ");
+  const focusDetail = (source) => ({
+    mode: focusMode(),
+    projectId: selected,
+    relatedId: related,
+    connections: navigation?.connections.map((item) => item.projectId) || [],
+    source,
+  });
   let occurrenceYear = null,
     occurrenceLayer = null;
   function frameForOccurrence(
@@ -144,10 +187,60 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       height = (width * base[3]) / base[2];
     setCamera([point.x - width / 2, point.y - height / 2, width, height]);
   }
+  function showRelationship(id) {
+    const connection = navigation.connections.find((item) => item.projectId === related);
+    const heading = make("h2", `${projectName(id)} ↔ ${projectName(related)}`, { tabindex: "-1", "data-focus-heading": "" });
+    const list = make("ul", null, { class: "focus-reasons" });
+    for (const reason of reasons(connection)) {
+      const item = make("li", reason.text);
+      item.append(make("span", ` · ${reason.origin}`, { class: "focus-origin" }));
+      list.append(item);
+    }
+    const actions = make("div", null, { class: "focus-actions" });
+    actions.append(make("button", `Back to ${projectName(id)}`, { type: "button", "data-focus-project": id }));
+    if (ids.includes(related)) actions.append(make("button", `Focus ${projectName(related)}`, { type: "button", "data-focus-project": related }));
+    actions.append(make("button", "Back to overview", { type: "button", "data-focus-overview": "" }));
+    details.append(heading, make("p", "Why these projects are connected"), list,
+      make("p", "Connections reflect shared repository metadata or links the author defined. They are not verified dependencies.", { class: "focus-note" }), actions);
+  }
+  function showConnections() {
+    const section = make("section", null, { class: "focus-navigation", "aria-label": "Evidence-backed connections" });
+    const count = navigation.connections.length;
+    section.append(make("h3", count ? `Connections (${count}${navigation.truncated ? "+" : ""})` : "No evidence-backed connections"));
+    const button = (connection) => make("li").appendChild(make("button", `${connection.label} — ${connectionSummary(connection)}`, { type: "button", "data-focus-relationship": connection.projectId })).parentNode;
+    const list = make("ul", null, { class: "focus-connections" });
+    list.append(...navigation.connections.slice(0, 12).map(button));
+    section.append(list);
+    if (count > 12) {
+      const more = make("details");
+      more.append(make("summary", `More connections (${count - 12})`), make("ul", null, { class: "focus-connections" }));
+      more.lastChild.append(...navigation.connections.slice(12).map(button));
+      section.append(more);
+    }
+    if (count) {
+      const second = make("details", null, { "data-second-degree": "" });
+      second.append(make("summary", "Two steps away"));
+      second.addEventListener("toggle", () => {
+        if (!second.open || second.childElementCount > 1) return;
+        const result = navigator.navigate(selected, 2);
+        const items = (result?.secondDegree || []).map((item) => {
+          const text = `${item.label} — via ${projectName(item.path[1])}`;
+          return ids.includes(item.projectId) ? make("li").appendChild(make("button", text, { type: "button", "data-focus-project": item.projectId })).parentNode : make("li", text);
+        });
+        const list = make("ul", null, { class: "focus-connections" });
+        list.append(...items);
+        second.append(items.length ? list : make("p", "No projects two steps away."));
+      });
+      section.append(second);
+    }
+    section.append(make("button", "Back to overview", { type: "button", "data-focus-overview": "" }));
+    details.append(section);
+  }
   function showDetails(id) {
     if (!details) return;
     details.replaceChildren();
     if (!id) return;
+    if (related && navigation) return showRelationship(id);
     const frame = frameForOccurrence();
     const semantic = scene.semanticGroups;
     const group = semantic?.groups?.find(item => item.id === id) || (semanticContext?.group.id === id ? semanticContext.group : null);
@@ -323,11 +416,14 @@ export function mountInteractive(root, source, options = {}, explanations = cano
         /* Non-URL source metadata stays plain text. */
       }
     }
+    // Appended last so existing inspector structure and order are unchanged.
+    if (navigation && id === selected && !endpoint) showConnections();
   }
   function highlight() {
     const engine = options.engine;
+    const evidence = Boolean(selected && !endpoint && navigation);
     const indices =
-      selected && engine
+      selected && engine && !evidence
         ? endpoint
           ? engine.shortest_path(
               ids.length,
@@ -338,24 +434,28 @@ export function mountInteractive(root, source, options = {}, explanations = cano
           : engine.neighbors(ids.length, pairs, ids.indexOf(selected))
         : [];
     path = endpoint ? Array.from(indices, (index) => ids[index]) : [];
-    const related = new Set(Array.from(indices, (index) => ids[index]));
-    if (selected) related.add(selected);
-    if (endpoint) related.add(endpoint);
+    const highlighted = new Set(Array.from(indices, (index) => ids[index]));
+    if (evidence)
+      for (const connection of navigation.connections)
+        if (!related || connection.projectId === related) highlighted.add(connection.projectId);
+    if (selected) highlighted.add(selected);
+    if (endpoint) highlighted.add(endpoint);
     const enabled =
       scene.layers.find((layer) => layer.id === "selection")?.visible !== false;
     svg.toggleAttribute(
       "data-interactive-selection",
-      Boolean(selected && engine && enabled),
+      Boolean(selected && (engine || evidence) && enabled),
     );
+    root.dataset.focus = focusMode();
     for (const group of groups) {
-      group.toggleAttribute("data-related", related.has(groupId(group)));
+      group.toggleAttribute("data-related", highlighted.has(groupId(group)));
       group.setAttribute(
         "aria-pressed",
         String(groupId(group) === selected || groupId(group) === endpoint),
       );
     }
     for (const label of svg.querySelectorAll(".repo-label"))
-      label.toggleAttribute("data-related", related.has(label.dataset.repo));
+      label.toggleAttribute("data-related", highlighted.has(label.dataset.repo));
     for (const edge of edges) {
       const { from, to } = edge.dataset;
       edge.toggleAttribute(
@@ -367,23 +467,27 @@ export function mountInteractive(root, source, options = {}, explanations = cano
                 ((path[i - 1] === from && id === to) ||
                   (path[i - 1] === to && id === from)),
             )
-          : from === selected || to === selected,
+          : (from === selected && highlighted.has(to)) ||
+              (to === selected && highlighted.has(from)),
       );
     }
   }
   function selectNode(
     id,
-    { focus = true, extend = false, year = null, layerId = null } = {},
+    { focus = true, extend = false, year = null, layerId = null, source = "api" } = {},
   ) {
     if (!records.has(id) || !ids.includes(id))
       throw new Error(`Unknown or hidden node: ${id}`);
     occurrenceYear = year;
     occurrenceLayer = layerId;
     semanticContext = null;
+    related = null;
     if (extend && selected) endpoint = id;
     else {
       selected = id;
       endpoint = null;
+      navigation = navigator?.navigate(id, 1) || null;
+      if (navigation?.status !== "ok") navigation = null;
     }
     svg.removeAttribute("data-exploring");
     highlight();
@@ -394,7 +498,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
         ? path.length
           ? `${path.length - 1} connections: ${path.map((id) => records.get(id).metadata.name).join(" → ")}`
           : "No path between the selected nodes."
-        : `${records.get(id).metadata.name}. Shift-select another node to trace a path.`,
+        : `${records.get(id).metadata.name}.${navigation ? ` ${navigation.connections.length} evidence-backed connection${navigation.connections.length === 1 ? "" : "s"}. Press Escape to return to the overview.` : ""} Shift-select another node to trace a path.`,
     );
     emit("node-select", {
       id,
@@ -403,18 +507,65 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       end: endpoint,
       path: [...path],
     });
+    emit("focus-change", focusDetail(source));
   }
-  function clearSelection() {
+  function focusRelationship(projectId, relatedId, { source = "api" } = {}) {
+    if (!records.has(projectId) || !ids.includes(projectId))
+      throw new Error(`Unknown or hidden node: ${projectId}`);
+    const result = selected === projectId && !endpoint && navigation ? navigation : navigator?.navigate(projectId, 1);
+    const connection = result?.status === "ok" && result.connections.find((item) => item.projectId === relatedId);
+    if (!connection) throw new Error(`No evidence-backed relationship: ${projectId} ↔ ${relatedId}`);
+    const changed = selected !== projectId;
+    selected = projectId;
+    endpoint = null;
+    navigation = result;
+    related = relatedId;
+    occurrenceYear = occurrenceLayer = semanticContext = null;
+    svg.removeAttribute("data-exploring");
+    highlight();
+    showDetails(projectId);
+    announce(`${projectName(projectId)} and ${projectName(relatedId)}: ${reasons(connection).map((item) => item.text).join("; ")}. Press Escape to return to ${projectName(projectId)}.`);
+    if (changed) emit("node-select", { id: projectId, node: structuredClone(records.get(projectId)), start: selected, end: null, path: [] });
+    emit("focus-change", focusDetail(source));
+  }
+  // Escape and the panel's back actions step out one level and move keyboard
+  // focus to what represents the previous level, but only when focus was inside.
+  function stepBack({ source = "user" } = {}) {
+    if (!selected) return false;
+    const active = root.getRootNode().activeElement, inside = Boolean(active && root.contains(active));
+    if (related && !endpoint) {
+      const previous = related;
+      selectNode(selected, { focus: false, source });
+      if (inside) [...(details?.querySelectorAll("[data-focus-relationship]") || [])].find((button) => button.dataset.focusRelationship === previous)?.focus();
+      return true;
+    }
+    const previous = selected;
+    clearSelection({ source });
+    const node = groups.find((group) => groupId(group) === previous && group.getBoundingClientRect().width > 0);
+    if (inside && node) {
+      for (const group of groups) group.tabIndex = group === node ? 0 : -1;
+      node.focus();
+    }
+    return true;
+  }
+  function focusHeading() {
+    details?.querySelector("[data-focus-heading], h2")?.focus({ preventScroll: true });
+  }
+  function clearSelection({ source = "api" } = {}) {
+    const had = Boolean(selected);
     selected = null;
     endpoint = null;
+    navigation = null;
+    related = null;
     occurrenceYear = null;
     occurrenceLayer = null;
     semanticContext = null;
     svg.removeAttribute("data-exploring");
     highlight();
     showDetails(null);
-    announce("Selection cleared.");
+    announce(had && navigator ? "Returned to the overview." : "Selection cleared.");
     emit("node-select", { id: null, node: null });
+    emit("focus-change", focusDetail(source));
   }
   function setProfileDimensions(values = []) {
     if (
@@ -714,6 +865,23 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       if (expand) emit('semantic-group-expand', { id: expand.dataset.semanticExpand });
       const collapse = event.target.closest('[data-semantic-collapse]');
       if (collapse) emit('semantic-group-collapse', { id: collapse.dataset.semanticCollapse });
+      const relationship = event.target.closest("[data-focus-relationship]");
+      if (relationship && selected) {
+        focusRelationship(selected, relationship.dataset.focusRelationship, { source: "user" });
+        focusHeading();
+      }
+      const project = event.target.closest("[data-focus-project]");
+      if (project) {
+        const previous = related, back = project.dataset.focusProject === selected;
+        selectNode(project.dataset.focusProject, { focus: !back, source: "user" });
+        const restore = back && [...details.querySelectorAll("[data-focus-relationship]")].find((button) => button.dataset.focusRelationship === previous);
+        if (restore) restore.focus();
+        else focusHeading();
+      }
+      if (event.target.closest("[data-focus-overview]")) {
+        related = null;
+        stepBack({ source: "user" });
+      }
     });
   if (details) listen(details, 'keydown', event => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -759,6 +927,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
           extend: event.shiftKey,
           year: group.dataset.year ? Number(group.dataset.year) : null,
           layerId: group.dataset.layerId || null,
+          source: "user",
         });
       }
     });
@@ -774,11 +943,12 @@ export function mountInteractive(root, source, options = {}, explanations = cano
           extend: event.shiftKey,
           year: group.dataset.year ? Number(group.dataset.year) : null,
           layerId: group.dataset.layerId || null,
+          source: "user",
         });
       }
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && selected) {
         event.preventDefault();
-        clearSelection();
+        stepBack();
       }
       if (
         [
@@ -881,7 +1051,7 @@ export function mountInteractive(root, source, options = {}, explanations = cano
         "zoom-out": () => zoom(1.25),
         fit,
         reset,
-        clear: clearSelection,
+        clear: () => clearSelection({ source: "user" }),
       })[button.dataset.action]?.();
     });
   listen(svg, "keydown", (event) => {
@@ -893,11 +1063,57 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       event.preventDefault();
       zoom(1.25);
     }
-    if (event.key === "Escape") clearSelection();
+    if (event.key === "Escape" && !event.defaultPrevented && selected) {
+      event.preventDefault();
+      stepBack();
+    }
   });
+  listen(root, "keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented || !selected) return;
+    event.preventDefault();
+    stepBack();
+  });
+  // Pointer users can also open a relationship from a drawn connection.
+  for (const edge of edges)
+    listen(edge, "click", (event) => {
+      if (moved || !navigator) return;
+      const { from, to } = edge.dataset, start = selected === to ? to : from;
+      try {
+        focusRelationship(start, start === from ? to : from, { source: "user" });
+        event.stopPropagation();
+      } catch {
+        /* No evidence-backed relationship for this drawn edge. */
+      }
+    });
   const api = {
     selectNode,
     clearSelection,
+    focusProject: (id, { focus = false } = {}) => selectNode(id, { focus }),
+    focusRelationship: (projectId, relatedId) => focusRelationship(projectId, relatedId),
+    returnToOverview: () => clearSelection(),
+    // Applies shared or history focus; unavailable projects fall back to the overview.
+    restoreFocus({ project = null, related: other = null } = {}, { source = "history", invalid = false } = {}) {
+      try {
+        if (!project) {
+          if (selected) clearSelection({ source });
+          if (invalid) announce("The shared view could not be read. Showing the overview.");
+          return !invalid;
+        }
+        if (other) focusRelationship(project, other, { source });
+        else selectNode(project, { focus: false, source });
+        return true;
+      } catch {
+        if (selected) clearSelection({ source });
+        announce("The shared project is not available in this view. Showing the overview.");
+        return false;
+      }
+    },
+    get focusState() {
+      return { mode: focusMode(), project: selected, related, connections: navigation?.connections.map((item) => item.projectId) || [] };
+    },
+    get navigation() {
+      return navigation && structuredClone(navigation);
+    },
     showSemanticContext(group, { expanded = false } = {}) {
       if (!group || typeof group.id !== 'string' || typeof group.label !== 'string' || !Array.isArray(group.members)) throw new Error('Invalid semantic context.');
       semanticContext = { group: structuredClone(group), expanded };
@@ -970,5 +1186,11 @@ export const interactiveStyles = `
 [data-interactive-selection] .shared-language:not([data-related]){opacity:.07}
 [data-profile-selection] .repository:not([data-profile-related]),[data-profile-selection] .repo-label:not([data-profile-related]){opacity:.17}
 [data-profile-selection] .shared-language:not([data-profile-related]){opacity:.1}
+.constellation-details button{font:inherit;color:inherit;background:#283143;border:1px solid #52617c;border-radius:6px;padding:8px 12px;min-height:44px;cursor:pointer;text-align:left}
+.constellation-details button:focus-visible,.constellation-details summary:focus-visible,.constellation-details [data-focus-heading]:focus-visible{outline:3px solid #a9cdfb;outline-offset:2px}
+.constellation-details summary{min-height:44px;display:list-item;cursor:pointer;padding:10px 0}.focus-connections{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px}.focus-connections button{width:100%}
+.focus-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.focus-note,.focus-origin{opacity:.8;font-size:13px}.focus-reasons{padding-left:20px}
+.constellation-runtime .repository{pointer-events:bounding-box}.constellation-runtime .shared-language{cursor:pointer}[data-focus=relationship] .shared-language[data-related]{stroke-width:2.4}
+@media(prefers-reduced-motion:no-preference){.constellation-runtime .repository,.constellation-runtime .repo-label,.constellation-runtime .shared-language{transition:opacity .2s}}
 @media(prefers-reduced-motion:reduce){.constellation-runtime *{scroll-behavior:auto;transition:none!important;animation:none!important}}
 `;
