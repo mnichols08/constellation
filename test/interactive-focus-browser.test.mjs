@@ -47,7 +47,7 @@ test('static SVG stays script-free and unaffected by interactive focus', () => {
   assert.ok(graph.nodes.every(node => !node.properties?.description && !node.properties?.url), 'the embedded graph carries identities, not payloads');
 });
 
-test('project and relationship focus explain evidence and return to the overview', { skip: !browser, timeout: 120000 }, async t => {
+test('project and relationship focus explain evidence and return to the overview by keyboard', { skip: !browser, timeout: 120000 }, async t => {
   const { evaluate, waitFor, errors, cdp } = await openBrowser(t, await exportFile(t));
   await waitFor('Boolean(document.querySelector("main")?.constellation)');
   const project = id => `[...document.querySelectorAll('.repository')].find(group => group.querySelector('.star')?.dataset.repo === ${JSON.stringify(id)})`;
@@ -59,7 +59,7 @@ test('project and relationship focus explain evidence and return to the overview
   // Unrelated projects are dimmed, never removed; arrangement does not change.
   assert.equal(await evaluate(`${project('fixture/project-3')}.hasAttribute('data-related')`), false);
   assert.equal(await evaluate(`getComputedStyle(${project('fixture/project-3')}).display`), 'inline');
-  assert.ok(await evaluate(`Number(getComputedStyle(${project('fixture/project-3')}).opacity) < 0.5`));
+  await waitFor(`Number(getComputedStyle(${project('fixture/project-3')}).opacity) < 0.5`); // after the opacity transition
   assert.equal(await evaluate(`${project('fixture/project-2')}.hasAttribute('data-related')`), true);
   // A drawn edge with no supporting evidence is not emphasized.
   assert.equal(await evaluate(`[...document.querySelectorAll('.shared-language[data-related]')].some(edge => [edge.dataset.from, edge.dataset.to].includes('fixture/project-3'))`), false);
@@ -68,12 +68,17 @@ test('project and relationship focus explain evidence and return to the overview
   assert.deepEqual(buttons.map(item => item[0]), ['fixture/project-2', 'fixture/project-1']);
   assert.equal(buttons[0][1], 'three — family Art lab · Rust · #art #stars');
   assert.equal(buttons[1][1], 'two — linked by author');
+  assert.ok(buttons.every(item => item[2] >= 44), 'connection buttons are touch-sized');
+  const node = await evaluate(`(() => { const box = ${project('fixture/project-0')}.getBoundingClientRect(); return [box.width, box.height]; })()`);
+  assert.ok(node[0] >= 24 && node[1] >= 24, `project hit target is at least 24px (${node})`);
   assert.equal(await evaluate('document.querySelector("[data-details] a")?.href'), 'https://github.com/fixture/project-0');
 
   // Relationship focus by keyboard; focus moves to the explanation.
-  await evaluate('document.querySelector("[data-focus-relationship]").click()');
-  assert.equal(await evaluate('document.querySelector("main").dataset.focus'), 'relationship');
-  assert.equal(await evaluate('document.querySelector("[data-focus-heading]").textContent'), 'one ↔ three');
+  await evaluate('document.querySelector("[data-focus-relationship]").focus()');
+  await key(cdp, 'Enter');
+  await waitFor('document.querySelector("main").dataset.focus === "relationship"');
+  assert.equal(await evaluate('document.activeElement.hasAttribute("data-focus-heading")'), true);
+  assert.equal(await evaluate('document.activeElement.textContent'), 'one ↔ three');
   const reasons = await evaluate('[...document.querySelectorAll(".focus-reasons li")].map(item => item.textContent)');
   assert.deepEqual(reasons, [
     'Same project family, defined by the author: Art lab · author-defined',
@@ -86,12 +91,17 @@ test('project and relationship focus explain evidence and return to the overview
   assert.ok(emphasized.length > 0 && emphasized.every(pair => pair === 'fixture/project-0 fixture/project-2'));
   assert.equal(await evaluate(`${project('fixture/project-1')}.hasAttribute('data-related')`), false, 'relationship focus narrows emphasis to one pair');
 
-  // Back to overview returns to the complete constellation.
-  await evaluate('document.querySelector("[data-focus-project]").click()');
+  // Escape steps back one level at a time and restores keyboard focus.
+  await key(cdp, 'Escape');
   assert.equal(await evaluate('document.querySelector("main").dataset.focus'), 'project');
-  await evaluate('document.querySelector("[data-focus-overview]").click()');
+  assert.equal(await evaluate('document.activeElement.dataset.focusRelationship'), 'fixture/project-2');
+  await key(cdp, 'Escape');
   assert.equal(await evaluate('document.querySelector("main").dataset.focus'), 'overview');
+  assert.equal(await evaluate('document.activeElement.querySelector(".star")?.dataset.repo'), 'fixture/project-0');
   assert.equal(await evaluate('document.querySelector("svg").hasAttribute("data-interactive-selection")'), false);
+  assert.equal(await evaluate('document.querySelector("[data-status]").textContent'), 'Overview. All projects shown.');
+  await key(cdp, 'Escape');
+  assert.equal(await evaluate('document.activeElement.querySelector(".star")?.dataset.repo'), 'fixture/project-0', 'Escape in the overview does not move or trap focus');
 
   // Second degree is loaded on demand and lists only bounded, evidence-backed paths.
   await evaluate(`${project('fixture/project-1')}.dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
@@ -101,6 +111,14 @@ test('project and relationship focus explain evidence and return to the overview
   await evaluate('document.querySelector("[data-second-degree] button").click()');
   assert.equal(await evaluate('document.querySelector("main").constellation.focusState.project'), 'fixture/project-2');
   assert.deepEqual(errors, []);
+});
+
+test('reduced motion removes focus transitions', { skip: !browser, timeout: 120000 }, async t => {
+  const { evaluate, waitFor, cdp } = await openBrowser(t, await exportFile(t));
+  await waitFor('Boolean(document.querySelector("main")?.constellation)');
+  assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".repository")).transitionDuration'), '0s');
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate('getComputedStyle(document.querySelector(".repository")).transitionDuration'), '0s');
 });
 
 test('<constellation-view> exposes focus and events', { skip: !browser, timeout: 120000 }, async t => {
@@ -133,6 +151,12 @@ test('<constellation-view> exposes focus and events', { skip: !browser, timeout:
     ['project', 'example/compiler', null, 'api'],
     ['relationship', 'example/compiler', 'example/runtime', 'api'],
   ]);
+  // Keyboard Escape inside the shadow root steps back through focus levels.
+  await evaluate('document.querySelector("#focused").shadowRoot.querySelector("[data-focus-heading], [data-focus-project]").focus()');
+  await key(cdp, 'Escape');
+  assert.equal(await evaluate('document.querySelector("#focused").focusState.mode'), 'project');
+  await key(cdp, 'Escape');
+  assert.equal(await evaluate('document.querySelector("#focused").focusState.mode'), 'overview');
   // The view's own selection API and events remain compatible.
   await evaluate('document.querySelector("#focused").selectNode("example/studio", { focus: false })');
   assert.equal(await evaluate('document.querySelector("#focused").selection.start'), 'example/studio');

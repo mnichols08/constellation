@@ -524,9 +524,32 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     svg.removeAttribute("data-exploring");
     highlight();
     showDetails(projectId);
-    announce(`${projectName(projectId)} and ${projectName(relatedId)}: ${reasons(connection).map((item) => item.text).join("; ")}.`);
+    announce(`${projectName(projectId)} and ${projectName(relatedId)}: ${reasons(connection).map((item) => item.text).join("; ")}. Press Escape to return to ${projectName(projectId)}.`);
     if (changed) emit("node-select", { id: projectId, node: structuredClone(records.get(projectId)), start: selected, end: null, path: [] });
     emit("focus-change", focusDetail(source));
+  }
+  // Escape and the panel's back actions step out one level and move keyboard
+  // focus to what represents the previous level, but only when focus was inside.
+  function stepBack({ source = "user" } = {}) {
+    if (!selected) return false;
+    const active = root.getRootNode().activeElement, inside = Boolean(active && root.contains(active));
+    if (related && !endpoint) {
+      const previous = related;
+      selectNode(selected, { focus: false, source });
+      if (inside) [...details.querySelectorAll("[data-focus-relationship]")].find((button) => button.dataset.focusRelationship === previous)?.focus();
+      return true;
+    }
+    const previous = selected;
+    clearSelection({ source });
+    const node = groups.find((group) => groupId(group) === previous && group.getBoundingClientRect().width > 0);
+    if (inside && node) {
+      for (const group of groups) group.tabIndex = group === node ? 0 : -1;
+      node.focus();
+    }
+    return true;
+  }
+  function focusHeading() {
+    details?.querySelector("[data-focus-heading], h2")?.focus({ preventScroll: true });
   }
   function clearSelection({ source = "api" } = {}) {
     const had = Boolean(selected);
@@ -843,10 +866,22 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       const collapse = event.target.closest('[data-semantic-collapse]');
       if (collapse) emit('semantic-group-collapse', { id: collapse.dataset.semanticCollapse });
       const relationship = event.target.closest("[data-focus-relationship]");
-      if (relationship && selected) focusRelationship(selected, relationship.dataset.focusRelationship, { source: "user" });
+      if (relationship && selected) {
+        focusRelationship(selected, relationship.dataset.focusRelationship, { source: "user" });
+        focusHeading();
+      }
       const project = event.target.closest("[data-focus-project]");
-      if (project) selectNode(project.dataset.focusProject, { focus: project.dataset.focusProject !== selected, source: "user" });
-      if (event.target.closest("[data-focus-overview]")) clearSelection({ source: "user" });
+      if (project) {
+        const previous = related, back = project.dataset.focusProject === selected;
+        selectNode(project.dataset.focusProject, { focus: !back, source: "user" });
+        const restore = back && [...details.querySelectorAll("[data-focus-relationship]")].find((button) => button.dataset.focusRelationship === previous);
+        if (restore) restore.focus();
+        else focusHeading();
+      }
+      if (event.target.closest("[data-focus-overview]")) {
+        related = null;
+        stepBack({ source: "user" });
+      }
     });
   if (details) listen(details, 'keydown', event => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -911,9 +946,9 @@ export function mountInteractive(root, source, options = {}, explanations = cano
           source: "user",
         });
       }
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && selected) {
         event.preventDefault();
-        clearSelection({ source: "user" });
+        stepBack();
       }
       if (
         [
@@ -1028,7 +1063,15 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       event.preventDefault();
       zoom(1.25);
     }
-    if (event.key === "Escape") clearSelection({ source: "user" });
+    if (event.key === "Escape" && !event.defaultPrevented && selected) {
+      event.preventDefault();
+      stepBack();
+    }
+  });
+  listen(root, "keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented || !selected) return;
+    event.preventDefault();
+    stepBack();
   });
   // Pointer users can also open a relationship from a drawn connection.
   for (const edge of edges)
@@ -1126,9 +1169,11 @@ export const interactiveStyles = `
 [data-interactive-selection] .shared-language:not([data-related]){opacity:.07}
 [data-profile-selection] .repository:not([data-profile-related]),[data-profile-selection] .repo-label:not([data-profile-related]){opacity:.17}
 [data-profile-selection] .shared-language:not([data-profile-related]){opacity:.1}
-.constellation-details button{font:inherit;color:inherit;background:#283143;border:1px solid #52617c;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
-.focus-connections{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px}.focus-connections button{width:100%}
+.constellation-details button{font:inherit;color:inherit;background:#283143;border:1px solid #52617c;border-radius:6px;padding:8px 12px;min-height:44px;cursor:pointer;text-align:left}
+.constellation-details button:focus-visible,.constellation-details summary:focus-visible,.constellation-details [data-focus-heading]:focus-visible{outline:3px solid #a9cdfb;outline-offset:2px}
+.constellation-details summary{min-height:44px;display:list-item;cursor:pointer;padding:10px 0}.focus-connections{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px}.focus-connections button{width:100%}
 .focus-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.focus-note,.focus-origin{opacity:.8;font-size:13px}.focus-reasons{padding-left:20px}
-.constellation-runtime .shared-language{cursor:pointer}[data-focus=relationship] .shared-language[data-related]{stroke-width:2.4}
+.constellation-runtime .repository{pointer-events:bounding-box}.constellation-runtime .shared-language{cursor:pointer}[data-focus=relationship] .shared-language[data-related]{stroke-width:2.4}
+@media(prefers-reduced-motion:no-preference){.constellation-runtime .repository,.constellation-runtime .repo-label,.constellation-runtime .shared-language{transition:opacity .2s}}
 @media(prefers-reduced-motion:reduce){.constellation-runtime *{scroll-behavior:auto;transition:none!important;animation:none!important}}
 `;
