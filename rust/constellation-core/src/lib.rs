@@ -1,3 +1,4 @@
+mod evidence_navigation;
 mod geometry;
 mod graph;
 mod graph_quality;
@@ -77,6 +78,30 @@ pub fn compose_story(input: &str) -> Result<String, String> {
 #[wasm_bindgen]
 pub fn analyze_story_clarity(input: &str) -> Result<String, String> {
     story_clarity::analyze(input)
+}
+
+/// Retained Evidence Navigation index for one Semantic Graph v1. Build once per
+/// graph and reuse it for every focus interaction.
+#[wasm_bindgen]
+pub struct EvidenceNavigator {
+    index: evidence_navigation::NavigationIndex,
+}
+
+#[wasm_bindgen]
+impl EvidenceNavigator {
+    #[wasm_bindgen(constructor)]
+    pub fn new(graph: &str) -> Result<EvidenceNavigator, String> {
+        evidence_navigation::NavigationIndex::from_json(graph).map(|index| Self { index })
+    }
+
+    pub fn navigate(&self, request: &str) -> Result<String, String> {
+        self.index.navigate_json(request)
+    }
+
+    #[wasm_bindgen(getter, js_name = projectCount)]
+    pub fn project_count(&self) -> u32 {
+        self.index.project_count() as u32
+    }
 }
 
 #[wasm_bindgen]
