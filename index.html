@@ -243,12 +243,14 @@
             <button type="button" data-story-choice="journey" aria-pressed="false" aria-disabled="true" aria-describedby="journey-unavailable">Journey <span data-recommended-badge hidden>Recommended</span><span id="journey-unavailable" data-story-unavailable>Unavailable: Temporal evidence is required.</span></button>
           </div>
         </section>
+        <details id="story-clarity-inspector" class="story-clarity-inspector" hidden><summary>Why this composition?</summary><p></p><ul></ul></details>
         <details id="quality-lab" class="quality-lab" hidden><summary>Candidate Quality Lab · development</summary><ol id="quality-results"></ol></details>
         <div class="studio-body">
           <div class="sky-panel">
             <div id="preview" aria-busy="false"></div>
             <a class="download" download="constellation.svg">Export SVG <span aria-hidden="true">↓</span></a>
             <a id="download-profile-story" class="download secondary" download="profile-story.svg" aria-label="Export the selected or recommended bounded profile story as SVG" hidden>Export Profile Story (SVG) <span aria-hidden="true">↓</span></a>
+            <a id="download-profile-story-compact" class="download secondary" download="profile-story-480.svg" aria-label="Export the selected or recommended bounded profile story composed for 480 pixel display" hidden>Compact Profile Story (480px) <span aria-hidden="true">↓</span></a>
             <div
               id="graph-explorer"
               class="graph-explorer"

@@ -45,6 +45,8 @@ import { renderTemporalStackSVG } from "./temporal-stack-svg.mjs";
 import { buildSemanticHierarchy, projectSemanticLevel } from './semantic-groups.mjs';
 import { resolveSemanticZoomMode } from './semantic-zoom.mjs';
 import { aggregateEdgeStyle, applyStaticExportDensity, exportDensityPolicy, README_GROUP_THRESHOLD } from './export-density.mjs';
+import { analyzeStoryClarity } from './engine.mjs';
+import { sceneClarityInput } from './story-clarity.mjs';
 
 import { repositoryLanguages } from "./constellation.mjs";
 const hash = (value) => {
@@ -169,11 +171,57 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const nebulaRadiusX = legacyFrame ? 420 : frameWidth * 0.47;
   const frame = { left: frameX, top: frameY, right: frameRight, bottom: frameBottom, width: frameWidth, height };
   const compact = layout === "compact";
+  const baseProfile = profileDimensions(options.exportProfile, height);
+  const hasTargetWidth = Number.isFinite(renderOptions?.targetWidth) && renderOptions.targetWidth >= 320 && renderOptions.targetWidth <= 2400;
+  const targetWidth = hasTargetWidth ? Math.round(renderOptions.targetWidth) : visualScene.viewport.width;
   const profile = {
-    ...profileDimensions(options.exportProfile, height),
-    width: visualScene.viewport.width,
-    height: visualScene.viewport.height,
+    ...baseProfile,
+    width: targetWidth,
+    height: hasTargetWidth ? targetWidth * height / frameWidth : visualScene.viewport.height,
   };
+  // Label ownership: explicitly hidden labels stay hidden; visible labels with
+  // a manual position are user-authored and never auto-suppressed or counted
+  // against the compact budget. Only automatic labels are ranked (featured >
+  // supporting > ordinary, then project ID) and offered to Story Clarity.
+  const labelPositions = visualScene.presentation.options.labelPositions || {};
+  const protectedLabels = new Set((visualScene.labels || [])
+    .filter(label => !label.hidden && Object.hasOwn(labelPositions, label.id)).map(label => label.id));
+  const labelPriority = id => ({ featured: 3, supporting: 2 }[visualScene.presentation.options.projectShowcase?.[id]?.role] || 1);
+  const automaticLabels = (visualScene.labels || []).filter(label => !label.hidden && !protectedLabels.has(label.id))
+    .sort((a, b) => labelPriority(b.id) - labelPriority(a.id) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const compactLabelBudget = targetWidth <= 500 ? 8 : Infinity;
+  const budgetLabels = new Set(automaticLabels.slice(0, compactLabelBudget).map(label => label.id));
+  // Scene placement estimates 10px text; static Profile Story role labels are
+  // larger. Keep automatic labels inside the frame at their rendered size
+  // (0.75em per glyph covers wide bold fallbacks). Manual labels never move.
+  const placedLabels = new Map();
+  if (staticReadme && projectScene) for (const label of visualScene.labels || []) {
+    if (protectedLabels.has(label.id) || label.focal) continue;
+    const size = (targetWidth <= 500 ? { 3: 24, 2: 20, 1: 18 } : { 3: 13, 2: 11, 1: 10 })[labelPriority(label.id)];
+    const half = Math.min(frameWidth / 2 - 6, [...String(label.text)].length * size * 0.375);
+    placedLabels.set(label.id, {
+      x: Math.max(frameX + 6 + half, Math.min(frameRight - 6 - half, label.x)),
+      y: Math.max(frameY + size + 4, Math.min(frameBottom - size * 0.3 - 4, label.y)),
+    });
+  }
+  const placed = label => placedLabels.has(label.id) ? { ...label, ...placedLabels.get(label.id) } : label;
+  let clarity = null;
+  if (staticReadme && projectScene) {
+    try {
+      const input = sceneClarityInput({ ...visualScene, labels: (visualScene.labels || []).map(placed) }, { targetWidth });
+      // Labels already dropped by the budget must not cause collisions.
+      for (const label of input.labels) if (!protectedLabels.has(label.projectId) && !budgetLabels.has(label.projectId)) label.visible = false;
+      clarity = analyzeStoryClarity(input);
+    } catch { /* Diagnostics do not block static export. */ }
+  }
+  const claritySuppressed = new Set((clarity?.suggestions || [])
+    .filter(item => item.kind === 'suppress-or-offset-label')
+    .map(item => item.labelId?.replace(/^label:/, ''))
+    .filter(id => !protectedLabels.has(id)));
+  const autoLabelVisible = id => budgetLabels.has(id) && !claritySuppressed.has(id);
+  // Overcrowded manual labels are reported, not moved or removed.
+  const protectedLabelConflict = [...(clarity?.diagnostics || [])].some(item => item.code === 'label-collision'
+    && item.ids.filter(id => protectedLabels.has(id.replace(/^label:/, ''))).length >= 2);
   const readmeDensity = !renderOptions?.interactive && options.exportProfile === 'readme' && visualScene.semanticGroups?.level === 'groups' && visualScene.nodes.some(node => node.metadata.nodeKind === 'semantic-group');
   const densityPolicy = readmeDensity ? exportDensityPolicy({ profile: 'readme', width: profile.width, nodeCount: visualScene.nodes.filter(node => !node.interaction.hidden).length, groupCount: visualScene.nodes.filter(node => node.metadata.nodeKind === 'semantic-group' && !node.interaction.hidden).length }) : null;
   const centerY = compact ? 126 : 270,
@@ -250,7 +298,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const featuredTreatment = options.featuredTreatment || "label";
   const roleCSS = showcaseRoles.size
     ? `
-.repo-label[data-role="featured"]{fill:var(--sky-foreground);opacity:1;font-weight:700}.repo-label[data-role="supporting"]{opacity:.82}.repo-label[data-role="experimental"]{opacity:.72}.repo-label[data-role="historical"]{opacity:.55}
+.repo-label[data-role="featured"]{fill:var(--sky-foreground);opacity:1;font-weight:700;font-size:13px}.repo-label[data-role="supporting"]{opacity:.82;font-size:11px}.repo-label[data-role="experimental"]{opacity:.72}.repo-label[data-role="historical"]{opacity:.55}
 .star[data-role="featured"]{stroke:var(--sky-foreground);stroke-width:1.1}.star[data-role="supporting"]{stroke:var(--sky-foreground);stroke-width:.8}.star[data-role="experimental"]{opacity:.8}.star[data-role="historical"]{opacity:.65}${featuredTreatment === "star" ? '.repo-label[data-role="featured"]{font-weight:600;opacity:.76}' : ""}${featuredTreatment === "spotlight" ? ".showcase-spotlight{font-size:9px;pointer-events:none;fill:var(--sky-foreground)}.showcase-spotlight .spotlight-name{font-size:10px;font-weight:700}.showcase-spotlight .spotlight-detail{opacity:.78}" : ""}`
     : "";
   const spotlightIds = new Set();
@@ -369,7 +417,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
     if (evidenceLabelAnchors.some(point => Math.hypot(point[0] - anchor[0], point[1] - anchor[1]) < 96)) continue;
     evidenceLabelEdges.add(edge);
     evidenceLabelAnchors.push(anchor);
-    if (evidenceLabelEdges.size === 3) break;
+    if (evidenceLabelEdges.size === (targetWidth <= 500 ? 1 : 3)) break;
   }
   const edges = [...selectedEdges]
     .sort((a, b) => Number(backbone.has(a)) - Number(backbone.has(b)))
@@ -622,7 +670,9 @@ export function renderSceneSVG(visualScene, renderOptions) {
     })
     .join("");
   const labels = visualScene.labels
+    .map(placed)
     .map((label) => {
+      if (!label.hidden && !protectedLabels.has(label.id) && !autoLabelVisible(label.id)) return '';
       const repo = visibleStars.find(
         (star) => star.repo.full_name === label.id,
       )?.repo;
@@ -631,9 +681,11 @@ export function renderSceneSVG(visualScene, renderOptions) {
           ?.role || "";
       const roleAttr = role ? ` data-role="${escape(role)}"` : "";
       const profileAttr = profileDimensionAttributes(label.id);
+      const compactFont = targetWidth <= 500 ? `font-size:${role === 'featured' ? 24 : role === 'supporting' ? 20 : 18}px` : '';
+      const fontStyle = [compactFont, label.focal ? 'font-weight:700' : '', label.hidden ? 'display:none' : ''].filter(Boolean).join(';');
       return label.focal
-        ? `<text class="repo-label organization-person-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}" style="font-size:15px;font-weight:700">${escape(label.text)}</text>`
-        : `<text class="repo-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}"${label.hidden ? ' style="display:none"' : ""}>${escape(label.text)}</text>`;
+        ? `<text class="repo-label organization-person-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}" style="${fontStyle || 'font-size:15px;font-weight:700'}">${escape(label.text)}</text>`
+        : `<text class="repo-label" data-repo="${escape(label.id)}"${profileAttr}${roleAttr} x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}"${fontStyle ? ` style="${fontStyle}"` : ""}>${escape(label.text)}</text>`;
     })
     .join("");
   if (
@@ -689,7 +741,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
     ? `<g class="static-export-legend" role="group" aria-label="Group and project shapes; line weight reflects represented relationships" transform="translate(${frameX + 26} ${frameBottom + 19})"><path d="M0 -7L6 -4L6 4L0 7L-6 4L-6 -4Z"/><text x="11" y="4">group</text><circle cx="60" cy="0" r="4"/><text x="68" y="4">project</text><path d="M126 0H151" class="legend-edge"/><text x="157" y="4">weight = represented relationships</text></g>`
     : '';
   const extraHeight = (legendLines.length ? 18 + legendLines.length * 13 : 0) + (readmeDensity ? 28 : 0) + relationshipLegendHeight;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height + extraHeight * profile.height / height}" viewBox="${frameX} ${frameY} ${frameWidth} ${height + extraHeight}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title${semanticStudio ? " meaning-description" : ""} description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${profile.width}" height="${profile.height + extraHeight * profile.height / height}" viewBox="${frameX} ${frameY} ${frameWidth} ${height + extraHeight}" preserveAspectRatio="xMidYMid meet"${protectedLabelConflict ? ' data-label-limitation="manual-labels-overlap"' : ""} role="img" aria-labelledby="title${semanticStudio ? " meaning-description" : ""} description${hasShowcaseDescription ? " showcase-description" : ""}${visualScene.developerProfile ? " developer-profile-description" : ""}">
 <title id="title">${escape(title ?? `${name}’s GitHub constellation`)}</title>
 ${semanticStudio ? `<desc id="meaning-description">${escape(meaning.join(" "))}${semantic ? escape(" Bands: " + semantic.bands.join("; ") + ". " + semantic.placements.map(p => `${p.repository}: ${p.category}, band ${p.band+1}`).join("; ")) : ""}</desc>` : ""}${showcaseDescriptionMarkup}<desc id="description">${denseDescription}${(visualScene.semanticGroups?.groups || []).filter(group => !visualScene.semanticGroups.expanded.includes(group.id)).slice(0, readmeDensity ? 8 : Infinity).map(group => escape(`${group.label}, ${group.members.length} projects, ${group.provenance === 'user' ? 'user-defined project family' : 'grouped by shared repository owner'}. `)).join("")}${graph.commits ? escape(graph.note || "Commit constellation") : graph.organization ? escape(`Organization universe. ${visibleStars.length} nodes, ${selectedEdges.size} bounded connections. Contributor diamonds connect through shared projects; project and technology views show repository relationships. Contributor size reflects represented repository count. ${graph.note}`) : `${visibleStars.length} ${combinedMode ? `repository, language and topic nodes from ${graph.repositoryCount} public repositories` : categoryMode ? `${nodeMode} from ${graph.repositoryCount} public repositories` : readmeDensity ? "visible constellation nodes" : "public repositories"} arranged in a deterministic ${semantic ? options.ringMeaning + " semantic ring layout" : arrangement === "rings" ? "identity ring point layout" : arrangement === "field" ? "star field" : arrangement === "orbital" ? "orbital layout" : "force layout"}. ${combinedMode ? `Lines connect repositories directly to their languages and topics. Showing ${visibleStars.length} of ${graph.total} nodes.` : categoryMode ? `Solid lines connect ${nodeMode} appearing in the same repository. Showing ${repos.length} of ${graph.total} categories, ranked by repository count.` : `Solid lines connect projects through selected ${connectionBasis === "both" ? "languages and topics" : connectionBasis}; detected languages include secondary languages; dotted bridges join nearby groups visually and do not represent dependencies.`} ${readmeDensity ? `${selectedEdges.size} aggregate connections shown.` : `${selectedEdges.size} of ${visualScene.presentation.totalConnections} shared connections shown.`} ${readmeDensity ? "Edge width and opacity reflect represented relationship counts." : "Brighter paths emphasize nearby relationships; faint paths preserve the remaining selected overlaps."} ${readmeDensity ? "Node size reflects group member count; project markers use a compact fixed range." : `Star size reflects ${semanticStudio ? escape(options.nodeSize || options.sizingMode || (categoryMode ? "repository membership" : "classic GitHub stars")) : combinedMode ? "GitHub stars for repositories and repository count for categories" : categoryMode ? "repository count" : "GitHub stars"}.`} ${geometry && !semantic ? "Identity rings are seeded by the account name; ring points provide placement anchors for nodes. " : ""}${readmeDensity ? "" : visibleStars.map((star) => escape(star.repo.name)).join(", ")}.${escape(rhythmDescription(options.codingRhythmData, rhythmSettings))}${escape(historyLayer.description)} ${escape(graph.note || "")}`}</desc>
 <defs>${graph.organization || (options.nodeShape && options.nodeShape !== "circle") ? shapeDefinitions : ""}<radialGradient id="nebula"><stop stop-color="var(--sky-background)" stop-opacity=".13"/><stop offset="1" stop-color="var(--sky-background)" stop-opacity="0"/></radialGradient><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>

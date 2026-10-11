@@ -160,6 +160,12 @@ export function composeStory(input) {
   return JSON.parse(core.compose_story(JSON.stringify(input)));
 }
 
+export const STORY_CLARITY_VERSION = 1;
+export function analyzeStoryClarity(input) {
+  if (!core?.analyze_story_clarity) throw new Error('Story Clarity needs the rebuilt Rust/WASM engine.');
+  return JSON.parse(core.analyze_story_clarity(JSON.stringify(input)));
+}
+
 export function identityGeometry(metadata, variation = 0) {
   return Array.from(core.identity_geometry(metadata, variation));
 }

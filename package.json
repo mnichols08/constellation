@@ -1,6 +1,6 @@
 {
   "name": "constellation",
-  "version": "4.1.0",
+  "version": "4.3.0",
   "private": true,
   "bin": {
     "constellation": "src/cli.mjs"
@@ -16,6 +16,7 @@
     "test:rust": "cargo test --locked --manifest-path rust/constellation-core/Cargo.toml",
     "benchmark:graph-quality": "node scripts/benchmark-graph-quality.mjs",
     "benchmark:story-composition": "node scripts/benchmark-story-composition.mjs",
+    "benchmark:story-clarity": "node scripts/benchmark-story-clarity.mjs",
     "generate": "node src/cli.mjs",
     "test": "node --test --test-concurrency=1",
     "preview": "node scripts/serve.mjs",

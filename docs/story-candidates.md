@@ -14,3 +14,10 @@ Each candidate composes a bounded subset of project-to-project connections from
 existing language/topic evidence, authored families, and explicit project
 relationships. See [Story Composition v1](story-composition.md) for evidence,
 ranking, diagnostics, and static SVG line semantics.
+
+Story Clarity v1 analyzes each completed candidate scene for estimated label,
+relationship, hierarchy, group, and legend layout issues. These diagnostics do
+not affect candidate availability, selection, or Graph Quality. Static Profile
+Story exports use the same selected projects at 480px and 900px; compact output
+may reduce label and annotation density while preserving project identities.
+See [Story Clarity v1](story-clarity.md).
