@@ -1147,13 +1147,33 @@
         </div>
         <div class="editor-panel">
           <p class="eyebrow">KEEP IT UP TO DATE</p>
-          <h2><label for="workflow">Your daily workflow</label></h2>
+          <h2>Publish your constellation</h2>
+          <label for="publish-destination">Where will it appear?</label>
+          <select id="publish-destination">
+            <option value="profile">GitHub profile README</option>
+            <option value="repository">Repository README</option>
+            <option value="portfolio">Portfolio website</option>
+          </select>
+          <label for="publish-format">Artifact</label>
+          <select id="publish-format">
+            <option value="svg">Static SVG</option>
+            <option value="html">Interactive standalone HTML</option>
+          </select>
+          <label for="publish-filename">Output filename</label>
+          <input id="publish-filename" value="constellation.svg" autocomplete="off" spellcheck="false" aria-describedby="publish-status" />
+          <p id="publish-status" role="status" aria-live="polite">SVG works in GitHub READMEs and portfolio sites.</p>
+          <div class="export-actions">
+            <a id="download-publish-artifact" class="secondary" download="constellation.svg">Download current artifact</a>
+            <button type="button" id="preview-publish-artifact" class="secondary" hidden>Preview interactive HTML</button>
+          </div>
+          <h3><label for="workflow"><span id="workflow-heading">Automatic GitHub refresh</span></label></h3>
+          <div id="github-publish-controls">
           <p>
             Save this as <code>.github/workflows/constellation.yml</code> in
             your README repository. Your settings and CSS are included—no extra
             config file needed.
           </p>
-          <label for="output-repository"
+          <label id="output-repository-label" for="output-repository"
             >Repository running this workflow</label
           >
           <input
@@ -1229,7 +1249,9 @@
           <p id="workflow-note">
             The sample uses your repository owner when the workflow runs.
           </p>
-          <p>
+          </div>
+          <p id="portfolio-help" role="status" hidden>Portfolio exports are downloaded for manual deployment. Upload the artifact to your static host; future updates require downloading and uploading a new artifact.</p>
+          <p id="workflow-install-note">
             After adding the file, run <strong>Daily constellation</strong> from
             GitHub’s Actions tab once. Future runs are scheduled daily. The
             workflow creates an <code>output</code> branch and saves

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { renderWorkflow, readmeSnippet, projectUrl, installationLinks } from '../src/export.mjs';
@@ -63,6 +63,20 @@ test('installation links preserve workflow content and reject invalid targets', 
   assert.equal(links.actions, 'https://github.com/octocat/octocat/actions/workflows/constellation.yml');
   for (const target of ['', 'owner/repo/extra', 'https://evil.example', 'owner/..', 'owner/repo?x=1']) assert.throws(() => installationLinks(target, workflow));
   assert.equal(installationLinks('octocat/octocat', 'x'.repeat(8000)).install, null);
+});
+
+test('publishing workflow is bounded, checked out, least permission, and filename safe', async () => {
+  const workflow = renderWorkflow('octocat', {}, { filename: 'alice-sky.svg', branch: 'images/daily' });
+  assert.match(workflow, /uses: actions\/checkout@v6/);
+  assert.match(workflow, /permissions:\n  contents: write/);
+  assert.match(workflow, /output: 'alice-sky\.svg'/);
+  assert.match(workflow, /output-branch: 'images\/daily'/);
+  const action = await readFile(new URL('../action.yml', import.meta.url), 'utf8');
+  assert.match(action, /if: \$\{\{ failure\(\).*steps\.publish\.outcome != 'failure'/);
+  assert.match(action, /last known-good output branch artifact was preserved/);
+  assert.match(readmeSnippet('octocat', 'octocat/octocat', 'alice-sky.svg'), /output\/alice-sky\.svg/);
+  assert.throws(() => renderWorkflow('octocat', {}, { filename: '../steal.svg' }));
+  assert.throws(() => renderWorkflow('octocat', {}, { filename: 'constellation.svg', branch: 'output;echo bad' }));
 });
 
 test('inline config rejects ambiguous or invalid inputs while file CSS still resolves', async () => {

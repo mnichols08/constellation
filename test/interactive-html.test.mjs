@@ -436,7 +436,8 @@ test("CLI build emits standalone HTML without changing the SVG default", async (
   const dir = await mkdtemp(join(tmpdir(), "constellation-html-cli-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const repos = join(dir, "repos.json"),
-    output = join(dir, "index.html");
+    output = join(dir, "index.html"),
+    githubOutput = join(dir, "github-output.txt");
   await writeFile(repos, JSON.stringify(fixture.repositories));
   const run = (args) =>
     spawnSync(
@@ -459,13 +460,14 @@ test("CLI build emits standalone HTML without changing the SVG default", async (
           ...process.env,
           CONSTELLATION_CONFIG: "",
           CONSTELLATION_CONFIG_JSON: "",
-          GITHUB_OUTPUT: "",
+          GITHUB_OUTPUT: githubOutput,
         },
       },
     );
   const result = run(["--format", "html"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(await readFile(output, "utf8"), /^<!doctype html>/);
+  assert.match(await readFile(githubOutput, "utf8"), /^evidence-digest=sha256:[a-f0-9]{64}$/m);
   assert.equal(run(["--format", "invalid"]).status, 1);
   assert.equal(run([]).status, 0);
   assert.match(await readFile(output, "utf8"), /<svg/);

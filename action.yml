@@ -29,6 +29,9 @@ outputs:
   svg:
     description: Generated SVG path
     value: ${{ steps.generate.outputs.svg }}
+  publication-status:
+    description: Whether a validated artifact was published or skipped as unchanged
+    value: ${{ steps.publish.outputs.publication-status }}
 runs:
   using: composite
   steps:
@@ -46,11 +49,20 @@ runs:
         CONSTELLATION_CONFIG_JSON: ${{ inputs.config-json }}
         GITHUB_TOKEN: ${{ inputs.token }}
       run: node "$CONSTELLATION_ACTION_PATH/src/cli.mjs"
-    - name: Publish image to output branch
+    - id: publish
+      name: Publish image to output branch
       if: ${{ inputs.publish == 'true' }}
       shell: bash
       env:
         CONSTELLATION_ACTION_PATH: ${{ github.action_path }}
         CONSTELLATION_OUTPUT: ${{ inputs.output }}
         CONSTELLATION_OUTPUT_BRANCH: ${{ inputs.output-branch }}
+        CONSTELLATION_USERNAME: ${{ inputs.username }}
+        CONSTELLATION_CONFIG: ${{ inputs.config }}
+        CONSTELLATION_CONFIG_JSON: ${{ inputs.config-json }}
+        CONSTELLATION_EVIDENCE_DIGEST: ${{ steps.generate.outputs.evidence-digest }}
       run: node "$CONSTELLATION_ACTION_PATH/scripts/publish-output.mjs"
+    - name: Report failed refresh
+      if: ${{ failure() && steps.publish.outcome != 'failure' }}
+      shell: bash
+      run: printf '%s\n' 'Refresh failed. The last known-good output branch artifact was preserved.' >> "$GITHUB_STEP_SUMMARY"
