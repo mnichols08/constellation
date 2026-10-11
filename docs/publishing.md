@@ -31,6 +31,15 @@ authorized. They are not ready to install from this feature PR before merge.
 Existing current-view workflow generation retains its existing action ref.
 No release/tag is created by preparing setup.
 
+**Return to editing** opens Simple Studio without changing configuration,
+story ownership, or publishing selections. Publishing choices are stored in
+the per-account experience record, not exported into Config or Scene. Restoring
+the matching draft restores the destination, format, width, filename, and
+repository. Invalid setup remains visible and recoverable. There is no hidden
+GitHub permission or publication-status request: check the destination's Actions
+run for verified results. A missing or corrupt sidecar is handled by the
+existing publisher, never interpreted by Studio as publication success.
+
 Choose a profile or repository README, keep **Static SVG** selected, enter the README repository, and copy the generated workflow into `.github/workflows/constellation.yml`. Review and commit that file, run **Daily constellation** once, then copy the Markdown image snippet into the README. The workflow has `contents: write` so it can update its output branch; it uses the repository's automatic `GITHUB_TOKEN`, with no personal access token.
 
 The workflow checks out the repository, loads the embedded normalized configuration, fetches the evidence needed by that configuration, generates a temporary SVG, validates it, then updates the output branch. Concurrent runs are serialized per repository. Existing files on the output branch are preserved. The publisher never force-pushes.

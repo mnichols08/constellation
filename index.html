@@ -1149,6 +1149,7 @@
           <p class="eyebrow">KEEP IT UP TO DATE</p>
           <h2>Publish your constellation</h2>
           <p>Prepare setup here, then install it on your destination. Generating files does not publish them.</p>
+          <p id="publishing-completion" role="status" aria-live="polite">Setup has not been installed or verified remotely.</p>
           <details id="before-publish-preview">
             <summary>Before you publish: compact and wide README previews</summary>
             <div id="publication-previews" class="publication-previews"></div>
@@ -1262,7 +1263,7 @@
             The sample uses your repository owner when the workflow runs.
           </p>
           </div>
-          <p id="portfolio-help" role="status" hidden>Portfolio exports are downloaded for manual deployment. Upload the artifact to your static host; future updates require downloading and uploading a new artifact.</p>
+          <p id="portfolio-help" role="status" hidden>Portfolio exports are downloaded for manual deployment. Upload the artifact to your static host; future updates require downloading and uploading a new artifact. For a framework-independent Web Component, follow the <a href="./docs/web-component.md">Web Component integration guide</a>. Interactive HTML cannot execute inside a GitHub README.</p>
           <p id="workflow-install-note">
             After adding the file, run <strong>Daily constellation</strong> from
             GitHub’s Actions tab once. Future runs are scheduled daily. The
