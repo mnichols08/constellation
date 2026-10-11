@@ -999,6 +999,7 @@ let url;
 let profileStoryUrl;
 let profileStoryCompactUrl;
 let workflowUrl;
+let publishArtifactUrl;
 
 function updateNodeColorControls(selectedId) {
   const select = $("#color-node");
@@ -1791,7 +1792,19 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     url = nextUrl;
     download.href = url;
     download.download = "constellation.svg";
-    $("#workflow").value = renderWorkflow(isSample ? null : account, options);
+    const artifactFormat = $("#publish-format").value;
+    const filename = $("#publish-filename").value.trim();
+    const publishedContent = artifactFormat === 'html'
+      ? renderSceneHTML(scene, { title: `${account} constellation` })
+      : captured;
+    if (publishArtifactUrl) URL.revokeObjectURL(publishArtifactUrl);
+    publishArtifactUrl = URL.createObjectURL(new Blob([publishedContent], { type: artifactFormat === 'html' ? 'text/html;charset=utf-8' : 'image/svg+xml' }));
+    $("#download-publish-artifact").href = publishArtifactUrl;
+    $("#download-publish-artifact").download = filename;
+    $("#download-publish-artifact").textContent = `Download ${artifactFormat === 'html' ? 'interactive HTML' : 'static SVG'}`;
+    $("#workflow").value = renderWorkflow(isSample ? null : account, options, {
+      filename: artifactFormat === 'svg' && /^[a-z\d][a-z\d._-]{0,120}\.svg$/i.test(filename) ? filename : 'constellation.svg',
+    });
     updateSnippet();
     studio?.update(account, options, captured);
     imageViewer?.update(captured, account);
@@ -2672,21 +2685,52 @@ $("#load-projects").addEventListener("click", () => loadAccount(account));
 $("#refresh-data").addEventListener("click", () => loadAccount(account, true));
 
 function updateSnippet() {
+  const destination = $("#publish-destination").value;
+  const format = $("#publish-format").value;
+  const filename = $("#publish-filename").value.trim();
+  const portfolio = destination === 'portfolio';
+  const validName = /^[a-z\d][a-z\d._-]{0,120}\.(svg|html)$/i.test(filename) && filename.toLowerCase().endsWith(`.${format}`);
+  $("#github-publish-controls").hidden = portfolio;
+  $("#workflow-install-note").hidden = portfolio;
+  $("#portfolio-help").hidden = !portfolio;
+  $("#output-repository").disabled = portfolio;
+  $("#workflow-heading").textContent = portfolio ? 'Manual portfolio deployment' : 'Automatic GitHub refresh';
+  $("#copy-markdown").textContent = portfolio ? 'Copy website snippet' : 'Copy README snippet';
+  $("#publish-status").textContent = !validName
+    ? `Enter a safe .${format} filename. Paths, spaces, and mismatched extensions are not supported.`
+    : portfolio
+      ? `Download ${filename} and upload it to your static host. Studio cannot verify when it goes live.`
+      : format === 'html'
+        ? 'Interactive HTML cannot run inside a GitHub README. Choose static SVG or a portfolio destination.'
+        : 'GitHub README publishing updates automatically after the workflow is installed.';
+  $("#download-publish-artifact").setAttribute('aria-disabled', String(!validName));
+  $("#download-publish-artifact").tabIndex = validName ? 0 : -1;
+  $("#preview-publish-artifact").hidden = !validName || format !== 'html';
+  if (!validName) $("#download-publish-artifact").removeAttribute('href');
   for (const id of ["#install-workflow", "#create-profile", "#run-workflow"]) {
     $(id).hidden = true;
     $(id).removeAttribute("href");
   }
   try {
-    $("#snippet").value = readmeSnippet(
-      isSample ? null : account,
-      $("#output-repository").value,
-    );
-    $("#copy-markdown").disabled = false;
-    $("#repository-help").textContent =
-      "Image links use this repository’s output branch. Save and run the workflow in that same repository.";
-    const target =
-      $("#output-repository").value.trim() ||
-      (isSample ? "" : `${account}/${account}`);
+    if (portfolio) {
+      const alt = `${isSample ? 'Project' : account}'s constellation`;
+      $("#snippet").value = format === 'svg'
+        ? `<img src="./${filename}" alt="${alt}">`
+        : `<a href="./${filename}">Open the interactive constellation</a>`;
+    } else if (format !== 'svg') {
+      throw new Error('GitHub README destinations support static SVG images. Choose SVG or a portfolio destination.');
+    } else {
+      const targetRepository = destination === 'profile' && !isSample
+        ? `${account}/${account}` : $("#output-repository").value;
+      $("#snippet").value = readmeSnippet(isSample ? null : account, targetRepository, filename);
+    }
+    $("#copy-markdown").disabled = !validName;
+    $("#repository-help").textContent = destination === 'profile'
+      ? 'The workflow publishes to the matching profile repository. Add the generated SVG snippet to its README.'
+      : 'Image links use this repository’s output branch. Save and run the workflow in that same repository.';
+    const target = destination === 'profile' && !isSample
+      ? `${account}/${account}`
+      : $("#output-repository").value.trim() || (isSample ? '' : `${account}/${account}`);
     if (target) {
       const links = installationLinks(target, $("#workflow").value);
       for (const [id, link] of [
@@ -2703,6 +2747,7 @@ function updateSnippet() {
         $("#repository-help").textContent =
           "Your settings are too large for a prefilled GitHub link. Download or copy the workflow below and save it in the selected repository.";
     }
+    if (portfolio) for (const id of ["#install-workflow", "#create-profile", "#run-workflow"]) $(id).hidden = true;
   } catch (error) {
     $("#snippet").value = "";
     $("#copy-markdown").disabled = true;
@@ -2710,20 +2755,42 @@ function updateSnippet() {
   }
 }
 $("#output-repository").addEventListener("input", updateSnippet);
+$("#preview-publish-artifact").addEventListener('click', () => {
+  if (!publishArtifactUrl) return;
+  window.open(publishArtifactUrl, '_blank', 'noopener,noreferrer');
+});
+$("#publish-filename").addEventListener('input', () => { updateSnippet(); render(); });
+$("#publish-destination").addEventListener('change', () => {
+  if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
+    $("#publish-format").value = 'svg';
+    $("#publish-filename").value = $("#publish-filename").value.replace(/\.html$/i, '.svg');
+  }
+  updateSnippet(); render();
+});
+$("#publish-format").addEventListener('change', () => {
+  if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
+    $("#publish-format").value = 'svg';
+    $("#publish-status").textContent = 'Interactive HTML cannot run in a GitHub README. Choose Portfolio website to download it.';
+    return;
+  }
+  const input = $("#publish-filename");
+  if (/^constellation\.(svg|html)$/i.test(input.value)) input.value = input.value.replace(/\.(svg|html)$/i, `.${$("#publish-format").value}`);
+  updateSnippet(); render();
+});
 
 $("#copy-markdown").addEventListener("click", async () => {
   $("#snippet-panel").hidden = false;
   try {
     await navigator.clipboard.writeText($("#snippet").value);
-    message(
-      "README snippet copied. Run the exported workflow in the selected repository to publish constellation.svg on its output branch.",
-    );
+    message($("#publish-destination").value === 'portfolio'
+      ? 'Website snippet copied. Download the artifact and upload it to your static host; Studio does not verify deployment.'
+      : `README snippet copied. The workflow publishes ${$("#publish-filename").value.trim()} to the selected repository output branch.`);
   } catch {
     $("#snippet").focus();
     $("#snippet").select();
-    message(
-      "Select and copy the README snippet below. Run the exported workflow to publish constellation.svg on the output branch.",
-    );
+    message($("#publish-destination").value === 'portfolio'
+      ? 'Select and copy the website snippet. Download the artifact and upload it to your static host.'
+      : `Select and copy the README snippet. Run the workflow to publish ${$("#publish-filename").value.trim()}.`);
   }
 });
 $("#reset-css").addEventListener("click", () => {

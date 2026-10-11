@@ -1,5 +1,7 @@
 # Documentation
 
+- [Publishing a Constellation](publishing.md)
+
 Start here, then open the guide for the task you have. Most pages are reference guides; you do not need to read them in order.
 
 ## Use Constellation

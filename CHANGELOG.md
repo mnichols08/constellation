@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Publish Once, Stay Current (v4.5.x)
+
+- Add bounded publication manifest validation and stable source/configuration/artifact change classifications without adding fields to Config or Scene. The Node publisher hashes artifacts and records a versioned sidecar; incomplete evidence remains unknown.
+- Validate SVG structure, accessible title and description, dimensions, size, filename, output branch, and workspace boundaries before publication. Generate to a temporary file and atomically replace the local output only after validation.
+- Publish through an isolated Git worktree, preserve unrelated output files, serialize scheduled jobs per repository, retry concurrent non-fast-forward pushes without force, and skip commits when artifact bytes are unchanged.
+- Report published, unchanged, and failed refreshes. Invalid generation and failed publication leave the last known-good output branch artifact intact; recover from a missing or malformed prior manifest on the next changed artifact.
+- Add Studio destination and format guidance for profile READMEs, repository READMEs, and portfolio sites. README embeds stay static SVG; standalone interactive HTML is available for manual static hosting with an explicit preview and integration link.
+- Document setup, manual versus automatic deployment, artifact limits, identity boundaries, and timestamp handling. Preserve existing semantic contracts; Rust/WASM remains unchanged because the publication work depends on Node hashing, filesystem, Git, and Actions orchestration.
+
 ## Unreleased — Interactive Exploration (v4.4.x)
 
 - Add bounded Rust/WASM Evidence Navigation v1: a retained index over Semantic Graph v1 that returns a project's direct connections with evidence references for explicit, authored-family, shared-language, and shared-topic relationships, an optional bounded second degree, stable ordering, and structured diagnostics. Derived owner groups never become connections.

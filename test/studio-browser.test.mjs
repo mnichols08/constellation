@@ -249,6 +249,20 @@ test(
       await evaluate(`document.body.classList.contains('studio-ready')`),
       true,
     );
+    const publishingCallsBefore = apiCalls;
+    assert.equal(await evaluate(`document.querySelector('#publish-destination').value`), 'profile');
+    assert.equal(await evaluate(`document.querySelector('#publish-format').value`), 'svg');
+    await evaluate(`(()=>{const f=document.querySelector('#publish-filename');f.value='../bad.svg';f.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    assert.equal(await evaluate(`document.querySelector('#publish-filename').value`), '../bad.svg', 'invalid input remains visible for correction');
+    assert.equal(await evaluate(`document.querySelector('#download-publish-artifact').getAttribute('aria-disabled')`), 'true');
+    await evaluate(`document.querySelector('#publish-destination').value='portfolio';document.querySelector('#publish-destination').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#publish-filename').value='constellation.svg';document.querySelector('#publish-filename').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#publish-format').value='html';document.querySelector('#publish-format').dispatchEvent(new Event('change',{bubbles:true}));`);
+    assert.equal(await evaluate(`document.querySelector('#github-publish-controls').hidden`), true);
+    assert.equal(await evaluate(`document.querySelector('#portfolio-help').hidden`), false);
+    assert.equal(await evaluate(`document.querySelector('#download-publish-artifact').download`), 'constellation.html');
+    assert.ok(await evaluate(`document.querySelector('#download-publish-artifact').href.startsWith('blob:')`));
+    assert.match(await evaluate(`document.querySelector('#snippet').value`), /href="\.\/constellation\.html"/);
+    assert.equal(apiCalls, publishingCallsBefore, 'opening and configuring publishing makes no GitHub requests');
+    await evaluate(`document.querySelector('#publish-destination').value='profile';document.querySelector('#publish-destination').dispatchEvent(new Event('change',{bubbles:true}));`);
     for (const [mode, accent, sky] of [
       ["dark", "#c7d6ff", "#080e20"],
       ["light", "#304e8a", "#f7f8fc"],

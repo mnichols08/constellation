@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import { normalizeRecords, toGraphRecords } from "./data-pipeline.mjs";
 import { serializeScene, sceneStatistics } from "./scene.mjs";
 import { codingRhythmOptions, deriveCodingRhythm } from "./coding-rhythm.mjs";
 import { needsHistoryEvents } from "./history/settings.mjs";
-import { readFile, writeFile, mkdir, appendFile, stat } from "node:fs/promises";
+import { readFile, writeFile, mkdir, appendFile, stat, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -51,6 +52,23 @@ import { createRepositoryCommits } from "./repository-commits.mjs";
 import { commitHistoryOptions } from "./commit-constellation.mjs";
 import { createCliRequestCache } from "./cli-request-cache.mjs";
 import { loadAccountAvatar } from "./account-sun.mjs";
+import { validatePublicationArtifact } from './publication-integrity.mjs';
+
+async function writeArtifactAtomically(path, content, format) {
+  const bytes = Buffer.from(content, 'utf8');
+  // The general CLI has historically allowed caller-selected output names;
+  // format validation must not turn that path compatibility into a failure.
+  validatePublicationArtifact(bytes, { format, filename: `artifact.${format}` });
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = `${path}.constellation-${process.pid}-${Date.now()}.tmp`;
+  try {
+    await writeFile(temporary, bytes, { flag: 'wx' });
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
+}
 
 async function main() {
   const token =
@@ -478,12 +496,11 @@ async function main() {
       ? "dist/constellation.html"
       : "dist/constellation.svg");
   if (/[\r\n]/.test(output)) throw new Error("Invalid output path.");
-  await mkdir(dirname(output), { recursive: true });
-  await writeFile(output, svg);
+  await writeArtifactAtomically(output, svg, values.format === 'html' ? 'html' : 'svg');
   if (process.env.GITHUB_OUTPUT)
     await appendFile(
       process.env.GITHUB_OUTPUT,
-      `${values.format === "html" ? "html" : "svg"}=${output}\n`,
+      `${values.format === "html" ? "html" : "svg"}=${output}\nevidence-digest=sha256:${createHash('sha256').update(JSON.stringify(scene.evidence || [])).digest('hex')}\n`,
     );
   (values.explain ? console.error : console.log)(
     `Generated ${output} for @${account}.`,
