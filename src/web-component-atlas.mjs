@@ -81,6 +81,14 @@ export class AtlasNavigation {
 
 export function installAtlasAPI(componentClass) {
   const handlers = instance => instance._atlasHandlers();
+  const connected = new WeakSet();
+  const onConnect = componentClass.prototype.connectedCallback;
+  const onAttributeChange = componentClass.prototype.attributeChangedCallback;
+  componentClass.prototype.connectedCallback = function() { connected.add(this); return onConnect.call(this); };
+  componentClass.prototype.attributeChangedCallback = function(name, previous, value) {
+    if (name === 'src' && previous === null && !connected.has(this)) return;
+    return onAttributeChange.call(this, name, previous, value);
+  };
   Object.defineProperties(componentClass.prototype, {
     atlasState: { get() { return this._atlasNavigation.state; } },
     atlasBreadcrumbs: { get() { return this._atlasNavigation.breadcrumbs; } },
