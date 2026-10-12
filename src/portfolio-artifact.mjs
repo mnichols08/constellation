@@ -14,6 +14,31 @@ const digest = async bytes => {
   return [...new Uint8Array(result)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 };
 
+// Fixed v1 names: generated HTML/SVG entries plus inert JSON and Markdown data.
+const allowedName = name => name === 'constellation.html' || name === 'constellation.svg' || /\.(?:json|md|txt)$/i.test(name);
+const decodeReference = value => value.replace(/&#(x[0-9a-f]{1,6}|[0-9]{1,7});?/gi, (_, code) => {
+  const point = code[0].toLowerCase() === 'x' ? parseInt(code.slice(1), 16) : Number(code);
+  return point <= 0x10ffff ? String.fromCodePoint(point) : '';
+});
+// Linear scan of SVG tags; text, comments, and CDATA are skipped. Returns true for
+// markup that can run script or embed active documents when the SVG is opened.
+function executableSVG(svg) {
+  if (/<\s*(?:script|foreignObject|iframe|embed|object)\b/i.test(svg)) return true;
+  for (let start = svg.indexOf('<'); start !== -1; start = svg.indexOf('<', start + 1)) {
+    if (svg.startsWith('<!--', start)) { start = svg.indexOf('-->', start + 4); if (start === -1) return false; continue; }
+    if (svg.startsWith('<![CDATA[', start)) { start = svg.indexOf(']]>', start + 9); if (start === -1) return false; continue; }
+    let end = start + 1, quote = '';
+    for (; end < svg.length; end++) { const char = svg[end]; if (quote) { if (char === quote) quote = ''; } else if (char === '"' || char === "'") quote = char; else if (char === '>') break; }
+    if (end >= svg.length) return false;
+    const tag = svg.slice(start, end + 1);
+    if (/[\s/]on[a-z]+\s*=/i.test(tag.replace(/"[^"]*"|'[^']*'/g, '""'))) return true;
+    for (const match of tag.matchAll(/[\s/](?:xlink:href|href|src|to|from|values|by)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi))
+      if (/(?:^|;)javascript:/i.test(decodeReference(match[1] ?? match[2]).replace(/[\u0000- ]/g, ''))) return true;
+    start = end;
+  }
+  return false;
+}
+
 export async function createPortfolioArtifact(input, options) {
   const portable = createPortableExport(input, options);
   const scene = options?.scene ? parseScene(typeof options.scene === 'string' ? options.scene : serializeScene(options.scene)) : portable.scene;
@@ -72,7 +97,7 @@ export async function validatePortfolioArtifact(manifestInput, files) {
   for (const name of listedNames) if (!Object.hasOwn(files, name)) throw new Error(`Missing portfolio asset: ${name}`);
   let total = 0;
   for (const [name, metadata] of entries) {
-    if (!safeName(name) || name.endsWith('.js') || name.endsWith('.mjs') || name.endsWith('.wasm') || /\.(?:exe|dll|bat|cmd|ps1|sh|py|rb|com|msi)$/i.test(name) || name.endsWith('.html') && name !== 'constellation.html') throw new Error(`Unsafe or unexpected executable artifact: ${name}`);
+    if (!safeName(name) || !allowedName(name)) throw new Error(`Unsafe or unexpected executable artifact: ${name}`);
     if (!Object.hasOwn(files, name) || typeof files[name] !== 'string') throw new Error(`Missing portfolio asset: ${name}`);
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata) || !Number.isSafeInteger(metadata.size) || metadata.size < 0 || metadata.size > PORTFOLIO_ARTIFACT_LIMITS.fileBytes || !/^[a-f0-9]{64}$/.test(metadata.sha256 || '')) throw new Error(`Invalid size or digest metadata for ${name}.`);
     if (files[name].length > metadata.size) throw new Error(`Invalid size or digest metadata for ${name}.`);
@@ -89,14 +114,18 @@ export async function validatePortfolioArtifact(manifestInput, files) {
   try { scene = parseScene(files['scene.json']); } catch (error) { throw new Error(`Invalid portfolio Scene: ${error.message}`); }
   try { graph = parseSemanticGraph(files[graphName]); } catch (error) { throw new Error(`Invalid portfolio Semantic Graph: ${error.message}`); }
   if (graph.subject.kind !== manifest.subject.kind || graph.subject.id !== manifest.subject.id || semanticGraphFingerprint(graph) !== manifest.fingerprint) throw new Error('Portfolio identity or Semantic Graph fingerprint mismatch.');
+  const sceneRoot = scene.kind === 'time-lapse' ? scene.latest : scene;
+  const expectedAccount = graph.subject.kind === 'developer' ? graph.subject.id : graph.subject.id.split('/')[0];
+  if (typeof sceneRoot?.metadata?.account !== 'string' || sceneRoot.metadata.account.toLowerCase() !== expectedAccount.toLowerCase()) throw new Error('Portfolio Scene subject does not match the manifest.');
+  if (graph.subject.kind === 'project' && sceneRoot.nodes.some(node => node.metadata?.nodeKind === 'project-root' && String(node.metadata.name).toLowerCase() !== graph.subject.id.toLowerCase())) throw new Error('Portfolio Scene subject does not match the manifest.');
   if (graph.subject.kind === 'developer') {
     const projectIds = new Set(graph.nodes.filter(node => node.kind === 'project').map(node => node.id));
-    for (const node of scene.nodes) {
+    for (const node of sceneRoot.nodes) {
       const id = node.metadata?.full_name || (node.metadata?.nodeKind === 'repository' ? node.id : null);
       if (id && /^[^/]+\/[^/]+$/.test(id) && !projectIds.has(id)) throw new Error(`Scene project identity is absent from Semantic Graph: ${id}.`);
     }
   }
-  if (!/^<svg\b/i.test(files['constellation.svg']) || /<script\b/i.test(files['constellation.svg'])) throw new Error('Static SVG fallback is invalid or executable.');
+  if (!/^<svg\b/i.test(files['constellation.svg']) || executableSVG(files['constellation.svg'])) throw new Error('Static SVG fallback is invalid or executable.');
   const html = files['constellation.html'];
   if (!/<meta http-equiv="Content-Security-Policy"/i.test(html) || !html.includes('wasm-unsafe-eval') || !html.includes('constellation-scene') || !html.includes('<script type="module">') || !html.includes('__wbg_init') || !html.includes('atob(')) throw new Error('Interactive HTML is missing its offline runtime or CSP policy.');
   if (!manifest.entryPoints || manifest.entryPoints.interactive !== 'constellation.html' || manifest.entryPoints.static !== 'constellation.svg' || manifest.entryPoints.scene !== 'scene.json') throw new Error('Invalid portfolio entry points.');

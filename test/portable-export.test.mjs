@@ -58,6 +58,21 @@ test('portable project HTML and manifest retain private visibility and incomplet
   const artifact = await createPortfolioArtifact(graph);
   assert.equal(artifact.manifest.subject.kind, 'project');
   assert.equal((await validatePortfolioArtifact(artifact.files['manifest.json'], artifact.files)).files, 5);
+  const sibling = await createPortfolioArtifact(semanticGraphFromProjectConstellation(createProjectConstellation({
+    projectId: 'owner/other-repo', ref: 'main', tree: [{ path: '', type: 'tree' }], contents: {},
+  })));
+  const swapped = { ...artifact.files, 'scene.json': sibling.files['scene.json'] };
+  await assert.rejects(validatePortfolioArtifact(await manifestForFiles(artifact.manifest, swapped), swapped), /Scene subject does not match the manifest/);
+});
+
+test('portfolio SVG validation accepts handler-like and URL-like project text', async () => {
+  const scene = createScene('alice', [
+    { full_name: 'alice/onclick', name: 'onclick', language: 'TypeScript', description: "Bob's x onload=1 JavaScript: basics", topics: ['onboarding'] },
+    { full_name: 'alice/site', name: 'site', language: 'HTML', homepage: 'https://example.com/?a=1&b=2' },
+  ], { animate: false, featuredTreatment: 'spotlight', projectShowcase: { 'alice/onclick': { role: 'featured' } } });
+  const artifact = await createPortfolioArtifact(semanticGraphFromScene(scene), { constellationVersion: '4.7.0', scene });
+  assert.match(artifact.files['constellation.svg'], /aria-label="[^"]*onload=1 JavaScript: basics[^"]*"/, 'author text is inside an SVG attribute');
+  assert.equal((await validatePortfolioArtifact(artifact.files['manifest.json'], artifact.files)).files, 5);
 });
 
 test('portfolio artifact has deterministic Scene v1 entries and validates every bounded asset digest', async () => {
@@ -102,6 +117,22 @@ test('portfolio artifact has deterministic Scene v1 entries and validates every 
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, runtime: { mode: 'embedded-html', wasm: 'remote', assets: ['https://example.invalid/runtime.wasm'] } }, first.files), /Invalid or unsupported portfolio runtime assets/);
   const scriptedSvg = { ...first.files, 'constellation.svg': first.files['constellation.svg'].replace('</svg>', '<script>alert(1)</script></svg>') };
   await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, scriptedSvg), scriptedSvg), /Static SVG fallback is invalid or executable/);
+  for (const [label, svg] of [
+    ['event handler', first.files['constellation.svg'].replace('<svg', '<svg onload="alert(1)"')],
+    ['encoded javascript URL', first.files['constellation.svg'].replace('</svg>', '<a href="&#106;ava&#x09;script:alert(1)"><text>x</text></a></svg>')],
+    ['animated javascript URL', first.files['constellation.svg'].replace('</svg>', '<a><set attributeName="href" to="javascript:alert(1)"/><text>x</text></a></svg>')],
+    ['foreignObject', first.files['constellation.svg'].replace('</svg>', '<foreignObject><iframe xmlns="http://www.w3.org/1999/xhtml" src="https://example.invalid"></iframe></foreignObject></svg>')],
+  ]) {
+    const files = { ...first.files, 'constellation.svg': svg };
+    await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, files), files), /Static SVG fallback is invalid or executable/, label);
+  }
+  for (const [name, body] of [['extra.htm', '<script>alert(1)</script>'], ['extra.xhtml', '<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>'], ['other.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>']]) {
+    const files = { ...first.files, [name]: body };
+    const manifest = await manifestForFiles({ ...first.manifest, artifacts: { ...first.manifest.artifacts, [name]: { size: 0, sha256: '0'.repeat(64) } } }, files);
+    await assert.rejects(validatePortfolioArtifact(manifest, files), /Unsafe or unexpected executable/, name);
+  }
+  const foreignScene = { ...first.files, 'scene.json': serializeScene(createScene('mallory', [])) };
+  await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, foreignScene), foreignScene), /Scene subject does not match the manifest/);
   const invalidHtml = { ...first.files, 'constellation.html': first.files['constellation.html'].replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/i, '') };
   await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, invalidHtml), invalidHtml), /Interactive HTML is missing its offline runtime or CSP policy/);
   const wrongScene = createScene('alice', [{ name: 'unknown', full_name: 'alice/unknown', language: 'Rust' }]);
