@@ -25,6 +25,7 @@ test(
     const root = await mkdtemp(join(tmpdir(), "constellation-consumer-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const externalScene = createScene('demo', ['compiler','runtime','studio'].map((name, i) => ({ name, full_name: `demo/${name}`, language: i === 2 ? 'JavaScript' : 'Rust', stargazers_count: 10 + i })), { animate: false });
+    const requestCounts = new Map();
     await writeFile(join(root, 'scene.json'), serializeScene(externalScene));
     await writeFile(join(root, 'constellation.svg'), renderSceneSVG(externalScene));
     for (const name of ["core", "web-component"])
@@ -85,6 +86,7 @@ test(
         const pathname = decodeURIComponent(
           new URL(req.url, "http://localhost").pathname,
         );
+        requestCounts.set(pathname, (requestCounts.get(pathname) || 0) + 1);
         const path = resolve(
           root,
           "." + (pathname === "/" ? "/index.html" : pathname),
@@ -163,11 +165,15 @@ test(
     })()`);
     await waitFor(`Boolean(window.secondView.shadowRoot.querySelector('.star'))`);
     assert.equal(await evaluate(`window.secondView.scene.nodes.length`), await evaluate(`document.querySelector('constellation-view').scene.nodes.length`));
+    await evaluate(`window.secondView.focusProject('demo/compiler')`);
+    const authoredCoordinates = await evaluate(`JSON.stringify(window.secondView.scene.nodes.map(({id,x,y})=>[id,x,y]))`);
     const navigationMs = await evaluate(`(()=>{const start=performance.now();window.secondView.focusProject('demo/compiler');window.secondView.focusRelationship('demo/compiler','demo/runtime');return performance.now()-start})()`);
-    const resizeMs = await evaluate(`(async()=>{const view=window.secondView,start=performance.now();view.style.width='280px';window.dispatchEvent(new Event('resize'));await new Promise(requestAnimationFrame);view.shadowRoot.querySelector('svg').getBoundingClientRect();return performance.now()-start})()`);
+    const resizeMs = await evaluate(`(async()=>{const view=window.secondView,start=performance.now();for(const width of [240,280,360,768,1280]){view.style.width=width+'px';window.dispatchEvent(new Event('resize'));await new Promise(requestAnimationFrame);view.shadowRoot.querySelector('svg').getBoundingClientRect()}return performance.now()-start})()`);
     assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
+    assert.equal(await evaluate(`window.secondView.focusState.project`), 'demo/compiler');
+    assert.equal(await evaluate(`JSON.stringify(window.secondView.scene.nodes.map(({id,x,y})=>[id,x,y]))`), authoredCoordinates, 'responsive resizing preserves authored scene coordinates');
     assert.equal(await evaluate(`document.querySelector('#first').focusState.related`), null, 'focus remains local to each component');
-    await evaluate(`(async()=>{const view=window.secondView,grid=view.parentElement;grid.hidden=true;await new Promise(requestAnimationFrame);grid.hidden=false;await new Promise(requestAnimationFrame)})()`);
+    await evaluate(`(async()=>{const view=window.secondView,grid=view.parentElement;grid.style.display='none';await new Promise(requestAnimationFrame);grid.style.display='grid';await new Promise(requestAnimationFrame)})()`);
     assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
     const reconnectMs = await evaluate(`(async()=>{const view=window.secondView,grid=view.parentElement,start=performance.now(),ready=new Promise(resolve=>view.addEventListener('scene-ready',resolve,{once:true}));view.remove();grid.append(view);await ready;return performance.now()-start})()`);
     await waitFor(`Boolean(window.secondView.shadowRoot.querySelector('.star'))`);
@@ -190,6 +196,7 @@ test(
       original,
     );
     assert.deepEqual(errors, []);
+    assert.equal(requestCounts.get('/scene.json'), 1, 'resize and lifecycle recovery do not refetch the scene');
     assert.ok((await evaluate('window.consumerReadyMs')) > 0);
     t.diagnostic(JSON.stringify({ consumerReadyMs: await evaluate('window.consumerReadyMs'), navigationMs, resizeMs, reconnectMs, packageEntryBytes: (await stat(join(directory, 'index.mjs'))).size }));
   },

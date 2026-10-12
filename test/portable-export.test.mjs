@@ -1,11 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createScene } from '../src/constellation.mjs';
+import { serializeScene } from '../src/scene.mjs';
 import { createProjectConstellation } from '../src/project-constellation.mjs';
 import { semanticGraphFromScene, semanticGraphFromProjectConstellation, serializeSemanticGraph, semanticGraphFingerprint } from '../src/semantic-graph.mjs';
 import { renderSemanticMarkdown } from '../src/semantic-markdown.mjs';
 import { createPortableExport, EXPORT_MANIFEST_VERSION } from '../src/portable-export.mjs';
 import { createPortfolioArtifact, validatePortfolioArtifact } from '../src/portfolio-artifact.mjs';
+
+async function manifestForFiles(manifest, files) {
+  const updated = structuredClone(manifest);
+  for (const [name, content] of Object.entries(files)) {
+    if (!updated.artifacts[name]) continue;
+    const bytes = new TextEncoder().encode(content);
+    updated.artifacts[name].size = bytes.byteLength;
+    updated.artifacts[name].sha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+  return updated;
+}
 
 test('portable export creates deterministic artifacts from one canonical graph', () => {
   const graph = semanticGraphFromScene(createScene('alice', [
@@ -84,10 +96,25 @@ test('portfolio artifact has deterministic Scene v1 entries and validates every 
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, constellationVersion: '4.6.0' }, first.files), /Incompatible Constellation package version/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, subject: { kind: 'developer', id: '../secret' } }, first.files), /Invalid portfolio project identity/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, semanticGraphVersion: 2 }, first.files), /Unsupported semantic contract version/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, artifacts: [] }, first.files), /Invalid portfolio artifact metadata/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, artifacts: { ...first.manifest.artifacts, 'constellation.js': { size: 1, sha256: '0'.repeat(64) } } }, { ...first.files, 'constellation.js': 'x' }), /Unsafe or unexpected executable/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, entryPoints: { ...first.manifest.entryPoints, scene: '../scene.json' } }, first.files), /Invalid portfolio entry points/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, runtime: { mode: 'embedded-html', wasm: 'remote', assets: ['https://example.invalid/runtime.wasm'] } }, first.files), /Invalid or unsupported portfolio runtime assets/);
+  const scriptedSvg = { ...first.files, 'constellation.svg': first.files['constellation.svg'].replace('</svg>', '<script>alert(1)</script></svg>') };
+  await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, scriptedSvg), scriptedSvg), /Static SVG fallback is invalid or executable/);
+  const invalidHtml = { ...first.files, 'constellation.html': first.files['constellation.html'].replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/i, '') };
+  await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, invalidHtml), invalidHtml), /Interactive HTML is missing its offline runtime or CSP policy/);
+  const wrongScene = createScene('alice', [{ name: 'unknown', full_name: 'alice/unknown', language: 'Rust' }]);
+  const inconsistentScene = { ...first.files, 'scene.json': serializeScene(wrongScene) };
+  await assert.rejects(validatePortfolioArtifact(await manifestForFiles(first.manifest, inconsistentScene), inconsistentScene), /Scene project identity is absent from Semantic Graph/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, artifacts: { ...first.manifest.artifacts, 'constellation.md': { ...first.manifest.artifacts['constellation.md'], size: -1 } } }, first.files), /Invalid size or digest metadata/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, artifacts: Object.fromEntries([...Object.entries(first.manifest.artifacts), ...Array.from({ length: 8 }, (_, i) => [`extra-${i}.txt`, { size: 0, sha256: '0'.repeat(64) }])]) }, first.files), /Invalid portfolio artifact count/);
   await assert.rejects(validatePortfolioArtifact(' '.repeat(16 * 1024 + 1), first.files), /Manifest exceeds 16 KiB/);
   const oversized = structuredClone(first.manifest);
   oversized.artifacts['constellation.md'].size = 17 * 1024 * 1024;
   await assert.rejects(validatePortfolioArtifact(oversized, { ...first.files, 'constellation.md': 'x'.repeat(17 * 1024 * 1024) }), /Invalid size or digest metadata/);
   await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], { ...first.files, 'payload.exe': 'unexpected' }), /Unexpected portfolio asset/);
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], { ...first.files, ...Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`extra-${i}.txt`, 'x'])) }), /Invalid portfolio asset count/);
+  await assert.rejects(validatePortfolioArtifact('[]', first.files), /expected an object/);
   await assert.rejects(validatePortfolioArtifact('{', first.files), /Invalid portfolio manifest/);
 });

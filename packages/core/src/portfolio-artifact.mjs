@@ -49,10 +49,11 @@ export async function validatePortfolioArtifact(manifestInput, files) {
   let manifest;
   try {
     const raw = typeof manifestInput === 'string' ? manifestInput : JSON.stringify(manifestInput);
-    if (encoder.encode(raw).byteLength > PORTFOLIO_ARTIFACT_LIMITS.manifestBytes) throw new Error('Manifest exceeds 16 KiB.');
+    if (raw.length > PORTFOLIO_ARTIFACT_LIMITS.manifestBytes || encoder.encode(raw).byteLength > PORTFOLIO_ARTIFACT_LIMITS.manifestBytes) throw new Error('Manifest exceeds 16 KiB.');
     manifest = JSON.parse(raw);
   } catch (error) { throw new Error(`Invalid portfolio manifest: ${error.message}`); }
-  if (!manifest || manifest.version !== PORTFOLIO_ARTIFACT_VERSION) throw new Error('Unsupported portfolio artifact version.');
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('Invalid portfolio manifest: expected an object.');
+  if (manifest.version !== PORTFOLIO_ARTIFACT_VERSION) throw new Error('Unsupported portfolio artifact version.');
   if (manifest.sceneVersion !== SCENE_VERSION) throw new Error('Unsupported Scene version.');
   if (manifest.semanticGraphVersion !== 1 || manifest.semanticMarkdownVersion !== 1) throw new Error('Unsupported semantic contract version.');
   if (!/^4\.7\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.constellationVersion || '')) throw new Error('Incompatible Constellation package version. Expected the 4.7.x line.');
@@ -61,17 +62,22 @@ export async function validatePortfolioArtifact(manifestInput, files) {
     : manifest.subject?.kind === 'project' ? /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(subjectId || '') : false;
   if (!validSubject) throw new Error('Invalid portfolio project identity.');
   if (!files || typeof files !== 'object' || Array.isArray(files)) throw new Error('Portfolio assets are missing.');
-  const entries = Object.entries(manifest.artifacts || {});
+  if (!manifest.artifacts || typeof manifest.artifacts !== 'object' || Array.isArray(manifest.artifacts)) throw new Error('Invalid portfolio artifact metadata.');
+  const entries = Object.entries(manifest.artifacts);
   if (!entries.length || entries.length > PORTFOLIO_ARTIFACT_LIMITS.files) throw new Error('Invalid portfolio artifact count.');
   const listedNames = new Set(entries.map(([name]) => name));
-  for (const name of Object.keys(files)) if (name !== 'manifest.json' && !listedNames.has(name)) throw new Error(`Unexpected portfolio asset: ${name}`);
+  const fileNames = Object.keys(files);
+  if (fileNames.length > PORTFOLIO_ARTIFACT_LIMITS.files + 1) throw new Error('Invalid portfolio asset count.');
+  for (const name of fileNames) if (name !== 'manifest.json' && !listedNames.has(name)) throw new Error(`Unexpected portfolio asset: ${name}`);
   for (const name of listedNames) if (!Object.hasOwn(files, name)) throw new Error(`Missing portfolio asset: ${name}`);
   let total = 0;
   for (const [name, metadata] of entries) {
     if (!safeName(name) || name.endsWith('.js') || name.endsWith('.mjs') || name.endsWith('.wasm') || /\.(?:exe|dll|bat|cmd|ps1|sh|py|rb|com|msi)$/i.test(name) || name.endsWith('.html') && name !== 'constellation.html') throw new Error(`Unsafe or unexpected executable artifact: ${name}`);
     if (!Object.hasOwn(files, name) || typeof files[name] !== 'string') throw new Error(`Missing portfolio asset: ${name}`);
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata) || !Number.isSafeInteger(metadata.size) || metadata.size < 0 || metadata.size > PORTFOLIO_ARTIFACT_LIMITS.fileBytes || !/^[a-f0-9]{64}$/.test(metadata.sha256 || '')) throw new Error(`Invalid size or digest metadata for ${name}.`);
+    if (files[name].length > metadata.size) throw new Error(`Invalid size or digest metadata for ${name}.`);
     const bytes = encoder.encode(files[name]);
-    if (bytes.byteLength > PORTFOLIO_ARTIFACT_LIMITS.fileBytes || metadata?.size !== bytes.byteLength || !/^[a-f0-9]{64}$/.test(metadata?.sha256 || '')) throw new Error(`Invalid size or digest metadata for ${name}.`);
+    if (bytes.byteLength > PORTFOLIO_ARTIFACT_LIMITS.fileBytes || metadata.size !== bytes.byteLength) throw new Error(`Invalid size or digest metadata for ${name}.`);
     if (await digest(bytes) !== metadata.sha256) throw new Error(`Portfolio asset digest mismatch: ${name}.`);
     total += bytes.byteLength;
     if (total > PORTFOLIO_ARTIFACT_LIMITS.totalBytes) throw new Error('Portfolio artifact exceeds 32 MiB.');
