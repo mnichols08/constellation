@@ -257,7 +257,10 @@ export class ConstellationView extends HTMLElement {
   get cacheStatistics() { return { sources: this.#sourceCache.size, sourceLimit: 4, pipeline: this.#pipeline.cacheStatistics, layout: this.#layouts.cacheStatistics }; }
   attributeChangedCallback(name, previous, value) {
     if (previous === value) return;
-    if (name === 'src') { this.#sourceMode = true; if (!this.#semanticGraph && !this.hasAttribute('semantic-graph')) { this.#request?.abort(); this.#resetSemanticNavigation(); } }
+    if (name === 'src') {
+      this.#sourceMode = true;
+      if (!this.#semanticGraph && !this.hasAttribute('semantic-graph')) { this.#request?.abort(); this.#resetSemanticNavigation(); }
+    }
     if (name === 'semantic-graph') {
       this.#request?.abort();
       if (this.isConnected && value) this.#refreshSemanticGraphURL(value);
