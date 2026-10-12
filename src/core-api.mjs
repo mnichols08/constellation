@@ -42,6 +42,7 @@ export { ATLAS_STATE_VERSION, ATLAS_LEVELS, ATLAS_HISTORY_LIMIT, createAtlasStat
 export { projectDeveloperAtlasScene } from "./developer-atlas-scene.mjs";
 export { STORY_CANDIDATE_LIMIT, STORY_TYPES, generateStoryCandidates, recommendStoryCandidate } from "./story-candidates.mjs";
 export { EXPORT_MANIFEST_VERSION, createPortableExport } from "./portable-export.mjs";
+export { PORTFOLIO_ARTIFACT_VERSION, PORTFOLIO_ARTIFACT_LIMITS, createPortfolioArtifact, validatePortfolioArtifact } from "./portfolio-artifact.mjs";
 export {
   createTimeline,
   temporalMetadata,

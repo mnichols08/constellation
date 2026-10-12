@@ -33,6 +33,18 @@ test('CLI imports canonical graph files offline and rejects ambiguous acquisitio
     assert.equal(await read(join(bundleDir,'alice.semantic-graph.json'),'utf8'),json);
     assert.match(await read(join(bundleDir,'constellation.html'),'utf8'),/sg1:/);
     assert.equal(JSON.parse(await read(join(bundleDir,'manifest.json'),'utf8')).fingerprint.startsWith('sg1:'),true);
+    const portfolioDir=join(directory,'portfolio');
+    const portfolio=run(['--semantic-graph',file,'--format','portfolio','--output',portfolioDir]);
+    assert.equal(portfolio.status,0,portfolio.stderr);
+    const portfolioManifest=JSON.parse(await read(join(portfolioDir,'manifest.json'),'utf8'));
+    assert.equal(portfolioManifest.version,1);
+    assert.equal(portfolioManifest.sceneVersion,1);
+    assert.equal(portfolioManifest.entryPoints.static,'constellation.svg');
+    assert.ok(portfolioManifest.artifacts['scene.json'].sha256);
+    await writeFile(join(portfolioDir,'untrusted.js'),'export default 1;');
+    const mixed=run(['--semantic-graph',file,'--format','portfolio','--output',portfolioDir]);
+    assert.notEqual(mixed.status,0);
+    assert.match(mixed.stderr,/must be empty/);
     const ambiguous=run(['--semantic-graph',file,'--username','alice']);
     assert.notEqual(ambiguous.status,0);
     assert.match(ambiguous.stderr,/cannot be combined/);

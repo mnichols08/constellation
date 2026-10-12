@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
+import { validatePortfolioArtifact } from '../src/portfolio-artifact.mjs';
 
 test('public guided preview, ownership, mode parity, publishing and mobile keyboard controls', { skip: !browser, timeout: 120000 }, async t => {
   const server = createPreviewServer();
@@ -78,6 +79,14 @@ test('public guided preview, ownership, mode parity, publishing and mobile keybo
   assert.match(await e(`document.querySelector('#publish-status').textContent`), /workflow is installed/);
   await e(`document.querySelector('#publish-destination').value='portfolio';document.querySelector('#publish-destination').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#publish-format').value='html';document.querySelector('#publish-format').dispatchEvent(new Event('change',{bubbles:true}))`);
   assert.match(await e(`document.querySelector('#publish-status').textContent`), /cannot verify/);
+  await wait(`(document.querySelector('#download-portfolio-package')?.href || document.querySelector('#download-portfolio-package')?.textContent.startsWith('Portable package unavailable')) && !document.querySelector('#download-portfolio-package').hidden`);
+  assert.ok(await e(`Boolean(document.querySelector('#download-portfolio-package').href)`), await e(`document.querySelector('#download-portfolio-package').textContent`));
+  const packedArtifact = await e(`(async()=>await (await fetch(document.querySelector('#download-portfolio-package').href)).json())()`);
+  const artifactValidation = await validatePortfolioArtifact(packedArtifact.manifest, packedArtifact.files);
+  assert.equal(packedArtifact.manifest.version, 1);
+  assert.equal(packedArtifact.manifest.sceneVersion, 1);
+  assert.equal(packedArtifact.manifest.entryPoints.interactive, 'constellation.html');
+  assert.ok(artifactValidation.files >= 5);
   await e(`document.querySelector('#return-to-editing').click()`);
   assert.equal(await e(`document.activeElement.id`), 'studio-mode-simple');
   assert.equal(await e('apiCalls.length'), 2);

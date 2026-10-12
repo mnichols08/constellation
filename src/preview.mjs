@@ -55,6 +55,7 @@ import { parseSemanticGraph, serializeSemanticGraph, semanticGraphExportInfo, se
 import { createAtlasState, createAtlasHistory, navigateAtlasToGroup, navigateAtlasToProject, navigateAtlasToStructure, atlasBreadcrumbs, resolveAtlasContext, validateAtlasState, parseAtlasState, serializeAtlasState } from "./developer-atlas.mjs";
 import { projectDeveloperAtlasScene } from "./developer-atlas-scene.mjs";
 import { renderSemanticMarkdown } from "./semantic-markdown.mjs";
+import { createPortfolioArtifact } from "./portfolio-artifact.mjs";
 import { generateStoryCandidates, generateBoundedProjectsFallback, recommendStoryCandidate } from "./story-candidates.mjs";
 
 import { createGitHubSession } from "./github-session.mjs";
@@ -212,6 +213,8 @@ let atlasHistory = null;
 let importedPresentationOverrides = {};
 let semanticGraphUrl = null;
 let semanticMarkdownUrl = null;
+let portfolioArtifactUrl = null;
+let portfolioArtifactRevision = 0;
 let guidedHost;
 let intentStorage;
 try {
@@ -592,7 +595,7 @@ document.addEventListener('change', useCustomStoryForControl, true);
 document.addEventListener('click', event => {
   if (event.target.closest('button')) useCustomStoryForControl(event);
 }, true);
-function setSemanticGraphArtifact(graph) {
+function setSemanticGraphArtifact(graph, sceneOverride = null) {
   const json = serializeSemanticGraph(graph);
   const info = semanticGraphExportInfo(graph);
   const nextUrl = URL.createObjectURL(new Blob([json], { type: info.mediaType }));
@@ -608,6 +611,28 @@ function setSemanticGraphArtifact(graph) {
   if (graph.project?.provenance?.visibility === 'private') graphStatus.textContent += ' · This graph may contain names, paths, and structure derived from a private repository.';
   if (semanticGraphUrl) URL.revokeObjectURL(semanticGraphUrl);
   semanticGraphUrl = nextUrl;
+  const packageLink = document.getElementById('download-portfolio-package');
+  if (packageLink) {
+    const revision = ++portfolioArtifactRevision;
+    packageLink.removeAttribute('href');
+    packageLink.setAttribute('aria-disabled', 'true');
+    packageLink.textContent = 'Preparing validated portfolio package…';
+    createPortfolioArtifact(graph, { constellationVersion: '4.7.0', ...(sceneOverride ? { scene: sceneOverride } : {}) }).then(artifact => {
+      if (revision !== portfolioArtifactRevision) return;
+      const container = JSON.stringify({ format: 'constellation-portfolio-artifact', manifest: artifact.manifest, files: artifact.files });
+      const next = URL.createObjectURL(new Blob([container], { type: 'application/json;charset=utf-8' }));
+      if (portfolioArtifactUrl) URL.revokeObjectURL(portfolioArtifactUrl);
+      portfolioArtifactUrl = next;
+      packageLink.href = next;
+      packageLink.download = `${graph.subject.id.replace(/[^A-Za-z0-9._-]+/g, '-')}-constellation.json`;
+      packageLink.removeAttribute('aria-disabled');
+      packageLink.textContent = 'Download portable portfolio package';
+    }).catch(error => {
+      if (revision !== portfolioArtifactRevision) return;
+      packageLink.textContent = 'Portable package unavailable. Try again or download the current artifact.';
+      packageLink.setAttribute('aria-disabled', 'true');
+    });
+  }
 }
 const importedPresentationKeys = Object.freeze([
   "theme", "colors", "visualStyle", "customCSS", "css", "layout", "animate",
@@ -792,7 +817,7 @@ function activateImportedSemanticGraph(graph) {
   importedPresentationOverrides = {};
   try {
     const prepared = prepareImportedSemanticGraph(graph);
-    setSemanticGraphArtifact(graph);
+    setSemanticGraphArtifact(graph, prepared.scene);
     graphStatus.textContent += " · Imported offline";
     renderImportedSemanticGraph(prepared);
   } catch (error) {
@@ -805,7 +830,7 @@ function activateImportedSemanticGraph(graph) {
       graphStatus.textContent += " · Imported offline";
       renderImportedSemanticGraph();
     } else if (previousScene) {
-      setSemanticGraphArtifact(semanticGraphFromScene(previousScene));
+      setSemanticGraphArtifact(semanticGraphFromScene(previousScene), previousScene);
       render();
     }
     throw error;
@@ -1701,7 +1726,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
             : projectDeveloperAtlasScene(liveSemanticGraph, atlasState, options, atlasProjectGraph);
         updateStoryChoices(recommended, chosen);
       } else { liveSemanticGraph = null; liveSemanticFingerprint = null; storyCandidatesFingerprint = null; atlasState = null; atlasHistory = null; atlasProjectGraph = null; storyCandidates = []; }
-      setSemanticGraphArtifact(nextGraph);
+      setSemanticGraphArtifact(nextGraph, scene);
     } catch (error) { atlasProjectionFailed = Boolean(atlasState && liveSemanticGraph); if (atlasProjectionFailed) message(`Developer Atlas projection failed: ${error.message}`, true); }
   }
   if (atlasProjectionFailed) return false;
@@ -2780,6 +2805,8 @@ function updateSnippet() {
   $("#download-publish-artifact").setAttribute('aria-disabled', String(!validName));
   $("#download-publish-artifact").tabIndex = validName ? 0 : -1;
   $("#preview-publish-artifact").hidden = !validName || format !== 'html';
+  const portfolioPackage = $('#download-portfolio-package');
+  portfolioPackage.hidden = !portfolio;
   if (!validName) $("#download-publish-artifact").removeAttribute('href');
   for (const id of ["#install-workflow", "#create-profile", "#run-workflow"]) {
     $(id).hidden = true;
