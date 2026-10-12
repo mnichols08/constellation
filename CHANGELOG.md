@@ -6,7 +6,7 @@
 - Add the offline CLI `--format portfolio` directory export and expose artifact creation and validation from Core. Studio's existing portfolio workflow prepares a downloadable package and framework-neutral embed guidance.
 - Preserve project focus when a Web Component disconnects and reconnects, including evidence-backed relationship focus, without adding bytes to the 24 KiB component entry.
 - Document plain HTML, React, and Astro integrations using the existing framework-independent Web Component and matching package releases; preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, and Web Component API v1.
-- Release-candidate fixes: a `src` attribute set on a detached `<constellation-view>` after its `scene` property loads on connect again, while parsed elements still fetch once. Portfolio validation rejects scene subjects that differ from the manifest, executable SVG attributes and URLs, and executable asset names beyond the generated HTML entry.
+- Release-candidate fixes: a `src` attribute set on a detached `<constellation-view>` after its `scene` property loads on connect again, while parsed elements still fetch once. Portfolio validation rejects Scenes that do not belong to the manifest subject (developer Atlas drill-downs into organization-owned projects remain valid), executable SVG attributes and URLs, and executable asset names beyond the generated HTML entry.
 - No package publication, tag, or release is created by this development milestone.
 
 ## Unreleased — Guided Experience (v4.6.x)

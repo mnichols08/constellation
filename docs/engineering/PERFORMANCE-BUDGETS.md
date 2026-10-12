@@ -103,7 +103,7 @@ and Web Crypto. On Node.js 22.12.0, one local run created and validated a
 same 1,040,342-byte runtime and 670,680-byte WASM measured above. These are
 single-machine diagnostics; artifact packaging adds no Rust/WASM bytes.
 
-At the v4.7.0 release candidate, the generated Core package is 1,994,858 bytes
+At the v4.7.0 release candidate, the generated Core package is 1,995,255 bytes
 of its 2 MiB limit (about 100 KiB of headroom) and the Web Component entry is
 24,572 bytes of its 24,576-byte limit. The consumer test requires the entry to
 stay strictly below 24 KiB, so three bytes remain usable; lifecycle behavior

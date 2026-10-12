@@ -115,9 +115,12 @@ export async function validatePortfolioArtifact(manifestInput, files) {
   try { graph = parseSemanticGraph(files[graphName]); } catch (error) { throw new Error(`Invalid portfolio Semantic Graph: ${error.message}`); }
   if (graph.subject.kind !== manifest.subject.kind || graph.subject.id !== manifest.subject.id || semanticGraphFingerprint(graph) !== manifest.fingerprint) throw new Error('Portfolio identity or Semantic Graph fingerprint mismatch.');
   const sceneRoot = scene.kind === 'time-lapse' ? scene.latest : scene;
-  const expectedAccount = graph.subject.kind === 'developer' ? graph.subject.id : graph.subject.id.split('/')[0];
-  if (typeof sceneRoot?.metadata?.account !== 'string' || sceneRoot.metadata.account.toLowerCase() !== expectedAccount.toLowerCase()) throw new Error('Portfolio Scene subject does not match the manifest.');
-  if (graph.subject.kind === 'project' && sceneRoot.nodes.some(node => node.metadata?.nodeKind === 'project-root' && String(node.metadata.name).toLowerCase() !== graph.subject.id.toLowerCase())) throw new Error('Portfolio Scene subject does not match the manifest.');
+  // Developer artifacts may carry an Atlas drill-down whose account is the owner
+  // of one of the developer's projects; project artifacts carry only their own.
+  const graphProjects = graph.subject.kind === 'developer' ? graph.nodes.filter(node => node.kind === 'project').map(node => node.id.toLowerCase()) : [graph.subject.id.toLowerCase()];
+  const accounts = new Set([...(graph.subject.kind === 'developer' ? [graph.subject.id.toLowerCase()] : []), ...graphProjects.map(id => id.split('/')[0])]);
+  if (typeof sceneRoot?.metadata?.account !== 'string' || !accounts.has(sceneRoot.metadata.account.toLowerCase())
+    || sceneRoot.nodes.some(node => node.metadata?.nodeKind === 'project-root' && !graphProjects.includes(String(node.metadata.name).toLowerCase()))) throw new Error('Portfolio Scene subject does not match the manifest.');
   if (graph.subject.kind === 'developer') {
     const projectIds = new Set(graph.nodes.filter(node => node.kind === 'project').map(node => node.id));
     for (const node of sceneRoot.nodes) {
