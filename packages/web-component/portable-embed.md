@@ -50,4 +50,51 @@ The directory contains canonical `<subject>.semantic-graph.json`, `constellation
 
 The `sg1:` value is a non-cryptographic semantic change identifier. It identifies graph meaning; SVG and HTML appearance remains presentation. Private provenance is retained as a warning because project names, paths, and structure may still be present in an export.
 
-Studio keeps visual downloads and semantic graph export. It also offers a direct Semantic Markdown download from the active semantic graph. Portable directory bundles are available through the CLI; Studio does not offer a ZIP download.
+Studio keeps visual downloads and semantic graph export. It also offers a direct Semantic Markdown download from the active semantic graph. The Scene based portfolio artifact is available from Core and the CLI; Studio does not package a directory or ZIP yet.
+
+## Framework integrations
+
+Install matching package releases (`@constellation/core` and `@constellation/web-component`); this branch builds version 4.7.0 packages. Use the same release for both packages. The component package owns registration and the Core package owns scene validation and rendering.
+
+### Plain HTML
+
+The browser import map needs the Core, browser runtime, and component entries. See [the runnable example](../examples/web-component.html). The packaged Core inlines its WASM bytes, so no `.wasm` file or WASM MIME mapping is needed for the Web Component. In browsers, Core first probes for an optional `constellation_core_bg.wasm` beside its modules and then uses the inline bytes; hosts that serve only the package record that probe as one harmless 404. Loading a `src` scene fetches only that JSON document; it does not request GitHub data.
+
+### React
+
+Register the element once, pass a validated Scene, and listen to native element events. An effect tied to `scene` handles listener cleanup and replacement; stable scene identity avoids reinitialization from unrelated renders.
+
+```jsx
+import { useEffect, useRef } from 'react';
+import '@constellation/web-component';
+
+export function Constellation({ scene }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const view = ref.current;
+    const ready = event => console.info('Constellation ready', event.detail.scene);
+    const error = event => console.error('Constellation error', event.detail.message);
+    view.addEventListener('scene-ready', ready);
+    view.addEventListener('error', error);
+    view.scene = scene;
+    return () => {
+      view.removeEventListener('scene-ready', ready);
+      view.removeEventListener('error', error);
+    };
+  }, [scene]);
+  return <constellation-view ref={ref} aria-label="My projects" />;
+}
+```
+
+### Astro
+
+Keep the component entry on the client. A same-origin `scene.json` works through the existing `src` property, and the host page can provide a static SVG as a no-JavaScript fallback.
+
+```astro
+<constellation-view src="/portfolio/scene.json" aria-label="My projects"></constellation-view>
+<script>
+  import '@constellation/web-component';
+</script>
+```
+
+Both examples use the same Web Component API v1; they add no renderer or framework package. A standalone interactive HTML file embeds its runtime and requires no network after download. A host Content Security Policy must allow the module scripts (including any inline import map, by hash), `'wasm-unsafe-eval'`, inline styles for the component's Shadow DOM (`style-src 'unsafe-inline'`), and `connect-src` for any Scene origin; no remote code source is required.

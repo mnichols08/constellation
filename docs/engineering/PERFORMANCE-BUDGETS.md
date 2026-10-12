@@ -94,3 +94,22 @@ remaining headroom; the next feature that grows the WASM or embedded runtime
 should first reduce it. Navigation latency is recorded in
 [Evidence Navigation](../evidence-navigation.md) and measured by
 `scripts/benchmark-evidence-navigation.mjs`.
+
+Portfolio Artifact v1 remains in JavaScript and uses the existing Core renderer
+and Web Crypto. On Node.js 22.12.0, one local run created and validated a
+12-project artifact in 57.5 ms / 5.4 ms and a 100-project artifact in
+65.1 ms / 9.4 ms. Asset bytes were 1,169,743 and 1,434,090 respectively; the
+1.17 KiB manifest records five files. The generated standalone HTML embeds the
+same 1,040,342-byte runtime and 670,680-byte WASM measured above. These are
+single-machine diagnostics; artifact packaging adds no Rust/WASM bytes.
+
+At the v4.7.0 release candidate, the generated Core package is 1,995,255 bytes
+of its 2 MiB limit (about 100 KiB of headroom) and the Web Component entry is
+24,572 bytes of its 24,576-byte limit. The consumer test requires the entry to
+stay strictly below 24 KiB, so three bytes remain usable; lifecycle behavior
+belongs in Core. The raw WASM is unchanged at 670,680 bytes.
+One Chromium external-consumer fixture measured 313.6 ms from package import to
+first component readiness, 0.9 ms for project plus relationship focus, 7.5 ms
+for a 280px container resize and layout, and 2.5 ms for disconnect/reconnect.
+These are one headless local sample; no comparative cold-cache baseline or
+retained-memory profile was isolated.

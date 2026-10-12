@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Portfolio Integration (v4.7.x)
+
+- Add Portable Portfolio Artifact v1 with validated Scene v1, deterministic files, SHA-256 asset digests, explicit entry points, bounded manifest and bundle validation, and static SVG plus self-contained interactive HTML outputs.
+- Add the offline CLI `--format portfolio` directory export and expose artifact creation and validation from Core. Studio's existing portfolio workflow prepares a downloadable package and framework-neutral embed guidance.
+- Preserve project focus when a Web Component disconnects and reconnects, including evidence-backed relationship focus, without adding bytes to the 24 KiB component entry.
+- Document plain HTML, React, and Astro integrations using the existing framework-independent Web Component and matching package releases; preserve Config v7, Scene v1, Evidence v1, Semantic Graph v1, and Web Component API v1.
+- Release-candidate fixes: a `src` attribute set on a detached `<constellation-view>` after its `scene` property loads on connect again, while parsed elements still fetch once. Portfolio validation rejects Scenes that do not belong to the manifest subject (developer Atlas drill-downs into organization-owned projects remain valid), executable SVG attributes and URLs, and executable asset names beyond the generated HTML entry.
+- No package publication, tag, or release is created by this development milestone.
+
 ## Unreleased — Guided Experience (v4.6.x)
 
 - Extend Guided Setup with recommendation-first, plain-language intentions backed by the existing Projects, Technical Shape, and Journey candidates. Explain unavailable evidence and show a meaningful preview before publishing.

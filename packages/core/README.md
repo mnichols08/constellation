@@ -1,6 +1,6 @@
 # Core API
 
-Constellation 3 exports stable Scene v1, Renderer v1, Layout v1, Plugin/Source v2, Theme v2 and Story v1 contracts. `CONFIG_VERSION = 7`; v6 configs and legacy recipes remain readable. `analyzeDeveloperProfile(snapshot)` calls the shared Rust/WASM evidence engine without fetching data. See [Developer Topology](developer-topology.md), [v3 migration](migration-v3.md), [scene API](scene-api.md), [renderers](renderer-api.md), [data pipeline](data-pipeline.md), [layouts](layout-api.md) and [extension authoring](extension-authoring.md).
+Constellation 4.7.0 exports stable Scene v1, Renderer v1, Layout v1, Plugin/Source v2, Theme v2 and Story v1 contracts. `CONFIG_VERSION = 7`; v6 configs and legacy recipes remain readable. `analyzeDeveloperProfile(snapshot)` calls the shared Rust/WASM evidence engine without fetching data. See [Developer Topology](developer-topology.md), [v3 migration](migration-v3.md), [scene API](scene-api.md), [renderers](renderer-api.md), [data pipeline](data-pipeline.md), [layouts](layout-api.md) and [extension authoring](extension-authoring.md).
 
 `@constellation/core` is an ESM package for Node 22+ and browsers with WebAssembly. It includes its WASM binary and has no runtime npm dependencies. Build it with `npm run build:core`, then run `npm pack ./packages/core`. The package works without the CLI, GitHub Action, studio, or Rust toolchain. The generated package is committed so the Action needs no install step. Edit `src/`, then rebuild the package.
 
@@ -53,3 +53,5 @@ Interactive exports: `renderSceneHTML(scene, { title })` produces an offline HTM
 Portable meaning can be created with Semantic Graph v1 adapters and projected to Scene v1; see [Semantic Graph](semantic-graph.md). `renderSemanticMarkdown(graph, { detail: 'standard' })` produces a bounded Markdown projection directly from a validated graph; see [Semantic Markdown](semantic-markdown.md). These optional layers do not change direct Scene generation.
 
 `createPortableExport(graph)` creates deterministic graph JSON, standard Semantic Markdown, SVG, interactive HTML, and manifest strings from one validated graph. It performs no filesystem, DOM, network, or archive operations. See [Portable Embed and Export](portable-embed.md).
+
+`createPortfolioArtifact(graph, { constellationVersion, scene? })` asynchronously creates the bounded v1 portfolio manifest and deterministic named assets with SHA-256 digests. Web Crypto is required. `validatePortfolioArtifact(manifest, files)` rechecks compatibility, Scene v1, trusted relative filenames, runtime entry markers, byte limits, and asset digests. Use `--format portfolio --output DIRECTORY` with the offline CLI to write a directory. See [Portable Portfolio Artifact v1](portfolio-artifact.md).

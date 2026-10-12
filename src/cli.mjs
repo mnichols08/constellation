@@ -4,7 +4,7 @@ import { normalizeRecords, toGraphRecords } from "./data-pipeline.mjs";
 import { serializeScene, sceneStatistics } from "./scene.mjs";
 import { codingRhythmOptions, deriveCodingRhythm } from "./coding-rhythm.mjs";
 import { needsHistoryEvents } from "./history/settings.mjs";
-import { readFile, writeFile, mkdir, appendFile, stat, rename, rm } from "node:fs/promises";
+import { readFile, writeFile, mkdir, appendFile, stat, rename, rm, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -17,6 +17,7 @@ import {
   rustAvailable,
   engineError,
   createPluginHost,
+  createPortfolioArtifact,
   renderSceneSVG,
   renderSceneHTML,
   parseSemanticGraph,
@@ -114,7 +115,7 @@ async function main() {
   if (values.help) {
     console.log('Profile Story SVG: --story auto|projects|technical-shape|journey [--target-width 480|900]');
     console.log(
-      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --format json|markdown|svg|html|bundle  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (migration defaults to stdout; bundle requires a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
+      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --format json|markdown|svg|html|bundle|portfolio  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (bundle/portfolio require a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
     );
     return;
   }
@@ -129,8 +130,8 @@ async function main() {
   if (values["semantic-graph"]) {
     const conflicting = [values.username, values.config, values.fixture, values.from, values.workflow, values["activity-fixture"], values["refresh-data"], values["reference-date"], values.scene, values["scene-json"], values.explain, values["dry-run"]].some(Boolean);
     if (positionals.length || conflicting) throw new Error("--semantic-graph cannot be combined with GitHub, config, fixture, migration, or generation inputs.");
-    if (!['json','markdown','svg','html','bundle'].includes(values.format)) throw new Error("--format must be json, markdown, svg, html, or bundle for Semantic Graph input.");
-    if (values.format === 'bundle' && !values.output) throw new Error("--format bundle requires --output DIRECTORY.");
+    if (!['json','markdown','svg','html','bundle','portfolio'].includes(values.format)) throw new Error("--format must be json, markdown, svg, html, bundle, or portfolio for Semantic Graph input.");
+    if (['bundle','portfolio'].includes(values.format) && !values.output) throw new Error(`--format ${values.format} requires --output DIRECTORY.`);
     const file = values["semantic-graph"];
     const info = await stat(file);
     if (info.size > 16 * 1024 * 1024) throw new Error("Semantic graph file exceeds 16 MiB.");
@@ -139,6 +140,18 @@ async function main() {
     try { source = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
     catch { throw new Error("Semantic graph file is not valid UTF-8."); }
     const graph = parseSemanticGraph(source);
+    if (values.format === 'portfolio') {
+      const artifact = await createPortfolioArtifact(graph, { constellationVersion: JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version });
+      let existing = [];
+      try { existing = await readdir(values.output); }
+      catch (error) { if (error.code !== 'ENOENT') throw new Error(`Portfolio output must be a directory: ${error.message}`); }
+      if (existing.length) throw new Error('Portfolio output directory must be empty so unvalidated files are not mixed into the artifact.');
+      await mkdir(values.output, { recursive: true });
+      for (const [name, content] of Object.entries(artifact.files)) await writeFile(join(values.output, name), content, { flag: 'w' });
+      if (values.fingerprint) console.error(`Semantic fingerprint: ${artifact.fingerprint}`);
+      console.error(`Generated validated portfolio artifact in ${values.output} (${Object.keys(artifact.files).length} files).`);
+      return;
+    }
     if (values.format === 'bundle') {
       const portable = createPortableExport(graph);
       await mkdir(values.output, { recursive: true });
