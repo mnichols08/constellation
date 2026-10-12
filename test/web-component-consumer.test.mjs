@@ -14,6 +14,9 @@ import { join, resolve, sep } from "node:path";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { browser, openBrowser } from "../scripts/browser-harness.mjs";
+import { createScene } from "../src/constellation.mjs";
+import { serializeScene } from "../src/scene.mjs";
+import { renderSceneSVG } from "../src/renderer-svg.mjs";
 
 test(
   "web component package works outside the repository with bounded assets and accessible controls",
@@ -21,6 +24,9 @@ test(
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "constellation-consumer-"));
     t.after(() => rm(root, { recursive: true, force: true }));
+    const externalScene = createScene('demo', ['compiler','runtime','studio'].map((name, i) => ({ name, full_name: `demo/${name}`, language: i === 2 ? 'JavaScript' : 'Rust', stargazers_count: 10 + i })), { animate: false });
+    await writeFile(join(root, 'scene.json'), serializeScene(externalScene));
+    await writeFile(join(root, 'constellation.svg'), renderSceneSVG(externalScene));
     for (const name of ["core", "web-component"])
       await cp(
         new URL(`../packages/${name}/`, import.meta.url),
@@ -72,7 +78,7 @@ test(
       join(root, "index.html"),
       `<!doctype html><html lang="en"><title>Consumer</title>
 <script type="importmap">{"imports":{"@constellation/core":"/node_modules/@constellation/core/src/core-api.mjs","@constellation/core/browser-runtime":"/node_modules/@constellation/core/src/browser-runtime.mjs","@constellation/web-component":"/node_modules/@constellation/web-component/index.mjs"}}</script>
-<constellation-view></constellation-view><script type="module">import '@constellation/web-component'; import {createScene,buildSemanticHierarchy,projectSemanticLevel} from '@constellation/core'; const view=document.querySelector('constellation-view'); const records=['compiler','runtime','studio'].map(name=>({name,full_name:'demo/'+name,language:'Rust'})); const options={projectFamilies:{'consumer-family':{label:'Consumer Family',members:records.map(record=>record.full_name)}}}; const source=createScene('demo',records,options); const hierarchy=buildSemanticHierarchy(source); window.semanticPackageCheck={groupId:hierarchy.groups[0].id,visible:projectSemanticLevel(source,'groups',{hierarchy}).nodes.length}; view.records=records; view.config={version:7,account:'demo',...options,options:{animate:false,...options}};</script></html>`,
+<img id="fallback" src="/constellation.svg" alt="Static project constellation"><div id="first-host"></div><constellation-view id="external" src="/scene.json"></constellation-view><script type="module">window.consumerStart=performance.now();await import('@constellation/web-component'); const {createScene,buildSemanticHierarchy,projectSemanticLevel}=await import('@constellation/core'); const view=document.createElement('constellation-view');view.id='first';view.addEventListener('scene-ready',()=>window.consumerReadyMs=performance.now()-window.consumerStart,{once:true});document.querySelector('#first-host').append(view); const records=['compiler','runtime','studio'].map((name,i)=>({name,full_name:'demo/'+name,language:i===2?'JavaScript':'Rust'})); const options={projectFamilies:{'consumer-family':{label:'Consumer Family',members:records.map(record=>record.full_name)}}}; const source=createScene('demo',records,options); const hierarchy=buildSemanticHierarchy(source); window.semanticPackageCheck={groupId:hierarchy.groups[0].id,visible:projectSemanticLevel(source,'groups',{hierarchy}).nodes.length}; view.records=records; view.config={version:7,account:'demo',...options,options:{animate:false,...options}};</script></html>`,
     );
     const server = createServer(async (req, res) => {
       try {
@@ -92,6 +98,10 @@ test(
           "Content-Type",
           path.endsWith(".wasm")
             ? "application/wasm"
+            : path.endsWith(".svg")
+              ? "image/svg+xml"
+              : path.endsWith(".json")
+                ? "application/json"
             : path.endsWith(".mjs") || path.endsWith(".js")
               ? "text/javascript"
               : "text/html",
@@ -116,7 +126,7 @@ test(
       `http://127.0.0.1:${server.address().port}/`,
     );
     await waitFor(
-      `Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('.star'))`,
+      `Boolean(document.querySelector('#first')?.shadowRoot?.querySelector('.star') && document.querySelector('#external')?.shadowRoot?.querySelector('.star') && document.querySelector('#fallback')?.complete && document.querySelector('#fallback').naturalWidth > 0)`,
     );
     assert.deepEqual(await evaluate("window.semanticPackageCheck"), { groupId: "group:user:consumer-family", visible: 1 });
     const accessibility = await cdp("Accessibility.getFullAXTree");
@@ -134,15 +144,34 @@ test(
       ),
     );
     await evaluate(
-      `document.querySelector('constellation-view').shadowRoot.querySelector('.repository').focus()`,
+        `document.querySelector('#first').shadowRoot.querySelector('.repository').focus()`,
     );
     await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter" });
     assert.equal(
       await evaluate(
-        `document.querySelector('constellation-view').selection.start`,
+        `document.querySelector('#first').selection.start`,
       ),
       "demo/compiler",
     );
+    assert.equal(await evaluate(`document.querySelector('#first').focusState.project`), 'demo/compiler');
+    await evaluate(`(() => {
+      const source=document.querySelector('#first');
+      const second=document.createElement('constellation-view');
+      second.id='second'; second.style.cssText='display:block;width:100%;height:420px';
+      second.scene=source.scene; document.body.append(second);
+      window.secondView=second;
+    })()`);
+    await waitFor(`Boolean(window.secondView.shadowRoot.querySelector('.star'))`);
+    assert.equal(await evaluate(`window.secondView.scene.nodes.length`), await evaluate(`document.querySelector('constellation-view').scene.nodes.length`));
+    const navigationMs = await evaluate(`(()=>{const start=performance.now();window.secondView.focusProject('demo/compiler');window.secondView.focusRelationship('demo/compiler','demo/runtime');return performance.now()-start})()`);
+    const resizeMs = await evaluate(`(async()=>{const view=window.secondView,start=performance.now();view.style.width='280px';window.dispatchEvent(new Event('resize'));await new Promise(requestAnimationFrame);view.shadowRoot.querySelector('svg').getBoundingClientRect();return performance.now()-start})()`);
+    assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
+    assert.equal(await evaluate(`document.querySelector('#first').focusState.related`), null, 'focus remains local to each component');
+    const reconnectMs = await evaluate(`(async()=>{const view=window.secondView,start=performance.now(),ready=new Promise(resolve=>view.addEventListener('scene-ready',resolve,{once:true}));view.remove();document.body.append(view);await ready;return performance.now()-start})()`);
+    await waitFor(`Boolean(window.secondView.shadowRoot.querySelector('.star'))`);
+    assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
+    const secondSvg = await evaluate(`window.secondView.shadowRoot.querySelector('svg') !== null`);
+    assert.equal(secondSvg, true);
     const original = await evaluate(
       `document.querySelector('constellation-view').scene.metadata.account`,
     );
@@ -159,5 +188,7 @@ test(
       original,
     );
     assert.deepEqual(errors, []);
+    assert.ok((await evaluate('window.consumerReadyMs')) > 0);
+    t.diagnostic(JSON.stringify({ consumerReadyMs: await evaluate('window.consumerReadyMs'), navigationMs, resizeMs, reconnectMs, packageEntryBytes: (await stat(join(directory, 'index.mjs'))).size }));
   },
 );

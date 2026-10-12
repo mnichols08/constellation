@@ -59,6 +59,7 @@ const guides = [
   "semantic-graph",
   "semantic-graph-import",
   "portable-embed",
+  "portfolio-artifact",
   "semantic-markdown",
   "developer-atlas",
   "graph-quality",

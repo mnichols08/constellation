@@ -75,7 +75,20 @@ export function installFocusAPI(View) {
   });
   const connected = View.prototype.connectedCallback, disconnected = View.prototype.disconnectedCallback;
   const histories = new WeakMap();
+  const snapshots = new WeakMap(), pending = new WeakMap();
   View.prototype.connectedCallback = function () {
+    const snapshot = snapshots.get(this);
+    if (snapshot?.project) {
+      const controller = new AbortController(); pending.set(this, controller);
+      this.addEventListener('scene-ready', () => {
+        const value = runtime(this);
+        try {
+          if (snapshot.related && value?.focusRelationship) value.focusRelationship(snapshot.project, snapshot.related);
+          else value?.focusProject?.(snapshot.project, { focus: false });
+        } catch { /* A replacement scene may no longer contain the saved identity. */ }
+        snapshots.delete(this); pending.delete(this);
+      }, { once: true, signal: controller.signal });
+    }
     if (this.hasAttribute('history') && this.id && !histories.has(this)) {
       const abort = new AbortController();
       const history = mountFocusHistory(this, { key: `${this.id}.focus`, runtime: () => runtime(this) });
@@ -86,6 +99,9 @@ export function installFocusAPI(View) {
     return connected?.call(this);
   };
   View.prototype.disconnectedCallback = function () {
+    const state = runtime(this)?.focusState;
+    if (state?.project) snapshots.set(this, { project: state.project, related: state.related || null });
+    pending.get(this)?.abort(); pending.delete(this);
     histories.get(this)?.(); histories.delete(this);
     return disconnected?.call(this);
   };

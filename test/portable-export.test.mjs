@@ -5,6 +5,7 @@ import { createProjectConstellation } from '../src/project-constellation.mjs';
 import { semanticGraphFromScene, semanticGraphFromProjectConstellation, serializeSemanticGraph, semanticGraphFingerprint } from '../src/semantic-graph.mjs';
 import { renderSemanticMarkdown } from '../src/semantic-markdown.mjs';
 import { createPortableExport, EXPORT_MANIFEST_VERSION } from '../src/portable-export.mjs';
+import { createPortfolioArtifact, validatePortfolioArtifact } from '../src/portfolio-artifact.mjs';
 
 test('portable export creates deterministic artifacts from one canonical graph', () => {
   const graph = semanticGraphFromScene(createScene('alice', [
@@ -28,7 +29,7 @@ test('portable export creates deterministic artifacts from one canonical graph',
   assert.equal(manifest.semanticMarkdownVersion, 1);
 });
 
-test('portable project HTML and manifest retain private visibility and incomplete coverage', () => {
+test('portable project HTML and manifest retain private visibility and incomplete coverage', async () => {
   const model = createProjectConstellation({
     projectId: 'owner/private-repo', ref: 'main', visibility: 'private',
     tree: [{ path: '', type: 'tree' }, { path: 'package.json', type: 'blob' }],
@@ -42,4 +43,45 @@ test('portable project HTML and manifest retain private visibility and incomplet
   assert.equal(portable.manifest.truncated, true);
   assert.match(portable.files['constellation.html'], /Source visibility is private/);
   assert.match(portable.files['constellation.html'], /coverage is incomplete/i);
+  const artifact = await createPortfolioArtifact(graph);
+  assert.equal(artifact.manifest.subject.kind, 'project');
+  assert.equal((await validatePortfolioArtifact(artifact.files['manifest.json'], artifact.files)).files, 5);
+});
+
+test('portfolio artifact has deterministic Scene v1 entries and validates every bounded asset digest', async () => {
+  const graph = semanticGraphFromScene(createScene('alice', [
+    { full_name: 'alice/compiler', name: 'compiler', language: 'Rust' },
+    { full_name: 'alice/studio', name: 'studio', language: 'JavaScript' },
+  ]));
+  const first = await createPortfolioArtifact(graph, { constellationVersion: '4.7.0' });
+  const second = await createPortfolioArtifact(graph, { constellationVersion: '4.7.0' });
+  assert.deepEqual(first.files, second.files);
+  assert.equal(first.manifest.sceneVersion, 1);
+  assert.equal(first.manifest.constellationVersion, '4.7.0');
+  assert.equal(first.manifest.entryPoints.static, 'constellation.svg');
+  assert.deepEqual(first.manifest.runtime, { mode: 'embedded-html', wasm: 'embedded', assets: [] });
+  assert.equal((await validatePortfolioArtifact(first.files['manifest.json'], first.files)).files, 5);
+  assert.ok(first.scene.nodes.some(node => node.metadata?.full_name === 'alice/compiler'), 'Scene identities stay aligned with the source graph');
+
+  const changed = { ...first.files, 'constellation.svg': first.files['constellation.svg'] + ' ' };
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], changed), /size or digest metadata|digest mismatch/);
+  const sameSizeChanged = { ...first.files, 'constellation.svg': first.files['constellation.svg'].replace('<svg', '<sva') };
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], sameSizeChanged), /digest mismatch/);
+  const missing = { ...first.files }; delete missing['constellation.svg'];
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], missing), /Missing portfolio asset/);
+  const missingGraph = { ...first.files }; delete missingGraph['alice.semantic-graph.json'];
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], missingGraph), /Missing portfolio asset/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, fingerprint: 'sg1:wrong' }, first.files), /identity or Semantic Graph fingerprint mismatch/);
+  const unsafe = structuredClone(first.manifest);
+  unsafe.artifacts['../payload.js'] = { size: 0, sha256: '0'.repeat(64) };
+  await assert.rejects(validatePortfolioArtifact(unsafe, { ...first.files, '../payload.js': 'x' }), /Unsafe or unexpected executable/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, version: 2 }, first.files), /Unsupported portfolio artifact version/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, constellationVersion: '4.6.0' }, first.files), /Incompatible Constellation package version/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, semanticGraphVersion: 2 }, first.files), /Unsupported semantic contract version/);
+  await assert.rejects(validatePortfolioArtifact(' '.repeat(16 * 1024 + 1), first.files), /Manifest exceeds 16 KiB/);
+  const oversized = structuredClone(first.manifest);
+  oversized.artifacts['constellation.md'].size = 17 * 1024 * 1024;
+  await assert.rejects(validatePortfolioArtifact(oversized, { ...first.files, 'constellation.md': 'x'.repeat(17 * 1024 * 1024) }), /Invalid size or digest metadata/);
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], { ...first.files, 'payload.exe': 'unexpected' }), /Unexpected portfolio asset/);
+  await assert.rejects(validatePortfolioArtifact('{', first.files), /Invalid portfolio manifest/);
 });

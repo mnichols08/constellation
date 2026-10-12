@@ -8,7 +8,7 @@ const allowed = new Map([
     "/src/constellation-library.mjs",
     ["../src/constellation-library.mjs", "text/javascript"],
   ],
-  ...["onboarding-model", "onboarding-generator", "onboarding-ui", "guided-experience", "publishing-preview", "profile-story-export"].map(
+  ...["onboarding-model", "onboarding-generator", "onboarding-ui", "guided-experience", "publishing-preview", "profile-story-export", "portfolio-artifact", "portable-export"].map(
     (name) => [`/src/${name}.mjs`, [`../src/${name}.mjs`, "text/javascript"]],
   ),
   ...[
