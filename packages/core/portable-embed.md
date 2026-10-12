@@ -58,7 +58,7 @@ Install matching package releases (`@constellation/core` and `@constellation/web
 
 ### Plain HTML
 
-The browser import map needs the Core, browser runtime, and component entries. See [the runnable example](../examples/web-component.html). The packaged Core inlines its WASM bytes, so no separate `.wasm` request or special WASM MIME mapping is needed for the Web Component. Loading a `src` scene fetches only that JSON document; it does not request GitHub data.
+The browser import map needs the Core, browser runtime, and component entries. See [the runnable example](../examples/web-component.html). The packaged Core inlines its WASM bytes, so no `.wasm` file or WASM MIME mapping is needed for the Web Component. In browsers, Core first probes for an optional `constellation_core_bg.wasm` beside its modules and then uses the inline bytes; hosts that serve only the package record that probe as one harmless 404. Loading a `src` scene fetches only that JSON document; it does not request GitHub data.
 
 ### React
 
@@ -97,4 +97,4 @@ Keep the component entry on the client. A same-origin `scene.json` works through
 </script>
 ```
 
-Both examples use the same Web Component API v1; they add no renderer or framework package. A standalone interactive HTML file embeds its runtime and requires no network after download. Keep the host's CSP rules for module scripts and WebAssembly; no remote code source is required.
+Both examples use the same Web Component API v1; they add no renderer or framework package. A standalone interactive HTML file embeds its runtime and requires no network after download. A host Content Security Policy must allow the module scripts (including any inline import map, by hash), `'wasm-unsafe-eval'`, inline styles for the component's Shadow DOM (`style-src 'unsafe-inline'`), and `connect-src` for any Scene origin; no remote code source is required.

@@ -103,11 +103,11 @@ and Web Crypto. On Node.js 22.12.0, one local run created and validated a
 same 1,040,342-byte runtime and 670,680-byte WASM measured above. These are
 single-machine diagnostics; artifact packaging adds no Rust/WASM bytes.
 
-At v4.7.0, the generated Core package is 1,989,522 bytes of its 2 MiB limit and
-the Web Component entry is 24,572 bytes of its 24,576-byte limit. The raw WASM
-is unchanged at 670,680 bytes. The Core package has about 110 KiB of headroom;
-the component entry has four bytes and about 105 KiB of headroom remains in
-Core, so lifecycle behavior belongs in Core.
+At the v4.7.0 release candidate, the generated Core package is 1,994,858 bytes
+of its 2 MiB limit (about 100 KiB of headroom) and the Web Component entry is
+24,572 bytes of its 24,576-byte limit. The consumer test requires the entry to
+stay strictly below 24 KiB, so three bytes remain usable; lifecycle behavior
+belongs in Core. The raw WASM is unchanged at 670,680 bytes.
 One Chromium external-consumer fixture measured 313.6 ms from package import to
 first component readiness, 0.9 ms for project plus relationship focus, 7.5 ms
 for a 280px container resize and layout, and 2.5 ms for disconnect/reconnect.
