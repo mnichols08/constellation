@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createScene } from '../src/constellation.mjs';
 import { serializeScene } from '../src/scene.mjs';
@@ -33,9 +34,15 @@ async function verifyApp(t, name) {
     await rm(destination, { recursive: true, force: true });
     await cp(resolve(repo, 'packages', pkg), destination, { recursive: true });
   }
+  const reservation = createServer();
+  reservation.listen(0, '127.0.0.1');
+  await once(reservation, 'listening');
+  const port = reservation.address().port;
+  await new Promise(resolve => reservation.close(resolve));
+  const serverArgs = ['--host', '127.0.0.1', '--port', String(port), '--strictPort'];
   const args = name === 'react'
-    ? ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '0']
-    : ['node_modules/astro/astro.js', 'dev', '--host', '127.0.0.1', '--port', '0'];
+    ? ['node_modules/vite/bin/vite.js', ...serverArgs]
+    : ['node_modules/astro/astro.js', 'dev', ...serverArgs];
   const child = spawn(process.execPath, args, { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
   child.stdout.on('data', chunk => { output = (output + chunk).slice(-5000); });
@@ -47,14 +54,14 @@ async function verifyApp(t, name) {
       await exited;
     }
   });
-  let url;
+  const url = `http://127.0.0.1:${port}/`;
   const deadline = Date.now() + 45000;
+  let reachable = false;
   while (Date.now() < deadline && child.exitCode === null) {
-    const match = output.match(/https?:\/\/127\.0\.0\.1:\d+\//);
-    if (match) { url = match[0]; break; }
+    try { const response = await fetch(url); reachable = response.ok; if (reachable) break; } catch {}
     await delay(100);
   }
-  assert.ok(url, `${name} fixture server did not start: ${output}`);
+  assert.ok(reachable, `${name} fixture server did not start at ${url}: ${output}`);
   const { evaluate, waitFor, errors } = await openBrowser(t, url);
   try {
   await waitFor(`['Projects ready','The project map could not be loaded.'].includes(document.querySelector('#status')?.textContent)`);
