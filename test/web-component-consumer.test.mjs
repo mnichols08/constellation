@@ -78,7 +78,7 @@ test(
       join(root, "index.html"),
       `<!doctype html><html lang="en"><title>Consumer</title>
 <script type="importmap">{"imports":{"@constellation/core":"/node_modules/@constellation/core/src/core-api.mjs","@constellation/core/browser-runtime":"/node_modules/@constellation/core/src/browser-runtime.mjs","@constellation/web-component":"/node_modules/@constellation/web-component/index.mjs"}}</script>
-<img id="fallback" src="/constellation.svg" alt="Static project constellation"><div id="first-host"></div><constellation-view id="external" src="/scene.json"></constellation-view><script type="module">window.consumerStart=performance.now();await import('@constellation/web-component'); const {createScene,buildSemanticHierarchy,projectSemanticLevel}=await import('@constellation/core'); const view=document.createElement('constellation-view');view.id='first';view.addEventListener('scene-ready',()=>window.consumerReadyMs=performance.now()-window.consumerStart,{once:true});document.querySelector('#first-host').append(view); const records=['compiler','runtime','studio'].map((name,i)=>({name,full_name:'demo/'+name,language:i===2?'JavaScript':'Rust'})); const options={projectFamilies:{'consumer-family':{label:'Consumer Family',members:records.map(record=>record.full_name)}}}; const source=createScene('demo',records,options); const hierarchy=buildSemanticHierarchy(source); window.semanticPackageCheck={groupId:hierarchy.groups[0].id,visible:projectSemanticLevel(source,'groups',{hierarchy}).nodes.length}; view.records=records; view.config={version:7,account:'demo',...options,options:{animate:false,...options}};</script></html>`,
+<img id="fallback" src="/constellation.svg" alt="Static project constellation"><div id="first-host"></div><div style="display:flex;min-width:0"><constellation-view id="external" src="/scene.json"></constellation-view></div><script type="module">window.consumerStart=performance.now();await import('@constellation/web-component'); const {createScene,buildSemanticHierarchy,projectSemanticLevel}=await import('@constellation/core'); const view=document.createElement('constellation-view');view.id='first';view.addEventListener('scene-ready',()=>window.consumerReadyMs=performance.now()-window.consumerStart,{once:true});document.querySelector('#first-host').append(view); const records=['compiler','runtime','studio'].map((name,i)=>({name,full_name:'demo/'+name,language:i===2?'JavaScript':'Rust'})); const options={projectFamilies:{'consumer-family':{label:'Consumer Family',members:records.map(record=>record.full_name)}}}; const source=createScene('demo',records,options); const hierarchy=buildSemanticHierarchy(source); window.semanticPackageCheck={groupId:hierarchy.groups[0].id,visible:projectSemanticLevel(source,'groups',{hierarchy}).nodes.length}; view.records=records; view.config={version:7,account:'demo',...options,options:{animate:false,...options}};</script></html>`,
     );
     const server = createServer(async (req, res) => {
       try {
@@ -158,7 +158,7 @@ test(
       const source=document.querySelector('#first');
       const second=document.createElement('constellation-view');
       second.id='second'; second.style.cssText='display:block;width:100%;height:420px';
-      second.scene=source.scene; document.body.append(second);
+      second.scene=source.scene; const grid=document.createElement('div');grid.id='grid';grid.style.cssText='display:grid;grid-template-columns:minmax(0,1fr);min-width:0';grid.append(second);document.body.append(grid);
       window.secondView=second;
     })()`);
     await waitFor(`Boolean(window.secondView.shadowRoot.querySelector('.star'))`);
@@ -167,7 +167,9 @@ test(
     const resizeMs = await evaluate(`(async()=>{const view=window.secondView,start=performance.now();view.style.width='280px';window.dispatchEvent(new Event('resize'));await new Promise(requestAnimationFrame);view.shadowRoot.querySelector('svg').getBoundingClientRect();return performance.now()-start})()`);
     assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
     assert.equal(await evaluate(`document.querySelector('#first').focusState.related`), null, 'focus remains local to each component');
-    const reconnectMs = await evaluate(`(async()=>{const view=window.secondView,start=performance.now(),ready=new Promise(resolve=>view.addEventListener('scene-ready',resolve,{once:true}));view.remove();document.body.append(view);await ready;return performance.now()-start})()`);
+    await evaluate(`(async()=>{const view=window.secondView,grid=view.parentElement;grid.hidden=true;await new Promise(requestAnimationFrame);grid.hidden=false;await new Promise(requestAnimationFrame)})()`);
+    assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
+    const reconnectMs = await evaluate(`(async()=>{const view=window.secondView,grid=view.parentElement,start=performance.now(),ready=new Promise(resolve=>view.addEventListener('scene-ready',resolve,{once:true}));view.remove();grid.append(view);await ready;return performance.now()-start})()`);
     await waitFor(`Boolean(window.secondView.shadowRoot.querySelector('.star'))`);
     assert.equal(await evaluate(`window.secondView.focusState.related`), 'demo/runtime');
     const secondSvg = await evaluate(`window.secondView.shadowRoot.querySelector('svg') !== null`);

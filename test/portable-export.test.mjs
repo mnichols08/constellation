@@ -56,6 +56,9 @@ test('portfolio artifact has deterministic Scene v1 entries and validates every 
   const first = await createPortfolioArtifact(graph, { constellationVersion: '4.7.0' });
   const second = await createPortfolioArtifact(graph, { constellationVersion: '4.7.0' });
   assert.deepEqual(first.files, second.files);
+  const authoredScene = structuredClone(first.scene);
+  const sceneExport = await createPortfolioArtifact(graph, { constellationVersion: '4.7.0', scene: authoredScene });
+  assert.deepEqual(sceneExport.scene, authoredScene, 'manual Scene data is preserved as supplied');
   assert.equal(first.manifest.sceneVersion, 1);
   assert.equal(first.manifest.constellationVersion, '4.7.0');
   assert.equal(first.manifest.entryPoints.static, 'constellation.svg');
@@ -69,6 +72,8 @@ test('portfolio artifact has deterministic Scene v1 entries and validates every 
   await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], sameSizeChanged), /digest mismatch/);
   const missing = { ...first.files }; delete missing['constellation.svg'];
   await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], missing), /Missing portfolio asset/);
+  const missingScene = { ...first.files }; delete missingScene['scene.json'];
+  await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], missingScene), /Missing portfolio asset/);
   const missingGraph = { ...first.files }; delete missingGraph['alice.semantic-graph.json'];
   await assert.rejects(validatePortfolioArtifact(first.files['manifest.json'], missingGraph), /Missing portfolio asset/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, fingerprint: 'sg1:wrong' }, first.files), /identity or Semantic Graph fingerprint mismatch/);
@@ -77,6 +82,7 @@ test('portfolio artifact has deterministic Scene v1 entries and validates every 
   await assert.rejects(validatePortfolioArtifact(unsafe, { ...first.files, '../payload.js': 'x' }), /Unsafe or unexpected executable/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, version: 2 }, first.files), /Unsupported portfolio artifact version/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, constellationVersion: '4.6.0' }, first.files), /Incompatible Constellation package version/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, subject: { kind: 'developer', id: '../secret' } }, first.files), /Invalid portfolio project identity/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, semanticGraphVersion: 2 }, first.files), /Unsupported semantic contract version/);
   await assert.rejects(validatePortfolioArtifact(' '.repeat(16 * 1024 + 1), first.files), /Manifest exceeds 16 KiB/);
   const oversized = structuredClone(first.manifest);
