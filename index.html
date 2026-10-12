@@ -238,9 +238,9 @@
           <div><h2 id="story-heading">Your work, at a glance</h2><p id="story-recommendation" role="status" aria-live="polite">Enter a GitHub username to find the clearest story in the available project evidence.</p></div>
           <div id="story-choices" role="group" aria-label="Choose a story view">
             <button type="button" data-story-choice="auto" aria-pressed="true">Use recommendation</button>
-            <button type="button" data-story-choice="projects" aria-pressed="false">Projects <span data-recommended-badge hidden>Recommended</span><span id="projects-unavailable" data-story-unavailable hidden></span></button>
-            <button type="button" data-story-choice="technical-shape" aria-pressed="false">Technical Shape <span data-recommended-badge hidden>Recommended</span><span id="technical-shape-unavailable" data-story-unavailable hidden></span></button>
-            <button type="button" data-story-choice="journey" aria-pressed="false" aria-disabled="true" aria-describedby="journey-unavailable">Journey <span data-recommended-badge hidden>Recommended</span><span id="journey-unavailable" data-story-unavailable>Unavailable: Temporal evidence is required.</span></button>
+            <button type="button" data-story-choice="projects" aria-pressed="false">Show my projects <span data-recommended-badge hidden>Recommended</span><span id="projects-unavailable" data-story-unavailable hidden></span></button>
+            <button type="button" data-story-choice="technical-shape" aria-pressed="false">Show how my work connects <span data-recommended-badge hidden>Recommended</span><span id="technical-shape-unavailable" data-story-unavailable hidden></span></button>
+            <button type="button" data-story-choice="journey" aria-pressed="false" aria-disabled="true" aria-describedby="journey-unavailable">Show my development journey <span data-recommended-badge hidden>Recommended</span><span id="journey-unavailable" data-story-unavailable>Unavailable: Temporal evidence is required.</span></button>
           </div>
         </section>
         <details id="story-clarity-inspector" class="story-clarity-inspector" hidden><summary>Why this composition?</summary><p></p><ul></ul></details>
@@ -1148,6 +1148,13 @@
         <div class="editor-panel">
           <p class="eyebrow">KEEP IT UP TO DATE</p>
           <h2>Publish your constellation</h2>
+          <p>Prepare setup here, then install it on your destination. Generating files does not publish them.</p>
+          <p id="publishing-completion" role="status" aria-live="polite">Setup has not been installed or verified remotely.</p>
+          <details id="before-publish-preview">
+            <summary>Before you publish: compact and wide README previews</summary>
+            <div id="publication-previews" class="publication-previews"></div>
+          </details>
+          <button id="return-to-editing" type="button" data-experience-control>Return to editing</button>
           <label for="publish-destination">Where will it appear?</label>
           <select id="publish-destination">
             <option value="profile">GitHub profile README</option>
@@ -1158,6 +1165,12 @@
           <select id="publish-format">
             <option value="svg">Static SVG</option>
             <option value="html">Interactive standalone HTML</option>
+          </select>
+          <label for="publish-presentation">SVG presentation</label>
+          <select id="publish-presentation">
+            <option value="current">Current view</option>
+            <option value="480">Compact Profile Story (480px)</option>
+            <option value="900">Wide Profile Story (900px)</option>
           </select>
           <label for="publish-filename">Output filename</label>
           <input id="publish-filename" value="constellation.svg" autocomplete="off" spellcheck="false" aria-describedby="publish-status" />
@@ -1250,7 +1263,7 @@
             The sample uses your repository owner when the workflow runs.
           </p>
           </div>
-          <p id="portfolio-help" role="status" hidden>Portfolio exports are downloaded for manual deployment. Upload the artifact to your static host; future updates require downloading and uploading a new artifact.</p>
+          <p id="portfolio-help" role="status" hidden>Portfolio exports are downloaded for manual deployment. Upload the artifact to your static host; future updates require downloading and uploading a new artifact. For a framework-independent Web Component, follow the <a href="./docs/web-component.md">Web Component integration guide</a>. Interactive HTML cannot execute inside a GitHub README.</p>
           <p id="workflow-install-note">
             After adding the file, run <strong>Daily constellation</strong> from
             GitHub’s Actions tab once. Future runs are scheduled daily. The

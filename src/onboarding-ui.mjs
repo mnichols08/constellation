@@ -7,6 +7,7 @@ import {
 } from "./onboarding-model.mjs";
 import { recommendProjects } from "./onboarding-model.mjs";
 import { analyzeDeveloperProfile } from "./engine.mjs";
+import { mountIntentChoices } from "./guided-experience.mjs";
 
 export function mountOnboarding(
   host,
@@ -25,6 +26,7 @@ export function mountOnboarding(
     useDesign,
     save,
     enterPath,
+    experience,
   },
 ) {
   let intent = initial || defaultIntent(repositories()),
@@ -614,7 +616,49 @@ export function mountOnboarding(
     actions.append(more);
     heading.focus({ preventScroll: true });
   }
-  if (enterPath) {
+  if (enterPath && experience) {
+    heading.textContent = 'What would you like to make?';
+    progress.textContent = `Step 2 of 3 · @${account} · ${repositories().length} public projects loaded`;
+    const note = document.createElement('p');
+    note.textContent = initial
+      ? 'Your saved settings remain authoritative. Continue your design, or explicitly choose a story using current evidence.'
+      : 'Accept the automatic recommendation or choose an intention. Personalize after your first preview; publishing comes afterward.';
+    body.append(note);
+    const show = id => {
+      experience.choose(id);
+      document.documentElement.dataset.entry = 'result';
+      document.querySelector('.observatory')?.after(host);
+      progress.textContent = `Step 3 of 3 · @${account}`;
+      heading.textContent = 'Personalize your constellation';
+      body.replaceChildren();
+      actions.replaceChildren();
+      status.textContent = 'Your preview reflects the loaded projects. Choose featured projects and appearance in Simple Studio, then prepare publishing.';
+      button(actions, 'Personalize and continue', customize);
+      button(actions, 'Prepare publishing', experience.publish);
+      button(actions, 'Back', () => experience.restart());
+      heading.focus({ preventScroll: true });
+    };
+    mountIntentChoices(body, experience.candidates(), show, experience.current());
+    if (initial) button(actions, 'Continue saved design', () => show(null));
+    button(actions, 'Back to account', experience.account);
+    const more = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'More ways to start';
+    const extra = document.createElement('div');
+    extra.className = 'guided-actions';
+    button(extra, 'Quick guided generator', draw);
+    for (const [label, outcome] of [
+      ['Generate my project map', 'project-map'],
+      ['Show my technical focus', 'technical-focus'],
+      ...(available().history.eligible ? [['Show my project history', 'project-history']] : []),
+    ]) button(extra, label, () => { applyOutcome(intent, outcome); run(); });
+    button(extra, 'Open full Studio', () => enterPath('studio'));
+    button(extra, 'Open a saved constellation', () => enterPath('saved'));
+    button(extra, 'Take the Studio tour', () => enterPath('tour'));
+    more.append(summary, extra);
+    body.append(more);
+    heading.focus();
+  } else if (enterPath) {
     heading.textContent = 'What would you like to make?';
     progress.textContent = `@${account} · ${repositories().length} public projects loaded`;
     const note = document.createElement("p");

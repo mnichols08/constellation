@@ -261,7 +261,8 @@ test(
       Buffer.from(resultShot.data, "base64"),
     );
     await click("Use this constellation");
-    assert.equal(await e(`document.documentElement.dataset.entry`), "install");
+    assert.equal(await e(`document.documentElement.dataset.entry`), "studio");
+    assert.equal(await e(`document.activeElement.id`), "publish-destination");
     assert.equal(
       await e(`document.querySelector('#panel-save').hidden`),
       false,
@@ -667,7 +668,8 @@ for (const scenario of ["pins", "empty", "failure", "anonymous"])
       await e(
         `document.querySelector('#username').value='alice';document.querySelector('#account-form').requestSubmit()`,
       );
-      await wait(`(!!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy'))`);
+      await wait(`(!!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')) || (document.querySelector('#guided-setup h2')?.textContent === 'What would you like to make?' && !document.querySelector('#guided-setup').hasAttribute('aria-busy')) || !!document.querySelector('#guided-setup [role="alert"]')`);
+      assert.equal(await e(`document.querySelector('#guided-setup [role="alert"]')?.textContent || ''`), '');
     await e(`[...document.querySelectorAll('#guided-setup button')].find(b => b.textContent === 'Quick guided generator')?.click()`);
     await wait(
         `!!document.querySelector('#guided-repository-search') && !document.querySelector('#guided-setup').hasAttribute('aria-busy')`,

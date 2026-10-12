@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Guided Experience (v4.6.x)
+
+- Extend Guided Setup with recommendation-first, plain-language intentions backed by the existing Projects, Technical Shape, and Journey candidates. Explain unavailable evidence and show a meaningful preview before publishing.
+- Add Simple/Advanced Studio using the same existing controls and configuration. Mode switches preserve manual layout, labels, colors, CSS, animations, families, relationships, visibility, and roles without regeneration or network acquisition.
+- Display the actual downloadable 480px and 900px Profile Story SVG bytes, included identities, featured projects, label visibility, relationship evidence, and advisory Story Clarity findings.
+- Reuse the Publishing Wizard with destination-specific completion guidance, return-to-editing, and restorable per-account publishing choices. Optional CLI/Action story and target-width inputs share the bounded export pipeline; setup generation never claims verified publication.
+- Preserve every public data contract, the 12-project cap, deterministic selection, publication integrity, and last-known-good refresh behavior. No Rust/WASM growth, framework, backend, or dependency additions.
+- Add Chromium keyboard/mobile/reduced-motion, restoration, legacy/manual ownership, and byte-parity fixtures; provide offline timings and a manual usability procedure. Human participant testing and live-network timing have not been performed.
+
 ## Unreleased — Publish Once, Stay Current (v4.5.x)
 
 - Add bounded publication manifest validation and stable source/configuration/artifact change classifications without adding fields to Config or Scene. The Node publisher hashes artifacts and records a versioned sidecar; incomplete evidence remains unknown.
