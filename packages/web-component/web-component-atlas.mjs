@@ -86,7 +86,9 @@ export function installAtlasAPI(componentClass) {
   const onAttributeChange = componentClass.prototype.attributeChangedCallback;
   componentClass.prototype.connectedCallback = function() { connected.add(this); return onConnect.call(this); };
   componentClass.prototype.attributeChangedCallback = function(name, previous, value) {
-    if (name === 'src' && previous === null && !connected.has(this)) return;
+    // Upgrading an element already in the document reports its parsed src before
+    // connectedCallback loads it. Detached elements keep last-write precedence.
+    if (name === 'src' && previous === null && this.isConnected && !connected.has(this)) return;
     return onAttributeChange.call(this, name, previous, value);
   };
   Object.defineProperties(componentClass.prototype, {

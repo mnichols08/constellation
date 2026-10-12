@@ -28,6 +28,7 @@ test(
     const requestCounts = new Map();
     await writeFile(join(root, 'scene.json'), serializeScene(externalScene));
     await writeFile(join(root, 'constellation.svg'), renderSceneSVG(externalScene));
+    await writeFile(join(root, 'precedence.json'), serializeScene(createScene('precedence', [{ name: 'later', full_name: 'precedence/later', language: 'Go' }], { animate: false })));
     for (const name of ["core", "web-component"])
       await cp(
         new URL(`../packages/${name}/`, import.meta.url),
@@ -195,6 +196,9 @@ test(
       ),
       original,
     );
+    const detachedPrecedence = await evaluate(`(async()=>{const view=document.createElement('constellation-view');view.scene=document.querySelector('#first').scene;view.setAttribute('src','/precedence.json');const ready=new Promise(resolve=>view.addEventListener('scene-ready',resolve,{once:true}));document.body.append(view);await ready;const account=view.scene.metadata.account;view.remove();return account})()`);
+    assert.equal(detachedPrecedence, 'precedence', 'a src set on a detached element after the scene property still loads on connect');
+    assert.equal(requestCounts.get('/precedence.json'), 1);
     assert.deepEqual(errors, []);
     assert.equal(requestCounts.get('/scene.json'), 1, 'resize and lifecycle recovery do not refetch the scene');
     assert.ok((await evaluate('window.consumerReadyMs')) > 0);
