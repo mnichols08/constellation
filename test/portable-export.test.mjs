@@ -7,6 +7,8 @@ import { semanticGraphFromScene, semanticGraphFromProjectConstellation, serializ
 import { renderSemanticMarkdown } from '../src/semantic-markdown.mjs';
 import { createPortableExport, EXPORT_MANIFEST_VERSION } from '../src/portable-export.mjs';
 import { createPortfolioArtifact, validatePortfolioArtifact } from '../src/portfolio-artifact.mjs';
+import { createAtlasState, navigateAtlasToProject, navigateAtlasToStructure } from '../src/developer-atlas.mjs';
+import { projectDeveloperAtlasScene } from '../src/developer-atlas-scene.mjs';
 
 async function manifestForFiles(manifest, files) {
   const updated = structuredClone(manifest);
@@ -63,6 +65,22 @@ test('portable project HTML and manifest retain private visibility and incomplet
   })));
   const swapped = { ...artifact.files, 'scene.json': sibling.files['scene.json'] };
   await assert.rejects(validatePortfolioArtifact(await manifestForFiles(artifact.manifest, swapped), swapped), /Scene subject does not match the manifest/);
+});
+
+test('developer portfolio accepts an Atlas structure Scene for an organization-owned project', async () => {
+  const graph = semanticGraphFromScene(createScene('alice', [
+    { full_name: 'alice/compiler', name: 'compiler', language: 'Rust' },
+    { full_name: 'acme-org/platform', name: 'platform', language: 'Go' },
+  ]));
+  const projectGraph = semanticGraphFromProjectConstellation(createProjectConstellation({
+    projectId: 'acme-org/platform', ref: 'main', tree: [{ path: '', type: 'tree' }, { path: 'src', type: 'tree' }], contents: {},
+  }));
+  const projectState = navigateAtlasToProject(createAtlasState(graph), graph, 'acme-org/platform');
+  const structure = navigateAtlasToStructure(projectState, graph, projectGraph, projectGraph.nodes[0].id);
+  const scene = projectDeveloperAtlasScene(graph, structure, {}, projectGraph);
+  assert.equal(scene.metadata.account, 'acme-org');
+  const artifact = await createPortfolioArtifact(graph, { constellationVersion: '4.7.0', scene });
+  assert.equal((await validatePortfolioArtifact(artifact.files['manifest.json'], artifact.files)).files, 5);
 });
 
 test('portfolio SVG validation accepts handler-like and URL-like project text', async () => {
