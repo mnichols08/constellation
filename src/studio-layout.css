@@ -1,4 +1,18 @@
 /* A bounded workspace: controls scroll independently of the live canvas. */
+.studio-mode { display: flex; gap: 8px; padding: 12px; }
+.studio-tabs[hidden], .inspector-scroll[hidden], #simple-studio[hidden] { display: none; }
+.studio-mode button { flex: 1; min-height: 44px; }
+.studio-mode [aria-pressed="true"] { border: 2px solid var(--accent); }
+html[data-studio-mode="simple"] .design-launcher > :not(#toggle-customization):not(.download):not(#explain-graphic) { display: none; }
+#simple-studio { overflow-y: auto; padding: 16px; }
+[data-story-unavailable], #guided-setup [aria-disabled="true"] span { display: block; font-size: .85em; margin-top: 6px; }
+[aria-disabled="true"] { opacity: .7; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.publication-previews { max-width: 100%; overflow: auto; }
+.publication-previews img { display: block; max-width: none; }
+.publication-previews figure { margin: 12px 0; }
+.publication-previews ul { overflow-wrap: anywhere; }
+html[data-entry="install"] .studio-mode { display: none; }
 html[data-entry="result"] body.studio-ready .studio-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: clamp(320px, 60vh, 720px); }
 html[data-entry="result"] #graph-explorer, html[data-entry="install"] #graph-explorer { display: none; }
 html[data-entry="result"] #guided-setup { padding: 16px 24px; margin: 12px auto; }

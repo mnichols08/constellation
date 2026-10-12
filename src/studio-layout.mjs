@@ -11,6 +11,48 @@ export function mountStudioLayout() {
   scroll.className = "inspector-scroll";
   const panels = new Map();
   const body = $(".studio-body");
+  const mode = document.createElement('div');
+  mode.className = 'studio-mode';
+  mode.dataset.experienceControl = '';
+  mode.setAttribute('role', 'group');
+  mode.setAttribute('aria-label', 'Studio complexity');
+  const simple = document.createElement('section');
+  simple.id = 'simple-studio';
+  simple.className = 'inspector-panel design-controls';
+  simple.setAttribute('aria-label', 'Everyday controls');
+  const simpleHeading = document.createElement('h2');
+  simpleHeading.textContent = 'Make it yours';
+  const simpleNote = document.createElement('p');
+  simpleNote.textContent = 'Changes update the preview. Advanced settings stay saved even when hidden.';
+  simple.append(simpleHeading, simpleNote);
+  const simpleFields = [];
+  function moveToSimple(element) {
+    const marker = document.createComment('simple control home');
+    element.before(marker);
+    simpleFields.push([element, marker]);
+    simple.append(element);
+  }
+  function setMode(value) {
+    body.dataset.studioMode = value;
+    document.documentElement.dataset.studioMode = value;
+    tabs.hidden = value === 'simple';
+    scroll.hidden = value === 'simple';
+    simple.hidden = value !== 'simple';
+    for (const [element, marker] of simpleFields)
+      if (value === 'simple') simple.append(element);
+      else marker.after(element);
+    for (const button of mode.querySelectorAll('button'))
+      button.setAttribute('aria-pressed', String(button.dataset.mode === value));
+  }
+  for (const value of ['simple', 'advanced']) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = `studio-mode-${value}`;
+    button.dataset.mode = value;
+    button.textContent = value === 'simple' ? 'Simple' : 'Advanced';
+    button.addEventListener('click', () => setMode(value));
+    mode.append(button);
+  }
   const fold = (title, ...nodes) => {
     const details = document.createElement("details");
     details.className = "control-section";
@@ -251,11 +293,13 @@ export function mountStudioLayout() {
   window.addEventListener("resize", fitWorkspace);
   fitWorkspace();
   function reveal(element) {
+    if (simple.contains(element)) { visible(true); element?.focus?.(); return; }
     const targetPanel = element?.closest?.('[role="tabpanel"]');
     const match = [...panels].find(([, value]) =>
       value.panel === targetPanel || value.panel.contains(element),
     );
     if (!match) return;
+    setMode('advanced');
     activate(match[0]);
     for (let parent = element; parent; parent = parent.parentElement) {
       if (parent.tagName === "DETAILS") parent.open = true;
@@ -270,5 +314,33 @@ export function mountStudioLayout() {
     reveal($("#token-help"));
     $("#token-help summary").focus({ preventScroll: true });
   });
-  return { reveal };
+  for (const element of [
+    $("label[for='design-visualTheme']"), $("#design-visualTheme"),
+    $(".showcase-curation-list").previousElementSibling, $(".showcase-curation-list"),
+  ]) moveToSimple(element);
+  const presets = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.textContent = 'Quick visual styles';
+  presets.append(legend);
+  for (const [value, label] of [['deep-space', 'Cosmic'], ['github-dark', 'GitHub dark'], ['monochrome', 'Minimal']]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      const theme = $('#design-visualTheme');
+      theme.value = value;
+      theme.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    presets.append(button);
+  }
+  simple.append(presets);
+  const publish = document.createElement('button');
+  publish.type = 'button';
+  publish.dataset.experienceControl = '';
+  publish.textContent = 'Preview and prepare publishing';
+  publish.addEventListener('click', () => reveal($('#publish-destination')));
+  simple.append(publish);
+  sidebar.prepend(mode, simple);
+  setMode('simple');
+  return { reveal, setMode };
 }

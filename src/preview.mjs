@@ -2,6 +2,9 @@ import { PUBLIC_MODE_MESSAGE, publicLimitMessage } from "./github-access.mjs";
 import { loadAccountAvatar } from "./account-sun.mjs";
 import { createGitHubOAuth } from "./github-oauth.mjs";
 import { mountOnboarding } from "./onboarding-ui.mjs";
+import { experienceStore } from "./guided-experience.mjs";
+import { updatePublishingPreviews } from "./publishing-preview.mjs";
+import { renderProfileStorySVG } from "./profile-story-export.mjs";
 import { mountConstellationLibrary } from "./constellation-library.mjs";
 import { parseConfig } from "./config-schema.mjs";
 import { defaultIntent, intentStore } from "./onboarding-model.mjs";
@@ -108,6 +111,7 @@ let selectedStoryId = 'projects';
 let storyCandidates = [];
 let storyCandidatesFingerprint = null;
 let profileStoryUnavailableReason = '';
+let refreshPublication = () => {};
 let liveSemanticGraph = null;
 let liveSemanticFingerprint = null;
 function stableStoryOptions(value) {
@@ -214,8 +218,33 @@ try {
   intentStorage = window.localStorage;
 } catch {}
 const intents = intentStore(intentStorage);
+const experiences = experienceStore(intentStorage, text => message(text, true));
+function restoreExperience(options) {
+  const saved = experiences.read(account, options);
+  storyMode = saved?.storyMode || 'manual';
+  selectedStoryId = saved?.selectedStoryId || 'projects';
+  if (saved?.publishing) {
+    for (const [id, value] of Object.entries({
+      'publish-destination': saved.publishing.destination,
+      'publish-format': saved.publishing.format,
+      'publish-presentation': saved.publishing.presentation,
+      'output-repository': saved.publishing.repository,
+      'publish-filename': saved.publishing.filename,
+    })) document.getElementById(id).value = value;
+  }
+}
+function publishingChoices() {
+  return {
+    destination: $('#publish-destination').value,
+    format: $('#publish-format').value,
+    presentation: $('#publish-presentation').value,
+    repository: $('#output-repository').value.slice(0, 200),
+    filename: $('#publish-filename').value.slice(0, 130),
+  };
+}
 function enterStudio() {
   if (!workspace) workspace = mountStudioLayout();
+  if (isSample) workspace.setMode('advanced');
   document.documentElement.dataset.entry = "studio";
   if (guidedHost) guidedHost.hidden = true;
 }
@@ -531,14 +560,13 @@ function updateStoryChoices(recommended, chosen) {
     }));
   }
 }
-document.querySelector('#story-choices')?.addEventListener('click', event => {
-  const button = event.target.closest('[data-story-choice]');
-  if (!button || button.getAttribute('aria-disabled') === 'true') return;
-  if (button.dataset.storyChoice === 'auto') {
+function chooseStory(id) {
+  if (id === null) return;
+  if (id === 'auto') {
     storyMode = 'auto';
   } else {
     storyMode = 'story';
-    selectedStoryId = button.dataset.storyChoice;
+    selectedStoryId = id;
   }
   // Story choices always present the full developer candidate; clear any
   // deeper Atlas location so the selected candidate and its score stay aligned.
@@ -548,9 +576,15 @@ document.querySelector('#story-choices')?.addEventListener('click', event => {
     atlasProjectGraph = null;
   }
   render();
+}
+document.querySelector('#story-choices')?.addEventListener('click', event => {
+  const button = event.target.closest('[data-story-choice]');
+  if (!button || button.getAttribute('aria-disabled') === 'true') return;
+  chooseStory(button.dataset.storyChoice);
 });
 function useCustomStoryForControl(event) {
-  if (event.target.closest('#story-choices')) return;
+  if (event.target.closest('#story-choices, #guided-setup, [data-experience-control], .studio-tabs, .developer-atlas, #panel-save')) return;
+  if (!event.target.closest('.controls, .graph-filters, .design-launcher, .customization')) return;
   if (event.target.closest('input, select, textarea, button') && !event.target.closest('a, [data-export], .developer-atlas')) storyMode = 'manual';
 }
 document.addEventListener('input', useCustomStoryForControl, true);
@@ -1673,18 +1707,10 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   if (atlasProjectionFailed) return false;
   const profileStoryForExport = targetWidth => {
     if (!profileStoryCandidate?.scene) return null;
-    const source = profileStoryCandidate.scene;
-    const readmeScene = {
-      ...source,
-      presentation: {
-        ...source.presentation,
-        options: { ...source.presentation.options, exportProfile: 'readme' },
-      },
-    };
-    return renderSceneSVG(readmeScene, { targetWidth });
+    return renderProfileStorySVG(profileStoryCandidate, targetWidth);
   };
-  const profileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
-    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
+  const exportProjectCount = profileStoryCandidate?.scene?.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length || 0;
+  const profileStorySvg = profileStoryCandidate?.bounded && exportProjectCount > 0 && exportProjectCount <= 12
     ? profileStoryForExport(900)
     : null;
   const svg = displayedStoryCandidate && profileStorySvg
@@ -1717,8 +1743,7 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
   profileStoryUrl = profileStorySvg
     ? URL.createObjectURL(new Blob([profileStorySvg], { type: 'image/svg+xml' }))
     : null;
-  const compactProfileStorySvg = profileStoryCandidate?.bounded && profileStoryCandidate.scene
-    && profileStoryCandidate.scene.nodes.filter(node => node.metadata?.nodeKind === 'repository' || (node.metadata?.full_name && !node.metadata?.nodeKind)).length <= 12
+  const compactProfileStorySvg = profileStoryCandidate?.bounded && exportProjectCount > 0 && exportProjectCount <= 12
     ? profileStoryForExport(480)
     : null;
   profileStoryCompactUrl = compactProfileStorySvg
@@ -1741,6 +1766,13 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     if (liveSemanticGraph && !profileStoryUnavailableReason) profileStoryUnavailableReason = 'no valid bounded candidate is available for the current inputs.';
   }
   if (storyStatus && profileStoryUnavailableReason) storyStatus.textContent += ` Profile Story export unavailable: ${profileStoryUnavailableReason}`;
+  const previewVariants = profileStorySvg && compactProfileStorySvg ? [
+    { width: 480, svg: compactProfileStorySvg, url: profileStoryCompactUrl, fingerprint: profileStoryCandidate.sceneFingerprint },
+    { width: 900, svg: profileStorySvg, url: profileStoryUrl, fingerprint: profileStoryCandidate.sceneFingerprint },
+  ] : [];
+  const publishPreview = $('#before-publish-preview');
+  publishPreview.onToggle = () => updatePublishingPreviews($('#publication-previews'), previewVariants, profileStoryCandidate?.scene);
+  if (publishPreview.open) publishPreview.onToggle();
   for (const [element, candidate] of [[preview, displayedStoryCandidate], [download, displayedStoryCandidate]]) {
     if (candidate?.sceneFingerprint) element.dataset.sceneFingerprint = candidate.sceneFingerprint;
     else delete element.dataset.sceneFingerprint;
@@ -1792,28 +1824,48 @@ function render({ requireVisibleNodes = false, forceLive = false } = {}) {
     url = nextUrl;
     download.href = url;
     download.download = "constellation.svg";
+    studio?.update(account, options, captured);
+    experiences.save(account, options, { storyMode, selectedStoryId, publishing: publishingChoices() });
+    imageViewer?.update(captured, account);
     const artifactFormat = $("#publish-format").value;
     const filename = $("#publish-filename").value.trim();
+    const presentation = $('#publish-presentation').value;
     const publishedContent = artifactFormat === 'html'
       ? renderSceneHTML(scene, { title: `${account} constellation` })
-      : captured;
+      : presentation === '480' ? compactProfileStorySvg : presentation === '900' ? profileStorySvg : captured;
+    if (!publishedContent) {
+      $('#publish-status').textContent = 'This Profile Story is unavailable. Select the current artifact or choose a supported story.';
+      $('#download-publish-artifact').removeAttribute('href');
+      $('#download-publish-artifact').setAttribute('aria-disabled', 'true');
+      $('#workflow').value = '';
+      $('#download-workflow').removeAttribute('href');
+      $('#copy-workflow').disabled = true;
+      $('#copy-markdown').disabled = true;
+      for (const id of ['#install-workflow', '#run-workflow']) $(id).hidden = true;
+      return;
+    }
     if (publishArtifactUrl) URL.revokeObjectURL(publishArtifactUrl);
     publishArtifactUrl = URL.createObjectURL(new Blob([publishedContent], { type: artifactFormat === 'html' ? 'text/html;charset=utf-8' : 'image/svg+xml' }));
     $("#download-publish-artifact").href = publishArtifactUrl;
     $("#download-publish-artifact").download = filename;
     $("#download-publish-artifact").textContent = `Download ${artifactFormat === 'html' ? 'interactive HTML' : 'static SVG'}`;
+    $('#copy-workflow').disabled = false;
     $("#workflow").value = renderWorkflow(isSample ? null : account, options, {
       filename: artifactFormat === 'svg' && /^[a-z\d][a-z\d._-]{0,120}\.svg$/i.test(filename) ? filename : 'constellation.svg',
+      ...(artifactFormat === 'svg' && presentation !== 'current' ? {
+        story: storyMode === 'auto' ? 'auto' : profileStoryCandidate.id,
+        targetWidth: Number(presentation),
+        sourceAccount: !isSample,
+      } : {}),
     });
     updateSnippet();
-    studio?.update(account, options, captured);
-    imageViewer?.update(captured, account);
     if (workflowUrl) URL.revokeObjectURL(workflowUrl);
     workflowUrl = URL.createObjectURL(
       new Blob([$("#workflow").value], { type: "text/yaml;charset=utf-8" }),
     );
     $("#download-workflow").href = workflowUrl;
   };
+  refreshPublication = exportSelection;
   const movedOptions = (repo, pair) => {
     const ringPlacements = {
       ...options.ringPlacements,
@@ -2298,7 +2350,7 @@ async function loadAccount(
     loadedSource = source;
     isSample = false;
     if (restoring || changedAccount) applyOptions(loadOptions);
-    if (restoring) { storyMode = 'manual'; selectedStoryId = 'projects'; }
+    if (restoring) restoreExperience(loadOptions);
     else if (changedAccount) { storyMode = 'auto'; selectedStoryId = 'projects'; }
     if (importedBeforeLoad || changedAccount) { atlasState = null; atlasHistory = null; atlasProjectGraph = null; }
     form.elements.username.value = loadOptions.organizationUser || account;
@@ -2504,8 +2556,13 @@ async function startGuided(name, {legacy = false} = {}) {
     loadedSource = "all";
     $("#output-repository").value =
       `${account}/${data.profile(account)?.type === "Organization" ? ".github" : account}`;
-    applyOptions(options);
+    applyOptions(previousDraft?.options || options);
+    if (previousDraft) restoreExperience(previousDraft.options);
+    else { storyMode = 'auto'; selectedStoryId = 'projects'; }
+    metadataPreview = true;
     if (!workspace) workspace = mountStudioLayout();
+    if (!legacy && !render({ requireVisibleNodes: !previousDraft }))
+      throw Error('No projects are visible with these saved settings. Open Studio to adjust your filters.');
     guidedHost ??= document.createElement("section");
     guidedHost.id = "guided-setup";
     guidedHost.setAttribute("aria-label", "Create your constellation");
@@ -2524,6 +2581,18 @@ async function startGuided(name, {legacy = false} = {}) {
         }
       : null);
     mountOnboarding(guidedHost, {
+      experience: legacy ? null : {
+        candidates: () => storyCandidates,
+        current: () => storyMode === 'auto' ? 'auto' : storyMode === 'story' ? selectedStoryId : null,
+        choose: chooseStory,
+        restart: () => startGuided(account),
+        account: () => {
+          guidedHost.hidden = true;
+          document.documentElement.dataset.entry = 'landing';
+          form.elements.username.focus();
+        },
+        publish: () => { enterStudio(); workspace.reveal($('#publish-destination')); },
+      },
       enterPath: legacy ? null : (path) => {
         metadataPreview = true;
         if (previousDraft) applyOptions(previousDraft.options);
@@ -2587,10 +2656,11 @@ async function startGuided(name, {legacy = false} = {}) {
         render();
       },
       useDesign: () => {
-        document.documentElement.dataset.entry = "install";
-        workspace.reveal($("#download-config"));
+        enterStudio();
+        workspace.reveal($("#publish-destination"));
       },
       generate: async (intent, refreshActivity = false, seedOverride) => {
+        storyMode = 'manual';
         loading = true;
         form.querySelector("button").disabled = true;
         try {
@@ -2689,6 +2759,10 @@ function updateSnippet() {
   const format = $("#publish-format").value;
   const filename = $("#publish-filename").value.trim();
   const portfolio = destination === 'portfolio';
+  $('#publish-presentation').disabled = format !== 'svg';
+  $('#publishing-completion').textContent = portfolio
+    ? 'Setup only: download, upload, and test the hosted artifact. Remote deployment has not been verified. Future updates require another upload.'
+    : 'Setup only: commit the workflow, run it, inspect the Actions summary, then add the README snippet. Installation and remote publication have not been verified. Failed refreshes preserve the last known-good artifact.';
   const validName = /^[a-z\d][a-z\d._-]{0,120}\.(svg|html)$/i.test(filename) && filename.toLowerCase().endsWith(`.${format}`);
   $("#github-publish-controls").hidden = portfolio;
   $("#workflow-install-note").hidden = portfolio;
@@ -2753,19 +2827,31 @@ function updateSnippet() {
     $("#copy-markdown").disabled = true;
     $("#repository-help").textContent = error.message;
   }
+  const current = studio?.config();
+  if (current?.account === account)
+    experiences.save(account, current.options, { storyMode, selectedStoryId, publishing: publishingChoices() });
 }
 $("#output-repository").addEventListener("input", updateSnippet);
+$('#before-publish-preview').addEventListener('toggle', event => {
+  if (event.target.open) event.target.onToggle?.();
+});
+$('#return-to-editing').addEventListener('click', () => {
+  enterStudio();
+  workspace.setMode('simple');
+  $('#studio-mode-simple').focus();
+});
 $("#preview-publish-artifact").addEventListener('click', () => {
   if (!publishArtifactUrl) return;
   window.open(publishArtifactUrl, '_blank', 'noopener,noreferrer');
 });
-$("#publish-filename").addEventListener('input', () => { updateSnippet(); render(); });
+$("#publish-filename").addEventListener('input', () => { updateSnippet(); refreshPublication(); });
+$('#publish-presentation').addEventListener('change', () => { updateSnippet(); refreshPublication(); });
 $("#publish-destination").addEventListener('change', () => {
   if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
     $("#publish-format").value = 'svg';
     $("#publish-filename").value = $("#publish-filename").value.replace(/\.html$/i, '.svg');
   }
-  updateSnippet(); render();
+  updateSnippet(); refreshPublication();
 });
 $("#publish-format").addEventListener('change', () => {
   if ($("#publish-destination").value !== 'portfolio' && $("#publish-format").value === 'html') {
@@ -2775,7 +2861,7 @@ $("#publish-format").addEventListener('change', () => {
   }
   const input = $("#publish-filename");
   if (/^constellation\.(svg|html)$/i.test(input.value)) input.value = input.value.replace(/\.(svg|html)$/i, `.${$("#publish-format").value}`);
-  updateSnippet(); render();
+  updateSnippet(); refreshPublication();
 });
 
 $("#copy-markdown").addEventListener("click", async () => {
