@@ -1,22 +1,22 @@
 {
   "version": 1,
   "source": {
-    "identity": "mnichols08/constellation@6ccc6d42d18bef8403bd0d5286f18bdfc84700ad",
+    "identity": "mnichols08/constellation@5956999fe20ec9a410fc44bc8e3971f427e75cb9",
     "account": "mnichols08",
     "configurationDigest": "sha256:42de25d289ab2f5047ac0d8ddb4bb0ecc96a332eda7c163bf6065241e154aba2",
-    "evidenceDigest": "sha256:d1eb1039867e8d4bc21f6451dda72c697f439a6adf344387ea8dc3e077cfd0f9"
+    "evidenceDigest": "sha256:c77caa6775a886b697b6137e93ed93415ffbb168be80f5c99e44896929b783d6"
   },
-  "referenceDate": "2026-10-12",
+  "referenceDate": "2026-10-13",
   "artifact": {
     "format": "svg",
     "filename": "constellation.svg",
-    "digest": "sha256:760f1c097a66af4b14002a667d47b2b6285e021cbd9788f185a2e08fab3f273b",
-    "bytes": 81600
+    "digest": "sha256:0a28e6d9aded0ac9da022eaa62fbad23dc6ae4240c908b024e6b6933f3a6d403",
+    "bytes": 81607
   },
   "destination": {
     "identity": "mnichols08/constellation@output"
   },
-  "revision": 1,
+  "revision": 2,
   "generation": "success",
   "diagnostics": []
 }
