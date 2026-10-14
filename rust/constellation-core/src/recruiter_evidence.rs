@@ -14,11 +14,14 @@ const DAY_MS: i64 = 86_400_000;
 #[serde(rename_all = "camelCase")]
 struct Input {
     version: u32,
+    #[serde(default)]
     reference: i64,
     #[serde(default)]
     account: String,
     #[serde(default)]
     repositories: Vec<Repository>,
+    #[serde(default)]
+    ordering_only: bool,
 }
 
 #[derive(Deserialize)]
@@ -106,6 +109,12 @@ struct Output {
     order: Vec<String>,
 }
 
+#[derive(Serialize)]
+struct OrderingOutput {
+    version: u32,
+    order: Vec<String>,
+}
+
 fn error(code: &str, message: &str) -> String {
     serde_json::json!({"code": code, "message": message}).to_string()
 }
@@ -149,9 +158,9 @@ fn role_rank(role: &str) -> u8 {
     }
 }
 
-// GitHub IDs are ASCII. Match localeCompare's observed case tie behavior explicitly:
-// compare case-insensitively first, then lowercase before uppercase at the first case tie.
-fn github_name_cmp(a: &str, b: &str) -> Ordering {
+// GitHub IDs are ASCII. The deterministic contract compares case-insensitively,
+// then places lowercase before uppercase at the first otherwise-equal case tie.
+fn ascii_name_cmp(a: &str, b: &str) -> Ordering {
     let lower = a
         .bytes()
         .map(|c| c.to_ascii_lowercase())
@@ -326,8 +335,15 @@ pub fn analyze(json: &str) -> Result<String, String> {
             .cmp(&role_rank(&b.role))
             .then(a.priority.cmp(&b.priority))
             .then(b.pushed_at.unwrap_or(0).cmp(&a.pushed_at.unwrap_or(0)))
-            .then_with(|| github_name_cmp(&a.full_name, &b.full_name))
+            .then_with(|| ascii_name_cmp(&a.full_name, &b.full_name))
     });
+    if input.ordering_only {
+        return serde_json::to_string(&OrderingOutput {
+            version: RECRUITER_EVIDENCE_VERSION,
+            order: ordered.into_iter().map(|repo| repo.id.clone()).collect(),
+        })
+        .map_err(|cause| error("serialization-failed", &cause.to_string()));
+    }
     let output = Output {
         version: RECRUITER_EVIDENCE_VERSION,
         projects: input
@@ -409,6 +425,17 @@ mod tests {
         assert_eq!(
             value["order"],
             serde_json::json!(["lower", "upper", "new", "old", "h", "u"])
+        );
+    }
+
+    #[test]
+    fn ordering_uses_pinned_ascii_punctuation_order() {
+        let result: serde_json::Value = serde_json::from_str(
+            &analyze(r#"{"version":1,"orderingOnly":true,"repositories":[{"id":"plain","fullName":"alice/myapp"},{"id":"underscore","fullName":"alice/my_app"},{"id":"dot","fullName":"alice/my.app"},{"id":"dash","fullName":"alice/my-app"}]}"#).unwrap(),
+        ).unwrap();
+        assert_eq!(
+            result["order"],
+            serde_json::json!(["dash", "dot", "underscore", "plain"])
         );
     }
     #[test]

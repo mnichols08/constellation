@@ -8,7 +8,9 @@ The input has `version: 1`, an explicit `reference` time in epoch milliseconds, 
 
 The output has `version: 1`, one evidence result per input repository, and `order`, a list of input IDs. Evidence contains observed month count, history completeness, latest observed time, recency band and unknown-recency flag, contributor count and coverage flag, external/contributed flags, trailing-quarter activity, role, and featured status.
 
-Ordering is role (`featured`, `supporting`, `experimental`, `historical`, then unassigned), authored priority (default 9999), `pushedAt` descending (invalid or absent is zero), then `fullName`. GitHub identifiers use an explicit ASCII case-insensitive comparison with lowercase before uppercase for an otherwise equal name, preserving the former JavaScript behavior without depending on a host locale.
+Ordering is role (`featured`, `supporting`, `experimental`, `historical`, then unassigned), authored priority (default 9999), `pushedAt` descending (invalid or absent is zero), then `fullName`. GitHub identifiers use explicit ASCII case-insensitive ordering with lowercase before uppercase for an otherwise equal name. ASCII punctuation therefore follows byte order; unlike the former locale-sensitive JavaScript comparator, this is reproducible across hosts.
+
+Callers that only need selection order set `orderingOnly: true` on the same JSON-string contract. Their repository records contain only `id`, `fullName`, `pushedAt`, `role`, and `priority`; commit, event, and organization evidence is not serialized or analyzed.
 
 ## Limits and errors
 

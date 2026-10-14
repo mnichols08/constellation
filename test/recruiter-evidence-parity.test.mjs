@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeRecruiterProjects } from '../src/recruiter.mjs';
+import { analyzeRecruiterProjects, orderRecruiterProjects } from '../src/recruiter.mjs';
 import { repositories, options, referenceDate } from './fixtures/recruiter.mjs';
 import { oracleAnalyzeRecruiterEvidence } from './fixtures/recruiter-evidence-oracle.mjs';
 
@@ -63,4 +63,9 @@ test('Recruiter Evidence v1 preserves locale ordering for mixed-case ties', () =
   ];
   const settings = { projectShowcase: Object.fromEntries(repos.map(repo => [repo.full_name, { role: 'featured', priority: 1 }])) };
   parity(repos, settings);
+});
+
+test('Recruiter Evidence v1 pins deterministic ASCII punctuation ordering', () => {
+  const repos = ['myapp', 'my_app', 'my.app', 'my-app'].map(name => ({ name, full_name: `alice/${name}`, pushed_at: '2026-09-01' }));
+  assert.deepEqual(orderRecruiterProjects(repos).map(repo => repo.full_name), ['alice/my-app', 'alice/my.app', 'alice/my_app', 'alice/myapp']);
 });

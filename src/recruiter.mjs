@@ -5,8 +5,6 @@ import { analyzeRecruiterEvidence, RECRUITER_EVIDENCE_VERSION } from './engine.m
 const role = (repo, options) => options.projectShowcase?.[repo.full_name] || options.projectShowcase?.[repo.name] || {};
 const key = value => String(value || '').toLowerCase();
 const lookup = (values, id) => Object.entries(values || {}).find(([name]) => key(name) === key(id))?.[1];
-const MAX_RECRUITER_REPOSITORIES = 512;
-const MAX_RECRUITER_COMMITS = 4096;
 export const recruiterBands = ['NOW', 'RECENT', 'EARLIER'];
 export const recruiterRadii = [225, 275, 325];
 export const recruiterProjectLimit = 7;
@@ -21,14 +19,12 @@ const date = value => {
 };
 
 function recruiterInput(repositories, options, account, reference) {
-  if (repositories.length > MAX_RECRUITER_REPOSITORIES) throw new Error('Recruiter Evidence repository limit exceeded.');
   const sanitizedEvents = sanitizeActivityEvents(options.historyData?.events);
   return { version: RECRUITER_EVIDENCE_VERSION, reference, account, repositories: repositories.map((repo, index) => {
   const snapshot = key(options.commitHistoryData?.repository) === key(repo.full_name)
     ? options.commitHistoryData : lookup(options.commitFieldData, repo.full_name);
   const rows = lookup(options.organizationData?.records, repo.full_name);
   const showcase = role(repo, options);
-  if ((snapshot?.commits || []).length > MAX_RECRUITER_COMMITS) throw new Error('Recruiter Evidence commit limit exceeded.');
   return {
     id: String(index), fullName: repo.full_name, pushedAt: date(repo.pushed_at),
     role: showcase.role || '', priority: showcase.priority ?? 9999,
@@ -57,7 +53,11 @@ export function projectEvidence(repo, options, account, reference) {
 }
 
 export function orderRecruiterProjects(repositories, options = {}) {
-  return analyzeRecruiterProjects(repositories, options, '', 0).ordered.map(item => item.repository);
+  const result = analyzeRecruiterEvidence({ version: RECRUITER_EVIDENCE_VERSION, orderingOnly: true, repositories: repositories.map((repo, index) => {
+    const showcase = role(repo, options);
+    return { id: String(index), fullName: repo.full_name, pushedAt: date(repo.pushed_at), role: showcase.role || '', priority: showcase.priority ?? 9999 };
+  }) });
+  return result.order.map(id => repositories[Number(id)]);
 }
 
 // Finalize the existing scene so exported SVG and Studio hit targets agree.
