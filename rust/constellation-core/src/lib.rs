@@ -7,6 +7,7 @@ mod physics;
 mod profile_evidence;
 mod projection;
 mod refinement;
+mod recruiter_evidence;
 mod scene;
 mod semantic;
 mod stable;
@@ -78,6 +79,11 @@ pub fn compose_story(input: &str) -> Result<String, String> {
 #[wasm_bindgen]
 pub fn analyze_story_clarity(input: &str) -> Result<String, String> {
     story_clarity::analyze(input)
+}
+
+#[wasm_bindgen]
+pub fn analyze_recruiter_evidence(input: &str) -> Result<String, String> {
+    recruiter_evidence::analyze(input)
 }
 
 /// Retained Evidence Navigation index for one Semantic Graph v1. Build once per
