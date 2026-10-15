@@ -167,6 +167,12 @@ export function analyzeStoryClarity(input) {
   return JSON.parse(core.analyze_story_clarity(JSON.stringify(input)));
 }
 
+export const RECRUITER_EVIDENCE_VERSION = 1;
+export function analyzeRecruiterEvidence(input) {
+  if (!core?.analyze_recruiter_evidence) throw new Error('Recruiter Evidence needs the rebuilt Rust/WASM engine.');
+  return JSON.parse(core.analyze_recruiter_evidence(JSON.stringify(input)));
+}
+
 // Evidence Navigation v1: build the retained Rust index once per graph, then
 // navigate per interaction. Pass a graph from evidenceNavigationGraph().
 export function createEvidenceNavigator(graph) {
