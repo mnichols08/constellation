@@ -45,6 +45,7 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | --- | --- |
 | System overview and ownership boundaries | [Architecture](architecture.md) · [Rust/WASM boundary](architecture/RUST-WASM-BOUNDARY.md) |
 | Evidence, security, and privacy | [Evidence and provenance](evidence-provenance.md) · [Security model](security-model.md) · [Security and trust](engineering/SECURITY-AND-TRUST.md) |
+| Recruiter evidence derivation and ordering | [Recruiter Evidence v1](recruiter-evidence.md) |
 | Tests and quality checks | [Testing and quality](engineering/TESTING-AND-QUALITY.md) |
 | Performance limits | [Performance budgets](engineering/PERFORMANCE-BUDGETS.md) |
 | AI-assisted interpretation | [AI specification](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |

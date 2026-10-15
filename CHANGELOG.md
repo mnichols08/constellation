@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Move Recruiter Evidence v1 derivation and deterministic project ordering into the bounded Rust/WASM core, keeping GitHub normalization, layout, and presentation in JavaScript. Full-name ties now use host-independent ASCII ordering instead of locale-sensitive JavaScript ordering, so punctuation-only ties can change order. Config v7, Scene v1, Evidence v1, Semantic Graph v1, and Web Component API v1 are unchanged.
+
 ## Unreleased — Portfolio Integration (v4.7.x)
 
 - Add Portable Portfolio Artifact v1 with validated Scene v1, deterministic files, SHA-256 asset digests, explicit entry points, bounded manifest and bundle validation, and static SVG plus self-contained interactive HTML outputs.
