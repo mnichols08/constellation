@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.1.0 — How it works, and GitHub sign-in on Netlify
+
+- **How it works page.** `how-it-works.html` explains Constellation in one page: a live example sky (drawn offline by the Studio's own engine, with **Layout** and **Theme** choices), the three steps, how to read the map, what signing in does and doesn't do, and what runs under the hood. Home's footer links to it instead of the docs folder, and credits the maker: "Made with ♥ by mnichols08".
+- **GitHub sign-in exchange on Netlify.** `auth/netlify/functions/github-exchange.mjs` serves the existing exchange handler as a Netlify Function at `/api/github-exchange`, with a per-visitor rate limit. `netlify.toml` deploys only that function. `scripts/setup-sign-in.sh` walks the owner through registering the GitHub App and hands the client secret straight to Netlify. See [GitHub sign-in deployment](docs/github-oauth.md).
+- **Fix: reduced-motion maps were zoomed in.** With moving rings, the still picture shown to people who prefer reduced motion was pinned to a fixed 900×560 box. Once a map was framed around its stars, that box no longer matched the visible area, so the still map appeared zoomed and cropped, including in README images. The picture now covers exactly the map's visible area.
+- Tests: a Netlify Function test, a framing test for the reduced-motion picture, and Playwright journeys for the new page (live example, layout and theme switching, keyboard, no GitHub requests, fallback without the engine) on all four browser setups.
+
 ## 5.0.1 — Layouts that survive wider fonts
 
 - Fix Studio layouts that broke when the browser uses a wider font, as Linux does without Inter or Segoe UI (DejaVu Sans): on small phones Shuffle and Save shrank below 44px and the account chip lost its name; the star card's last button fell outside a short card at 320×568; and Fine-tune and the profile steps of **Get it** scrolled sideways at 320px. Top-bar controls no longer shrink, star card actions sit in an even grid, and long button labels in sheets and panels wrap.
