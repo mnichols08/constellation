@@ -55,3 +55,22 @@ test('without the map engine the page still reads and points to the Studio', asy
   await expect(page.locator('#demo-controls')).toBeHidden();
   await expect(page.getByRole('heading', { level: 2, name: 'Reading the map' })).toBeVisible();
 });
+
+test('Home and How it works invite a star on GitHub, in a new tab', async ({ page }) => {
+  for (const path of ['/', '/how-it-works.html']) {
+    await page.goto(path);
+    const star = page.getByRole('contentinfo').getByRole('link', { name: 'Star on GitHub (opens in a new tab)' });
+    await expect(star).toBeVisible();
+    await expect(star).toHaveAttribute('href', 'https://github.com/mnichols08/constellation');
+    await expect(star).toHaveAttribute('target', '_blank');
+    await expect(star).toHaveAttribute('rel', /noopener/);
+  }
+  // The page's closing call to action offers it beside Make my sky.
+  await expect(page.getByRole('main').getByRole('link', { name: 'Star on GitHub (opens in a new tab)' })).toBeVisible();
+  // Clicking opens GitHub in a new tab and keeps this one where it was.
+  await page.route('https://github.com/mnichols08/constellation', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: 'repository' }));
+  const [tab] = await Promise.all([page.context().waitForEvent('page'), page.getByRole('contentinfo').getByRole('link', { name: /Star on GitHub/ }).click()]);
+  await tab.waitForLoadState();
+  expect(tab.url()).toBe('https://github.com/mnichols08/constellation');
+  await expect(page).toHaveURL(/how-it-works\.html$/);
+});

@@ -28,6 +28,13 @@ Other choices on Home:
   sky you can switch between layouts and themes. It explains the three steps,
   how to read the map, and what signing in does with your data. It draws the
   example offline, without asking GitHub for anything.
+- **Star on GitHub**, also at the bottom, opens the project's repository in a
+  new tab so you can star it without losing your place. The How it works page
+  offers it too.
+
+Links to the Studio show a preview image in chat apps and social sites. To
+rebuild it after changing the default look, run
+`node scripts/build-og-image.mjs`.
 
 Home remembers the last username you opened in this browser.
 

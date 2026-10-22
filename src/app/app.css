@@ -312,6 +312,9 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .home-foot a { color: var(--text-3); display: inline-block; padding: var(--space-1) 0; }
 .home-foot a:hover { color: var(--text); }
 .made-by .heart { color: #e5484d; }
+.home-foot .star-link { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-2); text-decoration: none; font-weight: 560; }
+.home-foot .star-link:hover { border-color: var(--border-strong); color: var(--text); }
+.star-link svg, .star-icon { color: var(--amber); }
 
 /* ---------------------------------------------------------- How it works */
 .guide { display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(1200px 520px at 50% -12%, var(--primary-soft), transparent 70%), var(--bg); }
@@ -352,6 +355,7 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .guide-grid dd { margin: 0; font-size: 15px; }
 .guide-callout { padding: var(--space-4); border-left: 4px solid var(--primary); border-radius: var(--radius-s); background: var(--primary-soft); color: var(--text) !important; }
 .guide-list { margin: 0; padding-left: 1.2em; display: grid; gap: var(--space-2); }
+.guide-cta-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
 .guide-cta { display: grid; justify-items: center; gap: var(--space-4); text-align: center; padding: var(--space-6) var(--space-4); border-radius: var(--radius-l); background: var(--surface); border: 1px solid var(--border); }
 @media (max-width: 520px) {
   .guide-demo { padding: var(--space-4); }

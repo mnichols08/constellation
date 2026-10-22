@@ -20,7 +20,9 @@ test('first visit: headline, focused field, one primary action, accessible', asy
   await expect(field(page)).toBeFocused();
   await expect(go(page)).toBeEnabled();
   expect(await axeViolations(page)).toEqual([]);
-  await expectPerceptibleScreen(page, { maxControls: 6, primary: 1 });
+  // Sign in, the field, Show my sky, Try an example, and three quiet footer
+  // links (the maker, How it works, Star on GitHub).
+  await expectPerceptibleScreen(page, { maxControls: 7, primary: 1 });
 });
 
 test('typing works before the app is ready, and an early Enter is kept', async ({ page }) => {
