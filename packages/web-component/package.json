@@ -1,6 +1,6 @@
 {
   "name": "@constellation/web-component",
-  "version": "5.1.0",
+  "version": "5.1.1",
   "type": "module",
   "exports": "./index.mjs",
   "files": [
@@ -15,7 +15,7 @@
     "portable-embed.md"
   ],
   "dependencies": {
-    "@constellation/core": "5.1.0"
+    "@constellation/core": "5.1.1"
   },
   "license": "UNLICENSED"
 }
