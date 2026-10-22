@@ -5,6 +5,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Usually 5-7 minutes; a hung step must not hold a runner for six hours.
+    timeout-minutes: 30
     env:
       CONSTELLATION_BROWSER: /usr/bin/google-chrome
     steps:
@@ -40,6 +42,8 @@ jobs:
   # controls, jargon, map size, one primary action, axe, keyboard and phone.
   ui:
     runs-on: ubuntu-latest
+    # Usually 6-14 minutes; a stuck browser must not hold a runner for six hours.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
