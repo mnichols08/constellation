@@ -384,7 +384,11 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
       }
       return;
     }
-    const entry = allowed.get(url.pathname);
+    // Studio UI files are resolved per request so new modules need no restart.
+    const app = /^\/src\/app\/((?:[a-z\d-]+\/)*[a-z\d-]+\.(mjs|css))$/.exec(url.pathname);
+    const entry = app
+      ? [`../src/app/${app[1]}`, app[2] === "css" ? "text/css" : "text/javascript"]
+      : allowed.get(url.pathname);
     if (!entry) {
       res.writeHead(404);
       res.end("Not found");
