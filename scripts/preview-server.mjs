@@ -399,11 +399,12 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
             `<head>\n<meta name="constellation-api" content="/api/github">\n<meta name="constellation-auth" content="${token ? "authenticated" : "public"}">`,
           );
       }
-      res.setHeader("Content-Type", `${entry[1]}; charset=utf-8`);
+      // Binary types take no charset; a suffixed WASM type makes browsers warn.
+      res.setHeader("Content-Type", entry[1] === "application/wasm" ? entry[1] : `${entry[1]}; charset=utf-8`);
       res.end(content);
-    } catch {
-      res.writeHead(500);
-      res.end("Could not load preview");
+    } catch (error) {
+      res.writeHead(error.code === "ENOENT" ? 404 : 500);
+      res.end(error.code === "ENOENT" ? "Not found" : "Could not load preview");
     }
   });
 }

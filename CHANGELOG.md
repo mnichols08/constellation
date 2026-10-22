@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 4.7.1 — Perception test harness
 
+- Add a Playwright harness (`playwright.config.mjs`, `e2e/support/`) that checks what a person actually sees: overlapping controls, controls without a visible label, horizontal scroll, engine jargon on screen, the map's share of the viewport and that it is not blank, one primary action per screen, axe WCAG 2.2 AA, and console errors or failed requests. GitHub is stubbed with deterministic fixture accounts, so runs are offline and repeatable. `@playwright/test` and `@axe-core/playwright` are development dependencies only; the Action and packages install nothing new.
+- Fix the local preview server: a missing file returns 404 instead of 500, and WebAssembly is served as `application/wasm` without a charset suffix.
 - Move Recruiter Evidence v1 derivation and deterministic project ordering into the bounded Rust/WASM core, keeping GitHub normalization, layout, and presentation in JavaScript. Full-name ties now use host-independent ASCII ordering instead of locale-sensitive JavaScript ordering, so punctuation-only ties can change order. Config v7, Scene v1, Evidence v1, Semantic Graph v1, and Web Component API v1 are unchanged.
 
 ## Unreleased — Portfolio Integration (v4.7.x)
