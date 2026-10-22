@@ -164,13 +164,24 @@ test('a good token signs in, opens your sky, and signs out again', async ({ page
   await expectTokenNowhere(page);
 });
 
+test('the hosted sign-in settings stay off on any other address', async ({ page }) => {
+  // index.html carries the real app's settings, registered for GitHub Pages.
+  // Served from 127.0.0.1 they can't complete sign-in, so only the token form shows.
+  const dialog = await openSignIn(page);
+  await expect(dialog.getByLabel('Personal access token')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Continue with GitHub' })).toHaveCount(0);
+});
+
 test('a copy with GitHub sign-in set up hands you to GitHub, token form tucked away', async ({ page, baseURL }) => {
-  // Same page, but with an OAuth app configured the way a deployment would.
+  // Same page, but with an OAuth app registered for this address, the way a deployment would be.
+  const setting = (name, value) => (html) => html.replace(new RegExp(`(name="${name}" content=")[^"]*"`), `$1${value}"`);
   await page.route((url) => url.hostname === '127.0.0.1' && url.pathname === '/', async (route) => {
     const response = await route.fetch();
-    const body = (await response.text())
-      .replace('name="constellation-oauth-client" content=""', 'name="constellation-oauth-client" content="test-client"')
-      .replace('name="constellation-oauth-exchange" content=""', 'name="constellation-oauth-exchange" content="https://exchange.example/token"');
+    const body = [
+      setting('constellation-oauth-client', 'test-client'),
+      setting('constellation-oauth-exchange', 'https://exchange.example/token'),
+      setting('constellation-oauth-redirect', new URL('/', baseURL).href),
+    ].reduce((html, apply) => apply(html), await response.text());
     await route.fulfill({ response, body });
   });
   const dialog = await openSignIn(page);

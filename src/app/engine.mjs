@@ -104,10 +104,17 @@ export function createEngine({
   });
   const clientId = meta('constellation-oauth-client');
   const exchangeUrl = meta('constellation-oauth-exchange');
+  // GitHub sends people back only to the app's registered callback, and the
+  // exchange answers only that origin. A copy served anywhere else (a local
+  // preview, a fork) can't complete sign-in, so it doesn't offer it. With no
+  // registered callback given, any address is assumed to work.
+  const registered = meta('constellation-oauth-redirect');
+  const here = win ? win.location.origin + win.location.pathname : '';
+  const atRegistered = !registered || here === registered || here === `${registered}index.html`;
   const oauth = createGitHubOAuth({
     clientId,
     exchangeUrl,
-    redirectUri: win ? win.location.origin + win.location.pathname : '',
+    redirectUri: registered || here,
     storage: sessionStore,
   });
   const local = win ? ['localhost', '127.0.0.1'].includes(win.location.hostname) : false;
@@ -133,7 +140,7 @@ export function createEngine({
 
     signIn: {
       /** True when the hosted OAuth exchange is configured for this deployment. */
-      configured: Boolean(clientId && exchangeUrl),
+      configured: Boolean(clientId && exchangeUrl && atRegistered),
       /** A personal token can be pasted only on a local preview. */
       tokenAllowed: local,
       local: localAuth,
