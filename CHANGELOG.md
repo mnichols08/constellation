@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.2.0 — Star on GitHub, and link previews
+
+- **Star on GitHub.** Home's footer and the How it works page link to the repository in a new tab, so visitors can star it without losing their place. Screen readers hear "(opens in a new tab)". Home's control budget in the perception tests rises from six to seven for this quiet footer link.
+- **Link previews.** Both pages carry Open Graph and Twitter card tags with a 1200×630 preview image, `assets/og-image.png`. `scripts/build-og-image.mjs` draws it from the Studio's own example sky and headline, so it can be rebuilt when the look changes. A test checks the tags, the absolute image URL and the image's size.
+
 ## 5.1.1 — Sign in with GitHub, switched on
 
 - **GitHub sign-in is live on the hosted Studio.** `index.html` now carries the GitHub App's client ID and the Netlify exchange address, so **Sign in** on Home offers **Continue with GitHub**.
