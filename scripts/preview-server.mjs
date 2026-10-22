@@ -124,6 +124,7 @@ const allowed = new Map([
     [`../src/history/${name}.mjs`, "text/javascript"],
   ]),
   ["/", ["../index.html", "text/html"]],
+  ["/how-it-works.html", ["../how-it-works.html", "text/html"]],
   ["/profiles/preview.html", ["../profiles/preview.html", "text/html"]],
   ...[
     "github-oauth",

@@ -24,6 +24,10 @@ Other choices on Home:
 - **Your saved designs (n)** appears when this browser has saved designs.
 - **Sign in** (top right) appears when this copy of Constellation has sign-in
   set up. See [Sign in](#sign-in).
+- **How it works**, at the bottom, opens a one-page guide with a live example
+  sky you can switch between layouts and themes. It explains the three steps,
+  how to read the map, and what signing in does with your data. It draws the
+  example offline, without asking GitHub for anything.
 
 Home remembers the last username you opened in this browser.
 

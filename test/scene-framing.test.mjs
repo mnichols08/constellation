@@ -133,6 +133,8 @@ test('browser keeps frame furniture visible in a non-zero fitted viewport', { sk
   await writeFile(html, `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0}svg{display:block;width:100vw;height:100vh}</style>${renderSceneSVG(scene, { animate: false, generatedAt: '2026-09-26T18:05:07Z' })}`);
   t.after(() => rm(directory, { recursive: true, force: true }));
   const page = await openBrowser(t, new URL(`file:///${html.replaceAll('\\', '/')}`).href);
+  // Measure only once the page has parsed the SVG (a busy machine can be slower than navigation).
+  await page.waitFor("document.querySelector('svg .credit') && document.querySelector('svg .generated-at')");
   const geometry = await page.evaluate(`(() => {const svg=document.querySelector('svg'), box=svg.getBoundingClientRect();return Object.fromEntries(['.credit','.mapping-legend','.generated-at'].map(s=>{const r=svg.querySelector(s).getBoundingClientRect();return [s,{left:r.left,top:r.top,right:r.right,bottom:r.bottom,visible:r.width>0&&r.height>0&&r.right>box.left&&r.left<box.right&&r.bottom>box.top&&r.top<box.bottom}]}))})()`);
   for (const selector of ['.credit', '.mapping-legend', '.generated-at']) assert.equal(geometry[selector].visible, true, `${selector} intersects rendered SVG viewport`);
   assert.deepEqual(page.errors, []);

@@ -10,3 +10,4 @@ dist/hierarchy-demo.html
 dist/story-demo.html
 test-results/
 playwright-report/
+.netlify/
