@@ -29,6 +29,9 @@
   --success-soft: #e8f6ef;
   /* Featured star icon: 3:1 against the surface (WCAG 1.4.11). Never text. */
   --amber: #c27803;
+  /* Headline gradient stops: at least 3:1 on the page at every point (large text). */
+  --title-mid: #a83fc4;
+  --title-end: #c4531f;
   --stage: #080c24;
   --shadow-1: 0 1px 2px rgb(16 24 40 / .06), 0 1px 3px rgb(16 24 40 / .08);
   --shadow-2: 0 8px 24px rgb(16 24 40 / .10), 0 2px 6px rgb(16 24 40 / .06);
@@ -74,6 +77,8 @@
     --success: #6fd6a6;
     --success-soft: #0f2c21;
     --amber: #f5b83d;
+    --title-mid: #c056d8;
+    --title-end: #f08a4b;
     --shadow-1: 0 1px 2px rgb(0 0 0 / .4);
     --shadow-2: 0 8px 24px rgb(0 0 0 / .45);
     --shadow-3: 0 24px 64px rgb(0 0 0 / .6);
@@ -99,6 +104,8 @@
   --success: #6fd6a6;
   --success-soft: #0f2c21;
   --amber: #f5b83d;
+  --title-mid: #c056d8;
+  --title-end: #f08a4b;
   --shadow-1: 0 1px 2px rgb(0 0 0 / .4);
   --shadow-2: 0 8px 24px rgb(0 0 0 / .45);
   --shadow-3: 0 24px 64px rgb(0 0 0 / .6);
@@ -290,7 +297,7 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .brand-mark { color: var(--primary); }
 .home-main { display: grid; place-content: center; justify-items: center; gap: var(--space-5); padding: var(--space-6) var(--space-4) var(--space-7); text-align: center; }
 .home-title { font-family: var(--font-display); font-size: clamp(40px, 7vw, 76px); font-weight: 720; letter-spacing: -.035em; line-height: 1.02; max-width: 14ch; }
-.home-title em { font-style: normal; background: linear-gradient(100deg, var(--primary), #c056d8 60%, #f08a4b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.home-title em { font-style: normal; background: linear-gradient(100deg, var(--primary), var(--title-mid) 60%, var(--title-end)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .home-lede { max-width: 46ch; font-size: clamp(16px, 2vw, 19px); color: var(--text-2); }
 .home-form { width: min(560px, 100%); display: grid; gap: var(--space-2); }
 .home-input-row { display: flex; gap: var(--space-2); padding: 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface); box-shadow: var(--shadow-2); }
@@ -313,7 +320,7 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .guide-main:focus { outline: none; }
 .guide-hero { display: grid; gap: var(--space-4); justify-items: center; text-align: center; padding-top: var(--space-5); }
 .guide-title { font-family: var(--font-display); font-size: clamp(40px, 7vw, 64px); font-weight: 720; letter-spacing: -.035em; line-height: 1.02; }
-.guide-title em { font-style: normal; background: linear-gradient(100deg, var(--primary), #c056d8 60%, #f08a4b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.guide-title em { font-style: normal; background: linear-gradient(100deg, var(--primary), var(--title-mid) 60%, var(--title-end)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .guide-h2 { font-family: var(--font-display); font-size: clamp(24px, 3.4vw, 30px); letter-spacing: -.02em; }
 .guide-h3 { font-size: 18px; }
 .guide-muted { color: var(--text-2); }

@@ -39,6 +39,8 @@ test('switching layout and theme redraws the example and says so', async ({ page
   const rings = await sky(page).evaluate((svg) => svg.outerHTML);
   expect(rings).not.toBe(first);
   await page.getByRole('radio', { name: 'Synthwave' }).check();
+  await expect(page.getByRole('status')).toHaveText('Showing the Synthwave theme.');
+  await expect(sky(page)).toHaveAttribute('aria-label', /Rings layout, Synthwave theme/);
   expect(await sky(page).evaluate((svg) => svg.outerHTML)).not.toBe(rings);
   // Keyboard: arrow keys move through a radio group.
   await page.getByRole('radio', { name: 'Synthwave' }).press('ArrowRight');
