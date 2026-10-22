@@ -13,7 +13,8 @@ export function floatingAnimationOptions(value = {}) {
 }
 
 // Native SVG animation also runs when the exported image is embedded in a README.
-export function animateRingSVG(svg, settings, geometry, stars, center, spread, escape, floating = floatingAnimationOptions(), anchors = []) {
+// spreadX: the orbits' horizontal reach (368 wide; equal to spread when round).
+export function animateRingSVG(svg, settings, geometry, stars, center, spread, escape, floating = floatingAnimationOptions(), anchors = [], spreadX = 368) {
   if ((!settings.enabled && !floating.enabled && !svg.includes('data-perspective="true"')) || !geometry) return svg;
   const radii = [0, 1, 2, 3].map(i => geometry[2 + i * 22]);
   const ringAt = (x, y) => {
@@ -32,7 +33,7 @@ export function animateRingSVG(svg, settings, geometry, stars, center, spread, e
     return [`${star.x.toFixed(1)}:${star.y.toFixed(1)}`, { x: Math.max(0, Math.min(star.x - 32, 868 - star.x, label ? +label[1] - half - 4 : 900, label ? 896 - +label[1] - half : 900)), y: Math.max(0, Math.min(star.y - 28, (spread === 88 ? 220 : 500) - star.y, label ? +label[2] - 20 : 560, label ? (spread === 88 ? 250 : 530) - +label[2] : 560)) }];
   }));
   const motion = (x, y, local = false) => {
-    const dx = local ? x - 240 : (x - 450) * 172 / 368;
+    const dx = local ? x - 240 : (x - 450) * 172 / spreadX;
     const dy = local ? y - 240 : (y - center) * 172 / spread;
     const attached = local || anchors.some(point => Math.hypot(point.x - x, point.y - y) < .2);
     const ring = attached ? ringAt(dx, dy) : -1;
@@ -51,7 +52,7 @@ export function animateRingSVG(svg, settings, geometry, stars, center, spread, e
     if (!settings.enabled || !settings.speeds[ring]) return null;
     const values = Array.from({ length: 73 }, (_, i) => {
       const angle = ringAngle(ring, i / 72), cos = Math.cos(angle), sin = Math.sin(angle);
-      return [local ? 240 + dx * cos - dy * sin : 450 + (dx * cos - dy * sin) * 368 / 172,
+      return [local ? 240 + dx * cos - dy * sin : 450 + (dx * cos - dy * sin) * spreadX / 172,
         local ? 240 + dx * sin + dy * cos : center + (dx * sin + dy * cos) * spread / 172];
     });
     return { values, duration: 60 / settings.speeds[ring] };

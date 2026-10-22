@@ -4,11 +4,7 @@ import { readdirSync } from "node:fs";
 import { fetchPinnedRepositories } from "../src/constellation.mjs";
 
 const allowed = new Map([
-  [
-    "/src/constellation-library.mjs",
-    ["../src/constellation-library.mjs", "text/javascript"],
-  ],
-  ...["onboarding-model", "onboarding-generator", "onboarding-ui", "guided-experience", "publishing-preview", "profile-story-export", "portfolio-artifact", "portable-export"].map(
+  ...["onboarding-model", "onboarding-generator", "profile-story-export", "portfolio-artifact", "portable-export"].map(
     (name) => [`/src/${name}.mjs`, [`../src/${name}.mjs`, "text/javascript"]],
   ),
   ...[
@@ -39,13 +35,11 @@ const allowed = new Map([
     ["../src/hierarchy-model.mjs", "text/javascript"],
   ],
   ["/src/story-model.mjs", ["../src/story-model.mjs", "text/javascript"]],
-  ["/src/studio-boot.mjs", ["../src/studio-boot.mjs", "text/javascript"]],
   ...[
     "asteroid-field",
     "commit-field",
     "repository-commits",
     "commit-graph",
-    "studio-commits",
     "story",
     "renderer-html",
     "interactive-runtime",
@@ -84,10 +78,10 @@ const allowed = new Map([
     }),
   ...[
     "account-sun",
+    "orbit-shape",
     "scene",
     "timeline",
     "scene-layers",
-    "studio-layers",
     "renderer-svg",
     "recruiter",
     "recruiter-svg",
@@ -111,7 +105,7 @@ const allowed = new Map([
     ["../src/filter-explanation.mjs", "text/javascript"],
   ],
   ["/src/evidence.mjs", ["../src/evidence.mjs", "text/javascript"]],
-  ...["settings", "model", "data", "graph", "studio"].map((name) => [
+  ...["settings", "model", "data", "graph"].map((name) => [
     `/src/organization/${name}.mjs`,
     [`../src/organization/${name}.mjs`, "text/javascript"],
   ]),
@@ -121,26 +115,21 @@ const allowed = new Map([
     "project-lifecycle",
     "contribution-history",
     "contribution-comet",
-    "comet-lab",
     "language-history",
     "external-contributions",
     "history-svg",
     "time-lapse-svg",
-    "studio-history",
   ].map((name) => [
     `/src/history/${name}.mjs`,
     [`../src/history/${name}.mjs`, "text/javascript"],
   ]),
   ["/", ["../index.html", "text/html"]],
   ["/profiles/preview.html", ["../profiles/preview.html", "text/html"]],
-  ["/src/studio-layout.css", ["../src/studio-layout.css", "text/css"]],
-  ["/src/preview.css", ["../src/preview.css", "text/css"]],
   ...[
     "github-oauth",
     "github-session",
     "github-request-cache",
     "github-access",
-    "preview",
     "export-density",
     "preview-data",
     "constellation",
@@ -148,14 +137,12 @@ const allowed = new Map([
     "visual-style",
     "label-editor",
     "engine",
-    "graph-explorer",
     "hierarchy",
     "project-constellation",
     "project-constellation-scene",
     "github-project-structure",
     "ring-animation",
     "perspective",
-    "live-tilt",
     "selection",
     "artifact-layouts",
     "config-schema",
@@ -165,22 +152,15 @@ const allowed = new Map([
     "design-randomizer-v6",
     "randomize-parts",
     "layout-refinement",
-    "studio-randomize-motion",
     "export-image",
-    "image-viewer",
     "node-sizing",
     "repository-filters",
-    "repository-picker",
     "contributed-repositories",
     "commit-constellation",
     "seeded-random",
     "share-link",
-    "studio-config-form",
-    "studio-design",
     "semantic-studio",
-    "studio-tour",
     "studio-presets",
-    "studio-layout",
     "themes",
     "visual-mapping",
     "starfield",
@@ -383,7 +363,11 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
       }
       return;
     }
-    const entry = allowed.get(url.pathname);
+    // Studio UI files are resolved per request so new modules need no restart.
+    const app = /^\/src\/app\/((?:[a-z\d-]+\/)*[a-z\d-]+\.(mjs|css))$/.exec(url.pathname);
+    const entry = app
+      ? [`../src/app/${app[1]}`, app[2] === "css" ? "text/css" : "text/javascript"]
+      : allowed.get(url.pathname);
     if (!entry) {
       res.writeHead(404);
       res.end("Not found");
@@ -399,11 +383,12 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
             `<head>\n<meta name="constellation-api" content="/api/github">\n<meta name="constellation-auth" content="${token ? "authenticated" : "public"}">`,
           );
       }
-      res.setHeader("Content-Type", `${entry[1]}; charset=utf-8`);
+      // Binary types take no charset; a suffixed WASM type makes browsers warn.
+      res.setHeader("Content-Type", entry[1] === "application/wasm" ? entry[1] : `${entry[1]}; charset=utf-8`);
       res.end(content);
-    } catch {
-      res.writeHead(500);
-      res.end("Could not load preview");
+    } catch (error) {
+      res.writeHead(error.code === "ENOENT" ? 404 : 500);
+      res.end(error.code === "ENOENT" ? "Not found" : "Could not load preview");
     }
   });
 }

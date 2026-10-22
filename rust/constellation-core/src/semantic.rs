@@ -19,6 +19,9 @@ pub struct Input {
     pub compact: bool,
     #[serde(default)]
     pub rotations: [f64; 4],
+    /// Round orbits: the horizontal spread equals the vertical one.
+    #[serde(default)]
+    pub round: bool,
 }
 #[derive(Serialize)]
 pub struct Placement {
@@ -224,6 +227,11 @@ pub fn layout(mut input: Input) -> Result<Output, String> {
     for (i, p) in placements.iter().enumerate() {
         groups.entry((p.band, p.sector)).or_default().push(i);
     }
+    let spread_x = match (input.round, input.compact) {
+        (true, true) => 88.0,
+        (true, false) => 192.0,
+        _ => 368.0,
+    };
     let radii: Vec<_> = (0..bands.len())
         .map(|b| 0.38 + 0.59 * b as f64 / (bands.len() - 1).max(1) as f64)
         .collect();
@@ -241,7 +249,7 @@ pub fn layout(mut input: Input) -> Result<Output, String> {
             }]
             .to_radians();
             placements[*i].position = [
-                round(450.0 + 368.0 * radii[band] * angle.cos()),
+                round(450.0 + spread_x * radii[band] * angle.cos()),
                 round(
                     if input.compact { 126.0 } else { 270.0 }
                         + if input.compact { 88.0 } else { 192.0 } * radii[band] * angle.sin(),
@@ -273,7 +281,7 @@ pub fn layout(mut input: Input) -> Result<Output, String> {
         .map(|(i, text)| Guide {
             text: format!("{}: {}", i + 1, text),
             position: [
-                round(458.0 + 184.0 * radii[i]),
+                round(458.0 + spread_x / 2.0 * radii[i]),
                 round(cy - sy * radii[i] * (TAU / 12.0).cos()),
             ],
         })
@@ -323,6 +331,7 @@ mod tests {
                 reference_day: reference,
                 compact: false,
                 rotations: [rotation; 4],
+                round: false,
             };
             assert!(layout(input).is_err());
         }

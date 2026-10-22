@@ -1,3 +1,4 @@
+import { roundOrbits } from './orbit-shape.mjs';
 import { computeScene, rustAvailable, semanticLayout } from "./engine.mjs";
 import { semanticActive } from './semantic-studio.mjs';
 import { artifactLayouts, artifactPositions } from "./artifact-layouts.mjs";
@@ -185,6 +186,8 @@ export function layoutScene(scene, options = {}, context = {}) {
         seed,
         compact,
         options.majorMetric,
+        undefined,
+        roundOrbits(options),
       ),
       ...positions,
     };
@@ -258,6 +261,7 @@ export function layoutScene(scene, options = {}, context = {}) {
     snapToRings: options.snapToRings,
     account: options.seedMode ? seed : account,
     compact,
+    round: roundOrbits(options),
     profile_emphasis: options.profileEmphasis || "automatic",
     profile_height: arrangement === "profile" ? outputHeight : 0,
     arrangement:
@@ -316,6 +320,7 @@ export function layoutScene(scene, options = {}, context = {}) {
   const semantic = (semanticActive(options) || options.accountSun === 'profile') ? semanticLayout({
     mode: semanticActive(options) ? options.ringMeaning : 'identity',
     compact,
+    round: roundOrbits(options),
     reference_day: Math.max(0, Math.floor((Date.parse(options.referenceDate) || Math.max(0, ...records.map(r => Date.parse(r.pushed_at || r.updated_at) || 0))) / 86400000)),
     rotations: options.ringRotations || Array(4).fill(options.ringRotation || 0),
     repositories: profileRepositories.map(evidence => {

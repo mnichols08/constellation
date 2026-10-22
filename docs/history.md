@@ -1,6 +1,6 @@
 # History & Evolution
 
-Open **Projects → History & evolution** in the studio. Current, Historical year and Time-lapse share the same repository data; moving the year slider never requests GitHub data. The slider spans the earliest loaded public repository to the current year. Other controls appear when their feature is enabled. If a different project selection needs uncached language metadata, use the existing **Load data** button.
+History settings are part of the configuration (`history`). In the Studio, set them with **Fine-tune** → **Edit all settings as JSON** or by opening a settings file (**Get it** → **Save the settings file** → **Open a settings file**). Current, Historical year and Time-lapse share the same repository data; changing the year never requests GitHub data. Years span the earliest loaded public repository to the current year.
 
 ```json
 {

@@ -66,25 +66,6 @@ test('offline dimensional HTML supports focus, camera, selection and reduced mot
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
-test('Studio switches dimensions, saves ordering and fits mobile layouts', {skip:!browser,timeout: 120000},async t=>{
-  const server=createPreviewServer();server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
-  const {evaluate:e,waitFor:wait,cdp,errors}=await openBrowser(t,`http://127.0.0.1:${server.address().port}/`);
-  await wait(`document.querySelector('#open-studio')?.disabled===false`);
-  await e(`document.querySelector('#open-studio').click();document.querySelector('#arrangement').value='temporal-stack';document.querySelector('#arrangement').dispatchEvent(new Event('input'));`);
-  for(const axis of ['language','topic','repository','year']){
-    await e(`document.querySelector('#temporal-axis').value=${JSON.stringify(axis)};document.querySelector('#temporal-axis').dispatchEvent(new Event('change'))`);
-    await wait(`(()=>{const data=document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('#temporal-geometry-data');return data&&JSON.parse(data.textContent).settings.axis===${JSON.stringify(axis)}})()`);
-    assert.equal(await e(`JSON.parse(new DOMParser().parseFromString(document.querySelector('#preview').firstChild.shadowRoot.innerHTML,'text/html').querySelector('#temporal-geometry-data').textContent).settings.axis`),axis);
-  }
-  await e(`document.querySelector('#temporal-axis').value='language';document.querySelector('#temporal-axis').dispatchEvent(new Event('change'));`);
-  const value=await e(`document.querySelector('#temporal-layer-choices option').value`);
-  await e(`document.querySelector('#temporal-layer-search').value=${JSON.stringify(value)};document.querySelector('#temporal-layer-add').click()`);
-  assert.ok(await e(`document.querySelector('#workflow').value.includes('layerValues')`));
-  await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-  assert.equal(await e(`document.documentElement.scrollWidth<=innerWidth`),true);
-  const shot=await cdp('Page.captureScreenshot');await writeFile('.dist/universe-mobile.png',Buffer.from(shot.data,'base64'));
-  assert.deepEqual(errors,[]);
-});
 test('packaged web component renders dimensional scenes and exposes layer focus', {skip:!browser,timeout: 120000},async t=>{
   const scene=createScene('demo',repos,options('language'));
   const preview=createPreviewServer();

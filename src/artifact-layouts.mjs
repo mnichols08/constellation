@@ -4,16 +4,17 @@ import { compareRepositories } from './repository-filters.mjs';
 export const artifactLayouts = ['galaxy', 'solar-system'];
 // Feed deterministic positions into the existing Rust scene/relationship engine.
 // Manual positions remain the final override, so dragging works in every layout.
-export function artifactPositions(nodes, mode, seed, compact = false, metric = 'stars', groupBy = node => !node.nodeKind || node.nodeKind === 'repository' ? node.language || 'Other' : node.nodeKind) {
+// round: true circles, reaching as far sideways as up and down (see orbit-shape.mjs).
+export function artifactPositions(nodes, mode, seed, compact = false, metric = 'stars', groupBy = node => !node.nodeKind || node.nodeKind === 'repository' ? node.language || 'Other' : node.nodeKind, round = false) {
   if (!artifactLayouts.includes(mode)) return {};
   const projects = nodes.filter(node => !node.nodeKind || node.nodeKind === 'repository');
   if (projects.length && projects.length !== nodes.length) {
     // Adding people or technologies leaves project anchors in place.
-    const anchors = artifactPositions(projects, mode, seed, compact, metric, groupBy);
-    return membershipPositions(nodes, anchors, seed, compact);
+    const anchors = artifactPositions(projects, mode, seed, compact, metric, groupBy, round);
+    return membershipPositions(nodes, anchors, seed, compact, round);
   }
   const ordered = [...nodes].sort((a, b) => compareRepositories(a, b, metric));
-  const yCenter = compact ? 126 : 270, yScale = compact ? 78 : 185;
+  const yCenter = compact ? 126 : 270, yScale = compact ? 78 : 185, xScale = round ? yScale : 365;
   const random = seededRandom(seed), phase = random() * Math.PI * 2;
   const result = {};
   if (mode === 'galaxy') {
@@ -25,7 +26,7 @@ export function artifactPositions(nodes, mode, seed, compact = false, metric = '
       members.forEach((node, i) => {
         const distance = Math.sqrt(i / Math.max(1, members.length)) * (groups.length === 1 ? .88 : .3);
         const theta = phase + i * 2.399963;
-        result[node.full_name] = { x: 450 + 365 * (cx + Math.cos(theta) * distance), y: yCenter + yScale * (cy + Math.sin(theta) * distance) };
+        result[node.full_name] = { x: 450 + xScale * (cx + Math.cos(theta) * distance), y: yCenter + yScale * (cy + Math.sin(theta) * distance) };
       });
     }
   } else {
@@ -38,17 +39,17 @@ export function artifactPositions(nodes, mode, seed, compact = false, metric = '
     majors.forEach((node, i) => {
       const angle = phase + i * Math.PI * 2 / majors.length;
       const cx = majors.length === 1 ? 0 : Math.cos(angle) * .55, cy = majors.length === 1 ? 0 : Math.sin(angle) * .55;
-      result[node.full_name] = { x: 450 + cx * 365, y: yCenter + cy * yScale };
+      result[node.full_name] = { x: 450 + cx * xScale, y: yCenter + cy * yScale };
       const members = satellites.get(node.full_name);
       members.forEach((child, j) => {
         const theta = j * 2.399963 + phase, radius = .1 + .24 * Math.sqrt((j + 1) / members.length);
-        result[child.full_name] = { x: 450 + (cx + Math.cos(theta) * radius) * 365, y: yCenter + (cy + Math.sin(theta) * radius) * yScale };
+        result[child.full_name] = { x: 450 + (cx + Math.cos(theta) * radius) * xScale, y: yCenter + (cy + Math.sin(theta) * radius) * yScale };
       });
     });
   }
   return result;
 }
-export function membershipPositions(nodes, anchors, seed, compact = false) {
+export function membershipPositions(nodes, anchors, seed, compact = false, round = false) {
   const result = { ...anchors }, occupied = Object.values(anchors);
   const centerY = compact ? 126 : 270, height = compact ? 220 : 500;
   // Technologies precede people so the shared language map stays recognizable.
@@ -60,7 +61,7 @@ export function membershipPositions(nodes, anchors, seed, compact = false) {
     const center = linked.length ? {
       x: linked.reduce((sum, p) => sum + p.x, 0) / linked.length,
       y: linked.reduce((sum, p) => sum + p.y, 0) / linked.length,
-    } : { x: 450 + Math.cos(phase) * 330, y: centerY + Math.sin(phase) * (compact ? 75 : 180) };
+    } : { x: 450 + Math.cos(phase) * (round ? (compact ? 75 : 180) : 330), y: centerY + Math.sin(phase) * (compact ? 75 : 180) };
     let best, bestDistance = -1;
     for (let attempt = 0; attempt < 80; attempt++) {
       const angle = phase + attempt * 2.399963, radius = (compact ? 16 : 24) + Math.sqrt(attempt) * (compact ? 5 : 8);

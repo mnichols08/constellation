@@ -36,7 +36,7 @@ export function semanticLayout(input) {
 const stableCoordinates = new Map();
 export const layoutStatistics = { computedNodes: 0, reusedNodes: 0 };
 function stableScene(input) {
-  const prefix = JSON.stringify([input.account, input.compact]);
+  const prefix = JSON.stringify([input.account, input.compact, Boolean(input.round)]);
   const keys = input.repos.map((repo) => `${prefix}:${repo.name}`);
   const missing = input.repos.filter(
     (_repo, i) => !stableCoordinates.has(keys[i]),
@@ -47,6 +47,7 @@ function stableScene(input) {
         JSON.stringify({
           account: input.account,
           compact: input.compact,
+          round: Boolean(input.round),
           names: missing.map((repo) => repo.name),
         }),
       ),
@@ -68,7 +69,7 @@ function stableScene(input) {
       distance = Infinity;
     for (let j = 0; j < anchors.length; j += 3) {
       const point = [
-        450 + ((anchors[j] - 240) * 368) / 172,
+        450 + ((anchors[j] - 240) * (input.round ? (input.compact ? 88 : 192) : 368)) / 172,
         (input.compact ? 126 : 270) +
           ((anchors[j + 1] - 240) * (input.compact ? 88 : 192)) / 172,
       ];
@@ -165,6 +166,12 @@ export const STORY_CLARITY_VERSION = 1;
 export function analyzeStoryClarity(input) {
   if (!core?.analyze_story_clarity) throw new Error('Story Clarity needs the rebuilt Rust/WASM engine.');
   return JSON.parse(core.analyze_story_clarity(JSON.stringify(input)));
+}
+
+export const RECRUITER_EVIDENCE_VERSION = 1;
+export function analyzeRecruiterEvidence(input) {
+  if (!core?.analyze_recruiter_evidence) throw new Error('Recruiter Evidence needs the rebuilt Rust/WASM engine.');
+  return JSON.parse(core.analyze_recruiter_evidence(JSON.stringify(input)));
 }
 
 // Evidence Navigation v1: build the retained Rust index once per graph, then

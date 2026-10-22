@@ -5,9 +5,6 @@ import { loadAccountAvatar } from '../src/account-sun.mjs';
 import { parseConfig, serializeConfig } from '../src/config-schema.mjs';
 import { encodeShare, decodeShare } from '../src/share-link.mjs';
 import { renderWorkflow } from '../src/export.mjs';
-import { once } from 'node:events';
-import { createPreviewServer } from '../scripts/preview-server.mjs';
-import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=';
 const repos = Array.from({ length: 10 }, (_, i) => ({ name: `r${i}`, full_name: `example/r${i}`, language: 'JavaScript' }));
@@ -64,38 +61,4 @@ test('avatars load once from the image CDN without credentials and fail to initi
     assert.match(svg, /class="account-sun-initials"/);
     assert.doesNotMatch(svg, /class="account-sun-avatar"/);
   }
-});
-
-test('Studio offers both account sun styles without moving the animated ring nodes', { skip: !browser, timeout: 120000 }, async t => {
-  const server = createPreviewServer();
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
-  await waitFor(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
-  await evaluate(`document.querySelector('#open-studio').click();document.querySelector('#arrangement').value='rings';document.querySelector('#arrangement').dispatchEvent(new Event('input'));document.querySelector('#animate-rings').checked=true;document.querySelector('#animate-rings').dispatchEvent(new Event('input'))`);
-  const before = await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star').length`);
-  for (const mode of ['sun', 'avatar', 'off']) {
-    await evaluate(`{const select=document.querySelector('#design-accountSun');select.value=${JSON.stringify(mode)};select.dispatchEvent(new Event('input'));}`);
-    const state = await evaluate(`(async()=>{
-      const root=document.querySelector('#preview').firstChild.shadowRoot, svg=root.querySelector('svg');
-      svg.pauseAnimations();svg.setCurrentTime(7);
-      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      const screen=e=>new DOMPoint(e.cx.animVal.value,e.cy.animVal.value).matrixTransform(e.getScreenCTM());
-      const sun=root.querySelector('.account-sun');
-      return {mode:sun?.dataset.mode || 'off', sunInCamera:!!sun?.closest('.perspective-scene'),
-        nodes:root.querySelectorAll('.star').length, points:root.querySelectorAll('.identity-point').length,
-        initials:!!root.querySelector('.account-sun-initials'), workflow:document.querySelector('#workflow').value,
-        distances:[...root.querySelectorAll('.identity-point')].map(p=>{
-          const n=[...root.querySelectorAll('.star')].find(n=>n.dataset.repo===p.dataset.node);
-          const a=screen(n),b=screen(p);return Math.hypot(a.x-b.x,a.y-b.y);
-        })};
-    })()`);
-    assert.equal(state.mode, mode);
-    assert.equal(state.nodes, before); assert.equal(state.points, before);
-    assert.ok(Math.max(...state.distances) < .2);
-    assert.equal(state.sunInCamera, mode !== 'off');
-    assert.equal(state.initials, mode === 'avatar');
-    assert.match(state.workflow, new RegExp(`"accountSun": "${mode}"`));
-  }
-  assert.deepEqual(errors, []);
 });

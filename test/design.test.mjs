@@ -14,7 +14,7 @@ import { renderConstellation, createScene, selectRepositoryPool, graphNodes } fr
 import { exportSettings, profileDimensions } from '../src/export-image.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { renderWorkflow } from '../src/export.mjs';
-import { preserveShowcaseOptions } from '../src/studio-design.mjs';
+import { preserveShowcaseOptions } from '../src/design-defaults.mjs';
 import { createHash } from 'node:crypto';
 
 const repos = Array.from({ length: 24 }, (_, i) => ({ name: `project-${i}`, full_name: `tester/project-${i}`, language: i % 2 ? 'Rust' : 'JavaScript', languages: { [i % 2 ? 'Rust' : 'JavaScript']: 100, CSS: 20 }, topics: ['tools', `topic-${i % 3}`], stargazers_count: i * 100, updated_at: `202${i % 6}-01-01T00:00:00Z`, created_at: '2020-01-01T00:00:00Z', fork: i === 1, archived: i === 2 }));

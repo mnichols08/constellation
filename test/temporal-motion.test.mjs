@@ -9,8 +9,6 @@ import { temporalGeometryDrawing } from '../src/temporal-geometry-drawing.mjs';
 import { aggregateActivity } from '../src/activity.mjs';
 import { deriveCodingRhythm } from '../src/coding-rhythm.mjs';
 import { openBrowser, browser } from '../scripts/browser-harness.mjs';
-import { once } from 'node:events';
-import { createPreviewServer } from '../scripts/preview-server.mjs';
 
 const records = Array.from({ length: 8 }, (_, i) => ({ name: `p${i}`, full_name: `motion/p${i}`, language: 'Rust', created_at: '2018-01-01', stargazers_count: 80 - i }));
 const options = { referenceDate: '2026-09-01', arrangement: 'temporal-stack', temporalGeometry: { shape: 'sphere' }, starfield: { mode: 'space', twinkle: true }, animate: true,
@@ -33,24 +31,6 @@ test('unrelated animation periods produce a bounded, seamless SVG loop instead o
   assert.ok(animations.some(([tag]) => new Set(tag.match(/values="([^"]+)"/)[1].split(';')).size > 1));
   assert.equal(svg, renderSceneSVG(scene));
   assert.doesNotMatch(renderSceneSVG(sceneFor({ ...scene.presentation.options, animate: false })), /data-temporal-motion/);
-});
-
-test('Studio temporal preview starts moving with unrelated durations and motion unlocked for editing', { skip: !browser, timeout: 120000 }, async t => {
-  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  const { evaluate, waitFor, cdp, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
-  await waitFor(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
-  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-  await evaluate(`document.querySelector('#open-studio').click();
-    for (const [id, value] of Object.entries({arrangement:'temporal-stack','temporal-form':'sphere','perspective-duration':'31','perspective-range':'15','ring-speed-0':'0.5','ring-speed-1':'0.5','ring-speed-2':'0.5','ring-speed-3':'0.5'})) document.getElementById(id).value=value;
-    for (const id of ['animate','animate-rings','perspective-enabled','perspective-animate']) document.getElementById(id).checked=true;
-    document.querySelector('#lock-stars').checked=false;
-    document.querySelector('#arrangement').dispatchEvent(new Event('input'));`);
-  await waitFor(`Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-temporal-motion]'))`);
-  await evaluate(`window.svg=document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg'); window.node=svg.querySelector('.repository'); window.initial=node.getCTM().e`);
-  assert.equal(await evaluate('svg.animationsPaused()'), false);
-  await waitFor('Math.abs(node.getCTM().e-initial) > .1');
-  assert.deepEqual(errors, []);
 });
 
 test('ring permissions move only attached identities and keep trail/edge endpoints exact', () => {

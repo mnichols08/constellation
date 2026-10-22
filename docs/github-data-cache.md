@@ -14,7 +14,7 @@ Only GitHub REST `GET` responses are eligible. Mutations and GraphQL `POST`s are
 
 ## Refresh and rate limits
 
-Studio's Refresh data controls and CLI `--refresh-data` bypass request and loader caches and issue fresh requests. A newer refresh supersedes older in-flight cache writes and Studio snapshot writes. Refresh does not override a live GitHub rate-limit instruction: `Retry-After` or `X-RateLimit-Reset` establishes a bounded cooldown, and subsequent requests fail locally with the retry time instead of repeatedly contacting GitHub. The cooldown survives reloads as hashed metadata only. Existing loaders keep their partial-result diagnostics; cached bodies remain available during the wait, and public-mode status explains that new requests have stopped.
+CLI `--refresh-data` bypasses request and loader caches and issues fresh requests. The Studio has no refresh button: opening an account again within the 15-minute window reuses cached responses, and a new tab starts fresh. A newer refresh supersedes older in-flight cache writes and Studio snapshot writes. Refresh does not override a live GitHub rate-limit instruction: `Retry-After` or `X-RateLimit-Reset` establishes a bounded cooldown, and subsequent requests fail locally with the retry time instead of repeatedly contacting GitHub. The cooldown survives reloads as hashed metadata only. Existing loaders keep their partial-result diagnostics; cached bodies remain available during the wait, and public-mode status explains that new requests have stopped.
 
 No background polling is used. Request counts can be inspected from `requestCache.statistics()` (`hit`, `miss`, `sharedRequest`, `revalidation`, `entries`, and `retainedBytes`).
 

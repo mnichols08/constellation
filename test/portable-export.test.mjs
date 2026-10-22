@@ -127,6 +127,12 @@ test('portfolio artifact has deterministic Scene v1 entries and validates every 
   await assert.rejects(validatePortfolioArtifact(unsafe, { ...first.files, '../payload.js': 'x' }), /Unsafe or unexpected executable/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, version: 2 }, first.files), /Unsupported portfolio artifact version/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, constellationVersion: '4.6.0' }, first.files), /Incompatible Constellation package version/);
+  await assert.rejects(validatePortfolioArtifact({ ...first.manifest, constellationVersion: 'next' }, first.files), /Incompatible Constellation package version/);
+  // Later releases keep writing portfolio v1; the format versions guard compatibility.
+  for (const constellationVersion of ['4.8.0', '5.0.0', '5.1.2-beta.1']) {
+    const later = await createPortfolioArtifact(graph, { constellationVersion });
+    assert.equal((await validatePortfolioArtifact(later.manifest, later.files)).manifest.constellationVersion, constellationVersion);
+  }
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, subject: { kind: 'developer', id: '../secret' } }, first.files), /Invalid portfolio project identity/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, semanticGraphVersion: 2 }, first.files), /Unsupported semantic contract version/);
   await assert.rejects(validatePortfolioArtifact({ ...first.manifest, artifacts: [] }, first.files), /Invalid portfolio artifact metadata/);

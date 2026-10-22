@@ -385,7 +385,7 @@ test(
 );
 
 test(
-  "Studio contextual settings and anchor editing; packaged component temporal APIs",
+  "packaged component temporal APIs focus years, views and nodes",
   { skip: !browser, timeout: 120000 },
   async (t) => {
     const server = createPreviewServer();
@@ -399,48 +399,10 @@ test(
         }),
     );
     const base = `http://127.0.0.1:${server.address().port}`;
-    const { evaluate, waitFor, errors, cdp } = await openBrowser(t, base);
-    await waitFor(
-      `Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`,
+    const { evaluate, waitFor, errors } = await openBrowser(
+      t,
+      `${base}/examples/web-component.html`,
     );
-    await evaluate(
-      `const arrangement = document.querySelector('#arrangement'); arrangement.value='temporal-stack'; arrangement.dispatchEvent(new Event('input'));`,
-    );
-    await waitFor(
-      `Boolean(document.querySelector('#preview').firstChild.shadowRoot.querySelector('[data-temporal-year]'))`,
-    ).catch(async (error) => {
-      throw new Error(
-        `${error.message}: ${await evaluate('document.querySelector("#preview").firstChild.shadowRoot.textContent.slice(0,2000)')} ${JSON.stringify(errors)}`,
-      );
-    });
-    assert.equal(
-      await evaluate(
-        `document.querySelector('#temporal-stack-controls').hidden`,
-      ),
-      false,
-    );
-    await evaluate(
-      `document.querySelector('#snap-rings').checked=false; document.querySelector('#lock-stars').checked=false; document.querySelector('#lock-stars').dispatchEvent(new Event('input'));`,
-    );
-    const before = await evaluate(
-      `Number(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star').getAttribute('cx'))`,
-    );
-    await evaluate(
-      `const star=document.querySelector('#preview').firstChild.shadowRoot.querySelector('.star'); window.movedId=star.dataset.repo; star.closest('.repository').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));`,
-    );
-    const positions = await evaluate(
-      `[...document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.star')].filter(node=>node.dataset.repo===movedId).map(node=>Number(node.getAttribute('cx')))`,
-    );
-    assert.ok(positions.length > 1);
-    assert.ok(positions.every((x) => Math.abs(x - before - 1) < 0.11));
-    await evaluate(
-      `const node=[...document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('.repository')].find(node=>node.querySelector('.star').dataset.repo===movedId); node.dispatchEvent(new MouseEvent('click',{bubbles:true}));`,
-    );
-    assert.match(
-      await evaluate(`document.querySelector('#graph-explorer').textContent`),
-      /First visible:/,
-    );
-    await cdp("Page.navigate", { url: `${base}/examples/web-component.html` });
     await waitFor(
       `Boolean(document.querySelector('constellation-view')?.shadowRoot?.querySelector('main')?.constellation)`,
     );

@@ -1,5 +1,49 @@
 # Changelog
 
+## 5.0.1 — Layouts that survive wider fonts
+
+- Fix Studio layouts that broke when the browser uses a wider font, as Linux does without Inter or Segoe UI (DejaVu Sans): on small phones Shuffle and Save shrank below 44px and the account chip lost its name; the star card's last button fell outside a short card at 320×568; and Fine-tune and the profile steps of **Get it** scrolled sideways at 320px. Top-bar controls no longer shrink, star card actions sit in an even grid, and long button labels in sheets and panels wrap.
+- Run every Playwright journey twice more with a wide fallback font (`desktop-wide-font`, `mobile-wide-font`), so layouts are checked against font differences on every OS, not just the one they were written on.
+- The perception checks wait for one-off animations (a dialog fading in) to finish before measuring, so a slow machine can't read a fading button as missing.
+
+## 5.0.0 — Studio rebuild
+
+The Studio's interface was rebuilt from scratch ([ADR-0008](docs/architecture/decisions/ADR-0008-STUDIO-REBUILD.md)). **Breaking:** the Studio interface is replaced. Engines, data and export contracts are unchanged. Guide: [docs/studio.md](docs/studio.md).
+
+- **Three surfaces.** **Home** has one field and one action (**Show my sky**), plus **Try an example** (offline) and **Sign in**. The **Studio** gives the map at least 55% of a desktop screen (35% on a phone) and one panel with four tabs: **Look**, **Layout**, **Projects**, **Details**. The top bar holds **Undo**, **Redo**, **Shuffle**, **Save** and the single primary action, **Get it**, which offers five choices: **Add it to your GitHub profile**, **Download an image**, **Put it on a website**, **Share a link**, **Save the settings file**.
+- **One store with Undo/Redo.** `src/app/store.mjs` holds the account, data, options and UI state. Every design change (settings, moved stars, featured and hidden projects, **Shuffle**, opened files) is undoable, up to 100 steps, with Ctrl+Z / Ctrl+Shift+Z. The draft autosaves and is restored with **Start fresh** on offer. The DOM is never read back as state.
+- **Settings registry and Fine-tune.** `src/app/settings.mjs` defines every user-facing option once, with a plain label, help, group, control and how it reads and writes configuration. The tabs show the essential settings; **Fine-tune every setting** generates a searchable form for all of them, plus **Edit all settings as JSON** (validated, up to 250 KB) and **Start over with the default design**.
+- **Live thumbnails.** Theme and layout choices are picture cards of the visitor's own map, drawn with the existing `createScene` and `renderSceneSVG`. Choices that can't work (for example **Through time** with projects from fewer than three years) say why.
+- **Round orbits by default.** New Studio designs use `orbitShape: "round"` (added in 4.8.0): true circles instead of a 2:1 stretch. **Orbit shape** in the **Layout** tab switches back to Wide, which fills a README banner. Existing configurations keep their shape.
+- **Motion.** New skies move gently (twinkling stars, slowly turning orbit rings). **Motion** in the **Details** tab offers **Still**, **Gentle** and **Lively** (faster rings, drifting stars), built from the existing animation options, which stay individually editable in **Fine-tune**. Reduced-motion preferences always win. Stars stay draggable unless they move themselves.
+- **Star card.** Clicking a star (or Tab and Enter) opens a card with GitHub facts, **Feature it**, **Hide it**, **Open on GitHub**, and plain sentences on why it is there, where it sits, and what its size and colour show, each marked From GitHub, Worked out by Constellation, or Your choice.
+- **Removed surfaces, and where their behaviour went:**
+  - Guided setup wizard and questionnaire: Home's single field; new accounts start from the Project map preset with the Deep Space theme.
+  - Studio tour: plain labels, the star card and a one-time map hint.
+  - Simple/Advanced Studio: the four tabs and **Fine-tune**.
+  - Design-code field: codes still decode from `?design=` share links; **Shuffle** replaces drawing new ones.
+  - Randomizer lock matrix: **Shuffle** (look, layout and connections) with **Undo**.
+  - Layer editor: `layers` in **Edit all settings as JSON** or a settings file.
+  - Comet lab: **Highlight recent activity** in **Fine-tune**; detailed activity options in JSON.
+  - Live tilt: **Tilt the map**, **Tilt amount** and **Turn amount** in **Fine-tune**.
+  - Per-feature editors (ring points, temporal geometry, labels): Fine-tune fields, JSON, or dragging stars on the map.
+  - The Studio no longer offers Profile Story downloads, semantic graph import/export, Semantic Markdown download, Developer Atlas navigation, a preset menu, or a Refresh data button. These remain available through Core, the CLI, the Action, or the `preset` share-link parameter.
+- **Compatibility.** Config stays at version 7 and the new UI writes the same option keys. Share links keep their format; old links, including `?design=` codes, still open. Saved designs (`constellation-config-v1:<account>`) load unchanged. The CLI, Action, Core, Web Component, portable embed and portfolio artifact are unchanged. The old browser records `constellation-intent-v1`, `constellation-experience-v1` and `constellation-studio-tour-v1` are no longer read. `src/preview.mjs` and the `src/studio-*` modules are replaced by `src/app/`.
+- **Tests and CI.** A Playwright suite in `e2e/` drives journeys on desktop (1440×900) and phone (390×844) with stubbed GitHub responses for typical, tiny, large, empty, organization, unknown, rate-limited and offline accounts. Every checked screen must have no overlapping controls, no unlabeled controls, no horizontal scroll, no engine jargon, exactly one primary action, a visible-control budget (Home 6, each tab 40), a map that meets its share and isn't blank, and no axe WCAG 2.2 AA violations. A new `ui` CI job runs `npx playwright test`. Browser tests that drove old Studio element IDs were removed; engine, package, CLI and component tests are unchanged. See [Studio budgets](docs/guided-experience-evaluation.md).
+- **Dependencies.** None added in this release; the Playwright harness arrived in 4.7.1. Nothing is added to the shipped runtime.
+- Docs: new [Studio guide](docs/studio.md); README, publishing, accessibility, designs, security and related guides rewritten for the new screens. [Guided setup](docs/guided-setup.md) now redirects there, and [Semantic Studio](docs/semantic-studio.md) keeps only how to read a constellation. ADR-0006 is superseded by ADR-0008.
+
+## 4.8.0 — Round orbits
+
+- Add `orbitShape: "wide" | "round"` to configuration. Orbit-based layouts (rings, galaxy, solar system, orbital, field and ring-meaning bands) have always stretched orbits about 2:1 so a map fills a wide README banner; `"round"` draws true circles instead. The Rust layout engine, SVG renderer, ring motion, snap-to-ring anchors, layout refinement and Galaxy/Solar system placement all share one horizontal reach. `"wide"` stays the default, so existing configurations, share links and published images render byte-for-byte as before. Organization layouts and the 3D time views keep their own geometry.
+- Portfolio artifact validation accepts artifacts from Constellation 4.7 or later instead of only the 4.7.x line, so a minor release no longer breaks `--format portfolio`. Portfolio artifact v1, Scene v1 and the semantic contract versions still guard format compatibility; versions before 4.7 are still rejected.
+
+## 4.7.1 — Perception test harness
+
+- Add a Playwright harness (`playwright.config.mjs`, `e2e/support/`) that checks what a person actually sees: overlapping controls, controls without a visible label, horizontal scroll, engine jargon on screen, the map's share of the viewport and that it is not blank, one primary action per screen, axe WCAG 2.2 AA, and console errors or failed requests. GitHub is stubbed with deterministic fixture accounts, so runs are offline and repeatable. `@playwright/test` and `@axe-core/playwright` are development dependencies only; the Action and packages install nothing new.
+- Fix the local preview server: a missing file returns 404 instead of 500, and WebAssembly is served as `application/wasm` without a charset suffix.
+- Move Recruiter Evidence v1 derivation and deterministic project ordering into the bounded Rust/WASM core, keeping GitHub normalization, layout, and presentation in JavaScript. Full-name ties now use host-independent ASCII ordering instead of locale-sensitive JavaScript ordering, so punctuation-only ties can change order. Config v7, Scene v1, Evidence v1, Semantic Graph v1, and Web Component API v1 are unchanged.
+
 ## Unreleased — Portfolio Integration (v4.7.x)
 
 - Add Portable Portfolio Artifact v1 with validated Scene v1, deterministic files, SHA-256 asset digests, explicit entry points, bounded manifest and bundle validation, and static SVG plus self-contained interactive HTML outputs.

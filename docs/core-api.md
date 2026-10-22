@@ -1,6 +1,6 @@
 # Core API
 
-Constellation 4.7.0 exports stable Scene v1, Renderer v1, Layout v1, Plugin/Source v2, Theme v2 and Story v1 contracts. `CONFIG_VERSION = 7`; v6 configs and legacy recipes remain readable. `analyzeDeveloperProfile(snapshot)` calls the shared Rust/WASM evidence engine without fetching data. See [Developer Topology](developer-topology.md), [v3 migration](migration-v3.md), [scene API](scene-api.md), [renderers](renderer-api.md), [data pipeline](data-pipeline.md), [layouts](layout-api.md) and [extension authoring](extension-authoring.md).
+Constellation 5.0.0 exports stable Scene v1, Renderer v1, Layout v1, Plugin/Source v2, Theme v2 and Story v1 contracts. `CONFIG_VERSION = 7`; v6 configs and legacy recipes remain readable. `analyzeDeveloperProfile(snapshot)` calls the shared Rust/WASM evidence engine without fetching data. See [Developer Topology](developer-topology.md), [v3 migration](migration-v3.md), [scene API](scene-api.md), [renderers](renderer-api.md), [data pipeline](data-pipeline.md), [layouts](layout-api.md) and [extension authoring](extension-authoring.md).
 
 `@constellation/core` is an ESM package for Node 22+ and browsers with WebAssembly. It includes its WASM binary and has no runtime npm dependencies. Build it with `npm run build:core`, then run `npm pack ./packages/core`. The package works without the CLI, GitHub Action, studio, or Rust toolchain. The generated package is committed so the Action needs no install step. Edit `src/`, then rebuild the package.
 
@@ -24,7 +24,7 @@ const explanation = explainFilters(repositories, result.config.options);
 
 `validateConfig(objectOrJSON)` returns `{ valid, errors, config? }`. Errors contain `path` and `message`; valid configs contain `account`, `version` and normalized `options`. `parseConfig`, `serializeConfig`, and `normalizeConfig` retain the existing JSON preset format.
 
-`explainFilters(repositories, options)` returns counts (`loaded`, `pool`, `included`, `rendered`, `omittedByGraphLimit`) and node ID lists (`excludedBeforeCategories`, `excludedByCategories`, `hidden`). The studio uses the same counts. Selection applies metadata filters and the project limit before language/topic filters.
+`explainFilters(repositories, options)` returns counts (`loaded`, `pool`, `included`, `rendered`, `omittedByGraphLimit`) and node ID lists (`excludedBeforeCategories`, `excludedByCategories`, `hidden`). Selection applies metadata filters and the project limit before language/topic filters.
 
 `explainNode(scene, nodeId)` returns a deterministic summary of scene inclusion, position, attached evidence and visual mappings, or `null` when the node is absent. `explainVisual(scene, nodeId)` returns individual mapped appearance channels. `explainEdge(scene, edgeId)` uses explicit shared language, topic or repository metadata when present and otherwise says the reason is unavailable. Studio and offline interactive HTML use one shared pure explanation implementation. Scene Evidence v1 is optional and remains within Scene API v1; old scenes without it remain valid. Explicit `includeRepos` selection has user provenance; ordinary scene selection and filters have derived provenance. See [Evidence and provenance](evidence-provenance.md).
 

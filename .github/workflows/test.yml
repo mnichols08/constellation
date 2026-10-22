@@ -5,6 +5,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Usually 5-7 minutes; a hung step must not hold a runner for six hours.
+    timeout-minutes: 30
     env:
       CONSTELLATION_BROWSER: /usr/bin/google-chrome
     steps:
@@ -36,3 +38,28 @@ jobs:
       - uses: ./
         with:
           output: dist/smoke.svg
+  # The Studio's journeys and perception budgets (ADR-0008): overlap, blank
+  # controls, jargon, map size, one primary action, axe, keyboard and phone.
+  ui:
+    runs-on: ubuntu-latest
+    # Usually 6-14 minutes; a stuck browser must not hold a runner for six hours.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+        env:
+          CI: "true"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

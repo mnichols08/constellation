@@ -1,6 +1,8 @@
 # ADR-0006: Guided experience is browser orchestration
 
-- Status: Accepted
+> Superseded by [ADR-0008](ADR-0008-STUDIO-REBUILD.md) (Studio rebuild, v5.0.0). Kept as history.
+
+- Status: Superseded by ADR-0008
 - Date: 2026-10-11
 
 ## Decision

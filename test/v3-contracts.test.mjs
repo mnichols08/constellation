@@ -75,6 +75,8 @@ test('Studio reports a blocked required WASM asset accessibly', { skip: !browser
   await cdp('Network.enable'); await cdp('Network.setBlockedURLs', { urls: ['*wasm/inline.mjs', '*wasm/constellation_core_bg.wasm'] });
   await cdp('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` });
   await waitFor(`document.querySelector('#status')?.getAttribute('role') === 'alert'`);
-  assert.match(await evaluate(`document.querySelector('#status').textContent`), /requires its bundled Rust\/WASM/);
+  assert.match(await evaluate(`document.querySelector('#status').textContent`), /engine couldn.t start/);
+  assert.equal(await evaluate(`document.querySelector('#engine-status').hidden`), false);
+  assert.match(await evaluate(`document.querySelector('#engine-status').textContent`), /WebAssembly/);
   assert.equal(await evaluate(`document.querySelector('#open-studio').disabled`), true);
 });

@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createPreviewServer } from '../scripts/preview-server.mjs';
-import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
 async function withPreview(t, run) {
   const server = createPreviewServer();
@@ -15,9 +14,18 @@ async function withPreview(t, run) {
   await run(`http://127.0.0.1:${server.address().port}`);
 }
 
-test('preview server serves every module in the Project Constellation Studio import graph', async t => {
+const mime = { mjs: /^text\/javascript/, js: /^text\/javascript/, css: /^text\/css/, wasm: /^application\/wasm/ };
+
+// A module missing from the preview server only fails in a browser, so walk the
+// Studio's real import graph from the page and prove every file is served.
+test('preview server serves every module and stylesheet the Studio page imports', async t => {
   await withPreview(t, async origin => {
-    const pending = ['/src/preview.mjs', '/src/github-project-structure.mjs', '/src/project-constellation.mjs', '/src/project-constellation-scene.mjs', '/src/scene-framing.mjs'];
+    const page = await fetch(new URL('/', origin));
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    const pending = [...html.matchAll(/<(?:script[^>]*\ssrc|link[^>]*rel="stylesheet"[^>]*\shref)="([^"]+)"/g)]
+      .map(match => new URL(match[1], origin).pathname);
+    assert.ok(pending.includes('/src/app/boot.mjs'), 'the page loads the Studio boot module');
     const visited = new Set();
     while (pending.length) {
       const path = pending.pop();
@@ -25,25 +33,18 @@ test('preview server serves every module in the Project Constellation Studio imp
       visited.add(path);
       const response = await fetch(new URL(path, origin));
       assert.equal(response.status, 200, `${path} must be available to the Studio browser`);
+      const extension = path.split('.').pop();
+      assert.match(response.headers.get('content-type'), mime[extension], `${path} has a usable MIME type`);
+      if (extension !== 'mjs' && extension !== 'js') continue;
       const source = await response.text();
-      for (const match of source.matchAll(/\b(?:from\s*|import\s*\()\s*['"](\.[^'"]+\.(?:mjs|js))['"]/g)) {
+      const references = /\b(?:from\s*|import\s*\(\s*|import\s+|new URL\(\s*)['"](\.{1,2}\/[^'"]+\.(?:mjs|js|css|wasm))['"]/g;
+      for (const match of source.matchAll(references)) {
         const dependency = new URL(match[1], new URL(path, origin)).pathname;
         if (dependency.startsWith('/src/') || dependency.startsWith('/packages/')) pending.push(dependency);
       }
     }
-    for (const required of ['/src/hierarchy.mjs', '/src/scene.mjs', '/src/hierarchy-model.mjs']) {
+    for (const required of ['/src/app/main.mjs', '/src/app/app.css', '/src/engine.mjs', '/src/scene.mjs', '/src/wasm/inline.mjs']) {
       assert.ok(visited.has(required), `${required} should be in the audited graph`);
     }
-  });
-});
-
-test('preview Studio boots and exposes its explicit Project Constellation action', { skip: !browser, timeout: 120000 }, async t => {
-  await withPreview(t, async origin => {
-    const { evaluate, waitFor, errors } = await openBrowser(t, origin);
-    await waitFor(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
-    assert.equal(await evaluate(`Boolean(document.querySelector('#open-studio'))`), true);
-    await evaluate(`document.querySelector('#open-studio').click()`);
-    await waitFor(`document.body.classList.contains('studio-ready')`);
-    assert.deepEqual(errors, []);
   });
 });

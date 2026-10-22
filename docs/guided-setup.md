@@ -1,70 +1,17 @@
-# Guided setup
+# Guided setup (moved)
 
-## Intent-driven first visit (v4.6)
+The guided setup, its questionnaire, the Studio tour and the Simple/Advanced
+Studio were replaced by the rebuilt Studio in v5.0.0
+([ADR-0008](architecture/decisions/ADR-0008-STUDIO-REBUILD.md)).
 
-Enter a public GitHub account or use your authenticated session. The existing
-bounded acquisition and rate-limit handling load evidence. Accept **Use
-recommendation**, **Show my projects**, **Show how my work connects**, or
-**Show my development journey**. The last two use the actual candidate
-availability, not guessed technical or temporal narratives. Unavailable
-options remain keyboard-focusable with visible, accessible explanations.
+Read the **[Studio guide](studio.md)** instead. In short:
 
-The next screen presents the meaningful preview before publishing. Choose
-**Personalize and continue** for featured projects and appearance, or **Prepare
-publishing** for the existing Publishing Wizard. There are two required
-decisions before preview: account and accepting/changing the recommendation.
-The optional questionnaire remains under **More ways to start**.
+1. Type a GitHub username on Home and press **Show my sky**.
+2. Change the map with the **Look**, **Layout**, **Projects** and **Details**
+   tabs, or click a star to feature or hide it.
+3. Press **Get it** and choose **Add it to your GitHub profile**.
 
-Returning drafts retain their settings and manual ownership. Continue the
-saved design without selecting a new story, or explicitly return to Auto
-using current evidence. Story ownership is stored separately per account,
-linked to normalized configuration; imported or unmatched configurations are
-manual. Named saves are never overwritten by entering setup.
-
-## Simple and Advanced Studio
-
-Simple mode exposes the existing featured-project editor and theme control,
-with the shared story selector, preset menu, preview, and export entry. Advanced
-mode retains all five Studio sections and every existing control. These are
-the same DOM controls, moved rather than copied; mode switches neither read nor
-rewrite configuration, regenerate the scene, nor acquire data. Manual positions,
-labels, colors, CSS, animations, families, relationships, visibility, and
-imported settings stay intact. Reveal actions open the appropriate Advanced
-section when an advanced control is requested.
-
-Simple's Cosmic, GitHub dark, and Minimal visual shortcuts use the existing
-theme control. They change appearance, not layout, project selections, or
-authored relationships. Full design recipes, randomization, and design-code
-controls remain in Advanced mode.
-
-## Optional advanced generator
-
-**More ways to start** retains **Generate my project map**, a deterministic,
-editable starting point using the existing recommended repository selection
-and default project-map recipe. The existing questionnaire and outcome actions
-below are optional, not the required first-time experience.
-
-The default uses an account-stable seed, so reloading does not reshape the design; **Generate another** intentionally draws a fresh design. Outcome buttons reset only the settings needed for their promised view, while keeping saved project selections, roles, filters and relationship choices. Project history appears only when enough repository creation-date evidence is available. README output uses the existing compact, clean profile.
-
-The first screen keeps **More ways to start** for visual presets, saved constellations, the full Studio, the Studio tour and the optional questionnaire. Experienced users still have every existing control and export. The five Studio sections are **Content**, **Design**, **Layout**, **Motion**, and **Export**. Fine-grained geometry, mappings and refinement remain under **Advanced layout controls**. Canonical terms such as Developer Topology and Temporal Stack remain in explanatory text and configuration values. Selecting a project opens its connection details and appearance controls in the Content inspector, including a **Why is this here?** explanation backed by scene evidence. No config version change is required.
-
-The tour covers the center, repositories, nodes, rings, connections, profile evidence, presets, scoped randomization, motion, saving and exports directly in the actual Studio. Try it applies editable settings; Back, Skip, Exit and rerun are always available. Named saves are untouched. Tutorial progress is a separate `constellation-studio-tour-v1` step number, never exported. See [Semantic Studio](semantic-studio.md).
-
-The **Quick guided generator** and existing **Guided setup** shortcut retain the optional questionnaire described below. They are no longer the required entry to customization.
-
-Start with **Continue with GitHub**, or **Explore a public account** using a GitHub user or organization. OAuth identifies your account automatically. Deployment owners must configure the [GitHub App and isolated exchange service](github-oauth.md); no personal token is needed in hosted onboarding.
-
-**Public exploration** is a deliberate lightweight mode. A fresh user or organization load makes two GitHub requests: profile identity and one page of up to 100 recently updated public repositories. Language filters, recommendations, Developer Topology and temporal views use the primary language and repository topics already present. No secondary languages are inferred. Add another public repository by name or URL for one metadata request (up to ten lookups per session); cached selections survive refresh. Roles, creation, customization and all exports remain available without signing in.
-
-**GitHub sign-in** enables full enumeration and language breakdowns, pins, automatic contribution discovery, activity, contributors and commit history. The Pinned repositories and Contributed to shortcuts and deep activity choices explain the sign-in requirement before any request. Public mode skips optional enrichment even when an older config requests it. A low public allowance stops further calls with sign-in/reset guidance and preserves the previous image. Refresh reloads bounded discovery; presentation changes use cached data.
-
-1. **Choose what matters.** Welcome and profile identity lead into repository cards: description, language, topics, stars, recent activity, fork/archive state and discovered contributions. Recommended balances useful public signals. Recently active, Most starred, All, Contributed to and **Pinned repositories** provide quick selections. Pinned repositories uses authenticated public GitHub pins (including projects owned by other accounts) and loads only when chosen. Sign in first, or use local server authentication. Empty or failed pin requests preserve your current selection; every selected pin remains individually editable. Search and select individual projects; up to 100 may be selected. Authenticated contribution discovery is bounded and incomplete; manually add public repositories when needed.
-2. **Which projects should stand out?** Assign Featured, Supporting, Experimental or Historical roles to selected projects. Featured order is explicit and can be changed with keyboard-accessible Move up/Move down buttons. Recommendations never silently assign roles. A role is presentation intent, not a claim about stars, recency, archived state or topics.
-3. **What should your constellation reveal?** Choose projects, languages, topics, everything together, or let Constellation decide. These compile to existing node modes and connection bases. Optional language/topic refinement uses the same filters as Studio. Skip clears the topic filter; choosing no languages may leave no visible projects, with a recoverable explanation.
-4. **Add a little life.** The default is no activity. Small visual symbols illustrate glow, commit asteroids, contribution orbit and pulsing recent activity. These choices require GitHub sign-in; requests only begin when generating an option that needs them. Asteroids load the existing bounded commit batch; other effects reuse the public activity cache. Missing optional data produces a quiet design with an explanation and Retry activity.
-5. **Choose your universe.** Select a single constellation, identity rings, a connected galaxy or a dimensional universe grouped by languages, repositories or topics. Profiles with at least six projects spanning three creation years also offer evolution and a universe through time. Retrospective views use creation dates and current metadata, never invented historical stars or topics. Choose feel and motion here.
-6. **Preview.** Use this constellation, Generate another or Customize. Save a title, open fullscreen, or export SVG, PNG, interactive HTML or config JSON. Regeneration preserves your explicit roles and featured order while varying the visual recipe. Customize opens the five-section Studio. Advanced layout settings stay under a keyboard-operable disclosure. Edit answers and Back preserve choices.
-
-Signed-in users with saved local constellations see **Continue your constellations**, with Open existing, Create another and Rerun onboarding. Reauthorization after a reload is required because tokens live only in memory. Anonymous users can also open Saved constellations. Named designs are local browser presets; export JSON for backup. Opening setup does not overwrite a previous draft; generating applies a new draft. Saved named designs remain intact.
-
-Intent is a separate validated `constellation-intent-v1` browser record, never a renderer/config credential store. Metadata loads first. Authenticated sessions load language details only after project selection and activity only on demand; public sessions keep using primary-language metadata. Keyboard controls, visible focus, live loading status, narrow layouts and reduced motion remain supported. No drag operation is required.
+Your old saved designs, settings files and share links still open. Settings
+that used to need a dedicated editor are in **Fine-tune every setting** or in
+the settings file. The public-load limits and sign-in behaviour are described
+in [Privacy](studio.md#privacy-what-stays-where).

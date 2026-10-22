@@ -10,9 +10,7 @@ After import, graph-to-Scene projection uses the existing Scene v1 path. Scene, 
 
 ## Studio
 
-Use **Content → Import semantic graph** to select a `.json` file. The file size and UTF-8 are checked before parsing; Core parsing and validation happen before the current preview or graph artifact is replaced. On success, Studio displays the imported Scene and offers the canonical graph download with its subject and semantic fingerprint. A failed import leaves the prior preview and artifact in place.
-
-Use **Export → Export semantic graph** to download the canonical JSON. Visual presentation settings do not edit the graph artifact.
+The Studio does not import or export semantic graph files since v5.0.0; use the CLI below or Core. **Get it** → **Put it on a website** → **Download portfolio package** includes the semantic graph derived from the current map. Visual presentation settings do not edit the graph artifact.
 
 ## CLI
 
@@ -32,6 +30,6 @@ Supported formats are `json`, `markdown`, `svg`, `html`, and `bundle`. JSON and 
 - Developer and project graphs retain their canonical semantic data through exact JSON round trips.
 - Fingerprints and Semantic Markdown output remain stable across round trips.
 - Imported graphs project through the existing Scene/rendering APIs and work offline.
-- Invalid imports do not replace valid Studio state.
+- Invalid imports fail before any graph or scene is replaced.
 - Semantic Graph remains v1; unsupported future versions are rejected rather than guessed or migrated.
 - No Markdown-to-graph parser, graph editor, alternate renderer, custom MIME registration, or wrapper manifest is introduced.
