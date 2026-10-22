@@ -185,40 +185,55 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 
-# Turns on "Sign in with GitHub" for the hosted Studio. The Netlify site
-# (constellation-sign-in) is already created, linked and deployed, with
-# GITHUB_REDIRECT_URI and STUDIO_ORIGIN set. This wizard covers what only the
-# account owner can do: register the GitHub App and hand its client secret
-# straight to Netlify. The secret is never written to disk. Run from the
-# repository root:  bash scripts/setup-sign-in.sh
+# Turns on "Sign in with GitHub" for the hosted Studio, on the linked Netlify
+# site (constellation-sign-in). It covers what only the account owner can do:
+# register the GitHub App, then give Netlify its client ID and client secret.
+# The secret is typed into Netlify's own settings page, so it never passes
+# through this script, a file, or a command line. Run from the repository
+# root:  bash scripts/setup-sign-in.sh
 
 STUDIO_URL="https://mnichols08.github.io/constellation/"
+STUDIO_ORIGIN="https://mnichols08.github.io"
 EXCHANGE_URL="https://constellation-sign-in.netlify.app/api/github-exchange"
+NETLIFY_ENV_PAGE="https://app.netlify.com/projects/constellation-sign-in/configuration/env"
 mkdir -p .netlify
 ENV_FILE=".netlify/sign-in.env"   # gitignored; holds only the public client ID
 
 command -v netlify >/dev/null 2>&1 || { echo "Install the Netlify CLI first: npm i -g netlify-cli"; exit 1; }
+command -v node >/dev/null 2>&1 || { echo "Node.js is needed (the Netlify CLI uses it too)."; exit 1; }
 [[ -f .netlify/state.json ]] || { echo "Run this from the repository root (the folder linked to Netlify)."; exit 1; }
 
-# `netlify env:set` exits quietly without saving on the free plan, so values
-# go through the API. A secret must be production-only and stay out of
-# post-processing; Netlify allows that on every plan.
+# `netlify env:set` exits quietly without saving on the free plan, so public
+# values go through the API instead.
 SITE_ID=$(sed -n 's/.*"siteId": *"\([^"]*\)".*/\1/p' .netlify/state.json)
 ACCOUNT_ID=$(netlify api getSite --data "{\"site_id\":\"$SITE_ID\"}" </dev/null 2>/dev/null | sed -n 's/^  "account_id": *"\([^"]*\)".*/\1/p')
 [[ -n "$ACCOUNT_ID" ]] || { echo "Couldn't read the Netlify site. Run 'netlify login' and try again."; exit 1; }
+IDS="\"account_id\":\"$ACCOUNT_ID\",\"site_id\":\"$SITE_ID\""
 
-# netlify_put KEY VALUE [secret]. Callers validate VALUE to letters, digits,
-# dot and underscore, so it is safe inside the JSON body.
+# netlify_put KEY VALUE stores a PUBLIC value for every deploy context. Never
+# pass a secret: the value is part of a command line. Values here are URLs or
+# a validated client ID, with no quotes or backslashes, so the JSON is safe.
 netlify_put() {
-  local key="$1" value="$2" body ids
-  if [[ "${3:-}" == secret ]]; then
-    body="{\"key\":\"$key\",\"is_secret\":true,\"scopes\":[\"builds\",\"functions\",\"runtime\"],\"values\":[{\"context\":\"production\",\"value\":\"$value\"}]}"
-  else
-    body="{\"key\":\"$key\",\"values\":[{\"context\":\"all\",\"value\":\"$value\"}]}"
-  fi
-  ids="\"account_id\":\"$ACCOUNT_ID\",\"site_id\":\"$SITE_ID\""
-  netlify api deleteEnvVar --data "{$ids,\"key\":\"$key\"}" </dev/null >/dev/null 2>&1 || true
-  netlify api createEnvVars --data "{$ids,\"body\":[$body]}" </dev/null >/dev/null
+  local key="$1" value="$2"
+  netlify api deleteEnvVar --data "{$IDS,\"key\":\"$key\"}" </dev/null >/dev/null 2>&1 || true
+  netlify api createEnvVars --data "{$IDS,\"body\":[{\"key\":\"$key\",\"values\":[{\"context\":\"all\",\"value\":\"$value\"}]}]}" </dev/null >/dev/null
+  printf '  %s✓ set%s Netlify variable %s\n' "$GREEN" "$RESET" "$key"
+}
+
+# secret_state prints "ok" when GITHUB_CLIENT_SECRET is stored as a secret with
+# a production value, otherwise a short reason. Netlify never returns secret
+# values, and only the flags are read here.
+secret_state() {
+  netlify api getEnvVar --data "{$IDS,\"key\":\"GITHUB_CLIENT_SECRET\"}" </dev/null 2>/dev/null | node -e '
+    let s = ""; process.stdin.on("data", (d) => s += d).on("end", () => {
+      let v; try { v = JSON.parse(s); } catch { return console.log("it is not there yet"); }
+      if (!v || v.key !== "GITHUB_CLIENT_SECRET") return console.log("it is not there yet");
+      if (!v.is_secret) return console.log("it is not marked \"Contains secret values\"");
+      const contexts = (v.values || []).map((x) => x.context);
+      if (!contexts.includes("production") && !contexts.includes("all")) return console.log("it has no Production value");
+      if (!(v.scopes || []).includes("functions")) return console.log("its scopes leave out Functions");
+      console.log("ok");
+    });'
 }
 
 TOTAL_STAGES=4
@@ -249,32 +264,40 @@ until [[ "$GITHUB_CLIENT_ID" =~ ^Iv[A-Za-z0-9.]{8,}$ ]]; do
 done
 write_env GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
 netlify_put GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
-printf '  %s✓ set%s Netlify variable GITHUB_CLIENT_ID\n' "$GREEN" "$RESET"
+netlify_put GITHUB_REDIRECT_URI "$STUDIO_URL"
+netlify_put STUDIO_ORIGIN "$STUDIO_ORIGIN"
 pause
 
 stage "Client secret"
-say "Same page, 'Client secrets' section."
+say "First, on the GitHub app page ('Client secrets' section):"
 step "Click 'Generate a new client secret' and copy it right away (GitHub shows it once)."
-note "Input is hidden. The secret goes straight to Netlify and is not saved anywhere else."
-GITHUB_CLIENT_SECRET=""
-until [[ "$GITHUB_CLIENT_SECRET" =~ ^[A-Za-z0-9_]{20,}$ ]]; do
-  [[ -n "$GITHUB_CLIENT_SECRET" ]] && warn "That doesn't look like a whole client secret. Copy it again."
-  ask_secret GITHUB_CLIENT_SECRET "Paste the client secret:"
+say "Then, in Netlify's settings page that opens now:"
+open_url "$NETLIFY_ENV_PAGE"
+step "Choose 'Add a variable', then 'Add a single variable'."
+step "Key: GITHUB_CLIENT_SECRET"
+step "Tick 'Contains secret values'."
+step "Scopes: choose specific scopes and include Functions (not Post processing)."
+step "Deploy contexts: give it a value for Production, and paste the secret there."
+step "Click 'Create variable'."
+note "Already there from an earlier try? Use its 'Options' menu, then 'Edit', and paste the new secret."
+note "The secret goes straight from your clipboard into Netlify; this script never sees it."
+while true; do
+  pause "Press Enter once the variable is created."
+  state=$(secret_state)
+  [[ "$state" == ok ]] && { printf '  %s✓ found%s GITHUB_CLIENT_SECRET, stored as a secret\n' "$GREEN" "$RESET"; break; }
+  warn "Netlify's GITHUB_CLIENT_SECRET isn't right yet: $state."
+  confirm "Fix it on the Netlify page and check again?" || { SKIPPED+=("Add GITHUB_CLIENT_SECRET as a secret at $NETLIFY_ENV_PAGE"); break; }
 done
-netlify_put GITHUB_CLIENT_SECRET "$GITHUB_CLIENT_SECRET" secret
-unset GITHUB_CLIENT_SECRET
-printf '  %s✓ stored%s GITHUB_CLIENT_SECRET as a Netlify secret\n' "$GREEN" "$RESET"
-pause
 
 stage "Go live"
 say "Netlify only picks up new variables on a fresh deploy."
 if confirm "Deploy the sign-in function to production now?"; then
   netlify deploy --prod >/dev/null
-  status=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS -H "Origin: https://mnichols08.github.io" "$EXCHANGE_URL")
+  status=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS -H "Origin: $STUDIO_ORIGIN" "$EXCHANGE_URL")
   if [[ "$status" == "204" ]]; then
-    printf '  %s✓ live%s the sign-in function is configured and answering\n' "$GREEN" "$RESET"
+    printf '  %s✓ live%s the sign-in function has its settings and is answering\n' "$GREEN" "$RESET"
   else
-    warn "The function answered $status instead of 204. Check the values at app.netlify.com."
+    warn "The function answered $status instead of 204. Check the variables at $NETLIFY_ENV_PAGE."
     SKIPPED+=("Check the Netlify environment variables, then: netlify deploy --prod")
   fi
 else
