@@ -54,3 +54,12 @@ test('custom ring sway and easing are exported as closed synchronized animation 
   assert.ok(Math.max(...values) <= 45 && Math.min(...values) >= -45);
   assert.ok(Math.max(...values) > 40 && Math.min(...values) < -40);
 });
+
+test('reduced-motion fallback covers exactly the fitted view, so it is not zoomed', () => {
+  const svg = renderConstellation('octocat', repos, { ringAnimation: { enabled: true, speeds: [1, 1, 1, 1] } });
+  const viewBox = svg.match(/^<svg[^>]* viewBox="([^"]+)"/)[1].split(' ').map(Number);
+  assert.notDeepEqual(viewBox.slice(0, 2), [0, 0], 'the fixture uses a fitted, non-origin view');
+  const still = svg.match(/<image class="ring-motion-still"([^>]*)\/>/)[1];
+  const attr = (name) => Number(still.match(new RegExp(` ${name}="([^"]+)"`))?.[1] ?? 0);
+  assert.deepEqual([attr('x'), attr('y'), attr('width'), attr('height')], viewBox);
+});

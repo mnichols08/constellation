@@ -113,6 +113,12 @@ export function animateRingSVG(svg, settings, geometry, stars, center, spread, e
   // The fallback is an image rather than duplicated graph nodes or SVG IDs.
   const opening = animated.slice(0, animated.indexOf('>') + 1);
   const content = animated.slice(opening.length, animated.lastIndexOf('</svg>'));
-  const height = spread === 88 ? 280 : 560;
-  return `${opening}<style>.ring-motion-still{display:none}@media(prefers-reduced-motion:reduce){.ring-motion-active{display:none}.ring-motion-still{display:inline}}</style><g class="ring-motion-active">${content}</g><image class="ring-motion-still" width="900" height="${height}" href="data:image/svg+xml,${escape(encodeURIComponent(svg.replace(/<animateTransform data-perspective="true"[^>]*\/>/g, '')))}"/></svg>`;
+  // The picture keeps the same viewBox, so it must cover exactly the visible
+  // area. A fitted view rarely starts at 0 0; pinning the picture to the
+  // origin would show reduced-motion visitors a zoomed, cropped map.
+  const view = opening.match(/ viewBox="([^"]+)"/)?.[1].trim().split(/[\s,]+/).map(Number);
+  const [x, y, width, height] = view?.length === 4 && view.every(Number.isFinite) && view[2] > 0 && view[3] > 0
+    ? view : [0, 0, 900, spread === 88 ? 280 : 560];
+  const place = `${x ? ` x="${x}"` : ''}${y ? ` y="${y}"` : ''} width="${width}" height="${height}"`;
+  return `${opening}<style>.ring-motion-still{display:none}@media(prefers-reduced-motion:reduce){.ring-motion-active{display:none}.ring-motion-still{display:inline}}</style><g class="ring-motion-active">${content}</g><image class="ring-motion-still"${place} href="data:image/svg+xml,${escape(encodeURIComponent(svg.replace(/<animateTransform data-perspective="true"[^>]*\/>/g, '')))}"/></svg>`;
 }
