@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.1.1 — Sign in with GitHub, switched on
+
+- **GitHub sign-in is live on the hosted Studio.** `index.html` now carries the GitHub App's client ID and the Netlify exchange address, so **Sign in** on Home offers **Continue with GitHub**.
+- **Sign-in is offered only where it can work.** A new `constellation-oauth-redirect` meta value names the app's registered callback. The Studio offers GitHub sign-in only when it is served from that address, or its `index.html`, and always sends that address to GitHub. Local previews and forks that serve the same file keep the token form. When the value is empty, sign-in is offered on any address, as before.
+- **Fix: the setup script works from PowerShell.** On Windows, `bash` in PowerShell starts WSL, which can't run the Windows Netlify CLI, so the script stopped with "Node.js is needed". It now recognises WSL and prints the exact Git Bash command. It also checks that the Netlify CLI runs, and no longer needs Node itself.
+
 ## 5.1.0 — How it works, and GitHub sign-in on Netlify
 
 - **How it works page.** `how-it-works.html` explains Constellation in one page: a live example sky (drawn offline by the Studio's own engine, with **Layout** and **Theme** choices), the three steps, how to read the map, what signing in does and doesn't do, and what runs under the hood. Home's footer links to it instead of the docs folder, and credits the maker: "Made with ♥ by mnichols08".
