@@ -54,7 +54,7 @@ The Studio offers SVG, PNG, standalone HTML and the portfolio package (**Get it*
 
 ## Framework integrations
 
-Install matching package releases (`@constellation/core` and `@constellation/web-component`); this branch builds version 4.7.0 packages. Use the same release for both packages. The component package owns registration and the Core package owns scene validation and rendering.
+Install matching package releases (`@constellation/core` and `@constellation/web-component`); this branch builds version 5.0.0 packages. Use the same release for both packages. The component package owns registration and the Core package owns scene validation and rendering.
 
 ### Plain HTML
 
