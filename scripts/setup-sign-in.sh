@@ -189,19 +189,36 @@ finish() {
 # site (constellation-sign-in). It covers what only the account owner can do:
 # register the GitHub App, then give Netlify its client ID and client secret.
 # The secret is typed into Netlify's own settings page, so it never passes
-# through this script, a file, or a command line. Run from the repository
-# root:  bash scripts/setup-sign-in.sh
+# through this script, a file, or a command line. Run it from the repository
+# root with Git Bash (on Windows, `bash` in PowerShell is WSL, which can't run
+# the Windows Netlify CLI):  bash scripts/setup-sign-in.sh
 
 STUDIO_URL="https://mnichols08.github.io/constellation/"
 STUDIO_ORIGIN="https://mnichols08.github.io"
 EXCHANGE_URL="https://constellation-sign-in.netlify.app/api/github-exchange"
 NETLIFY_ENV_PAGE="https://app.netlify.com/projects/constellation-sign-in/configuration/env"
+
+# On Windows, `bash` typed in PowerShell or Command Prompt starts WSL's Linux
+# bash. It can see the Windows `netlify` launcher but not Windows Node, so the
+# CLI can't run there. Point at Git Bash instead, with its exact path if found.
+if grep -qi microsoft /proc/version 2>/dev/null; then
+  echo "This is WSL's Linux bash, which can't run the Windows Netlify CLI. Use Git Bash instead."
+  git_exe=$(command -v git.exe 2>/dev/null || true)
+  git_bash=""
+  [[ -n "$git_exe" ]] && git_bash="$(dirname "$(dirname "$git_exe")")/bin/bash.exe"
+  if [[ -n "$git_bash" && -f "$git_bash" ]] && command -v wslpath >/dev/null 2>&1; then
+    echo "From PowerShell, in this folder, run:"
+    echo "  & \"$(wslpath -w "$git_bash")\" scripts/setup-sign-in.sh"
+  else
+    echo "Open Git Bash in this folder and run:  bash scripts/setup-sign-in.sh"
+  fi
+  exit 1
+fi
+
+[[ -f .netlify/state.json ]] || { echo "Run this from the repository root (the folder linked to Netlify)."; exit 1; }
+netlify --version >/dev/null 2>&1 || { echo "The Netlify CLI isn't working in this shell. Install it with: npm i -g netlify-cli"; exit 1; }
 mkdir -p .netlify
 ENV_FILE=".netlify/sign-in.env"   # gitignored; holds only the public client ID
-
-command -v netlify >/dev/null 2>&1 || { echo "Install the Netlify CLI first: npm i -g netlify-cli"; exit 1; }
-command -v node >/dev/null 2>&1 || { echo "Node.js is needed (the Netlify CLI uses it too)."; exit 1; }
-[[ -f .netlify/state.json ]] || { echo "Run this from the repository root (the folder linked to Netlify)."; exit 1; }
 
 # `netlify env:set` exits quietly without saving on the free plan, so public
 # values go through the API instead.
@@ -224,16 +241,15 @@ netlify_put() {
 # a production value, otherwise a short reason. Netlify never returns secret
 # values, and only the flags are read here.
 secret_state() {
-  netlify api getEnvVar --data "{$IDS,\"key\":\"GITHUB_CLIENT_SECRET\"}" </dev/null 2>/dev/null | node -e '
-    let s = ""; process.stdin.on("data", (d) => s += d).on("end", () => {
-      let v; try { v = JSON.parse(s); } catch { return console.log("it is not there yet"); }
-      if (!v || v.key !== "GITHUB_CLIENT_SECRET") return console.log("it is not there yet");
-      if (!v.is_secret) return console.log("it is not marked \"Contains secret values\"");
-      const contexts = (v.values || []).map((x) => x.context);
-      if (!contexts.includes("production") && !contexts.includes("all")) return console.log("it has no Production value");
-      if (!(v.scopes || []).includes("functions")) return console.log("its scopes leave out Functions");
-      console.log("ok");
-    });'
+  local json scopes='"scopes":\[[^]]*"functions"'
+  # Whitespace is dropped so the checks don't depend on the CLI's formatting.
+  json=$(netlify api getEnvVar --data "{$IDS,\"key\":\"GITHUB_CLIENT_SECRET\"}" </dev/null 2>/dev/null | tr -d ' \t\r\n') || true
+  if [[ "$json" != *'"key":"GITHUB_CLIENT_SECRET"'* ]]; then echo "it is not there yet"
+  elif [[ "$json" != *'"is_secret":true'* ]]; then echo 'it is not marked "Contains secret values"'
+  elif [[ "$json" != *'"context":"production"'* && "$json" != *'"context":"all"'* ]]; then echo "it has no Production value"
+  elif ! [[ "$json" =~ $scopes ]]; then echo "its scopes leave out Functions"
+  else echo ok
+  fi
 }
 
 TOTAL_STAGES=4
