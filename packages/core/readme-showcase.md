@@ -11,7 +11,7 @@ Project roles let you give your own work a clear place in a README constellation
 - **Experimental** projects receive lighter emphasis.
 - **Historical** projects remain present but are visually subdued.
 
-Featured order is an explicit, bounded priority. Set roles in the onboarding curation step or Studio's **Showcase** section. Use the order field or Move up/Move down controls; dragging is never required. Recommendations help choose repositories, but never assign a role without your action. Repositories without roles keep the existing behavior.
+Featured order is an explicit, bounded priority. In the Studio, **Feature it** on a star's card, or the star button beside a project in the **Projects** tab, marks it Featured and puts it after the projects already featured; press it again to remove the role. Supporting, Experimental and Historical roles, and a different featured order, are set in `projectShowcase` through **Fine-tune** → **Edit all settings as JSON** or a settings file. Dragging is never required. Recommendations help choose repositories, but never assign a role without your action. Repositories without roles keep the existing behavior.
 
 For example, roles can be stored with a config:
 
@@ -25,11 +25,11 @@ For example, roles can be stored with a config:
 }
 ```
 
-Roles and priority are account/repository scoped and survive config export/import, share links, workflow generation and daily regeneration. If a repository becomes private, disappears or is unavailable, it is skipped and reported; its saved role remains so it can return with the project. Randomize and Generate another preserve roles and featured ordering.
+Roles and priority are account/repository scoped and survive config export/import, share links, workflow generation and daily regeneration. If a repository becomes private, disappears or is unavailable, it is skipped and reported; its saved role remains so it can return with the project. **Shuffle** preserves roles and featured ordering.
 
 ## README presentation
 
-Choose a presentation in **Showcase**. These modes derive a view from the same selected projects, roles and visual settings.
+Set `readmePresentation` to `recruiter`, `full-universe`, `featured-work`, `current-focus`, `technology-identity` or `project-journey` (in **Edit all settings as JSON** or a settings file). These modes derive a view from the same selected projects, roles and visual settings.
 
 - **Recruiter · project orrery** makes the exported SVG the complete artifact. See the encodings and evidence limits below.
 - **Full universe** keeps the broad selected graph and gives Featured projects extra emphasis.
@@ -40,11 +40,13 @@ Choose a presentation in **Showcase**. These modes derive a view from the same s
 
 ## Rings and treatment
 
-**Organize rings by** supports Identity / automatic, Project importance, Activity and Manual. Project importance assigns available identity-ring anchors to Featured, Supporting, Experimental and Historical projects in that order. Ring capacities remain deterministic; projects that do not fit their preferred ring use remaining anchors. Saved manual node coordinates are not changed when switching modes.
+`ringOrganization` supports `identity` (automatic), `importance`, `activity` and `manual`. Project importance assigns available identity-ring anchors to Featured, Supporting, Experimental and Historical projects in that order. Ring capacities remain deterministic; projects that do not fit their preferred ring use remaining anchors. Saved manual node coordinates are not changed when switching modes.
 
-**Featured project treatment** offers Star only, Star + prominent label and Compact spotlight. Spotlights show bounded repository description and technology text, escape all metadata, and show at most three well-spaced projects. Crowded and small outputs fall back to stars and labels.
+**Featured projects stand out with** (in **Fine-tune**) offers A bold name, A bigger star and A spotlight (`featuredTreatment`). Spotlights show bounded repository description and technology text, escape all metadata, and show at most three well-spaced projects. Crowded and small outputs fall back to stars and labels.
 
 ## Output profiles
+
+Choose one with **Image shape** in **Fine-tune** (`exportProfile`).
 
 - **Hero:** 900 × 560 for the full composition.
 - **Wide README:** 900 × 320 with reduced label and background density.
@@ -55,11 +57,11 @@ Profiles change composition budgets, not the saved project selection. A smaller 
 
 ### Dense grouped exports
 
-Use the existing **README** export profile with grouped semantic detail for compact maps of larger project sets. Static README output with at least 30 visible projects chooses Groups when groups exist; an explicit Projects export remains respected. Group size reflects member count within a bounded visual range. Aggregate edge visual weight reflects the number of represented source relationships, not dependency strength or project importance. Dense static exports prioritize semantic group and user-curated labels; hidden visual labels remain represented in accessible scene descriptions. SVG is the canonical static image, and PNG export rasterizes that same SVG. Offline HTML and Web Component views retain interactive Semantic Zoom and the full group evidence inspector.
+Use the **Profile README** image shape with grouped detail (**Group related projects**) for compact maps of larger project sets. Static README output with at least 30 visible projects chooses Groups when groups exist; an explicit Projects export remains respected. Group size reflects member count within a bounded visual range. Aggregate edge visual weight reflects the number of represented source relationships, not dependency strength or project importance. Dense static exports prioritize semantic group and user-curated labels; hidden visual labels remain represented in accessible scene descriptions. SVG is the canonical static image, and PNG export rasterizes that same SVG. Offline HTML and Web Component views retain interactive Semantic Zoom and the full group evidence inspector.
 
 ## Recruiter project orrery
 
-Select **Showcase → README presentation → Recruiter · project orrery**. The simplified 3.9.x presentation uses a fixed 1200 × 840 canvas, scalable to README widths of 800–1200 pixels. Themes and animation preferences remain available. Manual positioning, category graphs, perspective, decorative motion and profile scores do not apply here. Other presentations retain their settings.
+Set `"readmePresentation": "recruiter"`. The simplified 3.9.x presentation uses a fixed 1200 × 840 canvas, scalable to README widths of 800–1200 pixels. Themes and animation preferences remain available. Manual positioning, category graphs, perspective, decorative motion and profile scores do not apply here. Other presentations retain their settings.
 
 ### Visual recruiter presentation
 

@@ -22,7 +22,7 @@ composition. Node-local activity/glow remains attached to node geometry.
 This phased composition is deliberate: blindly sorting all SVG fragments into
 one flat list would break perspective, animated historical frames and node-attached
 effects. Layer phases are validated internal semantics rather than editable
-configuration. Defaults preserve the 2.0 SVG byte fixtures and Studio editing hooks.
+configuration. Defaults preserve the 2.0 SVG byte fixtures.
 
 Scene serialization includes layer records and deterministic order. Config v6
 accepts an optional `layers` object:
@@ -52,20 +52,14 @@ layout coordinates or source data. Missing controls preserve existing SVG bytes.
 
 ## Studio
 
-Open **Layers**, then choose the layer to inspect. Only that layer's generic
-controls appear. **Open layer settings** reveals its existing appearance or
-behavior controls and moves keyboard focus there. **Reset this layer** restores
-its defaults. Invalid ordering leaves the previous scene intact and reports the
-constraint beside the controls. The scene summary reports visible nodes and
-relationships from the compiled scene.
-
-The layer selector uses native keyboard navigation. The Layers tab participates
-in the existing arrow/Home/End tab navigation. Entering a username and generating
-a graphic still uses the ordinary Look panel; no layer editing is required.
+The Studio has no layer editor since v5.0.0. Set `layers` with **Fine-tune** →
+**Edit all settings as JSON** or in a settings file. Invalid ordering is
+refused with a message and the previous design stays on screen. No layer
+editing is required to make a map.
 
 Zero opacity omits a layer's markup, avoiding invisible keyboard targets in
 interactive previews. Hiding the selection layer keeps node selection and details
-available but suppresses highlight dimming in both Studio and exported SVG.
+available but suppresses highlight dimming in both the Studio and exported SVG.
 Annotation controls also apply to year captions added by the time-lapse adapter.
 
 Try [the layer example](../examples/layer-study.json) and its

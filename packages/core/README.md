@@ -24,7 +24,7 @@ const explanation = explainFilters(repositories, result.config.options);
 
 `validateConfig(objectOrJSON)` returns `{ valid, errors, config? }`. Errors contain `path` and `message`; valid configs contain `account`, `version` and normalized `options`. `parseConfig`, `serializeConfig`, and `normalizeConfig` retain the existing JSON preset format.
 
-`explainFilters(repositories, options)` returns counts (`loaded`, `pool`, `included`, `rendered`, `omittedByGraphLimit`) and node ID lists (`excludedBeforeCategories`, `excludedByCategories`, `hidden`). The studio uses the same counts. Selection applies metadata filters and the project limit before language/topic filters.
+`explainFilters(repositories, options)` returns counts (`loaded`, `pool`, `included`, `rendered`, `omittedByGraphLimit`) and node ID lists (`excludedBeforeCategories`, `excludedByCategories`, `hidden`). Selection applies metadata filters and the project limit before language/topic filters.
 
 `explainNode(scene, nodeId)` returns a deterministic summary of scene inclusion, position, attached evidence and visual mappings, or `null` when the node is absent. `explainVisual(scene, nodeId)` returns individual mapped appearance channels. `explainEdge(scene, edgeId)` uses explicit shared language, topic or repository metadata when present and otherwise says the reason is unavailable. Studio and offline interactive HTML use one shared pure explanation implementation. Scene Evidence v1 is optional and remains within Scene API v1; old scenes without it remain valid. Explicit `includeRepos` selection has user provenance; ordinary scene selection and filters have derived provenance. See [Evidence and provenance](evidence-provenance.md).
 

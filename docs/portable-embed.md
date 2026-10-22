@@ -50,7 +50,7 @@ The directory contains canonical `<subject>.semantic-graph.json`, `constellation
 
 The `sg1:` value is a non-cryptographic semantic change identifier. It identifies graph meaning; SVG and HTML appearance remains presentation. Private provenance is retained as a warning because project names, paths, and structure may still be present in an export.
 
-Studio keeps visual downloads and semantic graph export. It also offers a direct Semantic Markdown download from the active semantic graph. The Scene based portfolio artifact is available from Core and the CLI; Studio does not package a directory or ZIP yet.
+The Studio offers SVG, PNG, standalone HTML and the portfolio package (**Get it** → **Put it on a website** → **Download portfolio package**), a single JSON container. Semantic graph and Semantic Markdown downloads are available from Core and the CLI. The directory form of the portfolio artifact comes from the CLI; the Studio does not package a directory or ZIP.
 
 ## Framework integrations
 

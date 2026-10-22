@@ -28,7 +28,8 @@ JavaScript coordinates sources, bounded host caches, declarative options and DOM
 | `packages/web-component` | Browser custom element consuming core and its shared runtime |
 | `packages/source-json` | Independently consumable JSON source adapters |
 | `packages/themes` | Versioned declarative Look presets |
-| `src/preview.mjs`, `src/studio-*` | Vanilla DOM Studio application and editors |
+| `index.html`, `src/app/*` | Vanilla DOM Studio ([ADR-0008](architecture/decisions/ADR-0008-STUDIO-REBUILD.md)): `main.mjs` wires commands, `store.mjs` holds state with Undo/Redo, `settings.mjs` is the settings registry, `engine.mjs` wraps data loading and rendering, `views/` holds Home, the Studio, panels and dialogs |
+| `e2e/` | Playwright journeys and perception budgets for the Studio |
 | `src/cli.mjs`, `action.yml` | Node CLI and GitHub Action integration |
 | `rust/constellation-core` | Native-tested computational engine compiled to WASM |
 

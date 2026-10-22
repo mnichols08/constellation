@@ -1,7 +1,8 @@
 # Universe dimensions and Temporal Stack
 
-Choose **Arrangement → Universe · explore dimensions in depth** or apply
-**Developer Universe** in Studio. **Stack by** switches between Year, Language, Repository and Topic. Each year is a transformed cross-section; the newest is
+In the Studio, choose **Through time** under **Pick a layout** in the **Layout** tab
+(it needs projects from at least three different years). **Through time: one layer per** in
+**Fine-tune** switches between Year, Language, Project and Topic. Each year is a transformed cross-section; the newest is
 largest and nearest, with older years receding downward. Filaments connect the
 same project in adjacent displayed layers. Selection highlights its occurrences
 and reports first visibility, last visibility and number of layers.
@@ -21,8 +22,8 @@ and reports first visibility, last visibility and number of layers.
 All settings are optional. `temporalStack.enabled: true` also enables the mode.
 The default window is the reference year and five preceding years. Supply an
 explicit `referenceDate` to the API for reproducible exports. `yearEnd` cannot
-exceed the reference year; `yearStep` selects backwards from `yearEnd`. Studio exposes **Project placement → Identity ring points**, Solar System or
-Galaxy, plus contextual form parameters. Identity points come from the existing
+exceed the reference year; `yearStep` selects backwards from `yearEnd`. Set `innerArrangement` to identity ring points, Solar System or
+Galaxy, plus form parameters, in **Fine-tune** → **Edit all settings as JSON** or a settings file. Identity points come from the existing
 Rust ring engine. The API also supports `galaxy` and `rings` as inner arrangements. This is temporal composition,
 not a replacement Layout API algorithm.
 
@@ -31,7 +32,7 @@ not a replacement Layout API algorithm.
 Set `temporalStack.axis` to `language`, `repository` or `topic`; omitted means `year`.
 Language and topic layers contain repositories with that membership. Polyglot repositories occur in multiple planes. Filaments connect each repeated identity to its previous occurrence, including across intervening planes without that identity. Repository layers use the existing combined graph: the project plus its language and topic nodes. Shared language/topic identities connect repository planes.
 
-Defaults select at most eight values, ranked by repository representation, then total stars, then name. Explicit `layerValues` selects and orders up to twenty values. Studio provides a searchable value list, **Add layer**, and an editable ordered list (one value per line). Blank restores defaults. Values must exist in the filtered project pool; unavailable values produce a recoverable error. Compact exports show at most three selected layers and disclose reduction. A repository without technology/topic metadata has no invented identities.
+Defaults select at most eight values, ranked by repository representation, then total stars, then name. Explicit `layerValues` selects and orders up to twenty values. Set it in **Edit all settings as JSON** or a settings file; an empty list restores defaults. Values must exist in the filtered project pool; unavailable values produce a recoverable error. Compact exports show at most three selected layers and disclose reduction. A repository without technology/topic metadata has no invented identities.
 
 ```json
 { "arrangement": "temporal-stack", "temporalStack": {
@@ -92,8 +93,8 @@ switches when the selected project remains visible. Story and Hierarchy forward
 both sets of APIs to the active scene.
 
 Manual `starPositions` still address canonical IDs in local XY coordinates.
-Enable **Snap nodes to ring points**, unlock positions, and drag a project on any
-year cross-section (or use arrow keys). Pointer coordinates are inverse-projected
+Enable **Line stars up on the rings** in **Fine-tune** and drag a project on any
+year cross-section in the Studio (or focus it and use arrow keys). Pointer coordinates are inverse-projected
 into that exact plane before choosing a ring point; camera distortion does not
 change the snapping metric. Occupied points swap projects across all years.
 The editor saves `ringPlacements: { "owner/project": { "ring": 1, "point": 7 } }`
@@ -135,7 +136,7 @@ The same ring placement works in every form. Cylinder uses constant radii; Cone
 interpolates newest/oldest radii; Sphere uses the spherical cross-section equation;
 Dome uses half that profile; Hourglass narrows to a configurable waist. Twist is
 zero by default. The Evolution Helix preset intentionally supplies 240 degrees of
-total twist. Development Sphere is also available as a Studio preset.
+total twist. Development Sphere is also available as a preset.
 
 `temporalGeometry` is declarative:
 
@@ -203,7 +204,7 @@ updates coalesce once per animation frame. Projection bases are reused per
 cross-section and nodes already in painter order avoid unnecessary DOM moves.
 
 Tests cover determinism, evidence, missing dates/projects, gaps, manual anchors,
-malformed attachments, limits, offline interaction, reduced motion, Studio editing
+malformed attachments, limits, offline interaction, reduced motion, ring-point editing
 and the packaged component.
 
 ## Motion composition and random discovery
