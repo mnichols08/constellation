@@ -81,7 +81,11 @@ export async function validatePortfolioArtifact(manifestInput, files) {
   if (manifest.version !== PORTFOLIO_ARTIFACT_VERSION) throw new Error('Unsupported portfolio artifact version.');
   if (manifest.sceneVersion !== SCENE_VERSION) throw new Error('Unsupported Scene version.');
   if (manifest.semanticGraphVersion !== 1 || manifest.semanticMarkdownVersion !== 1) throw new Error('Unsupported semantic contract version.');
-  if (!/^4\.7\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.constellationVersion || '')) throw new Error('Incompatible Constellation package version. Expected the 4.7.x line.');
+  // The manifest, Scene and semantic versions above guard the format; this
+  // only refuses packages older than the first one that wrote portfolio v1.
+  const release = /^(\d+)\.(\d+)\.\d+(?:-[0-9A-Za-z.-]+)?$/.exec(manifest.constellationVersion || '');
+  const [major, minor] = release ? [Number(release[1]), Number(release[2])] : [0, 0];
+  if (!release || major < 4 || (major === 4 && minor < 7)) throw new Error('Incompatible Constellation package version. Expected 4.7 or later.');
   const subjectId = manifest.subject?.id;
   const validSubject = manifest.subject?.kind === 'developer' ? /^[A-Za-z0-9-]{1,39}$/.test(subjectId || '')
     : manifest.subject?.kind === 'project' ? /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(subjectId || '') : false;

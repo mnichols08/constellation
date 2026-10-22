@@ -66,6 +66,8 @@ Built-in themes include Mnix (adaptive, transparent), GitHub Dark, Deep Space, T
 
 **Galaxy** groups primary languages into distinct clusters. **Solar System** selects up to four major nodes by stars or recent update (`majorMetric: "stars"` or `"updated"`) and positions related nodes around them. Ties use repository names. These arrangements feed deterministic positions into the existing Rust scene engine; manual coordinates override them. Existing field, orbital, force and ring arrangements remain available.
 
+**Orbit shape** (`orbitShape`) sets how orbit-based layouts (rings, galaxy, solar system, orbital, field, and ring-meaning bands) use the canvas. `"wide"` is the default: orbits reach about twice as far sideways as up and down, so a map fills a wide README banner. `"round"` draws true circles, centred, with space either side on a wide canvas. Configurations without `orbitShape` render exactly as before. Organization layouts and the 3D time views keep their own geometry.
+
 Ring points now spread across all four rings before a ring receives another point. Adding nodes retains existing point coordinates. Hidden nodes still reserve their own points so hiding a node does not rearrange the chart.
 
 Optional `nodeShape` values are `circle`, `star`, `diamond`, `hexagon`, `square`, and `mixed`. Shapes use shared SVG clip definitions and retain the existing animated circle anchors. `effect` offers `none`, `grid`, `scanlines`, or `coordinates` (small hexadecimal IDs). Effects are static, lightweight decorations. `legend: true` adds a compact explanation of the selected visual mappings. Reduced-motion behavior remains active.

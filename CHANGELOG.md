@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.8.0 — Round orbits
+
+- Add `orbitShape: "wide" | "round"` to configuration. Orbit-based layouts (rings, galaxy, solar system, orbital, field and ring-meaning bands) have always stretched orbits about 2:1 so a map fills a wide README banner; `"round"` draws true circles instead. The Rust layout engine, SVG renderer, ring motion, snap-to-ring anchors, layout refinement and Galaxy/Solar system placement all share one horizontal reach. `"wide"` stays the default, so existing configurations, share links and published images render byte-for-byte as before. Organization layouts and the 3D time views keep their own geometry.
+- Portfolio artifact validation accepts artifacts from Constellation 4.7 or later instead of only the 4.7.x line, so a minor release no longer breaks `--format portfolio`. Portfolio artifact v1, Scene v1 and the semantic contract versions still guard format compatibility; versions before 4.7 are still rejected.
+
 ## 4.7.1 — Perception test harness
 
 - Add a Playwright harness (`playwright.config.mjs`, `e2e/support/`) that checks what a person actually sees: overlapping controls, controls without a visible label, horizontal scroll, engine jargon on screen, the map's share of the viewport and that it is not blank, one primary action per screen, axe WCAG 2.2 AA, and console errors or failed requests. GitHub is stubbed with deterministic fixture accounts, so runs are offline and repeatable. `@playwright/test` and `@axe-core/playwright` are development dependencies only; the Action and packages install nothing new.

@@ -1,3 +1,4 @@
+import { orbitSpreadX } from './orbit-shape.mjs';
 import { renderRecruiterSVG } from "./recruiter-svg.mjs";
 import { composeLayers, selectionForScene } from "./scene-layers.mjs";
 import { renderNodeIcon } from "./theme-packs.mjs";
@@ -225,7 +226,8 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const readmeDensity = !renderOptions?.interactive && options.exportProfile === 'readme' && visualScene.semanticGroups?.level === 'groups' && visualScene.nodes.some(node => node.metadata.nodeKind === 'semantic-group');
   const densityPolicy = readmeDensity ? exportDensityPolicy({ profile: 'readme', width: profile.width, nodeCount: visualScene.nodes.filter(node => !node.interaction.hidden).length, groupCount: visualScene.nodes.filter(node => node.metadata.nodeKind === 'semantic-group' && !node.interaction.hidden).length }) : null;
   const centerY = compact ? 126 : 270,
-    spreadY = compact ? 88 : 192;
+    spreadY = compact ? 88 : 192,
+    spreadX = orbitSpreadX(options, spreadY);
   const clock = Date.parse(visualScene.metadata.referenceDate),
     reference = clock;
   const temporal = historyOptions(options),
@@ -704,7 +706,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const occupiedAt = stableOverview ? ringOccupancy(stars) : null;
   const pointMarkup = Array.from({ length: Math.min(ordered.length, ringPoints.length / 3) }, (_, i) => {
     const [x, y, radius] = ringPoints.slice(i * 3, i * 3 + 3);
-    const sx = Number((450 + ((x - 240) * 368) / 172).toFixed(1));
+    const sx = Number((450 + ((x - 240) * spreadX) / 172).toFixed(1));
     const sy = Number((centerY + ((y - 240) * spreadY) / 172).toFixed(1));
     const owner = ordered[i];
     const hidden = hiddenNodes.has(owner.full_name);
@@ -721,7 +723,7 @@ export function renderSceneSVG(visualScene, renderOptions) {
   const semanticStudio = options.ringMeaning !== undefined || options.accountSun === 'profile' || options.semanticLegend;
   const meaning = explainGraphic(options);
   const semantic = semanticActive(options) ? visualScene.semantic : null;
-  const semanticRings = semantic ? '<g class="semantic-rings" fill="none" stroke="currentColor" opacity=".2">' + semantic.radii.map((r,i) => `<ellipse cx="450" cy="${centerY}" rx="${368*r}" ry="${spreadY*r}"><title>${escape(semantic.bands[i])}</title></ellipse>`).join('') + '</g><g class="semantic-labels" fill="var(--sky-foreground)" font-size="9">' + semantic.guides.map(g => `<text x="${g.position[0]}" y="${g.position[1]}">${escape(g.text)}</text>`).join('') + '</g>' : '';
+  const semanticRings = semantic ? '<g class="semantic-rings" fill="none" stroke="currentColor" opacity=".2">' + semantic.radii.map((r,i) => `<ellipse cx="450" cy="${centerY}" rx="${spreadX*r}" ry="${spreadY*r}"><title>${escape(semantic.bands[i])}</title></ellipse>`).join('') + '</g><g class="semantic-labels" fill="var(--sky-foreground)" font-size="9">' + semantic.guides.map(g => `<text x="${g.position[0]}" y="${g.position[1]}">${escape(g.text)}</text>`).join('') + '</g>' : '';
   const semanticPoints = semantic ? '<g class="semantic-points" fill="var(--sky-accent)">' + semantic.placements.map(p => `<circle class="identity-point" data-node="${escape(p.repository)}" cx="${p.position[0]}" cy="${p.position[1]}" r="1.5" data-snap-x="${p.position[0]}" data-snap-y="${p.position[1]}" data-occupied="${escape(JSON.stringify(stars.filter(s => Math.hypot(s.x-p.position[0],s.y-p.position[1])<1).map(s=>s.repo.full_name)))}"><title>${escape(p.category)}, band ${p.band+1}</title></circle>`).join('') + '</g>' : '';
   const legendLines = options.semanticLegend ? meaning.flatMap(line => line.match(/.{1,112}(?:\s|$)|.{1,112}/g) || []) : [];
   const relationshipTypes = [...new Set([...selectedEdges].map(edge => edge.relationshipType).filter(type => ['shared-language', 'shared-topic', 'authored-family', 'explicit-relationship'].includes(type)))].sort();
@@ -769,7 +771,7 @@ ${transparent ? "" : `<ellipse cx="${nebulaCenterX}" cy="${frameCenterY}" rx="${
 `,
   starfield: `${renderStarfield(seed, sky, { x: frameX, y: frameY, width: frameWidth, height, densityHeight: profile.height, detail: profile.dustCount / 85, animate, transparent })}`,
 })}
-<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${semanticRings}${semanticPoints}${geometry && !semantic ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${368 / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>${relationshipLegend}`, nodes: `${renderAccountSun(name, options, centerY, escape, visualScene.semantic)}${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
+<!--history-scene-start-->${composeLayers(visualScene, "underlay", { annotations: `${eraRings}${historyLayer.markup}${renderCodingRhythm(options.codingRhythmData, rhythmSettings, { centerY, spreadY, height, legend: options.legend })}` })}${camera.start}${composeLayers(visualScene, "world", { rings: `${semanticRings}${semanticPoints}${geometry && !semantic ? `<g class="identity-ring" aria-hidden="true"${identityRing ? "" : ' style="display:none"'} transform="translate(450 ${centerY}) scale(${spreadX / 172} ${spreadY / 172}) translate(-240 -240)">${ringMarkup}${pointMarkup}</g>` : ""}`, starfield: `${sky.mode === "classic" ? `<g class="dust">${dust}</g>` : ""}`, connections: `<g class="bridges">${bridgeLines.join("")}</g><g class="connections">${edges}</g>${relationshipLegend}`, nodes: `${renderAccountSun(name, options, centerY, escape, visualScene.semantic)}${points}`, labels: `${labels}` })}${camera.end}<!--history-scene-end-->${composeLayers(
     visualScene,
     "overlay",
     {
@@ -791,8 +793,9 @@ ${generatedLabel ? `<text class="generated-at" x="${frameX + 32}" y="${frameBott
     escape,
     semantic ? { ...floatingAnimation, enabled: false } : floatingAnimation,
     Array.from({ length: ringPoints.length / 3 }, (_, i) => ({
-      x: 450 + ((ringPoints[i * 3] - 240) * 368) / 172,
+      x: 450 + ((ringPoints[i * 3] - 240) * spreadX) / 172,
       y: centerY + ((ringPoints[i * 3 + 1] - 240) * spreadY) / 172,
     })),
+    spreadX,
   );
 }

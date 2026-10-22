@@ -1,3 +1,4 @@
+import { orbitSpreadX } from './orbit-shape.mjs';
 import { refineLayout, identityPoints } from './engine.mjs';
 
 export function layoutRefinementOptions(value = {}) {
@@ -13,7 +14,7 @@ export function refineStars(stars, labels, options, { seed, height, centerY, spr
   const hidden = new Set(options.hiddenNodes || []), hiddenLabels = new Set(options.hiddenLabels || []);
   const fixed = id => hidden.has(id) || hiddenLabels.has(id) || ['starPositions', 'labelPositions', 'labelOffsets'].some(key => Object.hasOwn(options[key] || {}, id));
   const raw = options.snapToRings ? identityPoints(seed, stars.length, options.ringRotations || Array(4).fill(options.ringRotation || 0)) : [];
-  const anchors = options.snapToRings ? Array.from({ length: raw.length / 3 }, (_, i) => [450 + (raw[i * 3] - 240) * 368 / 172, centerY + (raw[i * 3 + 1] - 240) * spreadY / 172]) : null;
+  const anchors = options.snapToRings ? Array.from({ length: raw.length / 3 }, (_, i) => [450 + (raw[i * 3] - 240) * orbitSpreadX(options, spreadY) / 172, centerY + (raw[i * 3 + 1] - 240) * spreadY / 172]) : null;
   const nodes = stars.map(star => {
     const id = star.repo.full_name, label = labels.get(id);
     return { x: star.x, y: star.y, radius: star.radius, hidden: hidden.has(id), locked: fixed(id),

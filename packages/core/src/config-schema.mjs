@@ -1,3 +1,4 @@
+import { ORBIT_SHAPES } from './orbit-shape.mjs';
 import { validateProjectRelationships } from "./recruiter.mjs";
 import { renderSceneSVG } from "./renderer-svg.mjs";
 import { commitHistoryOptions } from "./commit-constellation.mjs";
@@ -36,6 +37,7 @@ const fields = new Set(
   ),
 );
 fields.add("projectFamilies");
+fields.add("orbitShape");
 fields.add("semanticZoom");
 for (const key of Object.keys(rhythmDefaults)) fields.add(key);
 for (const key of historyFields) fields.add(key);
@@ -281,6 +283,8 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
     !["stars", "updated"].includes(options.majorMetric)
   )
     throw new Error("Invalid major repository metric.");
+  if (options.orbitShape !== undefined && !ORBIT_SHAPES.includes(options.orbitShape))
+    throw new Error("orbitShape must be wide or round.");
   if (options.visualStyle) {
     const allowed =
       "light dark lineWidth lineOpacity secondaryOpacity bridgeOpacity glow dustOpacity labelSize labels".split(

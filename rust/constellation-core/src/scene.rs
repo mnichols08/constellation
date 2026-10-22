@@ -47,6 +47,10 @@ pub struct Input {
     ring_rotation: f64,
     #[serde(default)]
     ring_rotations: Option<[f64; 4]>,
+    /// Round orbits use the same horizontal and vertical spread. The default
+    /// (wide) stretches orbits about 2:1 so a map fills a README banner.
+    #[serde(default)]
+    round: bool,
 }
 
 #[derive(Serialize)]
@@ -146,6 +150,7 @@ pub fn compute(input: Input) -> Result<Scene, String> {
     };
     let center = if input.compact { 126.0 } else { 270.0 };
     let spread = if input.compact { 88.0 } else { 192.0 };
+    let spread_x = if input.round { spread } else { 368.0 };
     let phase = (hash(&input.account) % 628) as f64 / 100.0;
     let rings = identity::generate(&input.account, 0).map_err(str::to_owned)?;
     let ring_points = if input.arrangement == "rings" {
@@ -162,7 +167,7 @@ pub fn compute(input: Input) -> Result<Scene, String> {
         .map(|i| {
             if input.arrangement == "rings" {
                 return [
-                    450.0 + (ring_points[i * 3] - 240.0) * 368.0 / 172.0,
+                    450.0 + (ring_points[i * 3] - 240.0) * spread_x / 172.0,
                     center + (ring_points[i * 3 + 1] - 240.0) * spread / 172.0,
                 ];
             }
@@ -185,7 +190,7 @@ pub fn compute(input: Input) -> Result<Scene, String> {
                 )
             };
             [
-                450.0 + angle.cos() * radius * 368.0,
+                450.0 + angle.cos() * radius * spread_x,
                 center + angle.sin() * radius * spread,
             ]
         })
@@ -364,7 +369,7 @@ pub fn compute(input: Input) -> Result<Scene, String> {
             .iter()
             .flat_map(|e| [e.from as u32, e.to as u32])
             .collect();
-        let cache_key = format!("{}:{n}:{}:{pairs:?}", input.account, input.compact);
+        let cache_key = format!("{}:{n}:{}:{}:{pairs:?}", input.account, input.compact, input.round);
         let cached = FORCE_LAYOUT.with(|cache| {
             cache
                 .borrow()
@@ -472,6 +477,7 @@ mod tests {
             basis: "both".into(),
             ring_rotation: 0.0,
             ring_rotations: None,
+            round: false,
             profile_repositories: vec![],
             repos: (0..16)
                 .map(|i| Repository {
@@ -487,6 +493,21 @@ mod tests {
                     position: None,
                 })
                 .collect(),
+        }
+    }
+    #[test]
+    fn round_orbits_use_equal_spreads_and_wide_stays_the_default() {
+        for arrangement in ["rings", "orbital", "field"] {
+            let wide = compute(Input { compact: false, ..input(arrangement) }).unwrap();
+            let round = compute(Input { compact: false, round: true, ..input(arrangement) }).unwrap();
+            let reach = |scene: &Scene| scene.positions.iter().fold((0.0f64, 0.0f64), |(x, y), p| (x.max((p[0] - 450.0).abs()), y.max((p[1] - 270.0).abs())));
+            let (wx, wy) = reach(&wide);
+            let (rx, ry) = reach(&round);
+            // Wide orbits reach much further sideways than up and down…
+            assert!(wx > wy * 1.5, "{arrangement}: wide {wx} x {wy}");
+            // …round orbits stay inside the vertical spread both ways.
+            assert!(rx <= 192.0 + 0.5 && ry <= 192.0 + 0.5, "{arrangement}: round {rx} x {ry}");
+            assert_eq!(round.positions.iter().map(|p| p[1]).collect::<Vec<_>>(), wide.positions.iter().map(|p| p[1]).collect::<Vec<_>>(), "{arrangement}: round changes only horizontal positions");
         }
     }
     #[test]
