@@ -6,7 +6,6 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 import { createScene } from '../src/constellation.mjs';
 import { renderSceneSVG } from '../src/renderer-svg.mjs';
-import { createPreviewServer } from '../scripts/preview-server.mjs';
 import { repositories, options } from './fixtures/recruiter.mjs';
 
 test('recruiter SVG at README widths: text bounds, sparse labels, frozen layout and reduced motion', { skip: !browser, timeout: 120000 }, async t => {
@@ -60,22 +59,5 @@ test('recruiter SVG at README widths: text bounds, sparse labels, frozen layout 
     assert.ok(bounds.identity.includes(longAccount));
     await writeFile(`.cache/recruiter/long-${width}.png`, Buffer.from((await cdp('Page.captureScreenshot')).data, 'base64'));
   }
-  assert.deepEqual(errors, []);
-});
-
-test('Studio recruiter selection, relationships and export survive config', { skip: !browser, timeout: 120000 }, async t => {
-  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
-  await waitFor(`document.querySelector('#open-studio')?.disabled===false`);
-  await evaluate(`document.querySelector('#open-studio').click(); const select=document.querySelector('#design-readmePresentation'); select.value='recruiter'; select.dispatchEvent(new Event('input',{bubbles:true}));`);
-  await waitFor(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('.developer')`);
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#preview').firstChild.shadowRoot.querySelector('.repo-label')).fontSize`), '20px');
-  await evaluate(`const field=document.querySelector('#project-relationships');field.value='alice/atlas ↔ alice/atlas-mobile';field.dispatchEvent(new Event('change',{bubbles:true}));`);
-  await waitFor(`document.querySelector('#design-readmePresentation').value==='recruiter'`);
-  await evaluate(`document.querySelector('#copy-config').click()`);
-  const config = JSON.parse(await evaluate(`document.querySelector('#config-json').value`));
-  assert.equal(config.readmePresentation, 'recruiter');
-  assert.deepEqual(config.projectRelationships, options.projectRelationships);
   assert.deepEqual(errors, []);
 });

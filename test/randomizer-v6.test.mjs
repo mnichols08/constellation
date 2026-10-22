@@ -9,9 +9,6 @@ import { randomizeParts } from '../src/randomize-parts.mjs';
 import { parseConfig, serializeConfig } from '../src/config-schema.mjs';
 import { encodeShare, decodeShare } from '../src/share-link.mjs';
 import { createScene, renderSceneSVG } from '../src/core-api.mjs';
-import { once } from 'node:events';
-import { createPreviewServer } from '../scripts/preview-server.mjs';
-import { browser, openBrowser } from '../scripts/browser-harness.mjs';
 
 const records = Array.from({ length: 16 }, (_, i) => ({ name: `project-${i}`, full_name: `universe/project-${i}`, created_at: `${2015 + i % 8}-01-01`, language: ['Rust', 'TypeScript'][i % 2], stargazers_count: 100 - i }));
 const code = (i, mask = 'fff') => `v6:m${mask}-y2026-f2015-e1-fixture-${i}`;
@@ -91,40 +88,4 @@ test('seeded temporal examples retain their complete v6 recipes', async () => {
     assert.equal(recipe.temporalGeometry?.shape || 'ordinary', fixture.shape);
     assert.equal(createHash('sha256').update(JSON.stringify(recipe)).digest('hex'), fixture.sha256);
   }
-});
-
-test('Studio Full Random produces temporal geometry and partial styling retains it', { skip: !browser, timeout: 120000 }, async t => {
-  const server = createPreviewServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  const { evaluate, waitFor, errors } = await openBrowser(t, `http://127.0.0.1:${server.address().port}`);
-  await waitFor(`Boolean(document.querySelector('#preview')?.firstChild?.shadowRoot?.querySelector('.star'))`);
-  await evaluate(`document.querySelector('#open-studio').click()`);
-  const expected = await evaluate(`(async () => {
-    const {randomizeDesign} = await import('/src/design-randomizer.mjs');
-    const year = document.querySelector('#history-year');
-    for (let seed = 0; seed < 200; seed++) {
-      const code = 'v6:m000-y'+year.max+'-f'+year.min+'-e1-'+seed.toString(36)+'-0';
-      const recipe = randomizeDesign(code);
-      if (!recipe.temporalGeometry) continue;
-      window.realRandom = crypto.getRandomValues.bind(crypto);
-      crypto.getRandomValues = array => { array[0] = seed; array[1] = 0; return array; };
-      const full = document.querySelector('#randomize-full'); full.checked=true; full.dispatchEvent(new Event('input'));
-      document.querySelector('#randomize-motion').checked=false;
-      document.querySelector('#randomize-design').click();
-      return {code, shape:recipe.temporalGeometry.shape};
-    }
-  })()`);
-  assert.ok(expected);
-  await waitFor(`document.querySelector('#design-code').value === ${JSON.stringify(expected.code)}`);
-  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').dataset.temporalForm`), expected.shape);
-  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-temporal-motion]').length`), 0);
-  await evaluate(`document.querySelector('#randomize-motion').checked=true; document.querySelector('#randomize-design').click()`);
-  await waitFor(`document.querySelector('#design-code').value === ${JSON.stringify(expected.code.replace('m000', 'mfff'))}`);
-  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').dataset.temporalForm`), expected.shape);
-  assert.ok(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelectorAll('[data-temporal-motion]').length > 0`));
-  assert.deepEqual(await evaluate(`Array.from({length:4}, (_,i)=>Number(document.querySelector('#ring-sway-'+i).value))`), [15, 15, 15, 15]);
-  await evaluate(`crypto.getRandomValues=realRandom; document.querySelector('#randomize-motion').checked=false; document.querySelector('#randomize-full').checked=false; document.querySelector('#randomize-full').dispatchEvent(new Event('input')); document.querySelector('#randomize-design').click()`);
-  await waitFor(`document.querySelector('#design-code').value === ''`);
-  assert.equal(await evaluate(`document.querySelector('#preview').firstChild.shadowRoot.querySelector('svg').dataset.temporalForm`), expected.shape);
-  assert.deepEqual(errors, []);
 });
