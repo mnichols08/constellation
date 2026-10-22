@@ -30,6 +30,9 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, channel } },
     { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 }, channel } },
+    // The same journeys with a wide fallback font, as on Linux without Inter or Segoe UI.
+    { name: 'desktop-wide-font', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, channel, wideFont: true } },
+    { name: 'mobile-wide-font', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 }, channel, wideFont: true } },
   ],
   webServer: {
     command: 'node e2e/support/server.mjs',

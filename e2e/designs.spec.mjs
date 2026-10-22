@@ -58,7 +58,7 @@ test('save a design, find it from Home, open it and delete it', async ({ page, g
   await expect(sheet).toBeVisible();
   const name = sheet.getByLabel('Name');
   // On touch screens the heading takes focus so the keyboard doesn't pop up uninvited.
-  if (testInfo.project.name === 'mobile') {
+  if (testInfo.project.name.startsWith('mobile')) {
     await expect(sheet.getByRole('heading', { name: 'Save this design' })).toBeFocused();
     await name.focus();
   }

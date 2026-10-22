@@ -52,7 +52,7 @@ test('search filters live, keeps focus, and has an empty state', async ({ page }
   const dialog = await openFineTune(page);
   const search = dialog.getByLabel('Search settings');
   // On touch screens the heading takes focus so the keyboard doesn't pop up uninvited.
-  if (testInfo.project.name === 'mobile') {
+  if (testInfo.project.name.startsWith('mobile')) {
     await expect(dialog.getByRole('heading', { name: 'Fine-tune' })).toBeFocused();
     await search.focus();
   }

@@ -11,5 +11,5 @@ test('a username becomes a full-size map', async ({ page, github }, testInfo) =>
   const map = await mapPresence(page);
   console.log(testInfo.project.name, 'map', map, 'controls', (await visibleControls(page)).length, 'github calls', github.log.length);
   await page.screenshot({ path: testInfo.outputPath('studio.png') });
-  await expectPerceptibleScreen(page, { maxControls: 40, minMap: testInfo.project.name === 'mobile' ? 0.3 : 0.5 });
+  await expectPerceptibleScreen(page, { maxControls: 40, minMap: testInfo.project.name.startsWith('mobile') ? 0.3 : 0.5 });
 });

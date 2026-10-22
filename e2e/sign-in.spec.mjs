@@ -76,7 +76,7 @@ test('explains what signing in adds and offers the local token form', async ({ p
   await expect(field).toHaveAttribute('autocomplete', 'one-time-code');
   await expect(field).toHaveAttribute('data-lpignore', 'true');
   // On touch screens the heading takes focus so the keyboard doesn't pop up uninvited.
-  if (testInfo.project.name === 'mobile') await expect(dialog.getByRole('heading', { name: 'Sign in with GitHub' })).toBeFocused();
+  if (testInfo.project.name.startsWith('mobile')) await expect(dialog.getByRole('heading', { name: 'Sign in with GitHub' })).toBeFocused();
   else await expect(field).toBeFocused();
   await expect(dialog.getByText('Read-only public access is enough. The token is kept in memory and cleared when you close this tab.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('sign-in.png') });

@@ -217,7 +217,7 @@ test.describe('Get your map', () => {
   test('every step reflows at 320px without sideways scrolling', async ({ page, github }, testInfo) => {
     // WCAG reflow is measured in a desktop browser at 320 CSS px; the phone
     // project's mobile viewport would zoom out instead of reflowing.
-    test.skip(testInfo.project.name === 'mobile', 'Reflow is a desktop-browser check.');
+    test.skip(testInfo.project.name.startsWith('mobile'), 'Reflow is a desktop-browser check.');
     await page.setViewportSize({ width: 320, height: 640 });
     await openStudio(page);
     const dialog = await openGetIt(page);

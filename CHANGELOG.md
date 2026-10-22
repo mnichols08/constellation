@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1 — Layouts that survive wider fonts
+
+- Fix Studio layouts that broke when the browser uses a wider font, as Linux does without Inter or Segoe UI (DejaVu Sans): on small phones Shuffle and Save shrank below 44px and the account chip lost its name; the star card's last button fell outside a short card at 320×568; and Fine-tune and the profile steps of **Get it** scrolled sideways at 320px. Top-bar controls no longer shrink, star card actions sit in an even grid, and long button labels in sheets and panels wrap.
+- Run every Playwright journey twice more with a wide fallback font (`desktop-wide-font`, `mobile-wide-font`), so layouts are checked against font differences on every OS, not just the one they were written on.
+- The perception checks wait for one-off animations (a dialog fading in) to finish before measuring, so a slow machine can't read a fading button as missing.
+
 ## 5.0.0 — Studio rebuild
 
 The Studio's interface was rebuilt from scratch ([ADR-0008](docs/architecture/decisions/ADR-0008-STUDIO-REBUILD.md)). **Breaking:** the Studio interface is replaced. Engines, data and export contracts are unchanged. Guide: [docs/studio.md](docs/studio.md).

@@ -52,7 +52,7 @@ const topRedo = (page) => page.getByRole('banner').getByRole('button', { name: '
 test('the map fills most of the screen and is not blank', async ({ page }, testInfo) => {
   await openStudio(page);
   const map = await mapPresence(page);
-  expect(map.coverage).toBeGreaterThanOrEqual(testInfo.project.name === 'mobile' ? 0.35 : 0.55);
+  expect(map.coverage).toBeGreaterThanOrEqual(testInfo.project.name.startsWith('mobile') ? 0.35 : 0.55);
   expect(map.variance).toBeGreaterThan(20);
 });
 
@@ -263,7 +263,7 @@ test('keyboard: Tab reaches a star and Enter opens its card', async ({ page }) =
 });
 
 test('the phone top bar shows the whole account name with 44px targets', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile', 'phone layout');
+  test.skip(!testInfo.project.name.startsWith('mobile'), 'phone layout');
   await openStudio(page);
   const bar = page.getByRole('banner');
   const chip = bar.getByRole('button', { name: /@octo-sky/ });
@@ -568,7 +568,7 @@ test('phone landscape: map and panel sit side by side', async ({ page }) => {
 });
 
 test('touch: each star is at least a 40px target and its name opens it too', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile', 'coarse pointers only');
+  test.skip(!testInfo.project.name.startsWith('mobile'), 'coarse pointers only');
   await openStudio(page);
   const hitSize = async () => (await page.locator('[data-map] .repository .star-hit').first().boundingBox()) || { width: 0, height: 0 };
   const box = await hitSize();
@@ -696,7 +696,7 @@ test('dialogs focus their first field with a mouse, and their heading on touch',
   const sheet = page.getByRole('dialog', { name: 'Fine-tune' });
   await expect(sheet).toBeVisible();
   const search = sheet.getByLabel('Search settings');
-  if (testInfo.project.name === 'mobile') {
+  if (testInfo.project.name.startsWith('mobile')) {
     // A focused text field would pop up the on-screen keyboard over the sheet.
     await expect(sheet.getByRole('heading', { name: 'Fine-tune' })).toBeFocused();
     await expect(search).not.toBeFocused();

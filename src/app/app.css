@@ -253,6 +253,9 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .sheet-head h2 { font-size: 20px; }
 .sheet-body { padding: var(--space-5); overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-content: start; }
 .sheet-body > *, .panel-scroll > * { min-width: 0; }
+/* Long button labels wrap rather than widen a narrow sheet or panel (with a
+   wide fallback font, "Start over with the default design" outgrows 320px). */
+.sheet .btn, .panel-scroll .btn { white-space: normal; max-width: 100%; text-align: center; line-height: 1.2; padding-block: 6px; }
 .sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); background: var(--surface-2); }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 @media (max-width: 640px) {
@@ -318,6 +321,10 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
   border-bottom: 1px solid var(--border); background: var(--surface); position: relative; z-index: 10;
 }
 .topbar .brand { font-size: 16px; }
+/* Controls are touch targets and never shrink; only the account chip gives way.
+   (Fonts differ: Linux without Inter or Segoe UI falls back to a wider face.) */
+.topbar > .btn, .topbar > .icon-btn, .topbar-group > .icon-btn { flex: none; }
+.topbar-tool { min-width: var(--target); }
 /* A block (not flex) so a name too long for the bar ends in an ellipsis. */
 .topbar-account { display: block; flex: 0 1 auto; min-width: 0; line-height: 34px; max-width: 30ch; min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: 14px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid transparent; cursor: pointer; }
 .topbar-account:hover { border-color: var(--border-strong); color: var(--text); }
@@ -379,19 +386,19 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 @media (max-width: 560px) {
   .topbar { gap: 2px; padding: 0 6px; }
   .topbar .brand { display: none; }
-  .topbar-account { max-width: none; min-height: var(--target); line-height: calc(var(--target) - 2px); padding: 0 10px; }
+  .topbar-account { max-width: none; min-height: var(--target); line-height: calc(var(--target) - 2px); padding: 0 8px; }
   .topbar-spacer { min-width: 2px; }
   .topbar-get svg { display: none; }
-  .topbar-get { padding: 0 14px; }
+  .topbar-get { padding: 0 10px; }
 }
 /* The narrowest phones (320px): Undo and Redo narrow a little (still 44px
    tall) so the account chip keeps at least “@” and six characters. Shuffle
    and Save stay 44px squares. */
 @media (max-width: 359px) {
-  .topbar { gap: 0; padding: 0 4px; }
+  .topbar { gap: 0; padding: 0 2px; }
   .topbar-group .icon-btn { width: 36px; }
-  .topbar-account { padding: 0 8px; font-size: 13.5px; }
-  .topbar-get { padding: 0 10px; }
+  .topbar-account { padding: 0 6px; font-size: 13.5px; }
+  .topbar-get { padding: 0 8px; font-size: 14px; }
 }
 /* Phones on their side and other short screens: map and panel side by side. */
 @media (max-height: 520px) and (orientation: landscape) {
@@ -417,7 +424,10 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .why { display: grid; gap: var(--space-2); font-size: 14px; color: var(--text-2); }
 .why dt { font-weight: 620; color: var(--text); }
 .why dd { margin: 0 0 var(--space-2); }
-.card-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* An even grid: two buttons a row on a narrow card, so actions never fall below
+   a short card (320x568) even with a wide fallback font. */
+.card-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--space-2); }
+.card-actions > .btn { width: 100%; min-width: 0; white-space: normal; text-align: center; line-height: 1.15; padding: 4px var(--space-3); }
 
 /* -------------------------------------------------------------- Projects */
 .project-scroll { max-height: 22rem; overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--space-2)); padding: 0 var(--space-2); border-block: 1px solid var(--border); }
@@ -446,7 +456,7 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
 .choice-title { font-weight: 640; }
 .choice-desc { font-size: 14px; color: var(--text-2); }
 .steps { counter-reset: step; display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-.steps > li { counter-increment: step; display: grid; grid-template-columns: 32px 1fr; gap: var(--space-3); }
+.steps > li { counter-increment: step; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: var(--space-3); }
 .steps > li::before { content: counter(step); display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-weight: 700; }
 .code-box { position: relative; }
 .code-box pre { margin: 0; max-height: 220px; overflow: auto; padding: var(--space-3); padding-right: 96px; border-radius: var(--radius-s); background: var(--surface-2); border: 1px solid var(--border); font: 12.5px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }

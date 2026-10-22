@@ -152,7 +152,16 @@ export async function axeViolations(page, { exclude = [] } = {}) {
 }
 
 /** Every perception check at once, for a given screen. */
+/** Wait for one-off animations (a dialog fading in) to end; endless ones (twinkles) are ignored. */
+export async function settle(page) {
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+    .map((animation) => animation.finished.catch(() => {}))));
+}
+
 export async function expectPerceptibleScreen(page, { maxControls, minMap = 0, primary = 1 } = {}) {
+  // Measure what a person sees once the screen is still, not mid-fade.
+  await settle(page);
   expect.soft(await blankControls(page), 'controls with no visible label').toEqual([]);
   expect.soft(await overlappingControls(page), 'overlapping controls').toEqual([]);
   expect.soft(await hasHorizontalScroll(page), 'horizontal scroll').toBe(false);
@@ -173,12 +182,24 @@ export async function expectPerceptibleScreen(page, { maxControls, minMap = 0, p
 
 /** Test fixture: stubs GitHub, fails the test on console errors or failed same-origin requests. */
 export const test = base.extend({
+  // Projects can swap in a wider font: Linux browsers without Inter or Segoe UI
+  // fall back to DejaVu Sans, and layouts must survive it on every OS.
+  wideFont: [false, { option: true }],
   // Automatic: no journey may ever reach the real GitHub API.
   github: [async ({ page }, use) => {
     const log = await stubGitHub(page);
     await use({ log, mode: async mode => { await page.unroute('https://api.github.com/**'); await stubGitHub(page, { mode, log }); } });
   }, { auto: true }],
-  page: async ({ page }, use) => {
+  page: async ({ page, wideFont }, use) => {
+    if (wideFont) await page.addInitScript(() => {
+      // Verdana has nearly the same widths as DejaVu Sans (both descend from Bitstream Vera).
+      // Init scripts run before <html> exists, so add the style once it does.
+      document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style');
+        style.textContent = 'html, body, button, input, select, textarea { font-family: Verdana, "DejaVu Sans", sans-serif !important; }';
+        document.head.append(style);
+      }, { once: true });
+    });
     const problems = [];
     page.on('pageerror', error => problems.push(`pageerror: ${error.message}`));
     page.on('console', message => {
