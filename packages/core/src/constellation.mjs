@@ -1636,6 +1636,7 @@ export function createScene(
         graph: {
           commits: graph.commits,
           organization: graph.organization,
+          aggregate: graph.aggregate,
           emptyMessage: graph.emptyMessage,
           focus: graph.focus,
           focusProjects: graph.focusProjects,
