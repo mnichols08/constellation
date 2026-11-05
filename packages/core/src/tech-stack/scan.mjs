@@ -5,8 +5,9 @@ import { classifyManifests, isManifestPath, isSignalPath, isSkippedFolder, isWor
 
 const LOGIN = /^[a-z\d](?:[a-z\d-]{0,38})$/i;
 const REPOSITORY = /^[\w.-]{1,100}$/;
-const LIMITS = { repositories: 5000, requests: 1500, pageSize: 50, deepFolders: 25, manifestsPerRepository: 12, manifestBytes: 300_000, batchRepositories: 30, batchCharacters: 6000, concurrency: 3 };
-const TRANSIENT_ATTEMPTS = 3;
+const LIMITS = { repositories: 5000, requests: 1500, pageSize: 100, rootBatch: 10, deepFolders: 25, manifestsPerRepository: 12, manifestBytes: 300_000, batchRepositories: 30, batchCharacters: 6000, concurrency: 3 };
+const TRANSIENT_ATTEMPTS = 2;
+const REQUEST_TIMEOUT = 30000;
 
 export class TechStackRateLimit extends Error {}
 export class TechStackTransient extends Error {}
@@ -27,8 +28,11 @@ export function techStackQuery(step) {
     return `query{repositoryOwner(login:${owner}){repositories(first:${size},privacy:PUBLIC,ownerAffiliations:OWNER,orderBy:{field:CREATED_AT,direction:ASC}${after}){totalCount pageInfo{hasNextPage endCursor} nodes{
       name nameWithOwner url description isPrivate isFork isArchived isEmpty createdAt pushedAt updatedAt stargazerCount forkCount primaryLanguage{name}
       languages(first:15,orderBy:{field:SIZE,direction:DESC}){edges{size node{name}}} repositoryTopics(first:20){nodes{topic{name}}}
-      tree:object(expression:"HEAD:"){...on Tree{entries{name type object{...on Tree{entries{name type}}}}}}
     }}}}`;
+  }
+  if (step.kind === 'roots') {
+    if (!Array.isArray(step.items) || !step.items.length || step.items.length > LIMITS.batchRepositories || !step.items.every((item) => REPOSITORY.test(item?.name || ''))) throw new Error('Invalid tech stack request.');
+    return `query{${step.items.map((item, index) => `r${index}:repository(owner:${owner},name:${JSON.stringify(item.name)}){tree:object(expression:"HEAD:"){...on Tree{entries{name type object{...on Tree{entries{name type}}}}}}}`).join(' ')}}`;
   }
   if (step.kind !== 'trees' && step.kind !== 'manifests') throw new Error('Invalid tech stack request.');
   if (!Array.isArray(step.items) || !step.items.length || step.items.length > LIMITS.batchRepositories) throw new Error('Invalid tech stack request.');
@@ -53,18 +57,31 @@ async function readAnswer(response) {
   }
 }
 
+// GitHub's own timeouts carry no CORS header, so a browser sees a failed fetch
+// where Node sees a 502. Both mean the same thing: try again, asking for less.
+async function attempt(request, signal) {
+  const limit = AbortSignal.timeout(REQUEST_TIMEOUT);
+  try {
+    return await readAnswer(await request(signal ? AbortSignal.any([signal, limit]) : limit));
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
+    if (error instanceof TypeError || error?.name === 'TimeoutError') throw new TechStackTransient('GitHub did not answer in time.');
+    throw error;
+  }
+}
+
 /** Sends each step to GitHub directly. `fetchImpl` is the session's confined fetch. */
 export function githubTransport(fetchImpl) {
-  return async (step, signal) => readAnswer(await fetchImpl('https://api.github.com/graphql', {
-    method: 'POST', signal,
+  return (step, signal) => attempt((combined) => fetchImpl('https://api.github.com/graphql', {
+    method: 'POST', signal: combined,
     headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: techStackQuery(step) }),
-  }));
+  }), signal);
 }
 
 /** Sends each step through the local preview server, which holds the token. */
 export function proxyTransport(fetchImpl, proxyBase) {
-  return async (step, signal) => readAnswer(await fetchImpl(`${proxyBase}/tech-stack?step=${encodeURIComponent(JSON.stringify(step))}`, { signal }));
+  return (step, signal) => attempt((combined) => fetchImpl(`${proxyBase}/tech-stack?step=${encodeURIComponent(JSON.stringify(step))}`, { signal: combined }), signal);
 }
 
 function recordFrom(repo, technologies) {
@@ -100,7 +117,7 @@ export async function scanTechStack(login, { transport, signal, onProgress = () 
       }
     }
   };
-  // Large pages time out on GitHub's side, so a failed page retries smaller.
+  // A page GitHub can't finish in time retries smaller.
   const listed = [];
   let after = null, size = limits.pageSize, discovered = 0;
   try {
@@ -133,26 +150,14 @@ export async function scanTechStack(login, { transport, signal, onProgress = () 
 
   // The query already asks for public repositories; never trust that alone.
   const candidates = listed.filter((repo) => repo.isPrivate !== true && !repo.isFork && !repo.isEmpty && REPOSITORY.test(repo.name || ''));
-  const entries = candidates.map((repo) => {
-    const paths = [], deep = [];
-    for (const entry of repo.tree?.entries || []) {
-      if (entry.type === 'blob') paths.push(entry.name);
-      else if (entry.type === 'tree' && !isSkippedFolder(entry.name)) {
-        for (const child of entry.object?.entries || []) {
-          if (child.type === 'blob') paths.push(`${entry.name}/${child.name}`);
-          else if (child.type === 'tree' && !isSkippedFolder(child.name)) deep.push(`${entry.name}/${child.name}`);
-        }
-      }
-    }
-    return { repo, paths, deep, manifests: {}, unreadable: 0 };
-  });
+  const entries = candidates.map((repo) => ({ repo, paths: [], deep: [], manifests: {}, unreadable: 0, missing: false }));
 
-  const inBatches = (items, charactersOf) => {
+  const inBatches = (items, charactersOf, most = limits.batchRepositories) => {
     const batches = [];
     let batch = [], characters = 0;
     for (const item of items) {
       const cost = charactersOf(item);
-      if (batch.length && (batch.length >= limits.batchRepositories || characters + cost > limits.batchCharacters)) { batches.push(batch); batch = []; characters = 0; }
+      if (batch.length && (batch.length >= most || characters + cost > limits.batchCharacters)) { batches.push(batch); batch = []; characters = 0; }
       batch.push(item);
       characters += cost;
     }
@@ -167,14 +172,35 @@ export async function scanTechStack(login, { transport, signal, onProgress = () 
         try { await work(batch); }
         catch (error) {
           if (error instanceof TechStackRateLimit) stopped ??= error.budget ? 'limit' : 'rate-limit';
-          else if (error instanceof TechStackTransient) for (const item of batch) item.missing = true;
-          else throw error;
+          else if (!(error instanceof TechStackTransient)) throw error;
+          // One heavy repository can sink a batch, so split until it stands alone.
+          else if (batch.length > 1) batches.push(batch.slice(0, batch.length >> 1), batch.slice(batch.length >> 1));
+          else batch[0].entry.missing = true;
         }
       }
     };
     await Promise.all(Array.from({ length: limits.concurrency }, worker));
   };
   const length = (paths, name) => JSON.stringify(paths).length + name.length + 24;
+
+  const roots = entries.map((entry) => ({ entry, name: entry.repo.name }));
+  let looked = 0;
+  await concurrently(inBatches(roots, (item) => item.name.length + 24, limits.rootBatch), async (batch) => {
+    const answer = await send({ kind: 'roots', login, items: batch.map(({ name }) => ({ name })) });
+    batch.forEach(({ entry }, r) => {
+      for (const file of answer?.data?.[`r${r}`]?.tree?.entries || []) {
+        if (file.type === 'blob') entry.paths.push(file.name);
+        else if (file.type === 'tree' && !isSkippedFolder(file.name)) {
+          for (const child of file.object?.entries || []) {
+            if (child.type === 'blob') entry.paths.push(`${file.name}/${child.name}`);
+            else if (child.type === 'tree' && !isSkippedFolder(child.name)) entry.deep.push(`${file.name}/${child.name}`);
+          }
+        }
+      }
+    });
+    looked += batch.length;
+    onProgress({ stage: 'folders', done: looked, total: roots.length });
+  });
 
   // One level deeper, only where a repository shows no manifest yet or is a workspace.
   const needDeep = entries.filter((entry) => entry.deep.length && (!entry.paths.some(isManifestPath) || entry.deep.some(isWorkspacePath)));
@@ -217,7 +243,7 @@ export async function scanTechStack(login, { transport, signal, onProgress = () 
       withManifest: items.length,
       noLanguage: records.filter((record) => !Object.keys(record.languages).length).length,
       unreadable,
-      missing: items.filter((item) => item.missing).length,
+      missing: entries.filter((entry) => entry.missing).length,
       refused,
       stopped,
     },

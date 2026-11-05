@@ -23,6 +23,9 @@ function fakeGitHub(repositories, { files = {}, pageSize = 2 } = {}) {
   const transport = async (step) => {
     steps.push(step);
     techStackQuery(step); // Every step sent must pass the query builder.
+    if (step.kind === 'roots') {
+      return { data: Object.fromEntries(step.items.map((item, r) => [`r${r}`, { tree: repositories.find((entry) => entry.name === item.name)?.tree ?? null }])) };
+    }
     if (step.kind === 'listing') {
       const start = Number(step.after || 0), end = start + Math.min(step.size, pageSize);
       return { data: { repositoryOwner: { repositories: { totalCount: repositories.length, pageInfo: { hasNextPage: end < repositories.length, endCursor: String(end) }, nodes: repositories.slice(start, end) } } } };
@@ -56,6 +59,7 @@ test('the query builder asks only for public repositories and rejects anything e
   const listing = techStackQuery({ kind: 'listing', login: 'acme', after: null, size: 50 });
   assert.match(listing, /privacy:PUBLIC/);
   assert.match(listing, /ownerAffiliations:OWNER/);
+  assert.doesNotMatch(listing, /tree:object/, 'file trees are what make GitHub time out, so listing never asks for them');
   for (const bad of [
     { kind: 'listing', login: 'acme", evil:"', size: 1 },
     { kind: 'listing', login: 'acme', size: 5000 },
@@ -79,7 +83,7 @@ test('scan pages through everything, drops forks, empties and private repositori
   assert.equal(scan.coverage.forks, 1);
   assert.equal(scan.coverage.empty, 1);
   assert.equal(scan.coverage.discovered, 5);
-  assert.ok(progress.includes('listing') && progress.includes('details'));
+  for (const stage of ['listing', 'folders', 'details']) assert.ok(progress.includes(stage), stage);
   assert.ok(!JSON.stringify(scan).includes('mongoose'), 'manifest text is discarded');
   assert.ok(!github.steps.some((step) => step.items?.some((item) => item.name === 'secret')), 'never reads a private repository');
 });
@@ -117,13 +121,52 @@ test('a page that times out is retried smaller', async () => {
   const github = fakeGitHub([repo('one'), repo('two')]);
   const sizes = [];
   const transport = async (step) => {
-    if (step.kind === 'listing') { sizes.push(step.size); if (step.size === 50) throw new TechStackTransient('slow'); }
+    if (step.kind === 'listing') { sizes.push(step.size); if (step.size === 100) throw new TechStackTransient('slow'); }
     return github.transport(step);
   };
   const scan = await scanTechStack('acme', { transport });
   assert.equal(scan.records.length, 2);
-  assert.equal(sizes[0], 50);
-  assert.ok(sizes.some((size) => size < 50));
+  assert.equal(sizes[0], 100);
+  assert.ok(sizes.some((size) => size < 100));
+});
+
+test('a browser-blocked response is retried, not fatal', async () => {
+  // GitHub's 502 has no CORS header, so in a browser fetch rejects with a TypeError.
+  const github = fakeGitHub([repo('one')]);
+  let blocked = 0;
+  const fetchImpl = async (url, init) => {
+    const { query } = JSON.parse(init.body);
+    if (query.includes('repositoryOwner') && query.includes('first:100')) { blocked += 1; throw new TypeError('Failed to fetch'); }
+    const step = query.includes('repositoryOwner') ? { kind: 'listing', login: 'acme', size: 2 }
+      : query.includes('tree:object') ? { kind: 'roots', login: 'acme', items: [{ name: 'one' }] }
+        : { kind: 'manifests', login: 'acme', items: [{ name: 'one', paths: ['package.json'] }] };
+    return new Response(JSON.stringify(await github.transport(step)));
+  };
+  const scan = await scanTechStack('acme', { transport: githubTransport(fetchImpl) });
+  assert.ok(blocked >= 1);
+  assert.deepEqual(scan.records[0].dependencies, ['Express', 'MongoDB', 'React', 'Vite']);
+});
+
+test('a heavy repository splits its batch and only it goes missing', async () => {
+  const repositories = Array.from({ length: 8 }, (_, index) => repo(`app-${index}`));
+  const github = fakeGitHub(repositories);
+  const transport = async (step) => {
+    if (step.kind === 'roots' && step.items.some((item) => item.name === 'app-3')) throw new TechStackTransient('slow');
+    return github.transport(step);
+  };
+  const scan = await scanTechStack('acme', { transport });
+  assert.equal(scan.records.length, 8);
+  assert.equal(scan.coverage.missing, 1);
+  assert.deepEqual(scan.records.find((record) => record.name === 'app-3').dependencies, []);
+  assert.deepEqual(scan.records.find((record) => record.name === 'app-4').dependencies, ['Express', 'MongoDB', 'React', 'Vite']);
+  assert.ok(coverageNotes(scan).some((note) => note.includes('1 repositories could not be fully read')));
+});
+
+test('being offline ends the scan instead of retrying forever', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; throw new TypeError('Failed to fetch'); };
+  await assert.rejects(scanTechStack('acme', { transport: githubTransport(fetchImpl) }), TechStackTransient);
+  assert.ok(calls <= 12, `made ${calls} requests`);
 });
 
 test('cancelling stops the scan', async () => {
@@ -218,6 +261,7 @@ test('a signed-in scan uses that visitor’s own token, sent only to GitHub', as
     if (String(url).endsWith('/user')) return new Response(JSON.stringify({ login: 'viewer' }));
     const query = JSON.parse(init.body).query;
     if (query.includes('repositoryOwner')) return new Response(JSON.stringify(await github.transport({ kind: 'listing', login: 'acme', size: 2 })));
+    if (query.includes('tree:object')) return new Response(JSON.stringify(await github.transport({ kind: 'roots', login: 'acme', items: [{ name: 'one' }] })));
     return new Response(JSON.stringify({ data: { r0: { f0: { text: PACKAGE, byteSize: 10, isBinary: false } } } }));
   };
   const memory = new Map();

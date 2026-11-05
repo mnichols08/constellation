@@ -16,7 +16,7 @@ import { explainNode } from '../evidence.mjs';
 import { aggregateActivity } from '../activity.mjs';
 import { deriveCodingRhythm } from '../coding-rhythm.mjs';
 import { rustAvailable } from '../engine.mjs';
-import { scanTechStack, githubTransport, proxyTransport, TechStackRateLimit } from '../tech-stack/scan.mjs';
+import { scanTechStack, githubTransport, proxyTransport, TechStackRateLimit, TechStackTransient } from '../tech-stack/scan.mjs';
 
 const SAMPLE_ACCOUNT = 'your-universe';
 // The Studio's own page colours (app.css --bg), light then dark.
@@ -207,6 +207,7 @@ export function createEngine({
       } catch (error) {
         if (error?.name === 'AbortError') throw error;
         if (error instanceof TechStackRateLimit) throw new Error('GitHub’s request limit for your account has been reached. Try again after it resets.');
+        if (error instanceof TechStackTransient) throw new Error('GitHub didn’t answer in time, even for small requests. Check your connection and try again in a moment.');
         throw new Error(friendlyError(error, { localAuth }));
       }
     },
