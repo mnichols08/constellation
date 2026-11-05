@@ -1,6 +1,6 @@
 # GitHub sign-in deployment
 
-Public exploration requires no authentication: the browser directly fetches account identity and one page of up to 100 owned public repositories, using primary language, topics and basic metadata. GitHub sign-in lets the Studio read pinned projects, every language in each project, and recent activity; the CLI and core loaders also use it for contribution discovery, contributor information and commit-backed features. Neither mode sends tokens into configuration, rendering or exports.
+Public exploration requires no authentication: the browser directly fetches account identity and one page of up to 100 owned public repositories, using primary language, topics and basic metadata. GitHub sign-in lets the Studio read pinned projects, every language in each project, recent activity and [tech stack maps](tech-stack.md); the CLI and core loaders also use it for contribution discovery, contributor information and commit-backed features. Neither mode sends tokens into configuration, rendering or exports.
 
 Anonymous API calls must stay client-side/direct; do not route them through a shared unauthenticated proxy. The local preview proxy is used by the browser only when the server advertises local token authentication, without exposing the token. The OAuth exchange service remains limited to authorization exchange and is not a general GitHub API proxy.
 

@@ -29,6 +29,9 @@ import {
   createPortableExport,
   migrateConfig,
   migrateWorkflow,
+  scanTechStack,
+  githubTransport,
+  renderTechStackHTML,
 } from "../packages/core/src/core-api.mjs";
 import { loadConfig } from "./config.mjs";
 import {
@@ -88,6 +91,7 @@ async function main() {
       workflow: { type: "string" },
       fixture: { type: "string" },
       "semantic-graph": { type: "string" },
+      "tech-stack": { type: "boolean" },
       story: { type: 'string' },
       "target-width": { type: 'string' },
       fingerprint: { type: "boolean" },
@@ -115,7 +119,7 @@ async function main() {
   if (values.help) {
     console.log('Profile Story SVG: --story auto|projects|technical-shape|journey [--target-width 480|900]');
     console.log(
-      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --format json|markdown|svg|html|bundle|portfolio  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (bundle/portfolio require a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
+      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --tech-stack        Scan an account's public manifests and write an interactive page (needs GH_TOKEN)\n  --format json|markdown|svg|html|bundle|portfolio  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (bundle/portfolio require a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
     );
     return;
   }
@@ -182,6 +186,20 @@ async function main() {
     throw new Error(
       `Could not load the Rust engine: ${engineError?.message}. Restore the core package WASM or run npm run build:rust and npm run build:core.`,
     );
+  if (values["tech-stack"]) {
+    if (!token) throw new Error("--tech-stack needs GH_TOKEN or GITHUB_TOKEN: it reads a file from every public repository.");
+    const login = username(values.username || process.env.CONSTELLATION_USERNAME);
+    const fetchWithToken = (url, init = {}) => fetch(url, { ...init, redirect: "error", headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+    const scan = await scanTechStack(login, {
+      transport: githubTransport(fetchWithToken),
+      onProgress: ({ stage, done, total }) => console.error(`${stage} ${done}/${total}`),
+    });
+    const output = values.output || `dist/${login}-tech-stack.html`;
+    if (/[\r\n]/.test(output)) throw new Error("Invalid output path.");
+    await writeArtifactAtomically(output, renderTechStackHTML(scan), "html");
+    console.log(`Generated ${output} from ${scan.records.length} repositories.`);
+    return;
+  }
   if (
     positionals.length > 1 ||
     (positionals.length &&

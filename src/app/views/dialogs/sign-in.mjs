@@ -53,6 +53,10 @@ export function createSignInDialog(ctx) {
       foot: [
         h('button', {
           class: 'btn', type: 'button',
+          onclick: () => actions.openTechStack(login),
+        }, 'Map my tech stack'),
+        h('button', {
+          class: 'btn', type: 'button',
           onclick: () => {
             engine.signIn.signOut();
             actions.toast('Signed out.');
@@ -149,6 +153,7 @@ export function createSignInDialog(ctx) {
       actions.closeDialog();
       // Nothing on screen yet: their own sky is the obvious next step.
       if (!store.get().account) actions.openAccount(profile.login);
+      else actions.resumeTechStack();
     });
 
     // Hide the form outright while collapsed: a closed <details> still lays

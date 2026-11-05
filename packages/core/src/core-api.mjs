@@ -86,6 +86,8 @@ export {
 export { createLayoutHost, LAYOUT_API_VERSION } from "./layout-host.mjs";
 export { renderSceneSVG } from "./renderer-svg.mjs";
 export { renderSceneHTML, htmlBundleStatistics } from "./renderer-html.mjs";
+export { scanTechStack, githubTransport, techStackQuery } from "./tech-stack/scan.mjs";
+export { techStackModel, createTechStackScene, renderTechStackHTML } from "./tech-stack/scene.mjs";
 export {
   serializeScene,
   parseScene,

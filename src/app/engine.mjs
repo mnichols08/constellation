@@ -16,6 +16,7 @@ import { explainNode } from '../evidence.mjs';
 import { aggregateActivity } from '../activity.mjs';
 import { deriveCodingRhythm } from '../coding-rhythm.mjs';
 import { rustAvailable } from '../engine.mjs';
+import { scanTechStack, githubTransport, proxyTransport, TechStackRateLimit } from '../tech-stack/scan.mjs';
 
 const SAMPLE_ACCOUNT = 'your-universe';
 // The Studio's own page colours (app.css --bg), light then dark.
@@ -192,6 +193,45 @@ export function createEngine({
       if (!access.capabilities.activity) throw new Error('Sign in with GitHub to load recent activity.');
       try { return await data.loadActivity(account, false); }
       catch (error) { throw new Error(friendlyError(error, { localAuth })); }
+    },
+
+    /**
+     * Read what an account's public repositories declare, using the viewer's own
+     * sign-in. There is no anonymous path: it would spend a shared request limit.
+     */
+    async scanTechStack(login, { signal, onProgress } = {}) {
+      if (!session.token && !localAuth) throw new Error('Sign in with GitHub to map a tech stack.');
+      const transport = session.token ? githubTransport(session.fetch) : proxyTransport(fetchImpl, proxyBase);
+      try {
+        return await scanTechStack(login, { transport, signal, onProgress });
+      } catch (error) {
+        if (error?.name === 'AbortError') throw error;
+        if (error instanceof TechStackRateLimit) throw new Error('GitHub’s request limit for your account has been reached. Try again after it resets.');
+        throw new Error(friendlyError(error, { localAuth }));
+      }
+    },
+
+    /** The map, its tables and what the sheet needs to make it interactive. Loaded on demand. */
+    async renderTechStack(scan) {
+      const [{ techStackModel, createTechStackScene, coverageNotes, formatShare }, { interactiveMarkup }, { mountInteractive, interactiveStyles }, { shortest_path, neighbors }] = await Promise.all([
+        import('../tech-stack/scene.mjs'), import('../renderer-html.mjs'), import('../interactive-runtime.mjs'), import('../wasm/constellation_core.js'),
+      ]);
+      const model = techStackModel(scan);
+      const scene = createTechStackScene(scan, { model });
+      return {
+        model,
+        scene,
+        formatShare,
+        notes: coverageNotes(scan),
+        styles: interactiveStyles,
+        markup: interactiveMarkup(renderSceneSVG(scene, { interactive: true, semanticLevel: 'projects' })),
+        mount: (root) => mountInteractive(root, scene, { engine: { shortest_path, neighbors } }),
+      };
+    },
+
+    async techStackPage(scan) {
+      const { renderTechStackHTML } = await import('../tech-stack/scene.mjs');
+      return renderTechStackHTML(scan);
     },
 
     /** A message when public requests are paused, else null. */

@@ -17,6 +17,7 @@ import { randomizeParts } from '../randomize-parts.mjs';
 import { seededRandom } from '../seeded-random.mjs';
 
 const DRAFT_DELAY = 400;
+const TECH_STACK_INTENT = 'constellation-tech-stack-intent';
 // Layouts that always show one named star per project.
 const SHUFFLE_LAYOUTS = ['galaxy', 'rings', 'solar-system', 'orbital', 'force', 'field'];
 
@@ -301,6 +302,22 @@ export function startStudio({ win = window, doc = document } = {}) {
     setPanel(panel) { store.update({ panel }); },
     openDialog(name) { store.update({ dialog: name }); },
     closeDialog() { store.update({ dialog: null }); },
+
+    // Tech stack ---------------------------------------------------------
+    openTechStack(account = null) { store.update({ techStackTarget: account, dialog: 'tech-stack' }); },
+    /** Sign-in may leave the page for GitHub, so remember what the visitor came for. */
+    signInForTechStack(account) {
+      try { win.sessionStorage.setItem(TECH_STACK_INTENT, account || ''); } catch { /* They can open it again by hand. */ }
+      store.update({ dialog: 'sign-in' });
+    },
+    /** Picks up where signInForTechStack left off. Returns whether it did. */
+    resumeTechStack() {
+      let intent = null;
+      try { intent = win.sessionStorage.getItem(TECH_STACK_INTENT); win.sessionStorage.removeItem(TECH_STACK_INTENT); } catch { /* Nothing to resume. */ }
+      if (intent === null || !engine.signedIn) return false;
+      actions.openTechStack(intent || null);
+      return true;
+    },
     toast: (text, options) => toasts.show(text, options),
 
     // Saved designs ------------------------------------------------------
@@ -329,7 +346,7 @@ export function startStudio({ win = window, doc = document } = {}) {
   mountStudio(doc.getElementById('studio'), ctx);
 
   // The tab title says where you are: screen readers announce it and it names the tab.
-  const DIALOG_TITLES = { 'get-it': 'Get your map', 'fine-tune': 'Fine-tune', save: 'Save this design', saved: 'Your saved designs', 'sign-in': 'Sign in with GitHub' };
+  const DIALOG_TITLES = { 'get-it': 'Get your map', 'fine-tune': 'Fine-tune', save: 'Save this design', saved: 'Your saved designs', 'sign-in': 'Sign in with GitHub', 'tech-stack': 'Tech stack' };
   const homeTitle = doc.title;
   store.subscribe((state, changed) => {
     if (!['screen', 'account', 'sample', 'dialog'].some((key) => changed.has(key))) return;
@@ -374,7 +391,13 @@ export function startStudio({ win = window, doc = document } = {}) {
       win.history.replaceState(null, '', url.pathname + url.hash);
       try {
         const profile = await engine.signIn.complete(href);
-        if (profile?.login) return actions.openAccount(profile.login);
+        if (profile?.login) {
+          let intent = '';
+          try { intent = win.sessionStorage.getItem(TECH_STACK_INTENT) || ''; } catch { /* Their own sky is the fallback. */ }
+          const opened = await actions.openAccount(intent || profile.login);
+          actions.resumeTechStack();
+          return opened;
+        }
       } catch (error) {
         store.update({ status: { text: error.message, tone: 'error' } });
       }

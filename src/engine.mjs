@@ -33,6 +33,28 @@ export function semanticLayout(input) {
   if (!core?.semantic_layout) throw new Error('Semantic Studio requires the rebuilt Rust/WASM engine.');
   return JSON.parse(core.semantic_layout(JSON.stringify(input)));
 }
+export function techStackLayout(input) {
+  if (!core?.tech_stack_layout) throw new Error('The tech stack view requires the rebuilt Rust/WASM engine.');
+  const offsets = [0], members = [];
+  for (const repository of input.repositories) { members.push(...repository); offsets.push(members.length); }
+  const flat = core.tech_stack_layout(
+    input.width, input.height,
+    Uint8Array.from(input.groups, (group) => (group.core ? 1 : 0)),
+    Uint32Array.from(input.nodes, (node) => node.group),
+    Uint32Array.from(input.nodes, (node) => node.count),
+    Float64Array.from(input.nodes, (node) => node.label_width),
+    Uint32Array.from(offsets), Uint32Array.from(members),
+    input.cross_links,
+  );
+  if (!flat.length) throw new Error('The tech stack layout rejected its input.');
+  const [nodeTotal, groupTotal, linkTotal] = flat;
+  const triples = (start, total) => Array.from({ length: total }, (_, index) => [flat[start + index * 3], flat[start + index * 3 + 1], flat[start + index * 3 + 2]]);
+  return {
+    nodes: triples(3, nodeTotal).map(([x, y, radius]) => ({ x, y, radius })),
+    groups: triples(3 + nodeTotal * 3, groupTotal).map(([group, x, y]) => ({ id: input.groups[group].id, x, y })),
+    links: triples(3 + (nodeTotal + groupTotal) * 3, linkTotal).map(([from, to, shared]) => ({ from, to, shared })),
+  };
+}
 const stableCoordinates = new Map();
 export const layoutStatistics = { computedNodes: 0, reusedNodes: 0 };
 function stableScene(input) {

@@ -52,6 +52,7 @@ Public exploration works without signing in and makes two GitHub requests per ac
 - **README Showcase:** feature projects and choose a compact presentation for your profile. [Guide](docs/readme-showcase.md)
 - **Universe:** compare projects by year, language, repository, or topic. [Guide](docs/temporal-stack.md)
 - **Organization maps:** explore public organization repositories. [Guide](docs/organizations.md)
+- **Tech stack maps:** sign in with GitHub to see which frameworks and services an account's repositories declare, and which are used together. [Guide](docs/tech-stack.md)
 - **History and activity:** repository commits or limited recent public activity. These are partial signals, not a complete contribution calendar. [History](docs/history.md)
 - **Interactive exports:** an offline HTML file or framework-free web component. [HTML](docs/interactive-html.md) · [Web component](docs/web-component.md)
 

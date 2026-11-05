@@ -304,3 +304,39 @@ test("pinned endpoint runs a fixed server-side query without exposing the token 
   assert.equal(missing.status, 401);
   assert.match(await missing.text(), /GH_TOKEN/);
 });
+
+test("the tech stack route builds its own queries and never forwards arbitrary GraphQL", async (t) => {
+  const sent = [];
+  const fetchImpl = async (url, init) => {
+    sent.push({ url: String(url), authorization: init.headers.Authorization, query: JSON.parse(init.body).query });
+    return new Response('{"data":{}}', { status: 200 });
+  };
+  const base = await serve(t, { token: "server-token", fetchImpl });
+  const route = (step) => `${base}/api/github/tech-stack?step=${encodeURIComponent(JSON.stringify(step))}`;
+  const good = await fetch(route({ kind: "listing", login: "acme", size: 10 }));
+  assert.equal(good.status, 200);
+  assert.deepEqual(await good.json(), { data: {} });
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, "https://api.github.com/graphql");
+  assert.equal(sent[0].authorization, "Bearer server-token");
+  assert.match(sent[0].query, /privacy:PUBLIC/);
+  for (const bad of [
+    { kind: "raw", login: "acme", query: "mutation { deleteRepository }" },
+    { kind: "listing", login: 'acme"){evil}', size: 1 },
+    { kind: "manifests", login: "acme", items: [{ name: "x", paths: ["../secret"] }] },
+  ]) assert.equal((await fetch(route(bad))).status, 400);
+  assert.equal((await fetch(`${base}/api/github/tech-stack?step=not-json`)).status, 400);
+  assert.equal((await fetch(`${base}/api/github/tech-stack?step=${"x".repeat(16001)}`)).status, 400);
+  assert.equal(sent.length, 1, "nothing invalid reached GitHub");
+  const signedOut = await serve(t);
+  const refused = await fetch(`${signedOut}/api/github/tech-stack?step=${encodeURIComponent(JSON.stringify({ kind: "listing", login: "acme", size: 1 }))}`);
+  assert.equal(refused.status, 401);
+  assert.match(await refused.text(), /GH_TOKEN/);
+});
+
+test("the tech stack route passes GitHub's status through so limits are reported", async (t) => {
+  const base = await serve(t, { token: "server-token", fetchImpl: async () => new Response('{"message":"limit"}', { status: 403 }) });
+  const answer = await fetch(`${base}/api/github/tech-stack?step=${encodeURIComponent(JSON.stringify({ kind: "listing", login: "acme", size: 1 }))}`);
+  assert.equal(answer.status, 403);
+  assert.ok(!(await answer.text()).includes("server-token"));
+});

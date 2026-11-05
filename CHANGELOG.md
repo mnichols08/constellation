@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.4.0 — Tech stack maps
+
+- **Tech stack maps.** Sign in with GitHub, then press **Map a tech stack** in the **Layout** tab to see which languages, frameworks and services an organization's or your own public repositories declare, and which are used together. It reads a manifest from every public repository, so it uses your own sign-in and request limit. Everything else in the Studio still works without signing in. [Guide](docs/tech-stack.md)
+- **A result you can pass on.** **Download interactive page** saves one HTML file with the map and every count, and no sign-in details. The result stays in its own sheet, so it never changes a design, the undo history or a share link.
+- **Honest coverage.** The map says what it counted, what it couldn't read, and when GitHub refused a read or its limit stopped a scan early. Technologies are what manifests declare, which doesn't prove they're used, and counts say nothing about quality.
+- **`--tech-stack` on the command line.** Writes the same page. It needs `GH_TOKEN` or `GITHUB_TOKEN`.
+- **Local preview.** A fixed server route runs the scan, so the token stays out of the browser. It builds its own queries and can't forward arbitrary GraphQL.
+- Layout and link selection are in Rust. See [ADR-0009](docs/architecture/decisions/ADR-0009-TECH-STACK-VIEW.md).
+- Tests: Rust tests for determinism, bounds, real co-occurrence counts and invalid input; unit tests for the scanner, sign-in gate and token confinement; Playwright journeys for the gate, scan, map, cancel, rate limit and sign-out on every viewport, with an accessibility check.
+
 ## 5.3.0 — Technology maps that count everything
 
 - **Fix: technology views undercounted large organizations.** Technology, dependency, language and topic views counted at most 100 repositories. A 1,436-repository organization was counted from 82, so one technology showed 13 repositories instead of 299 and others disappeared. These views now count every repository matching the filters; `maxRepos` still limits drawn projects. **Existing organization maps using these views will show different, correct numbers.**
