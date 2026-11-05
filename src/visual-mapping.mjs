@@ -35,6 +35,12 @@ export function mappedGlow(repo, mode = 'uniform', seed = '', reference = 0) {
 }
 export function connectionWeight(edge, mode = 'uniform') {
   if (mode === 'uniform') return null;
+  if (mode === 'repositories') {
+    // Aggregate edges share hundreds of repositories; scale across that range rather than saturating at 8.
+    const shared = Number.isFinite(edge.repositoryCount) ? edge.repositoryCount : edge.sharedRepositories?.length || 0;
+    const strength = Math.min(1, Math.log1p(shared) / Math.log1p(500));
+    return { width: .4 + strength * 2.6, opacity: .12 + strength * .68 };
+  }
   const count = mode === 'languages' ? edge.sharedLanguages.length : mode === 'topics' ? edge.sharedTopics.length : mode === 'overlap' ? edge.sharedLanguages.length + edge.sharedTopics.length + (edge.sharedRepositories?.length || 0) : NaN;
   if (!Number.isFinite(count)) throw new Error('Invalid connection weight mode.');
   const strength = Math.min(1, Math.log1p(count) / Math.log(9));
@@ -42,7 +48,7 @@ export function connectionWeight(edge, mode = 'uniform') {
 }
 
 export function mappingOptions(options) {
-  for (const [key, values] of Object.entries({ nodeColorMode: ['custom', 'language', 'seeded', 'category', 'contribution'], nodeGlowMode: ['uniform', 'stars', 'activity', 'seeded'], connectionWeight: ['uniform', 'languages', 'topics', 'overlap'], nodeShape: ['circle', 'star', 'diamond', 'hexagon', 'square', 'mixed'], effect: ['none', 'grid', 'scanlines', 'coordinates'] })) {
+  for (const [key, values] of Object.entries({ nodeColorMode: ['custom', 'language', 'seeded', 'category', 'contribution'], nodeGlowMode: ['uniform', 'stars', 'activity', 'seeded'], connectionWeight: ['uniform', 'languages', 'topics', 'overlap', 'repositories'], nodeShape: ['circle', 'star', 'diamond', 'hexagon', 'square', 'mixed'], effect: ['none', 'grid', 'scanlines', 'coordinates'] })) {
     if (options[key] !== undefined && !values.includes(options[key])) throw new Error(`Invalid ${key}.`);
   }
   if (options.legend !== undefined && typeof options.legend !== 'boolean') throw new Error('legend must be boolean.');

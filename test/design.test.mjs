@@ -104,6 +104,8 @@ test('metric size/glow are bounded, missing values are safe, and manual colors w
   const edge = { sharedLanguages: ['CSS', 'Rust'], sharedTopics: ['tools'] };
   assert.equal(connectionWeight(edge), null);
   assert.ok(connectionWeight(edge, 'overlap').width > connectionWeight(edge, 'topics').width);
+  assert.ok(connectionWeight({ repositoryCount: 300 }, 'repositories').width > connectionWeight({ repositoryCount: 30 }, 'repositories').width);
+  assert.ok(connectionWeight({ repositoryCount: 30 }, 'repositories').width > connectionWeight({ repositoryCount: 3 }, 'repositories').width);
   assert.throws(() => renderConstellation('tester', [], { nodeSize: 'huge' }));
 });
 
