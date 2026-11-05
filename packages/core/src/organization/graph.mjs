@@ -26,7 +26,9 @@ export function organizationGraph(all, selected, options) {
     categories.get(id).members.push(repo.full_name);
   };
   const projects = !['contributors', 'technology', 'dependencies', 'eras', 'languages', 'topics'].includes(mode);
-  if (['ecosystem', 'technology', 'dependencies', 'languages', 'topics', 'combined'].includes(mode)) for (const repo of selected) {
+  // Category-only views count every matching repository; the node cap limits drawn projects, not what is counted.
+  const aggregate = ['technology', 'dependencies', 'languages', 'topics'].includes(mode);
+  if (['ecosystem', 'technology', 'dependencies', 'languages', 'topics', 'combined'].includes(mode)) for (const repo of aggregate ? pool : selected) {
     if (mode !== 'dependencies' && mode !== 'topics') for (const language of repo.languages ? Object.keys(repo.languages).filter(key => repo.languages[key] > 0) : repo.language ? [repo.language] : []) add('language', language, repo);
     if (['ecosystem', 'topics', 'combined'].includes(mode)) for (const topic of repo.topics || []) add('topic', topic, repo);
     if (['ecosystem', 'technology', 'dependencies'].includes(mode)) for (const dependency of repo.dependencies || []) if (typeof dependency === 'string') add('dependency', dependency, repo);
@@ -80,10 +82,11 @@ export function organizationGraph(all, selected, options) {
   const aggregateCount = categoryNodes.filter(node => node.nodeKind === 'era').reduce((sum, node) => sum + node.members.length, 0);
   const omitted = Math.max(0, pool.length - repositoryNodes.length - aggregateCount);
   const coverage = options.organizationData;
-  const note = `${coverage?.discovered ?? pool.length} repositories discovered${coverage?.metadataComplete === false ? ' (partial metadata)' : ''}; ${pool.length} matching filters; ${repositoryNodes.length} represented directly; ${aggregateCount} through era systems; ${omitted} omitted. Contributor visualization represents the selected organization scope${coverage ? `: ${coverage.scanned || 0}/${coverage.selected || 0} repositories scanned, up to ${coverage.perRepositoryLimit || 25} contributors per repository` : ''}.${focus ? focalPerson ? ` @${options.organizationUser} contributed to ${focalProjects.size} represented projects; highlighted contributors share these projects.` : ` @${options.organizationUser} was not found in this scan. This does not establish absence of contributions; expand the scan or project scope.` : ''}`;
+  const representation = aggregate ? `all counted in category nodes; ${ranked.length - categoryNodes.length} less common categories not drawn` : `${repositoryNodes.length} represented directly; ${aggregateCount} through era systems; ${omitted} omitted`;
+  const note = `${coverage?.discovered ?? pool.length} repositories discovered${coverage?.metadataComplete === false ? ' (partial metadata)' : ''}; ${pool.length} matching filters; ${representation}.${aggregate ? '' : ` Contributor visualization represents the selected organization scope${coverage ? `: ${coverage.scanned || 0}/${coverage.selected || 0} repositories scanned, up to ${coverage.perRepositoryLimit || 25} contributors per repository` : ''}.`}${focus ? focalPerson ? ` @${options.organizationUser} contributed to ${focalProjects.size} represented projects; highlighted contributors share these projects.` : ` @${options.organizationUser} was not found in this scan. This does not establish absence of contributions; expand the scan or project scope.` : ''}`;
   // Keep aggregate tooltips/inspector payloads bounded even for 100k repositories.
   for (const node of nodes) if (node.members?.length > 100) { node.representedCount = node.members.length; node.members = node.members.slice(0, 100); }
-  return { nodes, edges, emptyMessage, focus: nodes.find(node => node.organizationFocal)?.full_name, focusProjects: [...focalProjects].sort(), total: repositoryNodes.length + (community ? people.length : 0) + ranked.length, repositoryCount: selected.length, note: note + ' Contributor totals are current; historical views filter project creation dates, not contributor tenure.', organization: true };
+  return { nodes, edges, emptyMessage, focus: nodes.find(node => node.organizationFocal)?.full_name, focusProjects: [...focalProjects].sort(), total: repositoryNodes.length + (community ? people.length : 0) + ranked.length, repositoryCount: aggregate ? pool.length : selected.length, aggregate, note: aggregate ? note : note + ' Contributor totals are current; historical views filter project creation dates, not contributor tenure.', organization: true };
 }
 export function organizationPositions(graph, arrangement, compact, seed = '', metric = 'stars') {
   const ordered = [...graph.nodes].sort((a, b) => a.full_name.localeCompare(b.full_name));

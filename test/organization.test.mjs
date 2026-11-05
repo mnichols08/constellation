@@ -512,3 +512,30 @@ test("targeted lookup finds older user projects outside the organization sample 
 });
 
 function authenticatedPreviewData(options = {}) { return createPreviewData({ ...options, access: createGitHubAccess({ authenticated: true }) }); }
+
+test("technology views aggregate every matching repository, not the direct-node cap", () => {
+  const records = repositories(300);
+  for (const organizationView of ["technology"]) {
+    const settings = { ...options, organizationView, organizationScope: "all-metadata", nodeMode: undefined };
+    const graph = graphNodes(records, settings);
+    const counts = Object.fromEntries(graph.nodes.map((node) => [node.name, node.representedCount ?? node.members.length]));
+    assert.equal(counts.JavaScript, 150);
+    assert.equal(counts.Rust, 150);
+    assert.equal(counts["example-package"], 300);
+    assert.equal(graph.repositoryCount, 300);
+    assert.doesNotMatch(graph.note, /\d+ omitted/);
+    assert.ok(graph.nodes.every((node) => (node.members?.length ?? 0) <= 100));
+    const svg = renderConstellation("community", records, settings);
+    assert.match(svg, /300 projects/);
+    assert.doesNotMatch(svg, /scanned for contributors/);
+  }
+});
+
+test("project views keep the direct-node cap and report contributor coverage", () => {
+  const records = repositories(300);
+  const graph = graphNodes(records, { ...options, organizationView: "projects" });
+  assert.equal(graph.nodes.filter((node) => node.nodeKind === "repository").length, 100);
+  assert.equal(graph.repositoryCount, 100);
+  const svg = renderConstellation("community", repositories(40), { ...options, organizationView: "projects", maxRepos: 40 });
+  assert.match(svg, /40 selected projects · 0 repositories scanned for contributors/);
+});
