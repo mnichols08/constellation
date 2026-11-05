@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.3.0 — Technology maps that count everything
+
+- **Fix: technology views undercounted large organizations.** Technology, dependency, language and topic views counted at most 100 repositories. A 1,436-repository organization was counted from 82, so one technology showed 13 repositories instead of 299 and others disappeared. These views now count every repository matching the filters; `maxRepos` still limits drawn projects. **Existing organization maps using these views will show different, correct numbers.**
+- **Fix: selecting a node shows its connections.** Selection now frames the node with its direct links, never tighter than before, where it used to zoom so far in that the links went off-screen. Temporal scenes keep their existing camera.
+- **Fix: unrelated lines dim on selection.** They stayed bright whenever a connection weight was on.
+- **Fix: truthful labels.** The inspector calls category counts repositories, not stars. Category views no longer mention contributor scans that did not run, or report counted repositories as omitted.
+- **`connectionWeight: 'repositories'`.** A new mode sizes a line by how many repositories it represents, on a log scale up to 500.
+- Tests: regression tests for category counts, the project cap, footer text and the new weight mode.
+
 ## 5.2.0 — Star on GitHub, and link previews
 
 - **Star on GitHub.** Home's footer and the How it works page link to the repository in a new tab, so visitors can star it without losing their place. Screen readers hear "(opens in a new tab)". Home's control budget in the perception tests rises from six to seven for this quiet footer link.
