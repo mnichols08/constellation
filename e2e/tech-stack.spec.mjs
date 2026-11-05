@@ -13,8 +13,8 @@ const repository = (index) => ({
 });
 
 /** A viewer who signs in with the one good token, and GitHub answering scans for it. */
-async function stubScan(page, { hold = null, status = 200 } = {}) {
-  const calls = { graphql: 0, tokens: new Set() };
+async function stubScan(page, { hold = null, status = 200, blockFirst = false } = {}) {
+  const calls = { graphql: 0, blocked: 0, tokens: new Set() };
   await page.route('https://api.github.com/user', (route) => route.fulfill({
     status: route.request().headers().authorization === `Bearer ${TOKEN}` ? 200 : 401,
     contentType: 'application/json',
@@ -26,6 +26,12 @@ async function stubScan(page, { hold = null, status = 200 } = {}) {
     if (hold) await hold;
     if (status !== 200) return route.fulfill({ status, contentType: 'application/json', body: '{"message":"limit"}' }).catch(() => {});
     const { query } = JSON.parse(route.request().postData());
+    // GitHub's timeout has no CORS header, which a browser reports as a failed fetch.
+    if (blockFirst && query.includes('repositoryOwner') && calls.blocked === 0) { calls.blocked += 1; return route.abort('failed'); }
+    if (query.includes('tree:object')) {
+      const roots = Object.fromEntries([...query.matchAll(/r(\d+):repository/g)].map((match) => [`r${match[1]}`, { tree: repository(0).tree }]));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: roots }) }).catch(() => {});
+    }
     const data = query.includes('repositoryOwner')
       ? { repositoryOwner: { repositories: { totalCount: 3, pageInfo: { hasNextPage: false, endCursor: null }, nodes: [repository(0), repository(1), repository(2)] } } }
       : Object.fromEntries([...query.matchAll(/r(\d+):repository/g)].map((match) => [`r${match[1]}`, { f0: { text: manifest, byteSize: manifest.length, isBinary: false } }]));
@@ -59,6 +65,24 @@ test('signed out, it asks for sign-in and sends nothing to GitHub GraphQL', asyn
   await expect(dialog.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Map tech stack' })).toHaveCount(0);
   expect(calls.graphql).toBe(0);
+});
+
+test('it is easy to find: first in the Layout tab, and in the top bar where there is room', async ({ page, github }, testInfo) => {
+  void github;
+  await page.goto('/?user=sky-org');
+  const topBar = page.getByRole('banner').getByRole('button', { name: 'Tech stack' });
+  const phone = testInfo.project.name.startsWith('mobile');
+  for (const tab of ['Look', 'Layout', 'Projects', 'Details']) {
+    await page.getByRole('tab', { name: tab }).click();
+    if (phone) await expect(topBar).toBeHidden();
+    else await expect(topBar).toBeInViewport({ ratio: 1 });
+  }
+  await page.getByRole('tab', { name: 'Layout' }).click();
+  const inPanel = page.getByRole('button', { name: 'Map a tech stack' });
+  await expect(inPanel).toBeInViewport({ ratio: 1 });
+  expect(await page.locator('#panel-layout').evaluate((panel) => panel.firstElementChild.textContent)).toContain('Map a tech stack');
+  await (phone ? inPanel : topBar).click();
+  await expect(page.getByRole('dialog', { name: 'Tech stack' }).getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible();
 });
 
 test('the rest of the Studio still works without signing in', async ({ page, github }) => {
@@ -146,6 +170,18 @@ test('closing the sheet stops a scan and reopening starts clean', async ({ page,
   await mapButton(page).click();
   await expect(dialog.getByLabel('GitHub account or organization')).toHaveValue('sky-org');
   await expect(dialog.getByRole('button', { name: 'Map tech stack' })).toBeVisible();
+});
+
+test('a request the browser blocks is retried and the map still appears', async ({ page, github }) => {
+  void github;
+  const calls = await stubScan(page, { blockFirst: true });
+  // Chrome logs the blocked request, and it is the behaviour under test.
+  page.removeAllListeners('console');
+  await openStudio(page);
+  const dialog = await signInThroughGate(page);
+  await dialog.getByRole('button', { name: 'Map tech stack' }).click();
+  await expect(dialog.getByText('3 of 3 public repositories for @sky-org')).toBeVisible();
+  expect(calls.blocked).toBe(1);
 });
 
 test('a rate limit explains itself and offers another try', async ({ page, github }) => {

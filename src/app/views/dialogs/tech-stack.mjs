@@ -49,7 +49,8 @@ export function createTechStackDialog(ctx) {
   });
 
   function describeProgress({ stage, done, total }) {
-    return stage === 'listing' ? `Listing repositories… ${done} of ${total}` : `Reading project files… ${done} of ${total}`;
+    const label = { listing: 'Listing repositories', folders: 'Looking through repositories', details: 'Reading project files' }[stage];
+    return `${label}… ${done} of ${total}`;
   }
 
   async function start(login) {

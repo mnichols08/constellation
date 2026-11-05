@@ -35,7 +35,8 @@ The gate is enforced in the Studio engine: `engine.scanTechStack` throws before 
 - A viewer's scan spends only their own request limit.
 
 ### Negative / tradeoffs
-- A large organization takes several minutes: 1,521 repositories took about eight, because GitHub times out on large pages and listing is sequential.
+- A large organization takes several minutes, because each repository's files need their own reads.
+- GitHub's GraphQL timeouts carry no CORS header, so a browser sees a failed fetch where Node sees a 502. Scans treat both as "try again, asking for less", and listing never carries file trees, because those are what make GitHub time out.
 - The technology list is hand-curated, so libraries outside it aren't shown. The page says so.
 - Counts show what manifests declare, not what is used. The page says so.
 

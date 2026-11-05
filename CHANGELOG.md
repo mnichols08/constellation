@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.4.1 — Tech stack maps that work in the browser
+
+- **Fix: tech stack scans failed with "We couldn’t reach GitHub".** GitHub's GraphQL timeouts carry no CORS header, so a browser reports a failed request where other clients see a 502, and the first timeout ended the scan. Those failures are now retried with a smaller request.
+- **Fewer timeouts, and faster scans.** Listing no longer asks for file trees, which are what made GitHub time out. Trees are read in small batches at once, and a batch that fails splits until the one heavy repository stands alone. That repository is reported as not fully read.
+- **Easier to find.** **Tech stack** is now in the top bar on every tab, and its section comes first in the **Layout** tab instead of below every other setting. Phones have no room in the top bar, so they use the **Layout** tab.
+- Tests: browser-blocked responses, splitting a failed batch, stopping when offline, a Playwright journey where the browser blocks a request, and one checking the button is on screen from every tab.
+
 ## 5.4.0 — Tech stack maps
 
 - **Tech stack maps.** Sign in with GitHub, then press **Map a tech stack** in the **Layout** tab to see which languages, frameworks and services an organization's or your own public repositories declare, and which are used together. It reads a manifest from every public repository, so it uses your own sign-in and request limit. Everything else in the Studio still works without signing in. [Guide](docs/tech-stack.md)

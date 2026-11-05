@@ -4,8 +4,8 @@ See which languages, frameworks and services an account's public repositories de
 
 ## In the Studio
 
-1. Open any account or the example sky, then the **Layout** tab.
-2. Under **Tech stack**, press **Map a tech stack**.
+1. Open any account or the example sky.
+2. Press **Tech stack** in the top bar. On a phone, or from any screen size, **Map a tech stack** at the top of the **Layout** tab does the same.
 3. Sign in with GitHub if you haven't. This view needs sign-in because it reads a file from every public repository, which uses your own request limit. You return to the sheet afterwards.
 4. Enter an account, or press **Use my account**, then press **Map tech stack**.
 
