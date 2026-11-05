@@ -8,6 +8,7 @@ import { createGetItDialog } from './dialogs/get-it.mjs';
 import { createFineTuneDialog } from './dialogs/fine-tune.mjs';
 import { createSaveDialog, createSavedDialog } from './dialogs/designs.mjs';
 import { createSignInDialog } from './dialogs/sign-in.mjs';
+import { createTechStackDialog } from './dialogs/tech-stack.mjs';
 
 const FACTORIES = {
   'get-it': createGetItDialog,
@@ -15,6 +16,7 @@ const FACTORIES = {
   save: createSaveDialog,
   saved: createSavedDialog,
   'sign-in': createSignInDialog,
+  'tech-stack': createTechStackDialog,
 };
 
 const FOCUSABLE = '[autofocus], input:not([type=hidden]):not([disabled]), button:not([disabled]), select, textarea, a[href]';

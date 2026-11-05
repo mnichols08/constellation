@@ -13,6 +13,7 @@ New here? Read the [Studio guide](studio.md). Then open the guide for the task y
 | Understand what a README map communicates | [README Showcase](readme-showcase.md) |
 | Understand what rings, size and colour mean | [Reading a constellation](semantic-studio.md) |
 | Explore an organization | [Organization maps](organizations.md) |
+| See frameworks across an account, signed in | [Tech stack maps](tech-stack.md) |
 | Explore projects over time or by language/topic | [Universe dimensions](temporal-stack.md) |
 | Explain a project's evidence, position, or appearance | [Evidence and provenance](evidence-provenance.md) |
 | Compress a project map into explainable groups | [Semantic Groups](semantic-groups.md) |

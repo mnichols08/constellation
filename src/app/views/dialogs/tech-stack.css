@@ -1,0 +1,18 @@
+/* Tech stack sheet: wide enough for the map, with quiet tables beneath it. */
+dialog.sheet[data-dialog="tech-stack"] { width: min(1240px, 100%); max-width: min(1240px, calc(100vw - 2 * var(--space-4))); }
+.tech-stack-form { display: grid; gap: var(--space-3); justify-items: start; }
+.tech-stack-form .field { width: 100%; }
+.tech-stack-progress { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tech-stack-summary { color: var(--text-2); max-width: 75ch; }
+.tech-stack-map { min-width: 0; }
+.tech-stack-section { display: grid; gap: var(--space-3); }
+.tech-stack-section h3 { font-size: 17px; }
+.tech-stack-section h4 { font-size: 15px; margin-bottom: var(--space-2); }
+.tech-stack-section p { max-width: 75ch; }
+.tech-stack-tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: var(--space-5); }
+.tech-stack-table { width: 100%; max-width: 560px; border-collapse: collapse; font-size: 14px; }
+.tech-stack-table th, .tech-stack-table td { padding: 3px 6px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 400; font-variant-numeric: tabular-nums; }
+.tech-stack-table th:first-child { text-align: left; }
+.tech-stack-table thead th { color: var(--text-2); font-size: 12px; }
+.tech-stack-table .is-off-map th, .tech-stack-table .is-off-map td { color: var(--text-2); }
+.tech-stack-dot { display: inline-block; width: 10px; height: 10px; margin-right: 7px; border-radius: 50%; outline: 1px solid var(--border); }
