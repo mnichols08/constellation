@@ -13,6 +13,7 @@ mod semantic;
 mod stable;
 mod story_composition;
 mod story_clarity;
+mod tech_stack;
 
 use wasm_bindgen::prelude::*;
 
@@ -24,6 +25,23 @@ pub fn semantic_layout(input: &str) -> Result<String, String> {
     let input =
         serde_json::from_str(input).map_err(|error| format!("Invalid semantic input: {error}"))?;
     serde_json::to_string(&semantic::layout(input)?).map_err(|error| error.to_string())
+}
+
+#[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
+pub fn tech_stack_layout(
+    width: f64,
+    height: f64,
+    group_core: &[u8],
+    node_group: &[u32],
+    node_count: &[u32],
+    label_width: &[f64],
+    repository_offsets: &[u32],
+    repository_members: &[u32],
+    cross_links: u32,
+) -> Vec<f64> {
+    // Empty means invalid input: a valid result always starts with its three counts.
+    tech_stack::layout(&tech_stack::Input { width, height, group_core, node_group, node_count, label_width, repository_offsets, repository_members, cross_links }).unwrap_or_default()
 }
 
 #[wasm_bindgen]

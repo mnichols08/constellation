@@ -185,22 +185,19 @@ export function mountInteractive(root, source, options = {}, explanations = cano
       : record.geometry;
     const width = Math.min(camera[2], base[2] / 3),
       height = (width * base[3]) / base[2];
-    // Frame direct links when they would not fit, so selecting a node shows what it connects to.
-    const neighbors = scene.temporalStack ? [] : (scene.edges || [])
+    // Keep direct links in frame.
+    const near = scene.temporalStack ? [] : (scene.edges || [])
       .filter((edge) => edge.from === id || edge.to === id)
       .map((edge) => records.get(edge.from === id ? edge.to : edge.from)?.geometry)
       .filter(Boolean);
-    if (neighbors.length) {
-      const xs = [point.x, ...neighbors.map((item) => item.x)],
-        ys = [point.y, ...neighbors.map((item) => item.y)];
-      const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
-      const pad = base[2] * 0.06;
-      const fitted = Math.min(base[2], Math.max(right - left + pad * 2, ((bottom - top + pad * 2) * base[2]) / base[3]));
-      if (fitted > width) {
-        const fittedHeight = (fitted * base[3]) / base[2];
-        setCamera([(left + right) / 2 - fitted / 2, (top + bottom) / 2 - fittedHeight / 2, fitted, fittedHeight]);
-        return;
-      }
+    const xs = [point.x, ...near.map((item) => item.x)],
+      ys = [point.y, ...near.map((item) => item.y)];
+    const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+    const pad = base[2] * 0.12;
+    const fitted = Math.min(base[2], Math.max(right - left + pad, ((bottom - top + pad) * base[2]) / base[3]));
+    if (near.length && fitted > width) {
+      const tall = (fitted * base[3]) / base[2];
+      return setCamera([(left + right - fitted) / 2, (top + bottom - tall) / 2, fitted, tall]);
     }
     setCamera([point.x - width / 2, point.y - height / 2, width, height]);
   }
@@ -269,11 +266,11 @@ export function mountInteractive(root, source, options = {}, explanations = cano
     const description = document.createElement("p");
     description.textContent = metadata.description || "";
     const summary = document.createElement("p");
-    // Category nodes count repositories; only real repositories have stars or a language of their own.
-    const representedRepositories = Array.isArray(metadata.members) && metadata.nodeKind && metadata.nodeKind !== "repository"
+    // Category nodes count repositories, not stars.
+    const represented = metadata.members && metadata.nodeKind && metadata.nodeKind !== "repository"
       ? metadata.representedCount || metadata.members.length
       : null;
-    summary.textContent = (representedRepositories !== null ? [`${representedRepositories} repositories`] : [
+    summary.textContent = (represented !== null ? [`${represented} repositories`] : [
       metadata.language,
       Number.isFinite(metadata.stargazers_count)
         ? `${metadata.stargazers_count} stars`

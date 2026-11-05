@@ -494,6 +494,44 @@ export function stable_positions(input) {
         wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
     }
 }
+
+/**
+ * @param {number} width
+ * @param {number} height
+ * @param {Uint8Array} group_core
+ * @param {Uint32Array} node_group
+ * @param {Uint32Array} node_count
+ * @param {Float64Array} label_width
+ * @param {Uint32Array} repository_offsets
+ * @param {Uint32Array} repository_members
+ * @param {number} cross_links
+ * @returns {Float64Array}
+ */
+export function tech_stack_layout(width, height, group_core, node_group, node_count, label_width, repository_offsets, repository_members, cross_links) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(group_core, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray32ToWasm0(node_group, wasm.__wbindgen_export);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArray32ToWasm0(node_count, wasm.__wbindgen_export);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passArrayF64ToWasm0(label_width, wasm.__wbindgen_export);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passArray32ToWasm0(repository_offsets, wasm.__wbindgen_export);
+        const len4 = WASM_VECTOR_LEN;
+        const ptr5 = passArray32ToWasm0(repository_members, wasm.__wbindgen_export);
+        const len5 = WASM_VECTOR_LEN;
+        wasm.tech_stack_layout(retptr, width, height, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, cross_links);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var v7 = getArrayF64FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 8, 8);
+        return v7;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -587,6 +625,13 @@ let heap_next = heap.length;
 function passArray32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
     getUint32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
 }

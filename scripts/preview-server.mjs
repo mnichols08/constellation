@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { readdirSync } from "node:fs";
 import { fetchPinnedRepositories } from "../src/constellation.mjs";
+import { techStackQuery } from "../src/tech-stack/scan.mjs";
 
 const allowed = new Map([
   ...["onboarding-model", "onboarding-generator", "profile-story-export", "portfolio-artifact", "portable-export"].map(
@@ -105,6 +106,10 @@ const allowed = new Map([
     ["../src/filter-explanation.mjs", "text/javascript"],
   ],
   ["/src/evidence.mjs", ["../src/evidence.mjs", "text/javascript"]],
+  ...["catalog", "scan", "scene"].map((name) => [
+    `/src/tech-stack/${name}.mjs`,
+    [`../src/tech-stack/${name}.mjs`, "text/javascript"],
+  ]),
   ...["settings", "model", "data", "graph"].map((name) => [
     `/src/organization/${name}.mjs`,
     [`../src/organization/${name}.mjs`, "text/javascript"],
@@ -217,6 +222,40 @@ export function createPreviewServer({ token, fetchImpl = fetch } = {}) {
     res.setHeader("X-Content-Type-Options", "nosniff");
     if (url.pathname.startsWith("/api/github/")) {
       const path = url.pathname.slice("/api/github".length);
+      // One fixed set of queries, built here, so this never forwards arbitrary GraphQL.
+      if (path === "/tech-stack") {
+        res.setHeader("Content-Type", "application/json");
+        if (!token) {
+          res.writeHead(401);
+          res.end(JSON.stringify({ message: "The tech stack view needs GH_TOKEN in the local server .env file." }));
+          return;
+        }
+        let query;
+        try {
+          const step = url.searchParams.get("step") || "";
+          if (step.length > 16000) throw new Error("Tech stack request is too large.");
+          query = techStackQuery(JSON.parse(step));
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ message: "Invalid tech stack request." }));
+          return;
+        }
+        try {
+          const answer = await fetchImpl("https://api.github.com/graphql", {
+            method: "POST",
+            redirect: "error",
+            signal: AbortSignal.timeout(60000),
+            headers: { Accept: "application/vnd.github+json", "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ query }),
+          });
+          res.writeHead(answer.status);
+          res.end(await answer.text());
+        } catch {
+          res.writeHead(502);
+          res.end(JSON.stringify({ message: "Could not reach GitHub." }));
+        }
+        return;
+      }
       const pinned = /^\/users\/([a-z\d][a-z\d-]{0,38})\/pinned$/i.exec(path);
       if (pinned && !url.search) {
         res.setHeader("Content-Type", "application/json");
