@@ -4,19 +4,19 @@
     "identity": "mnichols08/constellation@8c07ad0334e6065bb1773e8d4fa55f95a2cade88",
     "account": "mnichols08",
     "configurationDigest": "sha256:42de25d289ab2f5047ac0d8ddb4bb0ecc96a332eda7c163bf6065241e154aba2",
-    "evidenceDigest": "sha256:6411b9d9139926bf83f8be9b7f00379c8fd9d29ee59e06cd1c5e9a8c1506a61c"
+    "evidenceDigest": "sha256:89b6d410a5310a611e0ea090fb33290284579581fc90eb8192a8b0df45565af3"
   },
-  "referenceDate": "2026-11-12",
+  "referenceDate": "2026-11-13",
   "artifact": {
     "format": "svg",
     "filename": "constellation.svg",
-    "digest": "sha256:a1dea57957ec714efb9f44b9048ae77c0982425a520b6afed4320d6568b466e9",
-    "bytes": 84553
+    "digest": "sha256:790607324158bebb5140c9f57fa73c517a47a3d8e73eaebe2c3f9d5efbfa85c4",
+    "bytes": 85176
   },
   "destination": {
     "identity": "mnichols08/constellation@output"
   },
-  "revision": 32,
+  "revision": 33,
   "generation": "success",
   "diagnostics": []
 }
