@@ -1,0 +1,21 @@
+{
+  "name": "@constellation/spec",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ConstellationSpec: describe a constellation as validated semantic intent; Rust/WASM resolves and compiles it.",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./src/constellation-spec.mjs",
+    "./ai": "./src/ai/index.mjs",
+    "./schema.json": "./schemas/constellation-spec.v1.schema.json",
+    "./tools.json": "./schemas/constellation-tools.v1.json"
+  },
+  "files": [
+    "src",
+    "schemas",
+    "README.md"
+  ],
+  "license": "UNLICENSED"
+}

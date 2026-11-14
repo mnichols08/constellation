@@ -14,3 +14,4 @@ await copyFile(new URL('../src/json-feed-source.mjs', import.meta.url), new URL(
 await writeFile(new URL('package.json', source), JSON.stringify({ name: '@constellation/source-json', version: await packageVersion(source), type: 'module', exports: './index.mjs', files: ['index.mjs'], license: 'UNLICENSED' }, null, 2) + '\n');
 
 await import('./build-web-component.mjs');
+await import('./build-spec.mjs');
