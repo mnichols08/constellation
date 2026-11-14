@@ -12,6 +12,7 @@ import { mountToasts } from './views/toasts.mjs';
 import { createConfigStore } from '../config-store.mjs';
 import { parseConfig } from '../config-schema.mjs';
 import { decodeShare } from '../share-link.mjs';
+import { parsePublishedLink, loadPublishedDesign } from '../published-design.mjs';
 import { selectRepositories } from '../constellation.mjs';
 import { newDesignCode, randomizeDesign } from '../design-randomizer.mjs';
 import { randomizeParts } from '../randomize-parts.mjs';
@@ -184,6 +185,30 @@ export function startStudio({ win = window, doc = document } = {}) {
         store.update({ screen: 'home', busy: false, status: { text: friendlyError(error), tone: 'error' } });
         return false;
       }
+    },
+
+    /**
+     * Open the design a README workflow published (the link around a profile
+     * image). If it can't be read, the account's standard sky opens instead.
+     */
+    async openPublished(source) {
+      const token = ++loadToken;
+      store.update({ screen: 'loading', busy: true, status: { text: 'Opening the published sky…' }, selected: null, dialog: null });
+      let design = null;
+      try {
+        design = await loadPublishedDesign(source, { fetchImpl: win.fetch?.bind(win) });
+      } catch { /* Not published yet, private, or unreadable: fall back below. */ }
+      // The visitor chose something else while this was loading.
+      if (token !== loadToken) return false;
+      if (design?.account === engine.sample().account) { actions.openSample(design.options); return true; }
+      const opened = await actions.openAccount(design?.account || source.account, design ? { options: design.options } : {});
+      if (opened) {
+        const { account } = store.get();
+        toasts.show(design
+          ? `This is the sky on @${account}’s profile. Click a star to see why it’s there.`
+          : `We couldn’t read the published design, so this is the standard sky for @${account}.`);
+      }
+      return opened;
     },
 
     openSample(options = null) {
@@ -549,6 +574,13 @@ export function startStudio({ win = window, doc = document } = {}) {
     // Anything more is a share link and carries its own design.
     const user = url.searchParams.get('user');
     if (user && [...url.searchParams.keys()].every((key) => key === 'user')) return actions.openAccount(user);
+    // The link around a published README image: open what the workflow drew.
+    let published = null;
+    try { published = parsePublishedLink(href); } catch (error) {
+      store.update({ status: { text: friendlyError(error), tone: 'error' } });
+      return;
+    }
+    if (published) return actions.openPublished(published);
     let shared = null;
     try { shared = decodeShare(href); } catch (error) {
       store.update({ status: { text: friendlyError(error), tone: 'error' } });

@@ -173,6 +173,7 @@ const allowed = new Map([
     "commit-constellation",
     "seeded-random",
     "share-link",
+    "published-design",
     "semantic-studio",
     "studio-presets",
     "themes",

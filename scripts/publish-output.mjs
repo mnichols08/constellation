@@ -1,25 +1,30 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { copyFile, mkdtemp, rm, readFile, appendFile, writeFile, mkdir, lstat, realpath } from 'node:fs/promises';
-import { basename, join, resolve, relative, isAbsolute } from 'node:path';
+import { basename, dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { projectUrl } from '../src/export.mjs';
+import { loadConfig } from '../src/config.mjs';
+import { designPath, publishedDesign, publishedDesignLink } from '../src/published-design.mjs';
 import { createPublicationManifest, validatePublicationArtifact, validatePublicationManifest } from '../src/publication-integrity.mjs';
 
 const MANIFEST_PATH = '.constellation/publication-manifest.json';
 
-export function publicationSummary({ repository, branch = 'output', file, status = 'published' }) {
+export function publicationSummary({ repository, branch = 'output', file, status = 'published', account = null, studio = true }) {
   if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(repository || '') || repository.split('/').some(part => part === '.' || part === '..')) throw new Error('Invalid GitHub repository for publication summary.');
   if (!/^[a-z\d][a-z\d._-]{0,127}\.svg$/i.test(basename(file || ''))) throw new Error('Invalid SVG filename for publication summary.');
   const path = repository.split('/').map(encodeURIComponent).join('/');
   const branchPath = branch.split('/').map(encodeURIComponent).join('/');
   const image = `https://raw.githubusercontent.com/${path}/${branchPath}/${encodeURIComponent(basename(file))}`;
-  const snippet = `[![My GitHub constellation](${image})](${projectUrl})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
-  return `## Your GitHub constellation\n\n**Refresh status:** ${status === 'skipped' ? 'unchanged; no commit was created' : 'published successfully'}\n\n${snippet}\n\n[Open the generated image](${image})\n\nPaste this into your profile README:\n\n\`\`\`md\n${snippet}\n\`\`\`\n\nThe image updates when a validated artifact changes.\n`;
+  // A click on the image opens the published design in the Studio. Images
+  // without a design (a tech stack map) keep linking to the project.
+  const link = studio ? publishedDesignLink(repository, { filename: basename(file), branch, account: typeof account === 'string' && /^[a-z\d-]{1,39}$/i.test(account) ? account : null }) : projectUrl;
+  const snippet = `[![My GitHub constellation](${image})](${link})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
+  return `## Your GitHub constellation\n\n**Refresh status:** ${status === 'skipped' ? 'unchanged; no commit was created' : 'published successfully'}\n\n${snippet}\n\n[Open the generated image](${image})${studio ? ` · [Open this design in the Studio](${link})` : ''}\n\nPaste this into your profile README:\n\n\`\`\`md\n${snippet}\n\`\`\`\n\nThe image updates when a validated artifact changes.${studio ? ' Clicking it opens this design in the Studio, where visitors can explore it.' : ''}\n`;
 }
 
-export async function publishOutput({ cwd = process.cwd(), file, branch = 'output', repository = process.env.GITHUB_REPOSITORY, sourceRevision = process.env.GITHUB_SHA, account = process.env.CONSTELLATION_USERNAME, configJson = process.env.CONSTELLATION_CONFIG_JSON, configFile = process.env.CONSTELLATION_CONFIG, evidenceDigest = process.env.CONSTELLATION_EVIDENCE_DIGEST }) {
+export async function publishOutput({ cwd = process.cwd(), file, branch = 'output', repository = process.env.GITHUB_REPOSITORY, sourceRevision = process.env.GITHUB_SHA, account = process.env.CONSTELLATION_USERNAME, configJson = process.env.CONSTELLATION_CONFIG_JSON, configFile = process.env.CONSTELLATION_CONFIG, evidenceDigest = process.env.CONSTELLATION_EVIDENCE_DIGEST, techStack = process.env.CONSTELLATION_TECH_STACK === 'true' }) {
   const git = (args, directory = cwd, input) => execFileSync('git', args, { cwd: directory, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   if (typeof branch !== 'string' || branch.length > 128 || !/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(branch) || branch.includes('..') || branch.endsWith('/') || branch.includes('//')) throw new Error('Invalid output branch name.');
   git(['check-ref-format', '--branch', branch]);
@@ -45,6 +50,19 @@ export async function publishOutput({ cwd = process.cwd(), file, branch = 'outpu
     } catch { /* The configuration digest remains unknown if unavailable or over its bound. */ }
   }
   if (configBytes?.byteLength > 1024 * 1024) configBytes = null;
+  // The design this image was drawn with, published beside it so the README
+  // link can open it in the Studio. Best effort: an image whose design can't
+  // be written down (or has none, like a tech stack map) still publishes.
+  let design = null;
+  if (!techStack && typeof account === 'string' && /^[a-z\d-]{1,39}$/i.test(account)) {
+    try {
+      const inline = typeof configJson === 'string' && configJson ? configJson : undefined;
+      // configBytes being set means the file passed the regular-file and size checks above.
+      const options = await loadConfig(!inline && configFile && configBytes ? resolve(cwd, configFile) : undefined, inline);
+      design = Buffer.from(publishedDesign(account, options));
+    } catch { /* The link then opens the account's standard sky. */ }
+  }
+  const designFile = design ? designPath(filename) : null;
   const destination = `${repository || 'unknown/repository'}@${branch}`;
   const manifest = createPublicationManifest({
     source: {
@@ -102,7 +120,15 @@ export async function publishOutput({ cwd = process.cwd(), file, branch = 'outpu
         && previousManifest.artifact.digest === artifactInfo.digest
         && previousManifest.artifact.bytes === artifactInfo.bytes
         && previousManifest.destination.identity === destination);
-      if (artifactUnchanged && manifestMatchesArtifact) {
+      let designCurrent = !design;
+      if (design) {
+        try {
+          const priorDesign = join(worktree, designFile);
+          const priorInfo = await lstat(priorDesign);
+          designCurrent = priorInfo.isFile() && !priorInfo.isSymbolicLink() && priorInfo.size === design.byteLength && (await readFile(priorDesign)).equals(design);
+        } catch { /* Not published yet. */ }
+      }
+      if (artifactUnchanged && manifestMatchesArtifact && designCurrent) {
         return { status: 'skipped', changed: false, digest: artifactInfo.digest, manifestValid: true };
       }
       // Preserve identical validated bytes during metadata recovery. Otherwise,
@@ -121,6 +147,18 @@ export async function publishOutput({ cwd = process.cwd(), file, branch = 'outpu
         if (error.code !== 'ENOENT') throw error;
       }
       await writeFile(manifestPath, `${JSON.stringify({ ...manifest, revision: (Number.isSafeInteger(previousManifest?.revision) && previousManifest.revision > 0 ? previousManifest.revision : 0) + 1 }, null, 2)}\n`, { flag: 'w' });
+      if (design && !designCurrent) {
+        // Replace links and stray files on the way so the write can't follow them.
+        const designDirectory = join(worktree, dirname(designFile));
+        try {
+          const directoryInfo = await lstat(designDirectory);
+          if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()) await rm(designDirectory, { recursive: true, force: true });
+        } catch { /* Created below. */ }
+        await mkdir(designDirectory, { recursive: true });
+        await rm(join(worktree, designFile), { recursive: true, force: true });
+        await writeFile(join(worktree, designFile), design, { flag: 'wx' });
+        git(['add', '--', designFile], worktree);
+      }
       git(['add', '--', filename], worktree);
       git(['add', '--', MANIFEST_PATH], worktree);
       if (!git(['diff', '--cached', '--name-only'], worktree)) return { status: 'skipped', changed: false, digest: artifactInfo.digest };
@@ -148,6 +186,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       branch: process.env.CONSTELLATION_OUTPUT_BRANCH || 'output',
       file: process.env.CONSTELLATION_OUTPUT,
       status: result.status,
+      account: process.env.CONSTELLATION_USERNAME,
+      studio: process.env.CONSTELLATION_TECH_STACK !== 'true',
     }));
     if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `publication-status=${result.status}\npublication-digest=${result.digest}\n`);
     console.log(result.status === 'skipped' ? 'Validated artifact is unchanged; no publication commit was created.' : 'Published validated constellation artifact.');

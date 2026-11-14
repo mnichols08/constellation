@@ -38,8 +38,11 @@ test('workflow always uses repository owner regardless of preview account and em
     assert.equal(renderWorkflow(account, {}), workflow);
   }
   const snippet = readmeSnippet('octocat');
-  assert.ok(snippet.includes(`](${projectUrl})`));
-  assert.ok(snippet.includes(`/output/constellation.svg)](${projectUrl})`));
+  // The image opens the published design in the Studio; the credit still names the project.
+  assert.ok(snippet.includes('/output/constellation.svg)](https://mnichols08.github.io/constellation/?published=octocat/octocat)'));
+  assert.ok(snippet.includes(`Made with [GitHub Constellation](${projectUrl})`));
+  assert.ok(readmeSnippet('octocat', 'another-owner/gallery', 'alice-sky.svg').includes('](https://mnichols08.github.io/constellation/?published=another-owner/gallery&image=alice-sky.svg&user=octocat)'));
+  assert.ok(readmeSnippet(null).includes('?published=YOUR_USERNAME/YOUR_REPOSITORY)'));
   assert.match(snippet, /by \[@mnichols08\]/);
   assert.ok(snippet.includes('https://raw.githubusercontent.com/octocat/octocat/output/constellation.svg'));
   assert.ok(readmeSnippet('octocat', 'another-owner/gallery').includes('https://raw.githubusercontent.com/another-owner/gallery/output/constellation.svg'));
@@ -125,6 +128,8 @@ test('tech stack workflow publishes a daily README image through the current act
   const snippet = readmeSnippet('octo-sky', 'octo-sky/octo-sky', 'tech-stack.svg', 'tech stack');
   assert.match(snippet, /^\[!\[octo-sky tech stack\]\(https:\/\/raw\.githubusercontent\.com\/octo-sky\/octo-sky\/output\/tech-stack\.svg\)\]/);
   assert.match(readmeSnippet('octo-sky'), /^\[!\[octo-sky GitHub constellation\]/);
+  // A tech stack image has no design to open, so its dialog keeps the project link.
+  assert.ok(readmeSnippet('octo-sky', 'octo-sky/octo-sky', 'tech-stack.svg', 'tech stack', { link: projectUrl }).includes(`tech-stack.svg)](${projectUrl})`));
 });
 
 test('a design published by an older version opens from its workflow file and draws the same image', () => {
