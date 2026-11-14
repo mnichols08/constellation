@@ -232,7 +232,7 @@ map go?" and offers five choices:
 | **Download an image** | **Download SVG** (sharp at any size, best for READMEs and websites) or **Download PNG** (for slides, documents and social posts) |
 | **Put it on a website** | **Download interactive page**: one HTML file where visitors can zoom, search and click stars. Also **Download SVG** with ready-made image code, and **Download portfolio package** |
 | **Share a link** | **Copy link** to a link anyone can open to see this design, drawn from the account's public projects. On phones, **Share…** opens your device's share sheet |
-| **Save the settings file** | **Download settings file** saves the design as JSON. **Open a settings file** loads one and replaces the current design (Undo brings it back) |
+| **Save the settings file** | **Download settings file** saves the design as JSON. **Open a settings file** loads one and replaces the current design (Undo brings it back). It also opens the workflow `.yml` file from your profile repository, so a design you published earlier, even with an older version, comes back exactly as published: same size, orbits and tilt |
 
 Every download confirms itself in the dialog, for example "Saved
 constellation-you.svg to your downloads." If your current settings can't be

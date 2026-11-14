@@ -4,7 +4,7 @@
 // renderers, share links, config v7); nothing here talks to GitHub.
 
 import { h, icon, announce } from '../../dom.mjs';
-import { readmeSnippet, renderWorkflow, installationLinks } from '../../../export.mjs';
+import { readmeSnippet, renderWorkflow, installationLinks, isWorkflow, workflowSettings } from '../../../export.mjs';
 import { svgToPNG, downloadBlob } from '../../../export-image.mjs';
 import { encodeShare, publicShareBase } from '../../../share-link.mjs';
 import { serializeConfig, MAX_CONFIG_BYTES } from '../../../config-schema.mjs';
@@ -512,28 +512,32 @@ export function createGetItDialog(ctx) {
       },
     }, icon('download', { size: 20 }), 'Download settings file');
 
-    const file = h('input', { type: 'file', accept: '.json,application/json', class: 'visually-hidden', id: 'get-it-file' });
+    const file = h('input', { type: 'file', accept: '.json,.yml,.yaml,application/json', class: 'visually-hidden', id: 'get-it-file' });
     file.addEventListener('change', async () => {
       const chosen = file.files?.[0];
       file.value = ''; // choosing the same file again should retry
       if (!chosen) return;
       status.replaceChildren();
+      let workflow = false;
       if (chosen.size > MAX_CONFIG_BYTES) {
         status.replaceChildren(notice(`That file is too big to be a settings file. The limit is ${Math.round(MAX_CONFIG_BYTES / 1000)} KB.`, 'error', { alert: true }));
         return;
       }
       try {
         const text = await chosen.text();
-        actions.applyConfig(text, 'Open settings file');
+        // A design published to a profile lives in its workflow file; open that too.
+        workflow = /\.ya?ml$/i.test(chosen.name) || isWorkflow(text);
+        actions.applyConfig(workflow ? workflowSettings(text) : text, workflow ? 'Open workflow file' : 'Open settings file');
       } catch (failure) {
-        const detail = failure instanceof SyntaxError ? 'It isn’t valid JSON.'
+        const detail = workflow ? failure?.message || ''
+          : failure instanceof SyntaxError ? 'It isn’t valid JSON.'
           : /version/i.test(failure?.message || '') ? 'It was made by a version of Constellation this page can’t read.'
             : failure?.message || '';
-        status.replaceChildren(notice(`We couldn’t open that settings file. ${detail}`.trim(), 'error', { alert: true }));
+        status.replaceChildren(notice(`We couldn’t open that ${workflow ? 'workflow' : 'settings'} file. ${detail}`.trim(), 'error', { alert: true }));
         return;
       }
       actions.closeDialog();
-      actions.toast('Opened your settings. Undo brings back the previous design.');
+      actions.toast(workflow ? 'Opened the design from your workflow. Undo brings back the previous design.' : 'Opened your settings. Undo brings back the previous design.');
     });
     const open = h('label', { class: 'btn btn-lg btn-block get-it-file' }, file, icon('folder', { size: 20 }), h('span', { text: 'Open a settings file' }));
 
@@ -542,7 +546,7 @@ export function createGetItDialog(ctx) {
       broken ? brokenNotice() : null,
       h('div', { class: 'get-it-options' },
         broken ? null : h('div', { class: 'get-it-option' }, download, h('p', { class: 'field-help', text: 'Saves this design as a .json file.' })),
-        h('div', { class: 'get-it-option' }, open, h('p', { class: 'field-help', text: 'Replaces the current design. Undo brings it back.' }))),
+        h('div', { class: 'get-it-option' }, open, h('p', { class: 'field-help', text: 'A settings .json file, or the workflow .yml file from your profile repository. Replaces the current design. Undo brings it back.' }))),
       status);
   }
 

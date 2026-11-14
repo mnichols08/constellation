@@ -116,3 +116,35 @@ jobs:
 `;
 }
 
+/** True when text looks like a workflow that runs this Action. */
+export const isWorkflow = (text) => typeof text === 'string' && /^\s*-?\s*uses:\s*['"]?mnichols08\/constellation@/m.test(text);
+
+/**
+ * The design inside a workflow file, as settings JSON text. Reads the literal
+ * `config-json: |` block that "Add it to your GitHub profile" writes, from any
+ * version of the Action. The result still goes through normal configuration
+ * validation; nothing in the file is executed.
+ */
+export function workflowSettings(text) {
+  if (typeof text !== 'string' || text.length > 400000) throw new Error('That workflow file is too big to read.');
+  if (!isWorkflow(text)) throw new Error('That file doesn’t run the Constellation action.');
+  const marker = /^([ \t]*)config-json:\s*\|[-+]?[ \t]*\r?$/m.exec(text);
+  if (!marker) {
+    if (/^[ \t]*config:\s*\S/m.test(text)) throw new Error('That workflow reads its design from a separate settings file. Open that .json file instead.');
+    if (/^[ \t]*tech-stack:\s*['"]?true/m.test(text)) throw new Error('That workflow draws a tech stack map, which has no design settings to open.');
+    throw new Error('That workflow has no saved design in it. It draws the default map.');
+  }
+  const lines = text.slice(marker.index + marker[0].length).replace(/^\r?\n/, '').split(/\r?\n/);
+  const block = [];
+  for (const line of lines) {
+    // The block ends at the first line indented no deeper than its key.
+    if (line.trim() && line.search(/\S/) <= marker[1].length) break;
+    block.push(line);
+  }
+  const json = block.join('\n').trim();
+  let settings;
+  try { settings = JSON.parse(json); } catch { throw new Error('The design saved in that workflow isn’t valid JSON.'); }
+  if (settings === null || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('The design saved in that workflow isn’t a settings object.');
+  return JSON.stringify(settings);
+}
+
