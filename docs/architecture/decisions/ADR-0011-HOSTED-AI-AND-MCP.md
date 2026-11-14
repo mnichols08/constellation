@@ -20,6 +20,9 @@
 7. **One new engine tool, `portfolio_overview`,** gives a model the whole account in one bounded call. Guidance about what helps a reader lives in the system prompt and the MCP instructions, not in Rust.
 8. **"Decide for me"** is an intent on the same flow. With no model it uses `suggestSpec`, fixed rules over the overview.
 
+9. **A second adapter, for the chat-completions format** (`src/ai/providers/openai-compatible.mjs`), covers OpenAI, OpenRouter, Groq, local models and anything else that serves it. Visitors choose a service, a model and a key. The hosted function can be pointed at such a service with `CONSTELLATION_AI_PROVIDER=openai`; it tells the Studio which format it speaks and what to call the reader, and an incompletely configured provider is off, never a fallback to another.
+10. **Browser reachability is not assumed.** Whether a service accepts calls from a web page varies and changes. A refused call is reported in plain words and changes nothing.
+
 ## Consequences
 
 - The repository now names one provider. Adding another means one more file under `src/ai/providers/` and, for hosting, one more function.

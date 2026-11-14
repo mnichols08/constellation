@@ -65,7 +65,7 @@ test('Decide for me makes a plan with no model and no network; the other readers
   await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
   await toggle(page).click();
   await expect(dialog(page).getByText(/built-in phrase matcher, not an AI model/)).toBeVisible();
-  await expect(readers(page).getByLabel('Use your own Anthropic API key')).toHaveAttribute('type', 'password');
+  await expect(readers(page).getByLabel('API key')).toHaveAttribute('type', 'password');
   await expect(readers(page).getByRole('link', { name: 'How to connect an assistant' })).toHaveAttribute('href', /docs\/mcp\.md$/);
   // This copy is not the registered address, so the site's own reader is never offered or contacted.
   await expect(readers(page).getByRole('button', { name: 'Sign in with GitHub' })).toHaveCount(0);
@@ -94,15 +94,15 @@ test('your own key: Claude reads the description from this tab, and the key is k
   await openStudio(page);
   await openDescribe(page);
   await toggle(page).click();
-  const keyField = readers(page).getByLabel('Use your own Anthropic API key');
+  const keyField = readers(page).getByLabel('API key');
   await keyField.fill('not-a-key');
-  await readers(page).getByRole('button', { name: 'Use this key' }).click();
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
   await expect(readers(page).getByRole('alert')).toContainText('doesn’t look like an Anthropic API key');
-  await readers(page).getByLabel('Use your own Anthropic API key').fill(KEY);
-  await readers(page).getByRole('button', { name: 'Use this key' }).click();
+  await readers(page).getByLabel('API key').fill(KEY);
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
   await expect(dialog(page).getByText('Read by Claude, using your own key.').first()).toBeVisible();
   await expect(readers(page).getByText(/Claude receives your words and the public details/)).toBeVisible();
-  await expect(readers(page).getByRole('button', { name: 'Forget my key' })).toBeVisible();
+  await expect(readers(page).getByRole('button', { name: 'Stop using my model' })).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
 
   await dialog(page).getByRole('textbox', { name: 'What would you like to see?' }).fill('Show my twelve most starred projects by language');
@@ -127,7 +127,7 @@ test('your own key: Claude reads the description from this tab, and the key is k
   expect(kept).not.toContain(KEY);
   await openDescribe(page);
   await toggle(page).click();
-  await readers(page).getByRole('button', { name: 'Forget my key' }).click();
+  await readers(page).getByRole('button', { name: 'Stop using my model' }).click();
   await expect(dialog(page).getByText(/built-in phrase matcher/)).toBeVisible();
 });
 
@@ -139,12 +139,12 @@ test('a rejected key is explained, dropped, and the matcher still works', async 
   await openStudio(page);
   await openDescribe(page);
   await toggle(page).click();
-  await readers(page).getByLabel('Use your own Anthropic API key').fill(KEY);
-  await readers(page).getByRole('button', { name: 'Use this key' }).click();
+  await readers(page).getByLabel('API key').fill(KEY);
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
   await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
   await expect(dialog(page).getByRole('alert').filter({ hasText: 'Anthropic rejected that API key. Nothing was changed.' })).toBeVisible();
   await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
-  await expect(readers(page).getByLabel('Use your own Anthropic API key')).toBeVisible();
+  await expect(readers(page).getByLabel('API key')).toBeVisible();
   await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
   await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
 });
@@ -185,7 +185,7 @@ test('not signed in, the site’s Claude is offered; switched off, it is simply 
   await openDescribe(page);
   await toggle(page).click();
   await expect(readers(page).getByRole('button', { name: 'Sign in with GitHub' })).toHaveCount(0);
-  await expect(readers(page).getByLabel('Use your own Anthropic API key')).toBeVisible();
+  await expect(readers(page).getByLabel('API key')).toBeVisible();
   await expect(dialog(page).getByRole('alert')).toHaveCount(0);
   await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
   await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
@@ -205,7 +205,7 @@ test('out of requests or switched off mid-way: a plain sentence, then the other 
   await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
   await expect(dialog(page).getByRole('alert').filter({ hasText: 'You’ve used today’s 10 Claude requests here. They reset at midnight UTC. Nothing was changed.' })).toBeVisible();
   await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
-  await expect(readers(page).getByLabel('Use your own Anthropic API key')).toBeVisible();
+  await expect(readers(page).getByLabel('API key')).toBeVisible();
   await expect(readers(page).getByRole('link', { name: 'How to connect an assistant' })).toBeVisible();
 });
 
@@ -234,8 +234,8 @@ test('Claude hands the plan over in its own shape, or only talks: the first work
   await openStudio(page);
   await openDescribe(page);
   await toggle(page).click();
-  await readers(page).getByLabel('Use your own Anthropic API key').fill(KEY);
-  await readers(page).getByRole('button', { name: 'Use this key' }).click();
+  await readers(page).getByLabel('API key').fill(KEY);
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
   const box = dialog(page).getByRole('textbox', { name: 'What would you like to see?' });
   await box.fill('Make it obvious that I am moving into the Rust/WASM realm but come with a plethora of knowledge in JavaScript');
   await dialog(page).getByRole('button', { name: 'Show the plan' }).click();
@@ -250,4 +250,109 @@ test('Claude hands the plan over in its own shape, or only talks: the first work
   await expect(alert).toContainText('It said: “Could you tell me which projects matter most?”');
   await expect(alert).not.toContainText('submit_spec');
   expect(await axeViolations(page)).toEqual([]);
+});
+
+const CHAT_TURNS = [
+  { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'portfolio_overview', arguments: '{}' } }] },
+  { role: 'assistant', content: null, tool_calls: [{ id: 'c2', type: 'function', function: { name: 'submit_spec', arguments: JSON.stringify({ spec: SPEC }) } }] },
+];
+
+test('another service: pick it, name a model, and it reads the description with your key', async ({ page }) => {
+  const calls = [];
+  await page.route('https://openrouter.ai/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    calls.push({ url: request.url(), headers: request.headers(), body: request.postDataJSON() });
+    await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: CHAT_TURNS[calls.length - 1] }] }) });
+  });
+  await openStudio(page);
+  await openDescribe(page);
+  await toggle(page).click();
+  // Claude is the default; the address and model fields appear only for other services.
+  await expect(readers(page).getByLabel('Service')).toHaveValue('anthropic');
+  await expect(readers(page).getByLabel('Model')).toHaveCount(0);
+  await readers(page).getByLabel('Service').selectOption({ label: 'OpenRouter' });
+  await expect(readers(page).getByLabel('Address')).toHaveValue('https://openrouter.ai/api/v1');
+  await expect(readers(page).getByText('Some services refuse calls from a web page')).toBeVisible();
+  await expectPerceptibleScreen(page, { primary: 1 });
+  expect(await axeViolations(page)).toEqual([]);
+
+  // Missing pieces are explained before anything is sent.
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
+  await expect(readers(page).getByRole('alert')).toContainText('Enter the model’s name');
+  await readers(page).getByLabel('Model').fill('vendor/fast-1');
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
+  await expect(readers(page).getByRole('alert')).toContainText('Enter your API key for that service.');
+  await readers(page).getByLabel('Model').fill('vendor/fast-1');
+  await readers(page).getByLabel('API key').fill('sk-or-e2e-0000000000000000');
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
+  await expect(dialog(page).getByText('Read by vendor/fast-1 at openrouter.ai, using your own key.').first()).toBeVisible();
+  await expect(readers(page).getByText(/^That service receives your words and the public details/)).toBeVisible();
+  expect(calls).toHaveLength(0);
+
+  await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
+  await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
+  expect(calls).toHaveLength(2);
+  expect(calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
+  expect(calls[0].headers.authorization).toBe('Bearer sk-or-e2e-0000000000000000');
+  expect(calls[0].body.model).toBe('vendor/fast-1');
+  expect(calls[0].body.messages[0].role).toBe('system');
+  expect(calls[1].body.messages.at(-1)).toMatchObject({ role: 'tool', tool_call_id: 'c1' });
+  const kept = await page.evaluate(() => [document.documentElement.outerHTML, JSON.stringify({ ...localStorage }), JSON.stringify({ ...sessionStorage }), location.href].join('\n'));
+  expect(kept).not.toContain('sk-or-e2e');
+});
+
+test('a service that refuses the page, and a local model with no key', async ({ page }) => {
+  page.removeAllListeners('console');
+  page.removeAllListeners('requestfailed');
+  await page.route('https://api.groq.com/**', (route) => route.abort('failed'));
+  const local = [];
+  await page.route('http://localhost:11434/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    local.push({ headers: request.headers(), body: request.postDataJSON() });
+    await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: CHAT_TURNS[1] }] }) });
+  });
+  await openStudio(page);
+  await openDescribe(page);
+  await toggle(page).click();
+  await readers(page).getByLabel('Service').selectOption({ label: 'Groq' });
+  await readers(page).getByLabel('Model').fill('llama-3.3-70b-versatile');
+  await readers(page).getByLabel('API key').fill('gsk_e2e_0000000000000000');
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
+  await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
+  await expect(dialog(page).getByRole('alert').filter({ hasText: 'api.groq.com could not be reached from this page. Check the address and your connection; some services refuse calls from a browser. Nothing was changed.' })).toBeVisible();
+  // The form is back, so the choice can be corrected.
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+  await readers(page).getByLabel('Service').selectOption({ label: 'Ollama on this computer' });
+  await expect(readers(page).getByLabel('Address')).toHaveValue('http://localhost:11434/v1');
+  await expect(readers(page).getByText('start Ollama with OLLAMA_ORIGINS set to this site’s address')).toBeVisible();
+  await expect(readers(page).getByLabel('API key (leave empty if it needs none)')).toBeVisible();
+  await readers(page).getByLabel('Model').fill('qwen3:8b');
+  await readers(page).getByRole('button', { name: 'Use this model' }).click();
+  await expect(dialog(page).getByText('Read by qwen3:8b at localhost:11434.').first()).toBeVisible();
+  await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
+  await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
+  expect(local).toHaveLength(1);
+  expect(local[0].headers.authorization).toBeUndefined();
+  expect(local[0].body.model).toBe('qwen3:8b');
+});
+
+test('the site’s reader can be another model: it is named as the server names it', async ({ page }) => {
+  const seen = await withHostedReader(page, (entry, posts) => (entry.method === 'GET'
+    ? { body: { available: true, provider: 'openai', label: 'Fast One <script>', limit: 10, ...(entry.auth ? { remaining: 10 } : {}) } }
+    : { body: { choices: [{ message: CHAT_TURNS[posts - 1] }], remaining: 9 } }));
+  await signIn(page);
+  await openDescribe(page);
+  await expect(dialog(page).getByText('Read by Fast One script (10 of 10 left today).').first()).toBeVisible();
+  await toggle(page).click();
+  await expect(readers(page).getByText(/^Fast One script receives your words/)).toBeVisible();
+  await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
+  await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
+  const posts = seen.filter((entry) => entry.method === 'POST');
+  expect(posts).toHaveLength(2);
+  expect(Object.keys(posts[1].body)).toEqual(['messages']);
+  // The conversation is sent in the format the server said it speaks.
+  expect(posts[1].body.messages[1]).toMatchObject({ role: 'assistant', tool_calls: [{ id: 'c1', type: 'function' }] });
+  expect(posts[1].body.messages[2]).toMatchObject({ role: 'tool', tool_call_id: 'c1' });
 });

@@ -235,7 +235,7 @@ test('the AI layer is optional: core rendering imports none of it and no provide
   // Provider adapters live only in ai/providers/; nothing else in the AI layer knows one exists.
   for (const file of await readdir(new URL('ai/providers/', root))) {
     const source = await readFile(new URL(`ai/providers/${file}`, root), 'utf8');
-    assert.ok(!/from\s+['"]/.test(source), `providers/${file} imports nothing, so no SDK can creep in`);
+    for (const [, specifier] of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) assert.ok(/^\.\/[\w-]+\.mjs$/.test(specifier), `providers/${file} imports only its neighbours, so no SDK can creep in (${specifier})`);
     assert.ok(!/\beval\s*\(|new Function|localStorage|sessionStorage|document\.cookie/.test(source), `providers/${file} evaluates no code and stores no key`);
   }
   for (const file of (await readdir(new URL('ai/', root))).filter((name) => name.endsWith('.mjs'))) {

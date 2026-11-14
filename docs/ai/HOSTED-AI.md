@@ -7,7 +7,7 @@ This guide is for whoever runs the Studio. It explains how to let signed-in visi
 | Reader | Needs | Where the words go |
 | --- | --- | --- |
 | Built-in phrase matcher | Nothing | Nowhere. It runs in the browser. |
-| Claude, with the visitor's own key | An Anthropic API key pasted into the sheet | From the visitor's browser straight to Anthropic. |
+| A model of the visitor's own | A service, a model name and their key, entered in the sheet | From the visitor's browser straight to that service. |
 | Claude, provided by the site | GitHub sign-in | To your function, which adds your key and forwards to Anthropic. |
 
 A fourth route needs none of this: visitors can connect their own assistant through the [MCP server](../mcp.md).
@@ -30,9 +30,22 @@ The function ships in `auth/netlify/functions/describe.mjs`, next to the sign-in
 | `ANTHROPIC_API_KEY` | Your key. Missing means off. | none |
 | `CONSTELLATION_AI` | `off` switches the feature off and keeps the key. | on |
 | `CONSTELLATION_AI_DAILY_LIMIT` | Skies per GitHub user per UTC day. `0` is off. | 10 |
-| `CONSTELLATION_AI_MODEL` | Model id. | `claude-haiku-5-5` |
+| `CONSTELLATION_AI_MODEL` | Model id. Required with `openai`. | `claude-haiku-5-5` |
+| `CONSTELLATION_AI_PROVIDER` | `anthropic`, or `openai` for any service that speaks the chat-completions format. | `anthropic` |
+| `CONSTELLATION_AI_BASE_URL` | With `openai`: the service's base address, https only, for example `https://openrouter.ai/api/v1`. | none |
+| `CONSTELLATION_AI_API_KEY` | With `openai`: that service's key. | none |
+| `CONSTELLATION_AI_LABEL` | What the Studio calls the reader ("Read by …"). | `Claude`, or the model id |
 
 Set a spending limit on the key in the Anthropic Console as well. The daily count limits each user, not the number of users.
+
+## Use another model for the site's reader
+
+Set `CONSTELLATION_AI_PROVIDER=openai` with the address, key and model of any service that speaks the chat-completions format. The function calls it server to server, so a service that refuses calls from web pages still works here. Sign-in, the daily limit, the fixed prompt and tools, and the off switch behave exactly the same.
+
+- The Studio asks the function which format it speaks and what to call the reader, so no Studio change or deploy is needed.
+- A provider that is not fully configured (no address, key or model, an http address, or an unknown provider name) reports itself off. It never falls back to a different provider.
+- No output limit is sent with `openai`, because services disagree on its name. Use a model and an account limit you are comfortable with.
+- The model must support tool calls.
 
 ## Switch it off
 

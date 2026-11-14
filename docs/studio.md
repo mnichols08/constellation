@@ -161,12 +161,18 @@ change it:
   Nothing you type is sent anywhere.
 - **Claude, after you sign in with GitHub,** when the site offers it: a set
   number of requests a day (10 on the main Studio), with no key needed.
-- **Claude, with your own Anthropic API key.** The key stays in the tab, is
-  sent only to Anthropic, and is forgotten when you reload.
+- **A model of your own.** Choose a service, and add your key: Claude
+  (Anthropic), OpenRouter, OpenAI, Groq, Ollama on your own computer, or any
+  address that speaks the same chat format. For anything but Claude you also
+  name the model. The key stays in the tab, is sent only to that service, and
+  is forgotten when you reload. The model must support tools. Some services
+  refuse calls from a web page; if yours does, the sheet says so and nothing
+  is changed. A model on your computer only answers pages it trusts: start
+  Ollama with `OLLAMA_ORIGINS` set to the Studio's address.
 - **Your own assistant.** Connect Claude Desktop, Claude Code or another
   assistant to the [MCP server](mcp.md) and let it build your sky.
 
-When Claude reads a description it receives your words and the public details
+When a model reads a description it receives your words and the public details
 of the projects it looks up (names, descriptions, languages, topics, stars and
 dates). If the site's Claude is switched off or you have used the day's
 requests, the sheet says so and the other ways still work. Sites that host
