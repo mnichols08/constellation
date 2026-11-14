@@ -90,7 +90,7 @@ export function renderTechStackWorkflow(account, publishing = {}) {
   const branch = publishing.branch || 'output';
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$/.test(branch) || branch.includes('..') || branch.endsWith('/') || branch.includes('//')) throw new Error('Enter a safe output branch name.');
   const style = publishing.style || 'card';
-  if (style !== 'card' && style !== 'map') throw new Error('Choose the summary card or the star map.');
+  if (!['card', 'spotlight', 'full', 'map'].includes(style)) throw new Error('Choose the summary card, the project spotlight, both, or the star map.');
   const featured = [...new Set((publishing.featured || []).map((name) => String(name).split('/').pop()))];
   if (featured.length > 12 || !featured.every((name) => /^[\w.-]{1,100}$/.test(name))) throw new Error('Featured repositories must be up to 12 repository names.');
   return `# Save as .github/workflows/tech-stack.yml

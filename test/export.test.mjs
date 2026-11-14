@@ -101,7 +101,8 @@ test('tech stack workflow publishes a daily README image through the current act
   // The star map and the developer's own featured repositories are choices, and both are checked before they reach YAML.
   const chosen = renderTechStackWorkflow('octocat', { style: 'map', featured: ['octocat/hello', 'spoon.knife', 'hello'] });
   assert.match(chosen, /tech-stack-style: 'map'\n          tech-stack-featured: 'hello,spoon\.knife'\n          publish/);
-  assert.throws(() => renderTechStackWorkflow('octocat', { style: 'poster' }), /summary card or the star map/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { style: 'poster' }), /summary card, the project spotlight, both, or the star map/);
+  for (const style of ['card', 'spotlight', 'full', 'map']) assert.match(renderTechStackWorkflow('octocat', { style }), new RegExp(`tech-stack-style: '${style}'`));
   assert.throws(() => renderTechStackWorkflow('octocat', { featured: ["a'\n  evil: true"] }), /Featured repositories/);
   assert.throws(() => renderTechStackWorkflow('octocat', { featured: Array.from({ length: 13 }, (_, index) => `r${index}`) }), /Featured repositories/);
   assert.match(yaml, /name: Daily tech stack map/);

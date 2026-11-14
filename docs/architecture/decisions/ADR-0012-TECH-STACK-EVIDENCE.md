@@ -19,6 +19,9 @@ The tech stack map is the view most useful to someone matching a profile against
 6. **Tooling apart.** Test runners and build tools are listed on one line and never name a stack.
 7. **Two README artifacts.** A static summary card (`renderTechStackCardSVG`, now the default image) and a Markdown block with links between marker comments (`renderTechStackMarkdown`). The star map remains available (`tech-stack-style: map`).
 
+8. **Project spotlights.** Up to three repositories, the developer's featured ones first, each with its description, what its own manifests declare (main language, then frontend, backend, data), years active, stars and website. A website is shown only when the repository's homepage is a plain web address. Image styles `spotlight` and `full` draw them; the scan asks GitHub for one more field (`homepageUrl`) in the listing it already makes.
+9. **Owner-only checks.** When the signed-in viewer maps their own account, the Studio lists which spotlight projects lack a description, website or topics. It states what is missing; it does not grade the profile.
+
 ## Consequences
 
 - The default README image for `tech-stack: 'true'` changes from the star map to the card. The feature had not been released under a version tag.

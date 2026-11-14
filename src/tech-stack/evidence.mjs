@@ -16,6 +16,18 @@ const MAX_STACKS = 4;
 const MAX_STACK_SIZE = 4;
 const MAX_ITEMS_PER_REPOSITORY = 6;
 const EXAMPLES = 2;
+const SPOTLIGHTS = 3;
+const BUILT_WITH = 5;
+
+/** A project's own website, if it gave a plain web address. Never a link back to GitHub's repository page. */
+export function projectWebsite(value) {
+  if (typeof value !== 'string' || value.length > 200) return null;
+  let url;
+  try { url = new URL(/^[a-z][a-z\d+.-]*:/i.test(value.trim()) ? value.trim() : `https://${value.trim()}`); } catch { return null; }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password || !url.hostname.includes('.')) return null;
+  const label = `${url.hostname.replace(/^www\./, '')}${url.pathname === '/' ? '' : url.pathname}`.replace(/\/$/, '');
+  return { href: url.href.replace(/[()[\]<>"'`\\\s]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`), label: label.length > 48 ? `${label.slice(0, 47)}…` : label };
+}
 
 const time = (value) => { const parsed = Date.parse(value); return Number.isFinite(parsed) ? parsed : null; };
 const year = (ms) => new Date(ms).getUTCFullYear();
@@ -124,6 +136,30 @@ export function techStackEvidence(scan, { featured = [] } = {}) {
   }
   stacks.sort(byWeight);
 
+  // Spotlights: up to three projects to start with. The developer's featured
+  // repositories, in their order; otherwise live, sustained, described and
+  // most starred. What each is built with comes from its own manifests.
+  const order = [...wanted];
+  const rank = (repository) => { const index = order.indexOf(String(repository.record.name).toLowerCase()); return index < 0 ? order.length : index; };
+  const spotlights = [...repositories]
+    .sort((a, b) => rank(a) - rank(b) || a.record.archived - b.record.archived || b.sustained - a.sustained || Boolean(b.record.description) - Boolean(a.record.description)
+      || b.record.stargazers_count - a.record.stargazers_count || (b.end ?? 0) - (a.end ?? 0) || a.record.name.localeCompare(b.record.name))
+    .slice(0, SPOTLIGHTS)
+    .map((repository) => {
+      const { record } = repository;
+      const main = record.language && !isIncidentalLanguage(record.language) ? [record.language] : [];
+      const techs = record.dependencies.filter((tech) => !isToolingTech(tech)).sort((a, b) => (layer(a) < 0) - (layer(b) < 0) || layer(a) - layer(b) || weight.get(b) - weight.get(a) || a.localeCompare(b));
+      const website = projectWebsite(record.homepage);
+      const topics = (record.topics || []).slice(0, 4).map((topic) => clean(topic, 30));
+      const missing = [record.description ? null : 'description', website ? null : 'website', topics.length ? null : 'topics'].filter(Boolean);
+      return {
+        name: record.name, url: githubUrl(record), description: clean(record.description, 170), website,
+        builtWith: [...main, ...techs].slice(0, BUILT_WITH), topics,
+        first: repository.start === null ? null : year(repository.start), last: repository.end === null ? null : year(repository.end),
+        current: repository.current, stars: record.stargazers_count || 0, archived: Boolean(record.archived), featured: repository.featured, missing,
+      };
+    });
+
   const total = repositories.length;
   const recent = repositories.filter((repository) => repository.current).length;
   const starts = repositories.map((repository) => repository.start).filter((value) => value !== null);
@@ -145,6 +181,7 @@ export function techStackEvidence(scan, { featured = [] } = {}) {
     partial: Boolean(scan.coverage?.stopped || scan.coverage?.missing || scan.coverage?.refused),
     discovered: scan.coverage?.discovered ?? total,
     headline,
+    spotlights,
     stacks,
     core: technologies.filter((tech) => tech.role === 'core'),
     tooling: technologies.filter((tech) => tech.role === 'tooling'),

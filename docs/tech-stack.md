@@ -21,6 +21,11 @@ The result opens with a short summary meant for someone who has a minute, such a
 - **Used together**: the frontend, backend and data technologies that are declared in the same repositories, found from the account's own repositories. The largest combination that is still common is shown, up to four.
 - **Where to look**: each leading technology with how many repositories declare it, the years it was active, and one or two repositories that show it, as links.
 - **Testing and build tools** on their own line, so test runners and bundlers don't crowd out the stack.
+- **Projects to start with**: up to three projects, each with its description, what it is built with (from its own manifests), the years it was active, its stars, and its website if the repository lists one.
+
+Which three: the repositories you starred as featured in the **Projects** tab of your own sky, in that order. Without those, live projects worked on for a month or more that have a description, most starred first.
+
+**Before you publish** appears only when you map your own account. It lists which of the three have no description, no website link or no topics. Those are set on GitHub with the gear beside **About** on the repository page. It reports what is missing and nothing else.
 
 How the dates and order work:
 
@@ -50,10 +55,12 @@ Public, non-fork, non-empty repositories, using their default branch.
 
 A README can't run a sign-in, so the profile version is a workflow. GitHub redraws the image every day with the repository's own access.
 
-There are two images:
+There are four images:
 
-- **Summary card** (the default): the headline, the stacks used together, and a dated bar for each technology. It can be read without explanation.
-- **Star map**: the map from the sheet, which shows how technologies connect.
+- **Summary card** (`card`, the Action's default): the headline, the stacks used together, and a dated bar for each technology.
+- **Three projects** (`spotlight`): the projects to start with.
+- **Both** (`full`, the Studio's suggestion): the card with the projects under it, in one image.
+- **Star map** (`map`): the map from the sheet, which shows how technologies connect.
 
 1. Map an account in the Studio, then scroll to **Add it to a GitHub profile**.
 2. Check the **Repository for the workflow** (usually `YOUR_USERNAME/YOUR_USERNAME`; for an organization, its `.github` repository) and press **Create the file on GitHub**. Commit the file at `.github/workflows/tech-stack.yml`.
@@ -67,7 +74,7 @@ Or write the step yourself:
 - uses: mnichols08/constellation@v5
   with:
     tech-stack: 'true'
-    tech-stack-style: card          # or: map
+    tech-stack-style: full          # card, spotlight, full or map
     tech-stack-featured: 'shop,blog' # optional: repositories to show first as examples
     publish: 'true'
     output: tech-stack.svg
@@ -84,7 +91,7 @@ GH_TOKEN=... node src/cli.mjs --tech-stack --username chingu-voyages --output ch
 GH_TOKEN=... node src/cli.mjs --tech-stack --username chingu-voyages --output chingu-tech-stack.svg
 ```
 
-An output name ending in `.svg` writes the README image (`--tech-stack-style card` or `map`), `.md` writes the README list with links, and any other name writes the interactive page. `--tech-stack-featured shop,blog` names repositories to show first as examples.
+An output name ending in `.svg` writes the README image (`--tech-stack-style card`, `spotlight`, `full` or `map`), `.md` writes the README list with links, and any other name writes the interactive page. `--tech-stack-featured shop,blog` names repositories to show first as examples.
 
 A token is required. It is used only for requests to GitHub and never written to the page.
 

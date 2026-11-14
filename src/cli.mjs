@@ -125,7 +125,7 @@ async function main() {
   if (values.help) {
     console.log('Profile Story SVG: --story auto|projects|technical-shape|journey [--target-width 480|900]');
     console.log(
-      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --tech-stack        Scan an account's public manifests (needs GH_TOKEN). Output .svg writes the README image, .md the README text with links, anything else the interactive page\n  --tech-stack-style card|map  README image: summary card (default) or star map\n  --tech-stack-featured a,b  Repositories to show first as examples\n  --format json|markdown|svg|html|bundle|portfolio  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (bundle/portfolio require a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
+      "Usage: constellation [build|validate|migrate] [options]\n\n  --semantic-graph FILE  Import canonical Semantic Graph v1 without network\n  --tech-stack        Scan an account's public manifests (needs GH_TOKEN). Output .svg writes the README image, .md the README text with links, anything else the interactive page\n  --tech-stack-style card|spotlight|full|map  README image: summary card (default), project spotlight, both, or star map\n  --tech-stack-featured a,b  Repositories to show first as examples\n  --format json|markdown|svg|html|bundle|portfolio  Output imported graph or projection\n  --fingerprint       Print the semantic fingerprint to stderr\n  --config FILE       Read JSON settings (or use CONSTELLATION_CONFIG_JSON)\n  --from VALUE        Migrate a design code or share URL\n  --workflow FILE     Migrate an existing v1/v2 workflow\n  --username NAME     GitHub account for generation or code migration\n  --fixture FILE      Read repositories offline\n  --output PATH       Destination (bundle/portfolio require a directory)\n  --dry-run           Compute without writing SVG, cache or Action outputs\n  --scene             Inspect scene statistics and diagnostics without SVG\n  --scene-json        Inspect the normalized scene as JSON without SVG\n  --reference-date DATE  Use a fixed ISO date for reproducible generation\n  --explain           Print filter report as JSON on stdout\n  --refresh-data      Refresh fetched data\n  --version           Print installed version\n\nvalidate and migrate make no GitHub requests. See docs/migration-v3.md.",
     );
     return;
   }
@@ -203,7 +203,7 @@ async function main() {
     const svg = /\.svg$/i.test(output);
     const markdown = /\.md$/i.test(output);
     const style = values["tech-stack-style"] || process.env.CONSTELLATION_TECH_STACK_STYLE || "card";
-    if (style !== "card" && style !== "map") throw new Error("--tech-stack-style must be card or map.");
+    if (!["card", "spotlight", "full", "map"].includes(style)) throw new Error("--tech-stack-style must be card, spotlight, full or map.");
     const featured = String(values["tech-stack-featured"] ?? process.env.CONSTELLATION_TECH_STACK_FEATURED ?? "").split(",").map((name) => name.trim()).filter(Boolean);
     if (featured.length > 12 || !featured.every((name) => /^[\w./-]{1,140}$/.test(name))) throw new Error("--tech-stack-featured takes up to 12 repository names, separated by commas.");
     const fetchWithToken = (url, init = {}) => fetch(url, { ...init, redirect: "error", headers: { ...init.headers, Authorization: `Bearer ${token}` } });
@@ -215,7 +215,7 @@ async function main() {
       await mkdir(dirname(output), { recursive: true });
       await writeFile(output, renderTechStackMarkdown(scan, { featured }));
     } else {
-      await writeArtifactAtomically(output, svg ? (style === "card" ? renderTechStackCardSVG(scan, { featured }) : renderTechStackSVG(scan)) : renderTechStackHTML(scan, { featured }), svg ? "svg" : "html");
+      await writeArtifactAtomically(output, svg ? (style === "map" ? renderTechStackSVG(scan) : renderTechStackCardSVG(scan, { featured, style })) : renderTechStackHTML(scan, { featured }), svg ? "svg" : "html");
     }
     if (process.env.GITHUB_OUTPUT)
       await appendFile(process.env.GITHUB_OUTPUT, `${markdown ? "markdown" : svg ? "svg" : "html"}=${output}\n`);

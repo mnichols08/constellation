@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { techStackEvidence, formatYears, CURRENT_DAYS, SUSTAINED_DAYS } from '../src/tech-stack/evidence.mjs';
-import { renderTechStackCardSVG, renderTechStackMarkdown, replaceTechStackMarkdown, MARKDOWN_START, MARKDOWN_END } from '../src/tech-stack/card.mjs';
+import { techStackEvidence, formatYears, projectWebsite, CURRENT_DAYS, SUSTAINED_DAYS } from '../src/tech-stack/evidence.mjs';
+import { CARD_STYLES, renderTechStackCardSVG, renderTechStackMarkdown, replaceTechStackMarkdown, MARKDOWN_START, MARKDOWN_END } from '../src/tech-stack/card.mjs';
 import { isToolingTech } from '../src/tech-stack/catalog.mjs';
 import { validatePublicationArtifact } from '../src/publication-integrity.mjs';
 
@@ -145,7 +145,7 @@ test('the Markdown block carries the links an image cannot, and can be refreshed
   assert.ok(lines.includes('- **Rust** · 2 repositories · 2025–now · [engine](https://github.com/ada/engine), [scratch](https://github.com/ada/scratch): About engine'));
   assert.ok(lines.includes('Testing and build tools: Jest, Vite.'));
   assert.equal(lines.at(-2), '<sub>Counted from 8 of 10 public repositories on 2026-11-01. Declared in manifests, which does not prove use. Public repositories only.</sub>');
-  assert.equal(lines.filter((line) => line.startsWith('- **')).length, 2 + 8);
+  assert.equal(lines.filter((line) => line.startsWith('- **')).length, 2 + 8 + 3);
 
   const readme = `# Hi\n\nIntro.\n`;
   const added = replaceTechStackMarkdown(readme, markdown);
@@ -154,4 +154,82 @@ test('the Markdown block carries the links an image cannot, and can be refreshed
   const refreshed = replaceTechStackMarkdown(`${added}\n## After\n`, later);
   assert.equal(refreshed.split(MARKDOWN_START).length, 2, 'one block, replaced');
   assert.ok(refreshed.includes('3 of 5 public repositories') && !refreshed.includes('8 of 10') && refreshed.endsWith('\n## After\n') && refreshed.startsWith('# Hi\n\nIntro.'));
+});
+
+const withSites = () => {
+  const scan = account();
+  scan.records[0].homepage = 'https://shop.ada.dev/';
+  scan.records[0].topics = ['ecommerce', 'react'];
+  scan.records[6].description = null;
+  return scan;
+};
+const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
+
+test('spotlights pick three projects to start with, the developer’s own choices first', () => {
+  const automatic = techStackEvidence(withSites()).spotlights;
+  // Live, sustained and described before archived, brief or blank; then most starred.
+  assert.deepEqual(automatic.map((project) => project.name), ['blog', 'shop', 'chat']);
+  const chosen = techStackEvidence(withSites(), { featured: ['engine', 'ada/shop'] }).spotlights;
+  assert.deepEqual(chosen.map((project) => [project.name, project.featured]), [['engine', true], ['shop', true], ['blog', false]]);
+  const [engine, shop] = chosen;
+  assert.deepEqual(shop.builtWith, ['TypeScript', 'React', 'Express', 'MongoDB', 'Tailwind CSS'], 'main language, then frontend, backend, data; no test or build tools');
+  assert.deepEqual([shop.first, shop.last, shop.current, shop.stars, formatYears(shop)], [2022, 2026, true, 12, '2022–now']);
+  assert.deepEqual(shop.website, { href: 'https://shop.ada.dev/', label: 'shop.ada.dev' });
+  assert.deepEqual([shop.missing, shop.topics], [[], ['ecommerce', 'react']]);
+  assert.equal(shop.url, 'https://github.com/ada/shop');
+  // What is missing is reported as a fact for the owner to fix.
+  assert.deepEqual([engine.description, engine.website, engine.builtWith, engine.missing], ['', null, ['Rust'], ['description', 'website', 'topics']]);
+  assert.equal(techStackEvidence(scanOf([])).spotlights.length, 0);
+  assert.equal(techStackEvidence(scanOf([record('only', { created: '2024-01-01', pushed: '2026-01-01' })])).spotlights.length, 1);
+});
+
+test('a project website is shown only when it is a plain web address', () => {
+  assert.deepEqual(projectWebsite('example.com/demo/'), { href: 'https://example.com/demo/', label: 'example.com/demo' });
+  assert.deepEqual(projectWebsite('http://www.example.com'), { href: 'http://www.example.com/', label: 'example.com' });
+  assert.equal(projectWebsite('https://a.example/' + 'p'.repeat(60)).label.length, 48);
+  for (const bad of [null, '', 'javascript:alert(1)', 'data:text/html,x', 'ftp://example.com', 'https://user:pass@example.com', 'localhost', 'not a url', 'https://' + 'a'.repeat(300) + '.com']) assert.equal(projectWebsite(bad), null, String(bad).slice(0, 40));
+  // Characters that could end a Markdown link or an attribute are encoded.
+  assert.ok(!/[()<>"'\s]/.test(projectWebsite('https://example.com/a(b)"c\'<d> e').href));
+});
+
+test('the spotlight image reads on its own, and the full image carries both', () => {
+  assert.deepEqual(CARD_STYLES, ['card', 'spotlight', 'full']);
+  const options = { featured: ['shop', 'engine'] };
+  const spotlight = renderTechStackCardSVG(withSites(), { ...options, style: 'spotlight' });
+  const seen = texts(spotlight);
+  assert.equal(seen[0], 'Projects to start with · @ada');
+  for (const expected of ['shop', '12 stars · 2022–now', 'Storefront with carts and checkout', 'Built with TypeScript, React, Express, MongoDB, Tailwind CSS', 'Live at shop.ada.dev', 'engine', 'No description yet.', 'Built with Rust']) assert.ok(seen.includes(expected), `missing "${expected}"`);
+  assert.ok(!seen.includes('USED TOGETHER') && !seen.includes('LANGUAGES AND TECHNOLOGIES'));
+  assert.match(seen.at(-1), /from each project’s own files and GitHub details · public work only$/);
+  assert.match(spotlight, /<title id="title">Projects of ada<\/title>/);
+  assert.match(/<desc id="tech-stack-description">([^<]*)<\/desc>/.exec(spotlight)[1], /^Projects to start with: shop, Storefront with carts and checkout Built with TypeScript, React, Express, MongoDB, Tailwind CSS\. Live at shop\.ada\.dev\. Active 2022 to now; engine Built with Rust\. Active 2025 to now; /);
+
+  const full = renderTechStackCardSVG(withSites(), { ...options, style: 'full' });
+  const both = texts(full);
+  assert.ok(both.includes('Tech stack · @ada') && both.includes('USED TOGETHER') && both.includes('PROJECTS TO START WITH') && both.includes('Live at shop.ada.dev'));
+  assert.ok(both.indexOf('PROJECTS TO START WITH') > both.indexOf('Testing and build tools: Jest, Vite'));
+  // The plain card is unchanged by spotlights.
+  assert.ok(!texts(renderTechStackCardSVG(withSites(), options)).includes('PROJECTS TO START WITH'));
+  for (const svg of [spotlight, full]) {
+    assert.doesNotThrow(() => validatePublicationArtifact(Buffer.from(svg), { format: 'svg', filename: 'tech-stack.svg' }));
+    assert.ok(!/<script|<a |href|<foreignObject|<image|style=|on\w+=|url\(/i.test(svg), 'static and inert');
+    assert.ok(!/senior|expert|skilled|proficien|score|rating|years of experience/i.test(svg));
+  }
+  // A long description wraps to two lines and stops.
+  const long = withSites();
+  long.records[0].description = 'word '.repeat(80);
+  assert.equal(texts(renderTechStackCardSVG(long, { ...options, style: 'spotlight' })).filter((line) => line.startsWith('word word')).length, 2);
+  assert.throws(() => renderTechStackCardSVG(account(), { style: 'poster' }), /summary card, the project spotlight, or both/);
+  assert.throws(() => renderTechStackCardSVG(scanOf([]), { style: 'spotlight' }), /no public repositories to show/);
+});
+
+test('the README list links each spotlight project and its website, and hostile values stay inert', () => {
+  const markdown = renderTechStackMarkdown(withSites(), { featured: ['shop'] });
+  assert.ok(markdown.includes('\n**Projects to start with**\n\n- **[shop](https://github.com/ada/shop)** · Storefront with carts and checkout · Built with TypeScript, React, Express, MongoDB, Tailwind CSS · 2022–now · [shop.ada.dev](https://shop.ada.dev/)\n'));
+  const nasty = withSites();
+  nasty.records[0].homepage = 'https://evil.example/x)](javascript:alert(1)) <b>';
+  nasty.records[0].topics = ['<script>'];
+  const hostile = renderTechStackMarkdown(nasty, { featured: ['shop'] });
+  assert.ok(!/<b>|\]\(javascript:/i.test(hostile), hostile.split('\n').find((line) => line.includes('evil')));
+  assert.ok(!/<b>|<script/i.test(renderTechStackCardSVG(nasty, { featured: ['shop'], style: 'full' })));
 });

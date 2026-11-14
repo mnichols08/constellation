@@ -179,6 +179,23 @@ export function createTechStackDialog(ctx) {
         years ? h('td', { text: years(row) ? result.formatYears(years(row)) : '' }) : null))));
   }
 
+  // Shown to the account's owner only: what would make their three projects
+  // read better, and where on GitHub to fix it. Facts about what is missing,
+  // never a verdict on the work.
+  function checks() {
+    const { evidence, scan } = result;
+    if (engine.viewer?.login?.toLowerCase() !== scan.login.toLowerCase()) return null;
+    const words = { description: 'one-line description', website: 'link to a live site or demo', topics: 'topics' };
+    const gaps = evidence.spotlights.filter((project) => project.missing.length && project.url);
+    if (!gaps.length) return null;
+    const list = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
+    return h('div', { class: 'tech-stack-checks' },
+      h('h4', { text: 'Before you publish' }),
+      h('p', { text: 'These projects are the first thing a reader sees. On GitHub, open each one and use the gear beside “About” to fill in what’s missing.' }),
+      h('ul', {}, gaps.map((project) => h('li', {}, h('a', { href: project.url, target: '_blank', rel: 'noopener noreferrer', text: project.name }), ` has no ${list(project.missing.map((gap) => words[gap]))}.`))),
+      evidence.spotlights.some((project) => !project.featured) ? h('p', { class: 'field-help', text: 'To choose the three yourself, star them in the Projects tab of your own sky, then map again.' }) : null);
+  }
+
   // What someone skimming can take away without reading the map: what is
   // current, what goes together, and which repositories show it.
   function glance() {
@@ -194,6 +211,12 @@ export function createTechStackDialog(ctx) {
       evidence.stacks.length ? [h('h4', { text: 'Used together' }), h('ul', {}, evidence.stacks.map(entry))] : null,
       evidence.core.length ? [h('h4', { text: 'Where to look' }), h('ul', {}, evidence.core.slice(0, 8).map(entry))] : null,
       evidence.tooling.length ? h('p', { text: `Testing and build tools: ${evidence.tooling.map((tool) => tool.name).join(', ')}.` }) : null,
+      evidence.spotlights.length ? [h('h4', { text: 'Projects to start with' }), h('ul', { class: 'tech-stack-spotlights' }, evidence.spotlights.map((project) => h('li', {},
+        h('strong', {}, example(project)), ` · ${formatYears(project)}`, project.stars ? ` · ${plural(project.stars, 'star', 'stars')}` : null, project.archived ? ' · archived' : null,
+        h('p', { class: project.description ? undefined : 'tech-stack-earlier', text: project.description || 'No description yet.' }),
+        project.builtWith.length ? h('p', { text: `Built with ${project.builtWith.join(', ')}` }) : null,
+        project.website ? h('p', {}, 'Live at ', h('a', { href: project.website.href, target: '_blank', rel: 'noopener noreferrer', text: project.website.label })) : null)))] : null,
+      checks(),
       h('p', { class: 'field-help', text: '“Now” means a repository declaring it was pushed to in the last year. Dates run from when the first such repository was created to the last push to any of them.' }));
   }
 
@@ -220,7 +243,9 @@ export function createTechStackDialog(ctx) {
     let snippet = '';
     let markdown = '';
     const style = h('select', { class: 'input', id: 'tech-stack-style' },
-      h('option', { value: 'card', text: 'Summary card: stacks, dates and counts (recommended)' }),
+      h('option', { value: 'full', text: 'Summary card and three projects (recommended)' }),
+      h('option', { value: 'card', text: 'Summary card: stacks, dates and counts' }),
+      h('option', { value: 'spotlight', text: 'Three projects to start with' }),
       h('option', { value: 'map', text: 'Star map' }));
     const markdownCode = h('code');
     const markdownPre = h('pre', { tabindex: '0', role: 'region', 'aria-label': 'README project list' }, markdownCode);
@@ -274,7 +299,7 @@ export function createTechStackDialog(ctx) {
       h('div', { class: 'field' },
         h('label', { class: 'field-label', for: 'tech-stack-style', text: 'Image' }),
         style,
-        h('p', { class: 'field-help', text: 'The card can be read without explanation. The star map shows how technologies connect.' })),
+        h('p', { class: 'field-help', text: 'The card and projects can be read without explanation. The star map shows how technologies connect.' })),
       h('div', { class: 'field' },
         h('label', { class: 'field-label', for: 'tech-stack-repository', text: 'Repository for the workflow' }),
         repository,

@@ -275,7 +275,7 @@ export function createEngine({
     /** The static image a README can show: the summary card, or the star map. */
     async techStackImage(scan, { style = 'card', featured = [] } = {}) {
       if (style === 'map') return (await import('../tech-stack/scene.mjs')).renderTechStackSVG(scan);
-      return (await import('../tech-stack/card.mjs')).renderTechStackCardSVG(scan, { featured });
+      return (await import('../tech-stack/card.mjs')).renderTechStackCardSVG(scan, { featured, style });
     },
 
     /** README text with links to the repositories that show each technology. */

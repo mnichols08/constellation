@@ -275,9 +275,9 @@ test('the Action and CLI expose the tech stack image without a new secret', asyn
   assert.match(action, /CONSTELLATION_TECH_STACK_STYLE: \$\{\{ inputs\.tech-stack-style \}\}/);
   assert.match(action, /CONSTELLATION_TECH_STACK_FEATURED: \$\{\{ inputs\.tech-stack-featured \}\}/);
   // The card is the default image; the map stays available; .md writes the linked list.
-  assert.match(cli, /style === "card" \? renderTechStackCardSVG\(scan, \{ featured \}\) : renderTechStackSVG\(scan\)/);
+  assert.match(cli, /style === "map" \? renderTechStackSVG\(scan\) : renderTechStackCardSVG\(scan, \{ featured, style \}\)/);
   assert.match(cli, /renderTechStackMarkdown\(scan, \{ featured \}\)/);
-  assert.match(cli, /--tech-stack-style must be card or map/);
+  assert.match(cli, /--tech-stack-style must be card, spotlight, full or map/);
 });
 
 test('the Studio refuses to scan without sign-in, and sends nothing', async () => {

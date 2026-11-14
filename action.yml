@@ -32,7 +32,7 @@ inputs:
     description: Draw the tech stack map (languages and technologies declared across the account's public repositories) instead of a constellation. Ignores config, story and target-width.
     default: 'false'
   tech-stack-style:
-    description: "With tech-stack and an .svg output: 'card' (headline, stacks used together and a dated row per technology) or 'map' (the star map)."
+    description: "With tech-stack and an .svg output: 'card' (headline, stacks used together and a dated row per technology), 'spotlight' (up to three projects to start with), 'full' (both in one image) or 'map' (the star map)."
     default: card
   tech-stack-featured:
     description: Optional comma-separated repository names to show first as examples on the tech stack card
