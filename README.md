@@ -54,6 +54,7 @@ Public exploration works without signing in and makes two GitHub requests per ac
 - **Organization maps:** explore public organization repositories. [Guide](docs/organizations.md)
 - **Tech stack maps:** sign in with GitHub to see which frameworks and services an account's repositories declare, and which are used together. [Guide](docs/tech-stack.md)
 - **History and activity:** repository commits or limited recent public activity. These are partial signals, not a complete contribution calendar. [History](docs/history.md)
+- **Describe it in words:** say what you want to see, check the plan, then apply it. Works offline with no AI; a language model is optional and never draws the map. [How it works](docs/ai/AI-ARCHITECTURE.md) · [Spec reference](docs/constellation-spec.md) · [Offline demo](examples/ai-offline-demo.html)
 - **Interactive exports:** an offline HTML file or framework-free web component. [HTML](docs/interactive-html.md) · [Web component](docs/web-component.md)
 
 ## Run locally

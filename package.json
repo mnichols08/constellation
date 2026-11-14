@@ -1,6 +1,6 @@
 {
   "name": "constellation",
-  "version": "5.4.1",
+  "version": "5.5.0",
   "private": true,
   "bin": {
     "constellation": "src/cli.mjs"
@@ -13,11 +13,13 @@
   "scripts": {
     "build:core": "node scripts/build-core.mjs",
     "build:rust": "node scripts/build-rust.mjs",
+    "build:schema": "UPDATE_SPEC_SCHEMA=1 cargo test --locked --manifest-path rust/constellation-spec/Cargo.toml published_schema_files",
     "test:rust": "cargo test --locked --manifest-path rust/constellation-core/Cargo.toml",
     "benchmark:graph-quality": "node scripts/benchmark-graph-quality.mjs",
     "benchmark:story-composition": "node scripts/benchmark-story-composition.mjs",
     "benchmark:story-clarity": "node scripts/benchmark-story-clarity.mjs",
     "benchmark:evidence-navigation": "node scripts/benchmark-evidence-navigation.mjs",
+    "benchmark:spec": "node scripts/benchmark-constellation-spec.mjs",
     "benchmark:portfolio": "node scripts/benchmark-portfolio-artifact.mjs",
     "generate": "node src/cli.mjs",
     "test": "node --test --test-concurrency=1",

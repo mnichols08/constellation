@@ -44,3 +44,18 @@ Synthetic community examples: [community galaxy](organization-community.json), [
 ## Interactive examples
 
 After `node scripts/build-rust.mjs` and `node scripts/build-core.mjs`, run `node examples/interactive-demo.mjs`, `node examples/timeline-demo.mjs` or `node examples/hierarchy-demo.mjs`. Each writes a standalone HTML artifact under `dist/` using supplied offline data. Open it in a modern browser; no server or GitHub token is required. See the [interactive HTML guide](../docs/interactive-html.md).
+
+### Describe it in words (ConstellationSpec)
+
+[`specs/`](specs) holds `ConstellationSpec` documents: intent such as "Rust at the centre, experiments on the outskirts", with no coordinates. Rust validates each one, matches it against repository data and computes the layout. See the [reference](../docs/constellation-spec.md).
+
+| Spec | Shows |
+| --- | --- |
+| [solar-system-rust-focus.json](specs/solar-system-rust-focus.json) | a language at the centre, experiments outside, topics weighted above languages |
+| [radial-rust-focus.json](specs/radial-rust-focus.json) | the smallest useful spec: one focus on rings |
+| [experiments-on-the-outskirts.json](specs/experiments-on-the-outskirts.json) | two placed groups and clustering by group |
+| [topic-clusters.json](specs/topic-clusters.json) | groups by topic in a clustered layout |
+| [language-weighted-relationships.json](specs/language-weighted-relationships.json) | relationship strengths, recency ranking and a limit |
+| [recent-work-first.json](specs/recent-work-first.json) | date filters and a focus on a group |
+
+[ai-offline-demo.html](ai-offline-demo.html) runs the whole prompt-to-constellation flow with a prerecorded stand-in for a model: discovery calls, a rejected spec, a repair, compilation and rendering through `<constellation-view>`. It needs no network or API key. Run `npm run preview` and open `/examples/ai-offline-demo.html`.

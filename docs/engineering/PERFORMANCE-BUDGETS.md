@@ -113,3 +113,27 @@ first component readiness, 0.9 ms for project plus relationship focus, 7.5 ms
 for a 280px container resize and layout, and 2.5 ms for disconnect/reconnect.
 These are one headless local sample; no comparative cold-cache baseline or
 retained-memory profile was isolated.
+
+## ConstellationSpec engine
+
+The spec engine is a separate WASM module so the core binary and its budgets are unchanged. `main` before this work sat 138 bytes under the 1 MiB standalone-runtime budget and about 47 KB under the 2 MiB core package budget; core grew by about 3 KB (the registration seam, the configuration check and the layout hook).
+
+| Artifact | Size | Budget |
+|---|---:|---:|
+| `src/wasm/constellation_core_bg.wasm` | unchanged | unchanged |
+| `src/wasm/constellation_spec_bg.wasm` | 240,381 B | 300 KiB |
+| `@constellation/spec` package | about 350 KB | 512 KiB |
+
+Size work before the split, measured as growth of a combined binary: 239 KB at first, 203 KB after moving the generated schema text out of WASM, 120 KB after routing every sort through one shared instantiation, replacing per-type B-tree maps with sorted vectors, and parsing evidence by hand instead of through derived deserializers.
+
+Measured locally on Node.js 22 with `npm run benchmark:spec` (synthetic accounts; means over repeated runs):
+
+| Projects | Engine build | First graph query | Validate | Compile | Layout placements | Preview group | Neighbours |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 25 | 0.6 ms | 0.7 ms | 0.05 ms | 1.1 ms | 0.5 ms | 0.05 ms | 0.004 ms |
+| 100 | 1.3 ms | 0.5 ms | 0.04 ms | 3.2 ms | 1.4 ms | 0.09 ms | 0.005 ms |
+| 500 | 5.7 ms | 3.1 ms | 0.04 ms | 17.5 ms | 10.0 ms | 0.19 ms | 0.005 ms |
+| 2,048 | 23.9 ms | 37.4 ms | 0.04 ms | 156.5 ms | 40.5 ms | 0.25 ms | 0.06 ms |
+
+Relationship scoring is the expensive step. It compares integer language and topic ids with sorted merges, keeps the six strongest partners per project, and runs once: on the first graph query, or when a spec is compiled in full. Before that change the same 2,048-project placement took about 2.1 s. Neighbour and path queries read the retained adjacency.
+

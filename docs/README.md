@@ -18,6 +18,7 @@ New here? Read the [Studio guide](studio.md). Then open the guide for the task y
 | Explain a project's evidence, position, or appearance | [Evidence and provenance](evidence-provenance.md) |
 | Compress a project map into explainable groups | [Semantic Groups](semantic-groups.md) |
 | See commit history or recent activity | [History and activity](history.md) |
+| Describe a layout in words instead of settings | [Describe your sky](studio.md#describe-your-sky) |
 | Find every setting, settings files, or share links | [Designs and configuration](designs.md) |
 | Make the map accessible | [Accessibility](accessibility.md) |
 
@@ -37,6 +38,8 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | Embed a custom element in a web page | [Web component](web-component.md) |
 | Export an interactive, offline HTML file | [Interactive HTML](interactive-html.md) |
 | Render or validate data from JavaScript/Node | [Core API](core-api.md) |
+| Describe a constellation as intent and let Rust compile it | [ConstellationSpec](constellation-spec.md) · [examples](../examples/specs) |
+| Connect a language model, or run the flow with none | [Provider integration](ai/PROVIDER-INTEGRATION.md) · [Offline demo](../examples/ai-offline-demo.html) |
 | Load JSON sources or transform data | [Data pipeline](data-pipeline.md) |
 | Add a theme, layout, or extension | [Extension authoring](extension-authoring.md) |
 | Understand scene structure and rendering | [Scene API](scene-api.md) · [Renderer API](renderer-api.md) · [Layout API](layout-api.md) |
@@ -51,7 +54,7 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | Recruiter evidence derivation and ordering | [Recruiter Evidence v1](recruiter-evidence.md) |
 | Tests and quality checks | [Testing and quality](engineering/TESTING-AND-QUALITY.md) · [Studio budgets and usability procedure](guided-experience-evaluation.md) |
 | Performance limits | [Performance budgets](engineering/PERFORMANCE-BUDGETS.md) |
-| AI-assisted interpretation | [AI specification](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
+| AI-assisted interpretation | [Architecture and trust boundary](ai/AI-ARCHITECTURE.md) · [ADR-0010: spec engine](architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md) · [Design notes](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
 | Planned work | [Roadmap](ROADMAP.md) |
 
 ## More guides

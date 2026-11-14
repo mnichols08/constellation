@@ -1,5 +1,7 @@
 # AI Constellation Spec
 
+> **Status:** implemented. This page keeps the original design notes. The current contract is in the [ConstellationSpec reference](../constellation-spec.md); the flow and trust boundary are in [AI architecture](AI-ARCHITECTURE.md); connecting a model is in [Provider integration](PROVIDER-INTEGRATION.md). Where a shape below differs from the reference, the reference is correct.
+
 ## Purpose
 
 `ConstellationSpec` is the semantic contract between ambiguous human intent and deterministic Constellation computation.
