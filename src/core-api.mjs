@@ -17,6 +17,7 @@ export { explainFilters } from "./filter-explanation.mjs";
 export { EVIDENCE_VERSION, explainNode, explainEdge, explainVisual, evidenceForNode, validateEvidence } from "./evidence.mjs";
 export { SEMANTIC_GROUP_VERSION, SEMANTIC_LEVELS, MAX_SEMANTIC_GROUPS, MAX_GROUP_MEMBERS, buildSemanticHierarchy, projectSemanticLevel, expandGroup, collapseGroup, explainGroup } from "./semantic-groups.mjs";
 export { rustAvailable, engineError } from "./engine.mjs";
+export { registerSpecHost } from "./spec-host.mjs";
 export { GRAPH_QUALITY_VERSION, evaluateGraphQuality } from "./engine.mjs";
 export { STORY_CLARITY_VERSION, analyzeStoryClarity } from "./engine.mjs";
 export { createEvidenceNavigator, navigateEvidence } from "./engine.mjs";
@@ -87,7 +88,7 @@ export { createLayoutHost, LAYOUT_API_VERSION } from "./layout-host.mjs";
 export { renderSceneSVG } from "./renderer-svg.mjs";
 export { renderSceneHTML, htmlBundleStatistics } from "./renderer-html.mjs";
 export { scanTechStack, githubTransport, techStackQuery } from "./tech-stack/scan.mjs";
-export { techStackModel, createTechStackScene, renderTechStackHTML } from "./tech-stack/scene.mjs";
+export { techStackModel, createTechStackScene, renderTechStackHTML, renderTechStackSVG } from "./tech-stack/scene.mjs";
 export {
   serializeScene,
   parseScene,

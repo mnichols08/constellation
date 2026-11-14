@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "groups": [
+    { "id": "web", "label": "Web", "match": { "topic": "web" } },
+    { "id": "systems", "label": "Systems", "match": { "any": [{ "topic": "systems" }, { "topic": "wasm" }, { "language": "Rust" }] } },
+    { "id": "data", "label": "Data", "match": { "topic": "data" } }
+  ],
+  "relationships": [{ "basis": "shared_topic", "strength": 1 }],
+  "layout": { "kind": "clustered", "cluster_by": ["topic"] }
+}

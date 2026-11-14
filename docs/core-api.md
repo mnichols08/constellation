@@ -55,3 +55,15 @@ Portable meaning can be created with Semantic Graph v1 adapters and projected to
 `createPortableExport(graph)` creates deterministic graph JSON, standard Semantic Markdown, SVG, interactive HTML, and manifest strings from one validated graph. It performs no filesystem, DOM, network, or archive operations. See [Portable Embed and Export](portable-embed.md).
 
 `createPortfolioArtifact(graph, { constellationVersion, scene? })` asynchronously creates the bounded v1 portfolio manifest and deterministic named assets with SHA-256 digests. Web Crypto is required. `validatePortfolioArtifact(manifest, files)` rechecks compatibility, Scene v1, trusted relative filenames, runtime entry markers, byte limits, and asset digests. Use `--format portfolio --output DIRECTORY` with the offline CLI to write a directory. See [Portable Portfolio Artifact v1](portfolio-artifact.md).
+
+## ConstellationSpec
+
+`constellationSpec` is an optional configuration field holding a [ConstellationSpec](constellation-spec.md): semantic intent that a separate Rust/WASM module validates and compiles. Core does not contain that module. Register it once and configuration validation and layout use it:
+
+```js
+import { registerSpecHost } from "@constellation/core";
+import { specHost } from "@constellation/spec";
+registerSpecHost(specHost);
+```
+
+Without a registered host the field is kept as size-checked data and has no effect on a scene. `registerSpecHost(null)` removes the host. The CLI registers it automatically when a configuration contains the field.

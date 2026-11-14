@@ -1,5 +1,7 @@
 # Roadmap Guardrails
 
+Horizons A to D shipped in 5.5.0 (epic #54): see [ConstellationSpec](constellation-spec.md), [AI architecture](ai/AI-ARCHITECTURE.md) and [ADR-0010](architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md). They stay listed as the guardrails later work must keep.
+
 ## Horizon A — Semantic core
 
 - versioned ConstellationSpec;

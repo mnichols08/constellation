@@ -5,6 +5,7 @@ import { createStore } from './store.mjs';
 import { createEngine, defaultOptions, friendlyError } from './engine.mjs';
 import { applySetting, settingsById, composeCSS } from './settings.mjs';
 import { announce } from './dom.mjs';
+import { applyMotion } from './motion.mjs';
 import { mountHome } from './views/home.mjs';
 import { mountStudio } from './views/studio.mjs';
 import { mountToasts } from './views/toasts.mjs';
@@ -32,6 +33,21 @@ export function startStudio({ win = window, doc = document } = {}) {
   let shuffles = 0;
   let lastShuffled = null;
 
+  // ------------------------------------------------- described plans
+  // The ConstellationSpec engine (Rust/WASM) and the prompt flow load on first
+  // use, so visitors who never describe a layout download none of it.
+  let specState = 'idle';
+  let specModule = null;
+  function loadSpec() {
+    specModule ??= import('../spec-register.mjs').then((module) => { specState = 'ready'; return module; }, (error) => { specState = 'failed'; specModule = null; throw error; });
+    return specModule;
+  }
+  let keywordModel = null;
+  /** A page may provide its own model adapter; the built-in reader needs no network. */
+  const customAdapter = () => (typeof win.constellationModelAdapter?.generate === 'function' ? win.constellationModelAdapter : null);
+  const canvasOf = (options) => ({ compact: options.layout === 'compact', round: options.orbitShape === 'round' });
+  const evidenceOf = (options) => ({ projectShowcase: options.projectShowcase, referenceDate: options.referenceDate });
+
   // ----------------------------------------------------------- rendering
   let renderQueued = false;
   function scheduleRender() {
@@ -41,6 +57,12 @@ export function startStudio({ win = window, doc = document } = {}) {
       renderQueued = false;
       const { account, repositories, options, sample, screen } = store.get();
       if (screen !== 'studio' || !account) return;
+      // A design that carries a described plan needs the spec engine, which is
+      // a separate download. Wait for it once; if it cannot load, draw without.
+      if (options.constellationSpec && specState === 'idle') {
+        loadSpec().then(scheduleRender, scheduleRender);
+        return;
+      }
       try {
         const result = engine.render(account, repositories, options, { sample });
         store.update({ render: { ...result, error: null } });
@@ -320,6 +342,61 @@ export function startStudio({ win = window, doc = document } = {}) {
     },
     toast: (text, options) => toasts.show(text, options),
 
+    // Describe ----------------------------------------------------------
+    /** Who reads a description, in one sentence for the dialog. */
+    describeReader() {
+      const adapter = customAdapter();
+      return adapter
+        ? `Read by ${String(adapter.name || 'the model this page connected').slice(0, 60)}.`
+        : 'Read by a built-in phrase matcher, not an AI model, so it knows a small set of words: centre, outskirts, experiments, recent, similar, topics, languages.';
+    },
+    /**
+     * Turn words into a plan. Changes nothing: the result is only a preview.
+     * @returns {Promise<{ ok: true, compiled, plan } | { ok: false, sentence: string }>}
+     */
+    async describe(prompt, { signal } = {}) {
+      const [spec, { describeConstellation }, { describePlan, describeFailure }, { createKeywordModel }] = await Promise.all([
+        loadSpec(), import('../ai/describe.mjs'), import('../ai/plan.mjs'), import('../ai/fake-model.mjs'),
+      ]);
+      const { repositories, options } = store.get();
+      const engine = spec.createConstellationEngine(repositories, evidenceOf(options));
+      try {
+        const result = await describeConstellation({
+          adapter: customAdapter() || (keywordModel ??= createKeywordModel()), engine, prompt, signal,
+          currentSpec: options.constellationSpec, canvas: canvasOf(options),
+        });
+        if (!result.ok) return { ok: false, sentence: describeFailure(result), reason: result.reason };
+        return { ok: true, compiled: result.compiled, plan: describePlan(result.compiled, { previousSpec: options.constellationSpec }) };
+      } finally {
+        engine.destroy();
+      }
+    },
+    /** The applied plan in words, for the dialog. Null until the engine has loaded. */
+    currentPlan() {
+      const { repositories, options } = store.get();
+      if (specState !== 'ready' || !options.constellationSpec) return null;
+      return describedPlan?.(options.constellationSpec, repositories, options) ?? null;
+    },
+    /** Apply a previewed plan as one Undo step. */
+    applyPlan(compiled) {
+      loadSpec().then((spec) => {
+        const changed = store.setOptions((options) => {
+          let next = spec.specOptions(options, compiled);
+          if (compiled.motion) next = applyMotion(next, compiled.motion);
+          next.maxRepos = Math.max(1, Math.min(next.maxRepos ?? 45, 100, store.get().repositories.length || 1));
+          return next.visualStyle || next.customCSS !== undefined ? { ...next, css: composeCSS(next) } : next;
+        }, { label: 'Describe' });
+        store.update({ dialog: null });
+        if (changed) toasts.show('Plan applied to your map.', { key: 'describe', action: { label: 'Undo', run: () => actions.undo() } });
+        announce('Plan applied to your map.');
+      }, () => toasts.show('The plan could not be applied. Nothing was changed.', { tone: 'error' }));
+    },
+    /** Go back to a map with no described plan. One Undo step. */
+    clearPlan() {
+      const changed = store.setOptions((options) => { const { constellationSpec: _removed, ...rest } = options; return rest; }, { label: 'Remove plan' });
+      if (changed) toasts.show('Plan removed. Your other settings are kept.', { key: 'describe', action: { label: 'Undo', run: () => actions.undo() } });
+    },
+
     // Saved designs ------------------------------------------------------
     saveDesign(name) {
       const { account, options } = store.get();
@@ -339,6 +416,23 @@ export function startStudio({ win = window, doc = document } = {}) {
     deleteDesign(entry) { designs.delete(entry.account, entry.name); },
   };
 
+  // Reads an applied plan back in words once the engine is in memory.
+  let describedPlan = null;
+  store.subscribe((state, changed) => {
+    if (changed.has('dialog') && state.dialog === 'describe' && !describedPlan) {
+      Promise.all([loadSpec(), import('../ai/plan.mjs')]).then(([spec, { describePlan }]) => {
+        describedPlan = (current, repositories, options) => {
+          const engine = spec.createConstellationEngine(repositories, evidenceOf(options));
+          try {
+            const result = engine.compileSpec(current, canvasOf(options));
+            return result.ok ? describePlan(result.compiled) : null;
+          } finally { engine.destroy(); }
+        };
+        if (store.get().dialog === 'describe' && store.get().options.constellationSpec) ctx.refreshDialog?.();
+      }, () => {});
+    }
+  });
+
   const ctx = { store, engine, actions, designs, win, doc };
 
   // --------------------------------------------------------------- views
@@ -346,7 +440,7 @@ export function startStudio({ win = window, doc = document } = {}) {
   mountStudio(doc.getElementById('studio'), ctx);
 
   // The tab title says where you are: screen readers announce it and it names the tab.
-  const DIALOG_TITLES = { 'get-it': 'Get your map', 'fine-tune': 'Fine-tune', save: 'Save this design', saved: 'Your saved designs', 'sign-in': 'Sign in with GitHub', 'tech-stack': 'Tech stack' };
+  const DIALOG_TITLES = { 'get-it': 'Get your map', 'fine-tune': 'Fine-tune', save: 'Save this design', saved: 'Your saved designs', 'sign-in': 'Sign in with GitHub', 'tech-stack': 'Tech stack', describe: 'Describe your sky' };
   const homeTitle = doc.title;
   store.subscribe((state, changed) => {
     if (!['screen', 'account', 'sample', 'dialog'].some((key) => changed.has(key))) return;

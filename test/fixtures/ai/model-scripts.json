@@ -1,0 +1,51 @@
+{
+  "happy_path_with_discovery": [
+    { "toolCalls": [{ "id": "t1", "name": "list_languages", "arguments": {} }, { "id": "t2", "name": "list_topics", "arguments": {} }] },
+    { "toolCalls": [{ "id": "t3", "name": "preview_group", "arguments": { "group": { "name": "Experiments", "match": { "role": "experimental" }, "placement": "outer" } } }] },
+    { "toolCalls": [{ "id": "t4", "name": "submit_spec", "arguments": { "spec": {
+      "schema_version": 1,
+      "focus": { "kind": "language", "value": "Rust" },
+      "groups": [{ "name": "Experiments", "match": { "role": "experimental" }, "placement": "outer" }],
+      "relationships": [{ "basis": "shared_topic", "strength": 1 }, { "basis": "shared_language", "strength": 0.6 }],
+      "layout": { "kind": "radial", "cluster_by": ["topic", "language"] }
+    } } }] }
+  ],
+  "malformed_then_corrected": [
+    { "spec": "{ \"schema_version\": 1, \"focus\": " },
+    { "spec": { "schema_version": 1, "focus": { "kind": "language", "value": "Rust" } } }
+  ],
+  "unsupported_fields_then_corrected": [
+    { "spec": { "schema_version": 1, "layout": { "kind": "spiral", "iterations": 300 }, "positions": [{ "id": "ada/lightbeam", "x": 10, "y": 20 }], "groups": [{ "name": "Rust", "match": { "lang": "Rust" } }] } },
+    { "spec": { "schema_version": 1, "layout": { "kind": "radial" }, "groups": [{ "name": "Rust", "match": { "language": "Rust" } }] } }
+  ],
+  "unknown_repository_then_discovery": [
+    { "spec": { "schema_version": 1, "focus": { "kind": "repository", "value": "ada/light-beam" } } },
+    { "toolCalls": [{ "id": "t1", "name": "find_repositories", "arguments": { "filter": { "language": "Rust" }, "limit": 5 } }] },
+    { "spec": { "schema_version": 1, "focus": { "kind": "repository", "value": "ada/lightbeam" } } }
+  ],
+  "never_valid": [
+    { "spec": { "schema_version": 2 } },
+    { "spec": { "schema_version": 1, "layout": { "kind": "spiral" } } },
+    { "text": "I think it looks great already." },
+    { "spec": { "schema_version": 1, "layout": { "kind": "helix" } } },
+    { "spec": { "schema_version": 1 } }
+  ],
+  "tool_flood": [
+    { "toolCalls": [
+      { "id": "a", "name": "list_languages", "arguments": {} }, { "id": "b", "name": "list_languages", "arguments": {} },
+      { "id": "c", "name": "list_languages", "arguments": {} }, { "id": "d", "name": "list_languages", "arguments": {} },
+      { "id": "e", "name": "list_languages", "arguments": {} }, { "id": "f", "name": "list_languages", "arguments": {} },
+      { "id": "g", "name": "list_languages", "arguments": {} }, { "id": "h", "name": "list_languages", "arguments": {} }
+    ] }
+  ],
+  "hostile_tool_calls": [
+    { "toolCalls": [
+      { "id": "x1", "name": "eval", "arguments": { "code": "globalThis.pwned = true" } },
+      { "id": "x2", "name": "constructor", "arguments": {} },
+      { "id": "x3", "name": "__proto__", "arguments": { "polluted": true } },
+      { "id": "x4", "name": "find_repositories", "arguments": "not json {" },
+      { "id": "x5", "name": "describe_repository", "arguments": { "id": "<img src=x onerror=alert(1)>" } }
+    ] },
+    { "spec": { "schema_version": 1 } }
+  ]
+}

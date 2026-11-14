@@ -5,6 +5,7 @@
 
 import { h, icon, announce } from '../../dom.mjs';
 import { downloadBlob } from '../../../export-image.mjs';
+import { renderTechStackWorkflow, installationLinks, readmeSnippet } from '../../../export.mjs';
 
 const WHY = 'Mapping a tech stack reads a file from every public repository, so it uses your own GitHub sign-in and your own request limit.';
 const PRIVACY = 'Your sign-in stays in this tab only. It is never saved, shared, or put in your map. Only public repositories are read.';
@@ -180,6 +181,79 @@ export function createTechStackDialog(ctx) {
     return host;
   }
 
+  // A README can't run this sheet, so the profile path is a workflow: GitHub
+  // redraws the image daily with the repository's own access. Nobody's sign-in
+  // is written into it.
+  function profileSection(scan) {
+    const file = 'tech-stack.svg';
+    let yaml = '';
+    let snippet = '';
+    const repository = h('input', { class: 'input', id: 'tech-stack-repository', type: 'text', autocomplete: 'off', spellcheck: 'false', value: `${scan.login}/${scan.login}`, 'aria-describedby': 'tech-stack-repository-help' });
+    const problem = h('p', { class: 'notice', role: 'alert', dataset: { tone: 'error' }, hidden: true });
+    const create = h('a', { class: 'btn', target: '_blank', rel: 'noopener noreferrer' }, icon('github', { size: 18 }), 'Create the file on GitHub');
+    const workflowCode = h('code');
+    const workflowPre = h('pre', { tabindex: '0', role: 'region', 'aria-label': 'Workflow file' }, workflowCode);
+    const snippetCode = h('code');
+    const snippetPre = h('pre', { tabindex: '0', role: 'region', 'aria-label': 'README snippet' }, snippetCode);
+    const copy = (label, getText, target) => h('button', {
+      class: 'btn btn-sm', type: 'button',
+      onclick: async () => {
+        try {
+          await ctx.win.navigator.clipboard.writeText(getText());
+          actions.toast('Copied to clipboard.');
+        } catch {
+          // Clipboard blocked: select the text so one keystroke finishes the job.
+          ctx.win.getSelection?.()?.selectAllChildren(target);
+          target.focus();
+          actions.toast('Press Ctrl+C (Command+C on a Mac) to copy.');
+        }
+      },
+    }, icon('copy', { size: 16 }), label);
+    const refresh = () => {
+      try {
+        yaml = renderTechStackWorkflow(scan.login, { filename: file });
+        const links = installationLinks(repository.value, yaml, 'tech-stack.yml');
+        snippet = readmeSnippet(scan.login, repository.value, file, 'tech stack');
+        create.href = links.install;
+        create.hidden = false;
+        problem.hidden = true;
+      } catch (error) {
+        yaml = '';
+        snippet = '';
+        create.hidden = true;
+        create.removeAttribute('href');
+        problem.textContent = error.message;
+        problem.hidden = false;
+      }
+      workflowCode.textContent = yaml;
+      snippetCode.textContent = snippet;
+    };
+    repository.addEventListener('input', refresh);
+    refresh();
+    return h('section', { class: 'tech-stack-section tech-stack-profile' },
+      h('h3', { text: 'Add it to a GitHub profile' }),
+      h('p', { text: 'A workflow redraws this map every day and saves it as an image a README can show. It runs on GitHub with that repository’s own access. Your sign-in is not used or stored.' }),
+      h('div', { class: 'field' },
+        h('label', { class: 'field-label', for: 'tech-stack-repository', text: 'Repository for the workflow' }),
+        repository,
+        h('p', { class: 'field-help', id: 'tech-stack-repository-help', text: 'A profile repository has the same name as the account. For an organization, use its .github repository and put the snippet in profile/README.md.' })),
+      problem,
+      h('ol', { class: 'tech-stack-steps' },
+        h('li', {}, h('p', { text: 'Add the workflow file, then commit it.' }), h('div', { class: 'tech-stack-actions' }, create, copy('Copy the file', () => yaml, workflowPre)),
+          h('details', {}, h('summary', { text: 'Show the file' }), workflowPre)),
+        h('li', {}, h('p', { text: 'On the repository’s Actions page, run “Daily tech stack map” once. It takes a few minutes for a large account.' })),
+        h('li', {}, h('p', { text: 'Paste this into the README.' }), snippetPre, h('div', { class: 'tech-stack-actions' }, copy('Copy the snippet', () => snippet, snippetPre)))),
+      h('p', { class: 'field-help', text: 'Nothing is published until the workflow runs. Prefer a one-time image? Download it instead.' }),
+      h('div', { class: 'tech-stack-actions' }, h('button', {
+        class: 'btn btn-sm', type: 'button',
+        onclick: async () => {
+          const name = `${scan.login}-tech-stack.svg`;
+          downloadBlob(new Blob([await engine.techStackImage(scan)], { type: 'image/svg+xml' }), name);
+          actions.toast(`Saved ${name} to your downloads.`);
+        },
+      }, icon('download', { size: 16 }), 'Download image (SVG)')));
+  }
+
   function finished() {
     const { scan, model, notes } = result;
     return {
@@ -197,6 +271,7 @@ export function createTechStackDialog(ctx) {
           h('h3', { text: 'How to read this' }),
           h('p', { text: 'These technologies are declared in manifests such as package.json and requirements.txt, which doesn’t prove they’re used. Counts say nothing about a project’s quality.' }),
           notes.map((note) => h('p', { text: note }))),
+        profileSection(scan),
       ],
       foot: [
         h('button', { class: 'btn', type: 'button', onclick: () => { destroyRuntime(); phase = 'form'; ctx.refreshDialog?.(); } }, 'Map another account'),

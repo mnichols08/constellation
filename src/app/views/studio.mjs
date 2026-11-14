@@ -31,6 +31,8 @@ export function mountStudio(root, ctx) {
     icon('shuffle', { size: 18 }), h('span', { class: 'topbar-label', text: 'Shuffle' }));
   const techStack = h('button', { class: 'btn btn-ghost topbar-tool topbar-tech-stack', type: 'button', 'aria-label': 'Tech stack', onclick: () => actions.openTechStack(), title: 'Map the languages and frameworks across an account’s public repositories' },
     icon('layers', { size: 18 }), h('span', { class: 'topbar-label', text: 'Tech stack' }));
+  const describe = h('button', { class: 'btn btn-ghost topbar-tool topbar-describe', type: 'button', 'aria-label': 'Describe', onclick: () => actions.openDialog('describe'), title: 'Say what you want to see in words, then check the plan before it changes anything' },
+    icon('sparkle', { size: 18 }), h('span', { class: 'topbar-label', text: 'Describe' }));
   const save = h('button', { class: 'btn btn-ghost topbar-tool', type: 'button', 'aria-label': 'Save', onclick: () => actions.openDialog('save') },
     icon('save', { size: 18 }), h('span', { class: 'topbar-label', text: 'Save' }));
   const getIt = h('button', { class: 'btn btn-primary topbar-get', type: 'button', 'data-primary': '', onclick: () => actions.openDialog('get-it') },
@@ -44,7 +46,7 @@ export function mountStudio(root, ctx) {
     h('div', { class: 'topbar-spacer' }),
     h('div', { class: 'topbar-group', role: 'group', 'aria-label': 'History' }, undo, redo),
     h('span', { class: 'topbar-divider', 'aria-hidden': 'true' }),
-    techStack, shuffle, save, getIt);
+    techStack, describe, shuffle, save, getIt);
 
   // ---------------------------------------------------------------- stage
   // A visible title over the map: it says whose sky this is, and it is where

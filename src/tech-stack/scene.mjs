@@ -2,6 +2,7 @@
 import { createScene } from '../constellation.mjs';
 import { techStackLayout } from '../engine.mjs';
 import { renderSceneHTML } from '../renderer-html.mjs';
+import { renderSceneSVG } from '../renderer-svg.mjs';
 import { serializeScene } from '../scene.mjs';
 import { LANGUAGE_GROUP, SUPPORTING_TECHS, TECH_GROUPS, isIncidentalLanguage, techGroup } from './catalog.mjs';
 
@@ -135,3 +136,25 @@ export function renderTechStackHTML(scan) {
     .replace('</style></head><body>', () => `${STYLES}</style></head><body>${header}`)
     .replace('</body>', () => `${details}</body>`);
 }
+
+/**
+ * A static SVG of the map for a README. Its title and description say what
+ * was counted and that manifests declare technologies without proving use,
+ * because a README image travels without the page's tables and notes.
+ */
+export function renderTechStackSVG(scan) {
+  const model = techStackModel(scan);
+  const scene = createTechStackScene(scan, { model });
+  const partial = scan.coverage.stopped || scan.coverage.missing || scan.coverage.refused;
+  const counted = `${model.total} of ${scan.coverage.discovered} public repositories${partial ? ' (partial scan)' : ''}`;
+  const top = model.groups.flatMap((group) => group.rows.filter((row) => row.onMap)).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, 8);
+  const description = `Languages and technologies declared across ${counted} for ${scan.login}. Star size shows how many repositories declare each one; lines join technologies declared in the same repositories. Most common: ${top.map((row) => `${row.name} (${row.count})`).join(', ')}. Declared in manifests, which does not prove use.`;
+  const { x, y, width, height } = scene.viewport;
+  const caption = `<text class="tech-stack-caption" x="${(x ?? 0) + (width ?? 900) / 2}" y="${(y ?? 0) + (height ?? 560) - 10}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#bcc5d8">${escape(`${counted} · declared in manifests, not proof of use`)}</text>`;
+  const svg = renderSceneSVG(scene, { semanticLevel: 'projects' });
+  if (!/<title id="title">[^<]*<\/title>/.test(svg) || !svg.trimEnd().endsWith('</svg>')) throw new Error('The tech stack map could not be labelled for a README.');
+  return svg
+    .replace(/<title id="title">[^<]*<\/title>/, () => `<title id="title">${escape(`Tech stack across ${scan.login}`)}</title><desc id="tech-stack-description">${escape(description)}</desc>`)
+    .replace(/<\/svg>\s*$/, () => `${caption}</svg>\n`);
+}
+

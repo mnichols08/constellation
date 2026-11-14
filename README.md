@@ -32,11 +32,13 @@ Pass `--config settings.json` to use a settings file saved from the Studio (**Ge
 The workflow that **Add it to your GitHub profile** creates runs this repository's Action. You can also write your own:
 
 ```yaml
-- uses: mnichols08/constellation@v1
+- uses: mnichols08/constellation@v5
   with:
     config: constellation.json
     output: constellation.svg
 ```
+
+`@v5` follows the newest version 5 release. To publish a [tech stack map](docs/tech-stack.md#put-it-on-a-github-profile) instead, use `tech-stack: 'true'` with `output: tech-stack.svg`.
 
 See [Publishing](docs/publishing.md) and [Designs and configuration](docs/designs.md#multiple-images).
 
@@ -54,6 +56,7 @@ Public exploration works without signing in and makes two GitHub requests per ac
 - **Organization maps:** explore public organization repositories. [Guide](docs/organizations.md)
 - **Tech stack maps:** sign in with GitHub to see which frameworks and services an account's repositories declare, and which are used together. [Guide](docs/tech-stack.md)
 - **History and activity:** repository commits or limited recent public activity. These are partial signals, not a complete contribution calendar. [History](docs/history.md)
+- **Describe it in words:** say what you want to see, check the plan, then apply it. Works offline with no AI; a language model is optional and never draws the map. [How it works](docs/ai/AI-ARCHITECTURE.md) · [Spec reference](docs/constellation-spec.md) · [Offline demo](examples/ai-offline-demo.html)
 - **Interactive exports:** an offline HTML file or framework-free web component. [HTML](docs/interactive-html.md) · [Web component](docs/web-component.md)
 
 ## Run locally

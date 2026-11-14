@@ -50,6 +50,8 @@ Track small/medium/large fixtures for validation, compile, layout, refinement, r
 
 CI must use deterministic fake adapters for valid spec, discovery calls, invalid-then-corrected spec, repeated invalid output, provider error, and cancellation.
 
+Where they live: `rust/constellation-spec/src/tests.rs` (validator, compiler, engine, tools, schema drift, deterministic fuzzing; run by `test/rust-spec.test.mjs` inside `npm test`), `test/constellation-spec.test.mjs`, `test/ai-describe.test.mjs` with scripts in `test/fixtures/ai/model-scripts.json`, `test/ai-offline-demo.test.mjs`, and `e2e/describe.spec.mjs`. None needs a network or credentials.
+
 ## Security tests
 
 Exercise oversized strings/arrays, malformed objects, NaN/infinity, invalid URLs, unknown IDs, nested structures, and script/CSS injection-like text.

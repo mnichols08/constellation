@@ -14,6 +14,7 @@ import { randomizeDesign } from "./design-randomizer.mjs";
 import { validateLayoutReference } from "./layout-host.mjs";
 import { accountSunMode } from "./account-sun.mjs";
 import { validateSemanticOptions } from './semantic-studio.mjs';
+import { specHost } from './spec-host.mjs';
 
 export const CONFIG_VERSION = 7;
 export const MAX_CONFIG_BYTES = 250000;
@@ -61,6 +62,7 @@ fields.add("transforms");
 fields.add("mappings");
 fields.add("layoutEngine");
 fields.add("layoutOptions");
+fields.add("constellationSpec");
 export const configFields = [...fields];
 const nested = {
   semanticZoom: "mode enabled level",
@@ -81,7 +83,9 @@ function inspect(value, depth = 0) {
     for (const [key, child] of Object.entries(value)) {
       if (["__proto__", "prototype", "constructor"].includes(key))
         throw new Error("Unsafe configuration key.");
-      inspect(child, depth + 1);
+      // A ConstellationSpec nests filters deeper than other settings do. Rust
+      // bounds its real depth; here it only gets a larger, still finite, allowance.
+      inspect(child, key === "constellationSpec" && depth <= 1 ? -16 : depth + 1);
     }
 }
 
@@ -95,6 +99,18 @@ export function normalizeConfig(input, { trustedCSS = false } = {}) {
   );
   validateLayoutReference(options);
   validateSemanticOptions(options);
+  if (options.constellationSpec !== undefined) {
+    const spec = options.constellationSpec;
+    if (!object(spec) || JSON.stringify(spec).length > 262144) throw new Error('constellationSpec must be a ConstellationSpec object of at most 256 KiB.');
+    // Rust is the only validator. With the spec engine registered the stored
+    // value becomes its normalized form; without it the value is inert data.
+    const result = specHost()?.validate(spec);
+    if (result && !result.ok) {
+      const first = result.diagnostics[0];
+      throw new Error(`constellationSpec is invalid${first?.path ? ` at ${first.path}` : ''}: ${first?.message || 'unknown error'}`);
+    }
+    if (result) options.constellationSpec = result.spec;
+  }
   if (options.semanticZoom !== undefined) {
     const zoom = options.semanticZoom;
     const legacy = object(zoom) && Object.keys(zoom).every(key => ['enabled', 'level'].includes(key));

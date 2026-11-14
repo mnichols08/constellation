@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderWorkflow, readmeSnippet, projectUrl, installationLinks } from '../src/export.mjs';
+import { renderWorkflow, renderTechStackWorkflow, readmeSnippet, projectUrl, installationLinks, ACTION_REF, isWorkflow, workflowSettings } from '../src/export.mjs';
+import { parseConfig } from '../src/config-schema.mjs';
 import { renderConstellation } from '../src/constellation.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -21,7 +22,7 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   const restored = await loadConfig(undefined, block.split('\n').map(line => line.slice(12)).join('\n'));
   assert.deepEqual(restored, options);
   assert.ok(!block.includes('${{'));
-  assert.match(yaml, /uses: mnichols08\/constellation@v3/);
+  assert.match(yaml, /uses: mnichols08\/constellation@v5/);
   assert.match(yaml, /cron: '17 6 \* \* \*'/);
   assert.match(yaml, /publish: 'true'/);
   assert.ok(!yaml.includes('git push'));
@@ -92,3 +93,68 @@ test('inline config rejects ambiguous or invalid inputs while file CSS still res
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('tech stack workflow publishes a daily README image through the current action tag', () => {
+  const yaml = renderTechStackWorkflow('https://github.com/Octo-Sky');
+  assert.equal(ACTION_REF, 'v5');
+  assert.match(yaml, /uses: mnichols08\/constellation@v5\n        with:\n          username: 'Octo-Sky'\n          tech-stack: 'true'\n          publish: 'true'\n          output: 'tech-stack\.svg'\n          output-branch: 'output'\n$/);
+  assert.match(yaml, /name: Daily tech stack map/);
+  assert.match(yaml, /permissions:\n  contents: write/);
+  // No design settings, tokens or secrets are written into the file.
+  assert.ok(!/config-json|secrets\.|token/i.test(yaml));
+  // It shares the constellation workflow's concurrency group, so two publishes never race on the output branch.
+  assert.match(yaml, /group: constellation-output-\$\{\{ github\.repository \}\}/);
+  assert.match(renderWorkflow('octocat', {}), /group: constellation-output-\$\{\{ github\.repository \}\}/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { filename: '../x.svg' }), /safe \.svg filename/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { branch: 'a..b' }), /safe output branch/);
+  assert.throws(() => renderTechStackWorkflow("o'; rm -rf"), /username/i);
+
+  const links = installationLinks('octo-sky/octo-sky', yaml, 'tech-stack.yml');
+  assert.equal(new URL(links.install).searchParams.get('filename'), '.github/workflows/tech-stack.yml');
+  assert.equal(new URL(links.install).searchParams.get('value'), yaml);
+  assert.equal(links.actions, 'https://github.com/octo-sky/octo-sky/actions/workflows/tech-stack.yml');
+  assert.equal(new URL(installationLinks('octo-sky/octo-sky', yaml).install).searchParams.get('filename'), '.github/workflows/constellation.yml');
+  assert.throws(() => installationLinks('octo-sky/octo-sky', yaml, '../evil.yml'), /simple \.yml/);
+  const snippet = readmeSnippet('octo-sky', 'octo-sky/octo-sky', 'tech-stack.svg', 'tech stack');
+  assert.match(snippet, /^\[!\[octo-sky tech stack\]\(https:\/\/raw\.githubusercontent\.com\/octo-sky\/octo-sky\/output\/tech-stack\.svg\)\]/);
+  assert.match(readmeSnippet('octo-sky'), /^\[!\[octo-sky GitHub constellation\]/);
+});
+
+test('a design published by an older version opens from its workflow file and draws the same image', () => {
+  // The shape of a profile banner made with version 3: short canvas, wide orbits, no tilt.
+  const design = {
+    layout: 'compact', exportProfile: 'custom', arrangement: 'rings', nodeMode: 'topics', maxRepos: 25, animate: false, snapToRings: true, identityRing: true,
+    perspective: { enabled: false, animate: true, horizontal: 0, vertical: 25, zoom: 90, range: 25, duration: 46 },
+    visualStyle: { light: { background: '#fafaf3', foreground: '#202516', accent: '#595600', line: '#838d66', star: '#8b8500' }, dark: { background: '#111111', foreground: '#f3f3f4', accent: '#e3de13', line: '#555a38', star: '#e3de13' }, lineWidth: 1, lineOpacity: 0.65, secondaryOpacity: 0.26, bridgeOpacity: 0.3, glow: 3.5, dustOpacity: 0.95, labelSize: 11, labels: true },
+    css: 'svg { --sky-accent: #595600; }\n/* $literal */', referenceDate: '2026-09-01T00:00:00Z',
+  };
+  const current = renderWorkflow('octocat', design);
+  // Older files differ only in the action tag, checkout version and concurrency group.
+  const old = current.replace('@v5', '@v3').replace('actions/checkout@v6', 'actions/checkout@v4').replace(/group: [^\n]+/, 'group: constellation-output');
+  for (const text of [current, old, old.replace(/\n/g, '\r\n')]) {
+    assert.equal(isWorkflow(text), true);
+    const { options } = parseConfig(workflowSettings(text), 'octocat');
+    assert.deepEqual(options, parseConfig({ ...design, version: 7 }, 'octocat').options);
+    // Saving it again writes the same design, so re-publishing changes nothing.
+    assert.equal(workflowSettings(renderWorkflow('octocat', options)), workflowSettings(current));
+  }
+  const repos = Array.from({ length: 8 }, (_, i) => ({ name: `p${i}`, full_name: `octocat/p${i}`, language: ['Rust', 'CSS'][i % 2], topics: [['web', 'cli', 'docs'][i % 3], 'tools'], stargazers_count: i }));
+  const opened = parseConfig(workflowSettings(old), 'octocat').options;
+  const svg = renderConstellation('octocat', repos, opened);
+  assert.equal(svg, renderConstellation('octocat', repos, design));
+  // The banner keeps its exact canvas: no re-framing, no tilt.
+  assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="900" height="280" viewBox="0 0 900 280"/);
+
+  assert.equal(isWorkflow('{"version":7}'), false);
+  assert.throws(() => workflowSettings('{"version":7}'), /doesn’t run the Constellation action/);
+  assert.throws(() => workflowSettings("      - uses: mnichols08/constellation@v5\n        with:\n          config: constellation.json\n"), /separate settings file/);
+  assert.throws(() => workflowSettings(renderTechStackWorkflow('octocat')), /tech stack map/);
+  assert.throws(() => workflowSettings("      - uses: mnichols08/constellation@v5\n"), /no saved design/);
+  assert.throws(() => workflowSettings("      - uses: mnichols08/constellation@v5\n        with:\n          config-json: |\n            { nope\n"), /isn’t valid JSON/);
+  assert.throws(() => workflowSettings("      - uses: mnichols08/constellation@v5\n        with:\n          config-json: |\n            [1]\n"), /settings object/);
+  assert.throws(() => workflowSettings(`${current}${' '.repeat(400000)}`), /too big/);
+  // Text after the block is never read as settings, and unsafe keys are still refused downstream.
+  assert.deepEqual(JSON.parse(workflowSettings(`${current}      - run: echo '{"evil": true}'\n`)), JSON.parse(workflowSettings(current)));
+  assert.throws(() => parseConfig(workflowSettings("      - uses: mnichols08/constellation@v5\n        with:\n          config-json: |\n            {\"constructor\": {\"x\": 1}}\n"), 'octocat'), /Unsafe configuration key/);
+});
+

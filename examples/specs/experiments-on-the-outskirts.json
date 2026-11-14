@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "groups": [
+    { "id": "flagship", "label": "Flagship work", "match": { "role": "featured" }, "placement": "center" },
+    { "id": "experiments", "label": "Experiments", "match": { "any": [{ "role": "experimental" }, { "archived": true }] }, "placement": "outer" }
+  ],
+  "layout": { "kind": "radial", "cluster_by": ["group", "language"] }
+}

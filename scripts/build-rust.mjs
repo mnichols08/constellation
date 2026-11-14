@@ -11,4 +11,8 @@ function run(command, args) {
 run('cargo', ['build', '--locked', '--manifest-path', 'rust/constellation-core/Cargo.toml', '--target', 'wasm32-unknown-unknown', '--release']);
 await mkdir(new URL('../src/wasm/', import.meta.url), { recursive: true });
 run('wasm-bindgen', ['rust/constellation-core/target/wasm32-unknown-unknown/release/constellation_core.wasm', '--target', 'web', '--out-dir', 'src/wasm', '--no-typescript']);
+// The semantic spec engine is a separate module so the core binary, and every
+// standalone HTML export that embeds it, stays within its size budget.
+run('cargo', ['build', '--locked', '--manifest-path', 'rust/constellation-spec/Cargo.toml', '--target', 'wasm32-unknown-unknown', '--release']);
+run('wasm-bindgen', ['rust/constellation-spec/target/wasm32-unknown-unknown/release/constellation_spec.wasm', '--target', 'web', '--out-dir', 'src/wasm', '--no-typescript']);
 await import('./build-inline-wasm.mjs');

@@ -127,6 +127,36 @@ years.
 Changing a setting redraws the map straight away. It never asks GitHub for
 more data.
 
+## Describe your sky
+
+**Describe** in the top bar (or **Describe your sky** near the top of the **Layout**
+tab, which is where phones find it) lets you say what you want in words instead
+of picking settings.
+
+1. Type a description, such as "Put my Rust projects near the centre and old
+   experiments on the outskirts", or pick one of the examples.
+2. Press **Show the plan**. You see what will sit at the centre, each group
+   with the projects that matched and why, what the lines will mean, and the
+   layout. Nothing on the map has changed yet.
+3. Press **Apply**, **Change the description**, or close the sheet.
+
+Applying is one **Undo** step. Open **Describe** again to adjust the plan with a
+follow-up such as "show only the top 10": the sheet lists what changes and keeps
+the rest. **Remove this plan** goes back to your settings alone. Every tab keeps
+working on a described map, and a star you move by hand stays where you put it.
+
+The plan is a reading of your words, not a statement about your work. Which
+projects match comes from their public details and from roles you set yourself.
+
+Descriptions are read in your browser by a built-in phrase matcher. It is not an
+AI model and understands a small set of words: centre, outskirts, experiments,
+recent, similar, topics, languages, and the names of your languages and topics.
+Nothing you type is sent anywhere. Sites that host their own copy of the Studio
+can connect a language model; see
+[Provider integration](ai/PROVIDER-INTEGRATION.md). Either way, the model only
+proposes a plan. Checking it and drawing the map are done by the same engine as
+everything else. See [how it works](ai/AI-ARCHITECTURE.md).
+
 ## Undo and Redo
 
 **Undo** and **Redo** are the arrow buttons in the top bar. Their tooltips name
@@ -139,7 +169,7 @@ the change they will undo or redo.
 
 The shortcuts don't fire while you are typing in a field. Every change to the
 design can be undone: settings, moved stars, featured and hidden projects,
-**Shuffle**, opening a settings file or saved design, and starting over.
+**Shuffle**, a described plan, opening a settings file or saved design, and starting over.
 Dragging a slider counts as one step. The Studio keeps the last 100 steps until
 you load another account or reload the page.
 
@@ -202,7 +232,7 @@ map go?" and offers five choices:
 | **Download an image** | **Download SVG** (sharp at any size, best for READMEs and websites) or **Download PNG** (for slides, documents and social posts) |
 | **Put it on a website** | **Download interactive page**: one HTML file where visitors can zoom, search and click stars. Also **Download SVG** with ready-made image code, and **Download portfolio package** |
 | **Share a link** | **Copy link** to a link anyone can open to see this design, drawn from the account's public projects. On phones, **Share…** opens your device's share sheet |
-| **Save the settings file** | **Download settings file** saves the design as JSON. **Open a settings file** loads one and replaces the current design (Undo brings it back) |
+| **Save the settings file** | **Download settings file** saves the design as JSON. **Open a settings file** loads one and replaces the current design (Undo brings it back). It also opens the workflow `.yml` file from your profile repository, so a design you published earlier, even with an older version, comes back exactly as published: same size, orbits and tilt |
 
 Every download confirms itself in the dialog, for example "Saved
 constellation-you.svg to your downloads." If your current settings can't be

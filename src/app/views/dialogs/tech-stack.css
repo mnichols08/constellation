@@ -16,3 +16,12 @@ dialog.sheet[data-dialog="tech-stack"] { width: min(1240px, 100%); max-width: mi
 .tech-stack-table thead th { color: var(--text-2); font-size: 12px; }
 .tech-stack-table .is-off-map th, .tech-stack-table .is-off-map td { color: var(--text-2); }
 .tech-stack-dot { display: inline-block; width: 10px; height: 10px; margin-right: 7px; border-radius: 50%; outline: 1px solid var(--border); }
+/* Add it to a GitHub profile. */
+.tech-stack-profile { display: grid; gap: var(--space-3); }
+.tech-stack-steps { margin: 0; padding-left: 1.3em; display: grid; gap: var(--space-4); }
+.tech-stack-steps li { display: grid; gap: var(--space-2); min-width: 0; }
+.tech-stack-steps p { margin: 0; }
+.tech-stack-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.tech-stack-profile pre { margin: 0; padding: var(--space-3); max-height: 220px; overflow: auto; border-radius: var(--radius-s); background: var(--surface-2); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tech-stack-profile summary { cursor: pointer; min-height: 32px; padding: 6px 0; color: var(--primary); font-weight: 600; font-size: 14px; }
+

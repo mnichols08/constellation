@@ -10,6 +10,10 @@ In the Studio, press **Get it**. It offers five destinations:
 
 None of these talks to GitHub from the Studio. See the [Studio guide](studio.md#get-it) for each screen.
 
+## Change a design you already published
+
+Your published design lives in the workflow file in your profile repository (`.github/workflows/constellation.yml`). To edit it, download that file, then in the Studio use **Get it** → **Save the settings file** → **Open a settings file** and choose it. The Studio restores every setting, including the picture size, orbit shape and tilt, so the map looks as it does on your README even though new designs start from different defaults. Change what you want, then use **Add it to your GitHub profile** again and replace the file. A design that isn't changed is written back identically.
+
 ## GitHub README setup
 
 **Add it to your GitHub profile** shows three steps:

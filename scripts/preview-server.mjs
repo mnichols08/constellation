@@ -58,6 +58,14 @@ const allowed = new Map([
     "/examples/web-component.html",
     ["../examples/web-component.html", "text/html"],
   ],
+  ["/examples/ai-offline-demo.html", ["../examples/ai-offline-demo.html", "text/html"]],
+  ["/examples/ai-offline-demo.mjs", ["../examples/ai-offline-demo.mjs", "text/javascript"]],
+  ...readdirSync(new URL("../packages/spec/src/", import.meta.url), { recursive: true })
+    .filter((name) => /\.(mjs|js|wasm)$/.test(name))
+    .map((name) => {
+      const path = name.replaceAll("\\", "/");
+      return [`/packages/spec/src/${path}`, [`../packages/spec/src/${path}`, path.endsWith(".wasm") ? "application/wasm" : "text/javascript"]];
+    }),
   [
     "/packages/web-component/index.mjs",
     ["../packages/web-component/index.mjs", "text/javascript"],
@@ -189,6 +197,13 @@ const allowed = new Map([
     "/src/wasm/constellation_core_bg.wasm",
     ["../src/wasm/constellation_core_bg.wasm", "application/wasm"],
   ],
+  // The optional ConstellationSpec engine and the prompt flow built on it.
+  ...["spec-host", "spec-register", "constellation-spec", "constellation-spec-schema", "ai/describe", "ai/fake-model", "ai/plan"].map((name) => [
+    `/src/${name}.mjs`,
+    [`../src/${name}.mjs`, "text/javascript"],
+  ]),
+  ["/src/wasm/constellation_spec.js", ["../src/wasm/constellation_spec.js", "text/javascript"]],
+  ["/src/wasm/constellation_spec_bg.wasm", ["../src/wasm/constellation_spec_bg.wasm", "application/wasm"]],
   ...["constellation", "mnichols08", "mnichols08-dark", "mnichols08-light"].map(
     (name) => [`/dist/${name}.svg`, [`../dist/${name}.svg`, "image/svg+xml"]],
   ),

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline prompt-to-constellation demo</title>
+<script type="importmap">{"imports":{"@constellation/core":"/packages/core/src/core-api.mjs","@constellation/core/browser-runtime":"/packages/core/src/browser-runtime.mjs","@constellation/web-component":"/packages/web-component/index.mjs","@constellation/spec":"/packages/spec/src/constellation-spec.mjs","@constellation/spec/ai":"/packages/spec/src/ai/index.mjs"}}</script>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 1100px; padding: 24px; color: #1b2033; background: #f6f7fb; }
+  h1 { font-size: 26px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 28px 0 8px; }
+  blockquote { margin: 0; padding: 12px 16px; border-left: 3px solid #8f86ff; background: #fff; border-radius: 6px; }
+  ol, dl { background: #fff; border-radius: 6px; padding: 12px 16px 12px 36px; margin: 0; } dl { padding-left: 16px; }
+  dt { font-weight: 650; margin-top: 8px; } dd { margin: 0; }
+  li[data-kind="rejected"] { color: #a12a2a; } li[data-kind="accepted"] { color: #17633a; }
+  pre { background: #10142b; color: #dfe3ff; padding: 12px 16px; border-radius: 6px; overflow: auto; font-size: 13px; }
+  constellation-view { display: block; height: 560px; border-radius: 8px; overflow: hidden; }
+  .note { font-size: 14px; color: #4a5170; }
+  @media (prefers-color-scheme: dark) { body { background: #0b0e1a; color: #e6e8f5; } blockquote, ol, dl { background: #151a30; } .note { color: #a9afcc; } li[data-kind="rejected"] { color: #ff9a9a; } li[data-kind="accepted"] { color: #7fe0a8; } }
+</style>
+</head><body>
+<main>
+<h1>Offline prompt-to-constellation demo</h1>
+<p class="note">No network request, API key or language model is used. A prerecorded stand-in plays the model's part; the real Rust engine does the validating, matching and layout. Data is synthetic.</p>
+<h2 id="asked">What was asked</h2>
+<blockquote id="prompt" aria-labelledby="asked"></blockquote>
+<h2 id="happened">What happened</h2>
+<ol id="steps" aria-labelledby="happened"></ol>
+<h2 id="read">How it was read</h2>
+<p class="note">A reading of the request, not a statement about the developer. Matches come from repository details and the roles the developer set.</p>
+<dl id="plan" aria-labelledby="read"></dl>
+<h2 id="result">The constellation</h2>
+<p id="status" role="status">Running…</p>
+<constellation-view id="view" aria-labelledby="result"></constellation-view>
+<h2 id="spec-title">The spec the engine accepted</h2>
+<pre id="spec" aria-labelledby="spec-title" tabindex="0"></pre>
+</main>
+<script type="module">
+import '@constellation/web-component';
+import { registerSpecHost } from '@constellation/core';
+import { createConstellationEngine, specOptions, specHost } from '@constellation/spec';
+import { describeConstellation, createScriptedModel, describePlan } from '@constellation/spec/ai';
+import { runOfflineDemo } from './ai-offline-demo.mjs';
+
+// Connect the spec engine to core so configuration and layout honour the spec.
+registerSpecHost(specHost);
+const $ = (id) => document.getElementById(id);
+const item = (tag, text, attributes = {}) => { const node = document.createElement(tag); node.textContent = text; for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value); return node; };
+const demo = await runOfflineDemo({ createConstellationEngine, specOptions, describeConstellation, createScriptedModel, describePlan });
+$('prompt').textContent = demo.prompt;
+$('steps').replaceChildren(...demo.steps.map((step) => item('li', step.text, { 'data-kind': step.kind })));
+if (demo.ok) {
+  $('plan').replaceChildren(...demo.plan.sections.flatMap((section) => [item('dt', section.label), item('dd', section.projects?.length ? `${section.text} ${section.projects.map((p) => p.name).join(', ')}${section.more ? ` and ${section.more} more` : ''}.` : section.text)]));
+  $('spec').textContent = JSON.stringify(demo.spec, null, 2);
+  const view = $('view');
+  // The element may already have drawn its empty state, so later renders arrive as scene-change.
+  const ready = () => {
+    if (view.shadowRoot.querySelectorAll('.star[data-repo]').length !== demo.records.length) return;
+    $('status').textContent = `Rendered ${demo.records.length} projects after ${demo.toolCalls} lookups and ${demo.repairs} repair.`;
+    document.documentElement.dataset.demo = 'ready';
+  };
+  view.addEventListener('scene-ready', ready);
+  view.addEventListener('scene-change', ready);
+  view.addEventListener('error', (event) => { $('status').textContent = `Could not render: ${event.detail?.message || 'unknown error'}`; document.documentElement.dataset.demo = 'error'; });
+  view.records = demo.records;
+  await view.setConfig(demo.config);
+  ready();
+} else {
+  $('status').textContent = demo.message;
+  document.documentElement.dataset.demo = 'error';
+}
+window.constellationDemo = demo;
+</script>
+</body></html>

@@ -1,6 +1,7 @@
 import { roundOrbits } from './orbit-shape.mjs';
 import { computeScene, rustAvailable, semanticLayout } from "./engine.mjs";
 import { semanticActive } from './semantic-studio.mjs';
+import { specActive, specHost } from './spec-host.mjs';
 import { artifactLayouts, artifactPositions } from "./artifact-layouts.mjs";
 import {
   organizationLayouts,
@@ -334,6 +335,14 @@ export function layoutScene(scene, options = {}, context = {}) {
     const byName = new Map(semantic.placements.map(p => [p.repository, p.position]));
     for (const repo of input.repos) repo.position = options.starPositions?.[repo.name] ? [options.starPositions[repo.name].x, options.starPositions[repo.name].y] : byName.get(repo.name) || repo.position;
     input.snapToRings = false;
+  }
+  if (specActive(options)) {
+    // Rust compiles the spec against the repositories on screen; manual moves still win.
+    const placed = specHost().placements(options.constellationSpec, records.filter(repo => !repo.nodeKind || repo.nodeKind === 'repository'), {
+      compact, round: roundOrbits(options), projectShowcase: options.projectShowcase, referenceDate: Number.isFinite(reference) && reference > 0 ? new Date(reference).toISOString() : undefined,
+    });
+    for (const repo of input.repos) repo.position = options.starPositions?.[repo.name] ? [options.starPositions[repo.name].x, options.starPositions[repo.name].y] : placed.get(repo.name) || repo.position;
+    if (placed.size) input.snapToRings = false;
   }
   const result = computeScene(input);
   signal?.throwIfAborted();

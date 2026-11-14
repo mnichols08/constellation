@@ -185,6 +185,44 @@ test.describe('Get your map', () => {
     await expect.poll(() => mapSvg(page)).toBe(original);
   });
 
+  test('opens the design from a profile workflow file, exactly as it was published', async ({ page, github }) => {
+    await openStudio(page);
+    const original = await mapSvg(page);
+    const dialog = await openGetIt(page);
+    await choose(dialog, 'Save the settings file');
+    // A banner published by an older version: short canvas, wide orbits, topics, no tilt.
+    const design = { layout: 'compact', exportProfile: 'custom', arrangement: 'rings', nodeMode: 'topics', maxRepos: 16, animate: false, visualTheme: 'deep-space', perspective: { enabled: false, vertical: 25, horizontal: 0 }, version: 7 };
+    const block = JSON.stringify(design, null, 2).split('\n').map((line) => `            ${line}`).join('\n');
+    const workflow = `name: Daily constellation\non:\n  workflow_dispatch:\njobs:\n  generate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: mnichols08/constellation@v3\n        with:\n          publish: 'true'\n          config-json: |\n${block}\n`;
+    const open = (name, text) => dialog.getByLabel('Open a settings file').setInputFiles({ name, mimeType: 'application/yaml', buffer: Buffer.from(text) });
+
+    // Workflows with nothing to open explain themselves and change nothing.
+    await open('other.yml', 'name: CI\non: push\njobs: {}\n');
+    await expect(dialog.getByRole('alert')).toContainText('We couldn’t open that workflow file. That file doesn’t run the Constellation action.');
+    await open('file.yml', "      - uses: mnichols08/constellation@v5\n        with:\n          config: constellation.json\n");
+    await expect(dialog.getByRole('alert')).toContainText('Open that .json file instead.');
+    expect(await mapSvg(page)).toBe(original);
+
+    await open('constellation.yml', workflow);
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText('Opened the design from your workflow. Undo brings back the previous design.')).toBeVisible();
+    await expect.poll(() => mapSvg(page)).not.toBe(original);
+    // The same canvas the Action publishes: 900 × 280, not re-framed or tilted.
+    const root = await page.evaluate(() => { const svg = document.querySelector('[data-map]').shadowRoot.querySelector('svg'); return [svg.getAttribute('width'), svg.getAttribute('height'), svg.getAttribute('viewBox'), Boolean(svg.querySelector('.perspective-scene[style*="rotate"]'))]; });
+    expect(root).toEqual(['900', '280', '0 0 900 280', false]);
+
+    // Publishing it again writes the same design, on the current action tag.
+    const again = await openGetIt(page);
+    await choose(again, 'Add it to your GitHub profile');
+    await again.getByText('Show the file').click();
+    const file = again.getByRole('region', { name: 'Workflow file' });
+    await expect(file).toContainText('uses: mnichols08/constellation@v5');
+    for (const line of ['"layout": "compact"', '"nodeMode": "topics"', '"exportProfile": "custom"', '"arrangement": "rings"']) await expect(file).toContainText(line);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(() => mapSvg(page)).toBe(original);
+  });
+
   test('builds the interactive page and portfolio package', async ({ page, github }) => {
     await openStudio(page);
     const dialog = await openGetIt(page);
