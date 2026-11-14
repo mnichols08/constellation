@@ -22,3 +22,14 @@
 .describe-more { list-style: none; margin-left: -1.1em; }
 .describe-changes, .describe-notes { margin: var(--space-2) 0 0; padding-left: 1.1em; display: grid; gap: var(--space-1, 4px); }
 .describe-notes { margin-top: 0; }
+/* Decide for me, and who reads the words. */
+.describe-decide { display: grid; gap: var(--space-2); justify-items: start; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-s); }
+.describe-decide p { margin: 0; color: var(--text-2); }
+.describe-readers { border-top: 1px solid var(--border); padding-top: var(--space-3); }
+.describe-readers-toggle { justify-content: flex-start; }
+.describe-readers-body:empty { display: none; }
+.describe-readers-body > p { margin: var(--space-2) 0 0; overflow-wrap: anywhere; }
+.describe-reader-option { display: grid; gap: var(--space-2); justify-items: start; margin-top: var(--space-4); }
+.describe-reader-option p { margin: 0; overflow-wrap: anywhere; }
+.describe-reader-option .input { width: 100%; }
+.describe-key-error { color: var(--danger, #b42318); }

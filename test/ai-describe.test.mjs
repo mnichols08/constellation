@@ -30,7 +30,7 @@ test('happy path: the model inspects real evidence, then submits a spec that Rus
   // The request carries provider-neutral tools and the model saw grounded tool results.
   const [first, second, third] = adapter.requests;
   assert.equal(first.system, SYSTEM_PROMPT);
-  assert.deepEqual(first.tools.map((tool) => tool.name), ['list_languages', 'list_topics', 'find_repositories', 'describe_repository', 'preview_group', 'validate_spec', SUBMIT_TOOL]);
+  assert.deepEqual(first.tools.map((tool) => tool.name), ['portfolio_overview', 'list_languages', 'list_topics', 'find_repositories', 'describe_repository', 'preview_group', 'validate_spec', SUBMIT_TOOL]);
   assert.deepEqual(first.messages, [{ role: 'user', content: 'Rust in the middle, experiments outside' }]);
   assert.deepEqual(second.messages.slice(1).map((message) => [message.role, message.name || message.toolCalls.length]), [['assistant', 2], ['tool', 'list_languages'], ['tool', 'list_topics']]);
   assert.equal(JSON.parse(second.messages[2].content).languages[0].name, 'Rust');
@@ -232,7 +232,13 @@ test('the AI layer is optional: core rendering imports none of it and no provide
     const source = await readFile(new URL(file, root), 'utf8');
     assert.ok(!/(?:from|import)\s*\(?\s*['"][^'"]*(?:\/ai\/|constellation-spec|spec-register|constellation_spec)/.test(source), `${file} must not load the AI or spec modules`);
   }
-  for (const file of await readdir(new URL('ai/', root))) {
+  // Provider adapters live only in ai/providers/; nothing else in the AI layer knows one exists.
+  for (const file of await readdir(new URL('ai/providers/', root))) {
+    const source = await readFile(new URL(`ai/providers/${file}`, root), 'utf8');
+    assert.ok(!/from\s+['"]/.test(source), `providers/${file} imports nothing, so no SDK can creep in`);
+    assert.ok(!/\beval\s*\(|new Function|localStorage|sessionStorage|document\.cookie/.test(source), `providers/${file} evaluates no code and stores no key`);
+  }
+  for (const file of (await readdir(new URL('ai/', root))).filter((name) => name.endsWith('.mjs'))) {
     const source = await readFile(new URL(`ai/${file}`, root), 'utf8');
     assert.ok(!/from\s+['"](?!\.)/.test(source), `${file} imports only local modules`);
     assert.ok(!/\bfetch\s*\(|XMLHttpRequest|WebSocket|\beval\s*\(|new Function/.test(source), `${file} performs no networking or code evaluation`);

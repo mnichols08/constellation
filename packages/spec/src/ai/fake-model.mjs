@@ -118,6 +118,32 @@ export function interpretDescription(prompt, { languages = [], topics = [], curr
 }
 
 /**
+ * A reasonable sky chosen from the account overview alone, by fixed rules:
+ * curated or most used work at the centre, stale work outward, a readable
+ * number of projects. No model is involved, so the same account always gets
+ * the same suggestion.
+ */
+export function suggestSpec(overview = {}) {
+  const count = (role) => overview.roles?.find((item) => item.role === role)?.repositories || 0;
+  const total = overview.repositories?.total || 0;
+  const spec = { schema_version: 1 };
+  const language = overview.languages?.[0];
+  if (count('featured')) spec.focus = { kind: 'role', value: 'featured' };
+  else if (language?.repositories >= 2) spec.focus = { kind: 'language', value: language.name };
+  const groups = [];
+  const stale = (overview.updated?.over_a_year_ago || 0) + (overview.repositories?.archived || 0);
+  if ((overview.updated?.within_90_days || 0) >= 2) groups.push({ id: 'recent-work', label: 'Recent work', match: { updated: { within_days: 90 } }, placement: 'inner' });
+  if (count('experimental')) groups.push({ id: 'experiments', label: 'Experiments', match: { role: 'experimental' }, placement: 'outer' });
+  if (stale && total > 6) groups.push({ id: 'older-work', label: 'Older work', match: { any: [{ role: 'historical' }, { archived: true }, { fork: true }, { updated: { older_than_days: 365 } }] }, placement: 'outer' });
+  if (groups.length) spec.groups = groups;
+  const topical = (overview.topics || []).filter((topic) => topic.repositories >= 2).length >= 3;
+  spec.relationships = topical ? [{ basis: 'shared_topic', strength: 1 }, { basis: 'shared_language', strength: 0.6 }] : [{ basis: 'shared_language', strength: 1 }];
+  spec.layout = { kind: 'radial', cluster_by: topical ? ['topic', 'language'] : ['language'] };
+  spec.ranking = { by: 'stars', ...(total > 20 ? { limit: 16 } : {}) };
+  return spec;
+}
+
+/**
  * A model adapter that needs no model: it calls the discovery tools, then
  * submits what `interpretDescription` reads from the prompt. If the engine
  * rejects a part, it drops that part and submits again.
@@ -134,11 +160,12 @@ export function createKeywordModel() {
         try { content = JSON.parse(message.content); } catch {}
         return [message.name, content];
       }));
-      if (!results.list_languages || !results.list_topics) {
+      if (user?.intent === 'suggest' && !results.portfolio_overview) return { toolCalls: [{ id: 'overview', name: 'portfolio_overview', arguments: {} }] };
+      if (user?.intent !== 'suggest' && (!results.list_languages || !results.list_topics)) {
         return { toolCalls: [{ id: 'languages', name: 'list_languages', arguments: {} }, { id: 'topics', name: 'list_topics', arguments: {} }] };
       }
       const names = (list) => (Array.isArray(list) ? list.map((item) => item.name).filter((name) => typeof name === 'string') : []);
-      const spec = interpretDescription(user?.content || '', { languages: names(results.list_languages.languages), topics: names(results.list_topics.topics), currentSpec: user?.currentSpec });
+      const spec = user?.intent === 'suggest' ? suggestSpec(results.portfolio_overview) : interpretDescription(user?.content || '', { languages: names(results.list_languages.languages), topics: names(results.list_topics.topics), currentSpec: user?.currentSpec });
       // After a rejection, remove whatever the diagnostics point at.
       for (const diagnostic of results[SUBMIT_TOOL]?.diagnostics || []) {
         if (diagnostic.severity !== 'error') continue;

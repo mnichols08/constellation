@@ -103,6 +103,7 @@ export function createEngine({
     fetchImpl: previewFetch,
     fetchPinned: createPinnedFetch({ proxyBase, fetchImpl, session, localAuth }),
   });
+  const provider = () => import('../ai/providers/anthropic.mjs');
   const clientId = meta('constellation-oauth-client');
   const exchangeUrl = meta('constellation-oauth-exchange');
   // GitHub sends people back only to the app's registered callback, and the
@@ -119,6 +120,11 @@ export function createEngine({
     storage: sessionStore,
   });
   const local = win ? ['localhost', '127.0.0.1'].includes(win.location.hostname) : false;
+  // The hosted reader answers only the registered address, like sign-in, so a
+  // copy served elsewhere never contacts it. A local preview may point at a
+  // path on itself for testing.
+  const aiMeta = meta('constellation-ai');
+  const aiEndpoint = /^https:\/\//.test(aiMeta) ? (registered && atRegistered ? aiMeta : '') : local && aiMeta.startsWith('/') ? new URL(aiMeta, win.location.origin).href : '';
   const loadedAt = new Map();
 
   function activityInputs(account, repositories, options, generatedAt, sample) {
@@ -157,6 +163,34 @@ export function createEngine({
         oauth.cancel();
         session.signOut();
         previewFetch.requestCache?.clear();
+      },
+    },
+
+    /**
+     * Optional readers for 'Describe your sky'. The GitHub sign-in stays in
+     * here; callers get an adapter, never a credential.
+     */
+    ai: {
+      /** True when this deployment names a hosted endpoint at all. */
+      configured: Boolean(aiEndpoint),
+      /** The hosted reader needs a real GitHub sign-in to prove who is asking. */
+      get signedIn() { return Boolean(session.token); },
+      /** Whether the hosted reader is switched on. Never throws. */
+      async status({ signal } = {}) {
+        if (!aiEndpoint) return { available: false };
+        try {
+          const { hostedStatus } = await provider();
+          return await hostedStatus({ endpoint: aiEndpoint, getToken: () => session.token, fetchImpl, signal });
+        } catch { return { available: false }; }
+      },
+      async hosted() {
+        const { createAnthropicModel, hostedTransport } = await provider();
+        return createAnthropicModel({ name: 'Claude Haiku', send: hostedTransport({ endpoint: aiEndpoint, getToken: () => session.token, fetchImpl }) });
+      },
+      /** A reader that uses the visitor's own key. Throws a friendly error for a key that cannot be one. */
+      async withKey(apiKey) {
+        const { createAnthropicModel, directTransport } = await provider();
+        return createAnthropicModel({ name: 'Claude Haiku, with your key', send: directTransport({ apiKey, fetchImpl }) });
       },
     },
 
@@ -213,15 +247,18 @@ export function createEngine({
     },
 
     /** The map, its tables and what the sheet needs to make it interactive. Loaded on demand. */
-    async renderTechStack(scan) {
-      const [{ techStackModel, createTechStackScene, coverageNotes, formatShare }, { interactiveMarkup }, { mountInteractive, interactiveStyles }, { shortest_path, neighbors }] = await Promise.all([
-        import('../tech-stack/scene.mjs'), import('../renderer-html.mjs'), import('../interactive-runtime.mjs'), import('../wasm/constellation_core.js'),
+    async renderTechStack(scan, { featured = [] } = {}) {
+      const [{ techStackModel, createTechStackScene, coverageNotes, formatShare }, { interactiveMarkup }, { mountInteractive, interactiveStyles }, { shortest_path, neighbors }, { techStackEvidence, formatYears, plural }] = await Promise.all([
+        import('../tech-stack/scene.mjs'), import('../renderer-html.mjs'), import('../interactive-runtime.mjs'), import('../wasm/constellation_core.js'), import('../tech-stack/evidence.mjs'),
       ]);
       const model = techStackModel(scan);
       const scene = createTechStackScene(scan, { model });
       return {
         model,
         scene,
+        evidence: techStackEvidence(scan, { featured }),
+        formatYears,
+        plural,
         formatShare,
         notes: coverageNotes(scan),
         styles: interactiveStyles,
@@ -230,15 +267,20 @@ export function createEngine({
       };
     },
 
-    async techStackPage(scan) {
+    async techStackPage(scan, options = {}) {
       const { renderTechStackHTML } = await import('../tech-stack/scene.mjs');
-      return renderTechStackHTML(scan);
+      return renderTechStackHTML(scan, options);
     },
 
-    /** The static image a README can show. */
-    async techStackImage(scan) {
-      const { renderTechStackSVG } = await import('../tech-stack/scene.mjs');
-      return renderTechStackSVG(scan);
+    /** The static image a README can show: the summary card, or the star map. */
+    async techStackImage(scan, { style = 'card', featured = [] } = {}) {
+      if (style === 'map') return (await import('../tech-stack/scene.mjs')).renderTechStackSVG(scan);
+      return (await import('../tech-stack/card.mjs')).renderTechStackCardSVG(scan, { featured, style });
+    },
+
+    /** README text with links to the repositories that show each technology. */
+    async techStackMarkdown(scan, options = {}) {
+      return (await import('../tech-stack/card.mjs')).renderTechStackMarkdown(scan, options);
     },
 
     /** A message when public requests are paused, else null. */

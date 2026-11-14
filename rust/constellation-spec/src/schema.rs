@@ -133,6 +133,11 @@ pub fn tool_definitions() -> Value {
     let empty = json!({ "type": "object", "additionalProperties": false, "properties": {} });
     let tools = json!([
         {
+            "name": "portfolio_overview",
+            "description": "Start here. One bounded snapshot of the account: how many repositories, how recently they were updated, the developer's own curated roles, the most used languages and topics, and the most starred and most recently updated repositories. Counts of public metadata only; it does not measure skill.",
+            "input_schema": empty
+        },
+        {
             "name": "list_languages",
             "description": "List the languages present in the loaded repositories, with how many repositories use each. Call before naming a language.",
             "input_schema": empty

@@ -114,7 +114,7 @@ const allowed = new Map([
     ["../src/filter-explanation.mjs", "text/javascript"],
   ],
   ["/src/evidence.mjs", ["../src/evidence.mjs", "text/javascript"]],
-  ...["catalog", "scan", "scene"].map((name) => [
+  ...["catalog", "scan", "scene", "evidence", "card"].map((name) => [
     `/src/tech-stack/${name}.mjs`,
     [`../src/tech-stack/${name}.mjs`, "text/javascript"],
   ]),
@@ -198,7 +198,7 @@ const allowed = new Map([
     ["../src/wasm/constellation_core_bg.wasm", "application/wasm"],
   ],
   // The optional ConstellationSpec engine and the prompt flow built on it.
-  ...["spec-host", "spec-register", "constellation-spec", "constellation-spec-schema", "ai/describe", "ai/fake-model", "ai/plan"].map((name) => [
+  ...["spec-host", "spec-register", "constellation-spec", "constellation-spec-schema", "ai/describe", "ai/fake-model", "ai/plan", "ai/providers/anthropic"].map((name) => [
     `/src/${name}.mjs`,
     [`../src/${name}.mjs`, "text/javascript"],
   ]),

@@ -9,7 +9,7 @@ const target = new URL('packages/spec/', root);
 await rm(new URL('src/', target), { recursive: true, force: true });
 const files = [
   'constellation-spec.mjs', 'constellation-spec-schema.mjs',
-  'ai/index.mjs', 'ai/describe.mjs', 'ai/fake-model.mjs', 'ai/plan.mjs',
+  'ai/index.mjs', 'ai/describe.mjs', 'ai/fake-model.mjs', 'ai/plan.mjs', 'ai/providers/anthropic.mjs',
   'wasm/constellation_spec.js', 'wasm/constellation_spec_bg.wasm',
 ];
 for (const file of files) {
@@ -31,6 +31,7 @@ await writeFile(new URL('package.json', target), JSON.stringify({
   exports: {
     '.': './src/constellation-spec.mjs',
     './ai': './src/ai/index.mjs',
+    './ai/anthropic': './src/ai/providers/anthropic.mjs',
     './schema.json': './schemas/constellation-spec.v1.schema.json',
     './tools.json': './schemas/constellation-tools.v1.json',
   },

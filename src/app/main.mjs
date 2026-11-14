@@ -45,6 +45,25 @@ export function startStudio({ win = window, doc = document } = {}) {
   let keywordModel = null;
   /** A page may provide its own model adapter; the built-in reader needs no network. */
   const customAdapter = () => (typeof win.constellationModelAdapter?.generate === 'function' ? win.constellationModelAdapter : null);
+  // Readers, in the order they are preferred: one the page connected, Claude
+  // with the visitor's own key, Claude provided by this site (signed in), and
+  // the built-in phrase matcher, which always works.
+  let ownKeyModel = null;   // Holds the visitor's key in memory only; gone on reload.
+  let hostedModel = null;
+  let hosted = { available: false, checked: false };
+  let hostedCheck = 0;
+  let hostedDown = false;   // It refused a request as switched off; don't offer it again on this page.
+  function refreshHosted() {
+    if (!engine.ai.configured || hostedDown) { hosted = { available: false, checked: true }; return; }
+    const check = ++hostedCheck;
+    engine.ai.status().then((status) => {
+      if (check !== hostedCheck) return;
+      hosted = { ...status, checked: true };
+      if (store.get().dialog === 'describe') ctx.refreshDialog?.();
+    });
+  }
+  engine.onSessionChange(() => { hostedModel = null; if (store.get().dialog === 'describe') refreshHosted(); });
+  const readerKind = () => (customAdapter() ? 'custom' : ownKeyModel ? 'own-key' : hosted.available && engine.ai.signedIn && hosted.remaining !== 0 ? 'hosted' : 'matcher');
   const canvasOf = (options) => ({ compact: options.layout === 'compact', round: options.orbitShape === 'round' });
   const evidenceOf = (options) => ({ projectShowcase: options.projectShowcase, referenceDate: options.referenceDate });
 
@@ -345,30 +364,58 @@ export function startStudio({ win = window, doc = document } = {}) {
     // Describe ----------------------------------------------------------
     /** Who reads a description, in one sentence for the dialog. */
     describeReader() {
-      const adapter = customAdapter();
-      return adapter
-        ? `Read by ${String(adapter.name || 'the model this page connected').slice(0, 60)}.`
-        : 'Read by a built-in phrase matcher, not an AI model, so it knows a small set of words: centre, outskirts, experiments, recent, similar, topics, languages.';
+      const kind = readerKind();
+      if (kind === 'custom') return `Read by ${String(customAdapter().name || 'the model this page connected').slice(0, 60)}.`;
+      if (kind === 'own-key') return 'Read by Claude, using your own key.';
+      if (kind === 'hosted') return `Read by Claude${Number.isInteger(hosted.remaining) ? ` (${hosted.remaining} of ${hosted.limit} left today)` : ''}.`;
+      return 'Read by a built-in phrase matcher, not an AI model, so it knows a small set of words: centre, outskirts, experiments, recent, similar, topics, languages.';
     },
+    /** What the dialog needs to offer the other readers. No credentials. */
+    describeReaders() {
+      return {
+        kind: readerKind(),
+        signedIn: engine.ai.signedIn,
+        hosted: { available: hosted.available, limit: hosted.limit, remaining: hosted.remaining },
+        ownKey: Boolean(ownKeyModel),
+      };
+    },
+    /** Use Claude with the visitor's own key. It is kept in this tab's memory and nowhere else. */
+    async useOwnKey(apiKey) {
+      try { ownKeyModel = await engine.ai.withKey(apiKey); return { ok: true }; }
+      catch (error) { return { ok: false, sentence: error?.name === 'ModelUnavailable' ? error.message : 'Claude could not be set up. Check your connection and try again.' }; }
+    },
+    forgetOwnKey() { ownKeyModel = null; },
+    signInForDescribe() { store.update({ dialog: 'sign-in' }); },
     /**
      * Turn words into a plan. Changes nothing: the result is only a preview.
      * @returns {Promise<{ ok: true, compiled, plan } | { ok: false, sentence: string }>}
      */
-    async describe(prompt, { signal } = {}) {
+    async describe(prompt, { signal, intent = 'describe' } = {}) {
+      const kind = readerKind();
+      const adapter = kind === 'custom' ? customAdapter() : kind === 'own-key' ? ownKeyModel : kind === 'hosted' ? (hostedModel ??= await engine.ai.hosted()) : null;
       const [spec, { describeConstellation }, { describePlan, describeFailure }, { createKeywordModel }] = await Promise.all([
         loadSpec(), import('../ai/describe.mjs'), import('../ai/plan.mjs'), import('../ai/fake-model.mjs'),
       ]);
       const { repositories, options } = store.get();
-      const engine = spec.createConstellationEngine(repositories, evidenceOf(options));
+      const specEngine = spec.createConstellationEngine(repositories, evidenceOf(options));
       try {
         const result = await describeConstellation({
-          adapter: customAdapter() || (keywordModel ??= createKeywordModel()), engine, prompt, signal,
+          adapter: adapter || (keywordModel ??= createKeywordModel()), engine: specEngine, prompt, intent, signal,
           currentSpec: options.constellationSpec, canvas: canvasOf(options),
         });
+        if (kind === 'hosted') refreshHosted();
+        if (!result.ok && result.error?.name === 'ModelUnavailable') {
+          // Say what happened and leave the other readers on offer.
+          const why = result.error.reason;
+          if (why === 'disabled') { hostedDown = true; hostedCheck += 1; hosted = { available: false, checked: true }; }
+          if (why === 'quota') hosted = { ...hosted, remaining: 0 };
+          if (why === 'key') ownKeyModel = null;
+          return { ok: false, sentence: `${result.error.message} Nothing was changed.`, reason: why, readers: true };
+        }
         if (!result.ok) return { ok: false, sentence: describeFailure(result), reason: result.reason };
         return { ok: true, compiled: result.compiled, plan: describePlan(result.compiled, { previousSpec: options.constellationSpec }) };
       } finally {
-        engine.destroy();
+        specEngine.destroy();
       }
     },
     /** The applied plan in words, for the dialog. Null until the engine has loaded. */
@@ -419,6 +466,7 @@ export function startStudio({ win = window, doc = document } = {}) {
   // Reads an applied plan back in words once the engine is in memory.
   let describedPlan = null;
   store.subscribe((state, changed) => {
+    if (changed.has('dialog') && state.dialog === 'describe') refreshHosted();
     if (changed.has('dialog') && state.dialog === 'describe' && !describedPlan) {
       Promise.all([loadSpec(), import('../ai/plan.mjs')]).then(([spec, { describePlan }]) => {
         describedPlan = (current, repositories, options) => {

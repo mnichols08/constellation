@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/constellation-spec.mjs",
     "./ai": "./src/ai/index.mjs",
+    "./ai/anthropic": "./src/ai/providers/anthropic.mjs",
     "./schema.json": "./schemas/constellation-spec.v1.schema.json",
     "./tools.json": "./schemas/constellation-tools.v1.json"
   },

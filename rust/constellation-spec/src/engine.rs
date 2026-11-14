@@ -18,8 +18,8 @@ use std::collections::VecDeque;
 pub const MAX_RESULTS: usize = 50;
 pub const DEFAULT_RESULTS: usize = 20;
 pub const MAX_LISTED: usize = 200;
-pub const TOOL_NAMES: [&str; 7] =
-    ["list_languages", "list_topics", "find_repositories", "describe_repository", "preview_group", "validate_spec", "compile_spec"];
+pub const TOOL_NAMES: [&str; 8] =
+    ["portfolio_overview", "list_languages", "list_topics", "find_repositories", "describe_repository", "preview_group", "validate_spec", "compile_spec"];
 
 /// Relationship edges and their adjacency lists, built once and reused.
 struct Graph {
@@ -333,6 +333,7 @@ impl Engine {
         let missing = |field: &str| failure(Diagnostics::one(Diagnostic::error(Code::MissingField, field, "Field is required")));
         let spec_text = |value: &Value| serde_json::to_string(value).unwrap_or_default();
         match name {
+            "portfolio_overview" => self.portfolio_overview(),
             "list_languages" => self.list_languages(),
             "list_topics" => self.list_topics(),
             "find_repositories" => fields.get("filter").map_or_else(|| missing("filter"), |filter| self.find_repositories(filter, fields.get("limit"))),
@@ -346,6 +347,49 @@ impl Engine {
             "compile_spec" => fields.get("spec").map_or_else(|| missing("spec"), |spec| self.compile(&spec_text(spec), Canvas::default())),
             _ => failure(Diagnostics::one(Diagnostic::error(Code::UnknownTool, "", "Unknown tool").allowed(&TOOL_NAMES).received(name))),
         }
+    }
+
+    /// One bounded snapshot of the whole account, so an author can decide what a
+    /// viewer should see first. Counts of public metadata and the developer's own
+    /// curation only; nothing here scores skill, seniority or fit.
+    pub fn portfolio_overview(&self) -> Value {
+        let repos = &self.evidence.repos;
+        let age = |index: usize| repos[index].updated_day.filter(|day| *day <= self.evidence.reference_day).map(|day| self.evidence.reference_day - day);
+        let (mut recent, mut this_year, mut older, mut undated) = (0, 0, 0, 0);
+        for index in 0..repos.len() {
+            match age(index) {
+                Some(0..=90) => recent += 1,
+                Some(91..=365) => this_year += 1,
+                Some(_) => older += 1,
+                None => undated += 1,
+            }
+        }
+        let card = |index: usize| {
+            let repo = &repos[index];
+            json!({ "id": repo.id, "language": repo.languages.first().map(|(name, _)| name), "topics": repo.topics.iter().take(6).collect::<Vec<_>>(), "stars": repo.stars, "role": repo.role.as_str(), "updated_days_before_reference": age(index), "archived": repo.archived, "fork": repo.fork })
+        };
+        let top = |compare: &mut dyn FnMut(usize, usize) -> std::cmp::Ordering| -> Vec<Value> { sorted_order(repos.len(), compare).into_iter().take(8).map(|index| card(index as usize)).collect() };
+        let most_starred = top(&mut |a, b| repos[b].stars.cmp(&repos[a].stars));
+        let most_recent = top(&mut |a, b| repos[b].updated_day.cmp(&repos[a].updated_day));
+        let roles: Vec<Value> = crate::model::ROLES
+            .iter()
+            .enumerate()
+            .map(|(index, name)| json!({ "role": name, "repositories": self.evidence.index.roles[index].len(), "examples": self.evidence.index.roles[index].iter().take(6).map(|ix| self.evidence.repo(*ix).id.as_str()).collect::<Vec<_>>() }))
+            .collect();
+        let short = |listing: Value, field: &str| -> Value { listing[field].as_array().map(|items| items.iter().take(10).cloned().collect::<Vec<_>>()).unwrap_or_default().into() };
+        json!({
+            "ok": true,
+            "diagnostics": [],
+            "repositories": { "total": repos.len(), "archived": repos.iter().filter(|repo| repo.archived).count(), "forks": repos.iter().filter(|repo| repo.fork).count() },
+            "updated": { "within_90_days": recent, "within_a_year": this_year, "over_a_year_ago": older, "unknown": undated },
+            "roles": roles,
+            "roles_source": "declared",
+            "languages": short(self.list_languages(), "languages"),
+            "topics": short(self.list_topics(), "topics"),
+            "most_starred": most_starred,
+            "most_recently_updated": most_recent,
+            "note": "Counts of public repository metadata, plus roles the developer set. They show what exists and what is current, not skill, seniority or fit.",
+        })
     }
 
     pub fn summary(&self) -> Value {

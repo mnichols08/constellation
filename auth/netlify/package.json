@@ -1,0 +1,9 @@
+{
+  "name": "constellation-sign-in-functions",
+  "private": true,
+  "type": "module",
+  "description": "Dependencies of the Netlify functions only. The Studio and the packages have none.",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9"
+  }
+}

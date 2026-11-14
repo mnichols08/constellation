@@ -1,8 +1,8 @@
-# Netlify hosts only the GitHub sign-in exchange function. GitHub Pages
+# Netlify hosts only the GitHub sign-in exchange and hosted-AI functions. GitHub Pages
 # serves the Studio itself. See docs/github-oauth.md.
 [build]
   publish = "auth/netlify/public"
-  command = "echo 'Nothing to build: this site only hosts the sign-in function.'"
+  command = "npm ci --prefix auth/netlify --omit=dev --ignore-scripts"
 
 [functions]
   directory = "auth/netlify/functions"

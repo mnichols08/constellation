@@ -25,3 +25,14 @@ dialog.sheet[data-dialog="tech-stack"] { width: min(1240px, 100%); max-width: mi
 .tech-stack-profile pre { margin: 0; padding: var(--space-3); max-height: 220px; overflow: auto; border-radius: var(--radius-s); background: var(--surface-2); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tech-stack-profile summary { cursor: pointer; min-height: 32px; padding: 6px 0; color: var(--primary); font-weight: 600; font-size: 14px; }
 
+
+/* At a glance: the part meant to be read first. */
+.tech-stack-glance { padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-s); }
+.tech-stack-glance ul { margin: 0; padding-left: 1.2em; display: grid; gap: var(--space-1, 4px); }
+.tech-stack-glance li { overflow-wrap: anywhere; }
+.tech-stack-headline { font-size: 17px; font-weight: 600; }
+.tech-stack-earlier { color: var(--text-2); }
+.tech-stack-spotlights { gap: var(--space-3) !important; }
+.tech-stack-spotlights p { margin: 2px 0 0; }
+.tech-stack-checks { display: grid; gap: var(--space-2); padding: var(--space-3); border-left: 3px solid var(--primary); background: var(--surface-2, transparent); }
+.tech-stack-checks ul { margin: 0; padding-left: 1.2em; }

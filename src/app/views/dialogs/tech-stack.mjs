@@ -49,6 +49,14 @@ export function createTechStackDialog(ctx) {
     if (store.get().dialog === 'tech-stack') ctx.refreshDialog?.();
   });
 
+  // Projects the person marked as featured in the open design lead the
+  // examples, when the map is of that same account.
+  function featuredFor(login) {
+    const state = store.get();
+    if (state.sample || String(state.account || '').toLowerCase() !== login.toLowerCase()) return [];
+    return Object.entries(state.options?.projectShowcase || {}).filter(([, entry]) => entry?.role === 'featured').map(([name]) => name.split('/').pop()).slice(0, 12);
+  }
+
   function describeProgress({ stage, done, total }) {
     const label = { listing: 'Listing repositories', folders: 'Looking through repositories', details: 'Reading project files' }[stage];
     return `${label}… ${done} of ${total}`;
@@ -74,7 +82,8 @@ export function createTechStackDialog(ctx) {
         },
       });
       if (mine !== run) return;
-      result = { scan, ...(await engine.renderTechStack(scan)) };
+      const featured = featuredFor(scan.login);
+      result = { scan, featured, ...(await engine.renderTechStack(scan, { featured })) };
       if (mine !== run) return;
       phase = 'done';
       announce(`Tech stack ready: ${result.model.total} repositories for ${scan.login}.`);
@@ -160,12 +169,55 @@ export function createTechStackDialog(ctx) {
     };
   }
 
-  function table(caption, rows, offMap = () => false) {
+  // `years` gives a row's dated entry, when the table has an Active column.
+  function table(caption, rows, offMap = () => false, years = null) {
     return h('table', { class: 'tech-stack-table' },
       h('caption', { class: 'visually-hidden', text: caption }),
-      h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Technology' }), h('th', { scope: 'col', text: 'Repos' }), h('th', { scope: 'col', text: 'Share' }))),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Technology' }), h('th', { scope: 'col', text: 'Repos' }), h('th', { scope: 'col', text: 'Share' }), years ? h('th', { scope: 'col', text: 'Active' }) : null)),
       h('tbody', {}, rows.map((row) => h('tr', { class: offMap(row) ? 'is-off-map' : undefined },
-        h('th', { scope: 'row', text: row.name }), h('td', { text: String(row.count) }), h('td', { text: result.formatShare(row.count / (result.model.total || 1)) })))));
+        h('th', { scope: 'row', text: row.name }), h('td', { text: String(row.count) }), h('td', { text: result.formatShare(row.count / (result.model.total || 1)) }),
+        years ? h('td', { text: years(row) ? result.formatYears(years(row)) : '' }) : null))));
+  }
+
+  // Shown to the account's owner only: what would make their three projects
+  // read better, and where on GitHub to fix it. Facts about what is missing,
+  // never a verdict on the work.
+  function checks() {
+    const { evidence, scan } = result;
+    if (engine.viewer?.login?.toLowerCase() !== scan.login.toLowerCase()) return null;
+    const words = { description: 'one-line description', website: 'link to a live site or demo', topics: 'topics' };
+    const gaps = evidence.spotlights.filter((project) => project.missing.length && project.url);
+    if (!gaps.length) return null;
+    const list = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
+    return h('div', { class: 'tech-stack-checks' },
+      h('h4', { text: 'Before you publish' }),
+      h('p', { text: 'These projects are the first thing a reader sees. On GitHub, open each one and use the gear beside “About” to fill in what’s missing.' }),
+      h('ul', {}, gaps.map((project) => h('li', {}, h('a', { href: project.url, target: '_blank', rel: 'noopener noreferrer', text: project.name }), ` has no ${list(project.missing.map((gap) => words[gap]))}.`))),
+      evidence.spotlights.some((project) => !project.featured) ? h('p', { class: 'field-help', text: 'To choose the three yourself, star them in the Projects tab of your own sky, then map again.' }) : null);
+  }
+
+  // What someone skimming can take away without reading the map: what is
+  // current, what goes together, and which repositories show it.
+  function glance() {
+    const { evidence, formatYears, plural } = result;
+    const example = (item) => (item.url ? h('a', { href: item.url, target: '_blank', rel: 'noopener noreferrer', text: item.name }) : h('span', { text: item.name }));
+    const entry = (item) => h('li', {},
+      h('strong', { text: item.name }), ` · ${plural(item.repositories)} · ${formatYears(item)}`,
+      item.current ? null : h('span', { class: 'tech-stack-earlier', text: ' · earlier work' }),
+      item.examples.length ? [' · ', ...item.examples.flatMap((one, index) => (index ? [', ', example(one)] : [example(one)]))] : null);
+    return h('section', { class: 'tech-stack-section tech-stack-glance' },
+      h('h3', { text: 'At a glance' }),
+      h('p', { class: 'tech-stack-headline', text: evidence.headline }),
+      evidence.stacks.length ? [h('h4', { text: 'Used together' }), h('ul', {}, evidence.stacks.map(entry))] : null,
+      evidence.core.length ? [h('h4', { text: 'Where to look' }), h('ul', {}, evidence.core.slice(0, 8).map(entry))] : null,
+      evidence.tooling.length ? h('p', { text: `Testing and build tools: ${evidence.tooling.map((tool) => tool.name).join(', ')}.` }) : null,
+      evidence.spotlights.length ? [h('h4', { text: 'Projects to start with' }), h('ul', { class: 'tech-stack-spotlights' }, evidence.spotlights.map((project) => h('li', {},
+        h('strong', {}, example(project)), ` · ${formatYears(project)}`, project.stars ? ` · ${plural(project.stars, 'star', 'stars')}` : null, project.archived ? ' · archived' : null,
+        h('p', { class: project.description ? undefined : 'tech-stack-earlier', text: project.description || 'No description yet.' }),
+        project.builtWith.length ? h('p', { text: `Built with ${project.builtWith.join(', ')}` }) : null,
+        project.website ? h('p', {}, 'Live at ', h('a', { href: project.website.href, target: '_blank', rel: 'noopener noreferrer', text: project.website.label })) : null)))] : null,
+      checks(),
+      h('p', { class: 'field-help', text: '“Now” means a repository declaring it was pushed to in the last year. Dates run from when the first such repository was created to the last push to any of them.' }));
   }
 
   // Inside a shadow root, the map's own styles can't reach the Studio map behind this sheet.
@@ -186,8 +238,18 @@ export function createTechStackDialog(ctx) {
   // is written into it.
   function profileSection(scan) {
     const file = 'tech-stack.svg';
+    const { featured } = result;
     let yaml = '';
     let snippet = '';
+    let markdown = '';
+    const style = h('select', { class: 'input', id: 'tech-stack-style' },
+      h('option', { value: 'full', text: 'Summary card and three projects (recommended)' }),
+      h('option', { value: 'card', text: 'Summary card: stacks, dates and counts' }),
+      h('option', { value: 'spotlight', text: 'Three projects to start with' }),
+      h('option', { value: 'map', text: 'Star map' }));
+    const markdownCode = h('code');
+    const markdownPre = h('pre', { tabindex: '0', role: 'region', 'aria-label': 'README project list' }, markdownCode);
+    engine.techStackMarkdown(scan, { featured }).then((text) => { markdown = text; markdownCode.textContent = text; }).catch(() => { markdownPre.hidden = true; });
     const repository = h('input', { class: 'input', id: 'tech-stack-repository', type: 'text', autocomplete: 'off', spellcheck: 'false', value: `${scan.login}/${scan.login}`, 'aria-describedby': 'tech-stack-repository-help' });
     const problem = h('p', { class: 'notice', role: 'alert', dataset: { tone: 'error' }, hidden: true });
     const create = h('a', { class: 'btn', target: '_blank', rel: 'noopener noreferrer' }, icon('github', { size: 18 }), 'Create the file on GitHub');
@@ -211,7 +273,7 @@ export function createTechStackDialog(ctx) {
     }, icon('copy', { size: 16 }), label);
     const refresh = () => {
       try {
-        yaml = renderTechStackWorkflow(scan.login, { filename: file });
+        yaml = renderTechStackWorkflow(scan.login, { filename: file, style: style.value, featured });
         const links = installationLinks(repository.value, yaml, 'tech-stack.yml');
         snippet = readmeSnippet(scan.login, repository.value, file, 'tech stack');
         create.href = links.install;
@@ -229,10 +291,15 @@ export function createTechStackDialog(ctx) {
       snippetCode.textContent = snippet;
     };
     repository.addEventListener('input', refresh);
+    style.addEventListener('change', refresh);
     refresh();
     return h('section', { class: 'tech-stack-section tech-stack-profile' },
       h('h3', { text: 'Add it to a GitHub profile' }),
-      h('p', { text: 'A workflow redraws this map every day and saves it as an image a README can show. It runs on GitHub with that repository’s own access. Your sign-in is not used or stored.' }),
+      h('p', { text: 'A workflow redraws this every day and saves it as an image a README can show. It runs on GitHub with that repository’s own access. Your sign-in is not used or stored.' }),
+      h('div', { class: 'field' },
+        h('label', { class: 'field-label', for: 'tech-stack-style', text: 'Image' }),
+        style,
+        h('p', { class: 'field-help', text: 'The card and projects can be read without explanation. The star map shows how technologies connect.' })),
       h('div', { class: 'field' },
         h('label', { class: 'field-label', for: 'tech-stack-repository', text: 'Repository for the workflow' }),
         repository,
@@ -242,23 +309,28 @@ export function createTechStackDialog(ctx) {
         h('li', {}, h('p', { text: 'Add the workflow file, then commit it.' }), h('div', { class: 'tech-stack-actions' }, create, copy('Copy the file', () => yaml, workflowPre)),
           h('details', {}, h('summary', { text: 'Show the file' }), workflowPre)),
         h('li', {}, h('p', { text: 'On the repository’s Actions page, run “Daily tech stack map” once. It takes a few minutes for a large account.' })),
-        h('li', {}, h('p', { text: 'Paste this into the README.' }), snippetPre, h('div', { class: 'tech-stack-actions' }, copy('Copy the snippet', () => snippet, snippetPre)))),
+        h('li', {}, h('p', { text: 'Paste this into the README.' }), snippetPre, h('div', { class: 'tech-stack-actions' }, copy('Copy the snippet', () => snippet, snippetPre))),
+        h('li', {}, h('p', { text: 'Optional: paste this list under the image. An image can’t hold links, so this is how a reader gets to the projects. It is a snapshot from today; paste a new one when your work changes.' }),
+          h('div', { class: 'tech-stack-actions' }, copy('Copy the list', () => markdown, markdownPre)),
+          h('details', {}, h('summary', { text: 'Show the list' }), markdownPre))),
       h('p', { class: 'field-help', text: 'Nothing is published until the workflow runs. Prefer a one-time image? Download it instead.' }),
       h('div', { class: 'tech-stack-actions' }, h('button', {
         class: 'btn btn-sm', type: 'button',
         onclick: async () => {
           const name = `${scan.login}-tech-stack.svg`;
-          downloadBlob(new Blob([await engine.techStackImage(scan)], { type: 'image/svg+xml' }), name);
+          downloadBlob(new Blob([await engine.techStackImage(scan, { style: style.value, featured })], { type: 'image/svg+xml' }), name);
           actions.toast(`Saved ${name} to your downloads.`);
         },
       }, icon('download', { size: 16 }), 'Download image (SVG)')));
   }
 
   function finished() {
-    const { scan, model, notes } = result;
+    const { scan, model, notes, evidence } = result;
+    const active = new Map([...evidence.core, ...evidence.tooling].map((tech) => [`${tech.kind === 'language' ? 'l' : 't'}:${tech.name}`, tech]));
     return {
       body: [
         h('p', { class: 'tech-stack-summary', text: `${model.total} of ${scan.coverage.discovered} public repositories for @${scan.login}. Star size shows how many repositories declare a technology. Lines join technologies declared in the same repositories; thicker lines mean more repositories. Select a star to see its links.` }),
+        glance(),
         mapHost(),
         h('section', { class: 'tech-stack-section' }, h('h3', { text: 'Most common combinations' }), table('Most common combinations', model.stacks)),
         h('section', { class: 'tech-stack-section' },
@@ -266,7 +338,7 @@ export function createTechStackDialog(ctx) {
           h('p', { class: 'field-help', text: 'Dimmed rows are left off the map to keep it readable.' }),
           h('div', { class: 'tech-stack-tables' }, model.groups.map((group) => h('div', {},
             h('h4', {}, h('span', { class: 'tech-stack-dot', style: { background: group.color } }), group.id),
-            table(group.id, group.rows, (row) => !row.onMap))))),
+            table(group.id, group.rows, (row) => !row.onMap, (row) => active.get(`${group.core ? 'l' : 't'}:${row.name}`)))))),
         h('section', { class: 'tech-stack-section' },
           h('h3', { text: 'How to read this' }),
           h('p', { text: 'These technologies are declared in manifests such as package.json and requirements.txt, which doesn’t prove they’re used. Counts say nothing about a project’s quality.' }),
@@ -279,7 +351,7 @@ export function createTechStackDialog(ctx) {
           class: 'btn btn-primary', type: 'button', 'data-primary': true,
           onclick: async () => {
             const name = `${scan.login}-tech-stack.html`;
-            downloadBlob(new Blob([await engine.techStackPage(scan)], { type: 'text/html;charset=utf-8' }), name);
+            downloadBlob(new Blob([await engine.techStackPage(scan, { featured: result.featured })], { type: 'text/html;charset=utf-8' }), name);
             actions.toast(`Saved ${name} to your downloads.`);
           },
         }, icon('download', { size: 18 }), 'Download interactive page'),

@@ -26,7 +26,7 @@ export function techStackQuery(step) {
     if (step.after !== null && step.after !== undefined && (typeof step.after !== 'string' || step.after.length > 500)) throw new Error('Invalid tech stack request.');
     const after = step.after ? `,after:${JSON.stringify(step.after)}` : '';
     return `query{repositoryOwner(login:${owner}){repositories(first:${size},privacy:PUBLIC,ownerAffiliations:OWNER,orderBy:{field:CREATED_AT,direction:ASC}${after}){totalCount pageInfo{hasNextPage endCursor} nodes{
-      name nameWithOwner url description isPrivate isFork isArchived isEmpty createdAt pushedAt updatedAt stargazerCount forkCount primaryLanguage{name}
+      name nameWithOwner url homepageUrl description isPrivate isFork isArchived isEmpty createdAt pushedAt updatedAt stargazerCount forkCount primaryLanguage{name}
       languages(first:15,orderBy:{field:SIZE,direction:DESC}){edges{size node{name}}} repositoryTopics(first:20){nodes{topic{name}}}
     }}}}`;
   }
@@ -88,7 +88,7 @@ function recordFrom(repo, technologies) {
   const edges = repo.languages?.edges || [];
   const total = edges.reduce((sum, edge) => sum + edge.size, 0);
   return {
-    name: repo.name, full_name: repo.nameWithOwner, html_url: repo.url, description: repo.description ?? null,
+    name: repo.name, full_name: repo.nameWithOwner, html_url: repo.url, description: repo.description ?? null, homepage: typeof repo.homepageUrl === 'string' && repo.homepageUrl ? repo.homepageUrl : null,
     fork: false, private: false, archived: Boolean(repo.isArchived),
     created_at: repo.createdAt, updated_at: repo.updatedAt, pushed_at: repo.pushedAt,
     stargazers_count: repo.stargazerCount || 0, forks_count: repo.forkCount || 0,

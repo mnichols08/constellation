@@ -123,7 +123,7 @@ test('one persistent engine serves validation, discovery, compilation and graph 
   assert.equal(engine.describeRepository('ada/orbit-engine').repository.role, 'featured');
   assert.equal(engine.previewGroup({ name: 'Giants', match: { stars: { min: 99999 } } }).total, 0);
   assert.equal(engine.callTool('launch', {}).diagnostics[0].code, 'unknown_tool');
-  assert.deepEqual(engine.toolDefinitions().tools.map((tool) => tool.name), ['list_languages', 'list_topics', 'find_repositories', 'describe_repository', 'preview_group', 'validate_spec', 'compile_spec']);
+  assert.deepEqual(engine.toolDefinitions().tools.map((tool) => tool.name), ['portfolio_overview', 'list_languages', 'list_topics', 'find_repositories', 'describe_repository', 'preview_group', 'validate_spec', 'compile_spec']);
 
   // Hot paths return ids and typed arrays without JSON.
   assert.deepEqual(engine.neighbors('ada/tiny-alloc'), ['ada/lightbeam', 'ada/orbit-engine', 'ada/wayfinder']);
