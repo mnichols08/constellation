@@ -183,14 +183,32 @@ export function createEngine({
           return await hostedStatus({ endpoint: aiEndpoint, getToken: () => session.token, fetchImpl, signal });
         } catch { return { available: false }; }
       },
-      async hosted() {
-        const { createAnthropicModel, hostedTransport } = await provider();
-        return createAnthropicModel({ name: 'Claude Haiku', send: hostedTransport({ endpoint: aiEndpoint, getToken: () => session.token, fetchImpl }) });
+      /** The site's reader. `status` (from `status()`) says which format the server speaks and what to call it. */
+      async hosted({ provider: kind = 'anthropic', label = 'Claude' } = {}) {
+        const { hostedTransport } = await import('../ai/providers/hosted.mjs');
+        const send = hostedTransport({ endpoint: aiEndpoint, getToken: () => session.token, label, fetchImpl });
+        if (kind === 'openai') return (await import('../ai/providers/openai-compatible.mjs')).createOpenAICompatibleModel({ name: label, send });
+        return (await provider()).createAnthropicModel({ name: label, send });
       },
-      /** A reader that uses the visitor's own key. Throws a friendly error for a key that cannot be one. */
-      async withKey(apiKey) {
-        const { createAnthropicModel, directTransport } = await provider();
-        return createAnthropicModel({ name: 'Claude Haiku, with your key', send: directTransport({ apiKey, fetchImpl }) });
+      /** The services the Studio offers shortcuts for. */
+      async presets() {
+        return (await import('../ai/providers/openai-compatible.mjs')).OPENAI_STYLE_PRESETS;
+      },
+      /**
+       * A reader that uses the visitor's own model: Claude with their key, or
+       * any service that speaks the chat-completions format. Throws a friendly
+       * error for settings that cannot work. `claude` says who receives the words.
+       */
+      async withKey(choice) {
+        const { service = 'anthropic', apiKey, baseUrl, model } = typeof choice === 'string' ? { apiKey: choice } : choice || {};
+        if (service === 'anthropic') {
+          const { createAnthropicModel, directTransport } = await provider();
+          return { claude: true, adapter: createAnthropicModel({ name: 'Claude', send: directTransport({ apiKey, fetchImpl }) }) };
+        }
+        const { createOpenAICompatibleModel, directChatTransport, chatEndpoint } = await import('../ai/providers/openai-compatible.mjs');
+        const send = directChatTransport({ baseUrl, model, apiKey, fetchImpl });
+        const name = `${String(model).trim()} at ${new URL(chatEndpoint(baseUrl)).host}`;
+        return { claude: false, keyed: Boolean(String(apiKey ?? '').trim()), adapter: createOpenAICompatibleModel({ name, send }) };
       },
     },
 

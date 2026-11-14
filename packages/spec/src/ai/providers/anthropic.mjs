@@ -15,17 +15,9 @@ export const ANTHROPIC = Object.freeze({
   maxTokens: 8000,
 });
 
-/** Thrown when a transport cannot be used right now; `reason` says why. */
-export class ModelUnavailable extends Error {
-  constructor(reason, message) {
-    super(message);
-    this.name = 'ModelUnavailable';
-    /** 'disabled' | 'sign-in' | 'quota' | 'key' | 'busy' | 'network' */
-    this.reason = reason;
-  }
-}
+import { ModelUnavailable, object, readJSON } from './shared.mjs';
 
-const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+export { ModelUnavailable };
 
 /**
  * Neutral messages -> Messages API messages.
@@ -117,10 +109,6 @@ export function createAnthropicModel({ send, name = 'Claude Haiku' } = {}) {
   };
 }
 
-async function readJSON(response) {
-  try { return await response.json(); } catch { return null; }
-}
-
 /**
  * The visitor's own key, sent from their browser straight to the provider.
  * The key lives only in the closure the caller creates.
@@ -147,45 +135,4 @@ export function directTransport({ apiKey, fetchImpl = globalThis.fetch, model = 
   };
 }
 
-/**
- * A server that holds the key. It sets the model, system prompt and tools
- * itself, so only the conversation is sent, with the visitor's GitHub sign-in
- * as proof of who is asking.
- */
-export function hostedTransport({ endpoint, getToken, fetchImpl = globalThis.fetch } = {}) {
-  return async ({ messages }, { signal } = {}) => {
-    const token = getToken?.();
-    if (!token) throw new ModelUnavailable('sign-in', 'Sign in with GitHub to use Claude here.');
-    let response;
-    try {
-      response = await fetchImpl(endpoint, { method: 'POST', signal, redirect: 'error', credentials: 'omit', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ messages }) });
-    } catch (error) {
-      if (error?.name === 'AbortError') throw error;
-      throw new ModelUnavailable('network', 'Claude could not be reached. Check your connection.');
-    }
-    if (response.ok) return readJSON(response);
-    const body = await readJSON(response);
-    if (response.status === 401) throw new ModelUnavailable('sign-in', 'Your GitHub sign-in has expired. Sign in again to use Claude here.');
-    if (response.status === 429 && body?.error === 'quota') throw new ModelUnavailable('quota', `You’ve used today’s ${body.limit ?? ''} Claude requests here. They reset at midnight UTC.`.replace('  ', ' '));
-    if (response.status === 429) throw new ModelUnavailable('busy', 'Too many requests. Try again in a minute.');
-    if (response.status === 503) throw new ModelUnavailable('disabled', 'Claude isn’t available here right now.');
-    throw new ModelUnavailable('network', 'Claude answered with an error.');
-  };
-}
-
-/**
- * Ask a hosted endpoint whether it is switched on. Never throws: an
- * unreachable or disabled endpoint simply reports `available: false`.
- * @returns {Promise<{ available: boolean, limit?: number, remaining?: number }>}
- */
-export async function hostedStatus({ endpoint, getToken, fetchImpl = globalThis.fetch, signal } = {}) {
-  if (!endpoint) return { available: false };
-  try {
-    const token = getToken?.();
-    const response = await fetchImpl(endpoint, { method: 'GET', signal, redirect: 'error', credentials: 'omit', headers: token ? { authorization: `Bearer ${token}` } : {} });
-    const body = response.ok ? await readJSON(response) : null;
-    return { available: body?.available === true, ...(Number.isInteger(body?.limit) ? { limit: body.limit } : {}), ...(Number.isInteger(body?.remaining) ? { remaining: body.remaining } : {}) };
-  } catch {
-    return { available: false };
-  }
-}
+export { hostedTransport, hostedStatus } from './hosted.mjs';

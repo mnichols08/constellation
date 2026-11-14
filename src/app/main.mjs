@@ -48,7 +48,7 @@ export function startStudio({ win = window, doc = document } = {}) {
   // Readers, in the order they are preferred: one the page connected, Claude
   // with the visitor's own key, Claude provided by this site (signed in), and
   // the built-in phrase matcher, which always works.
-  let ownKeyModel = null;   // Holds the visitor's key in memory only; gone on reload.
+  let ownKeyModel = null;   // { adapter, claude, keyed }. Holds the visitor's key in memory only; gone on reload.
   let hostedModel = null;
   let hosted = { available: false, checked: false };
   let hostedCheck = 0;
@@ -366,8 +366,8 @@ export function startStudio({ win = window, doc = document } = {}) {
     describeReader() {
       const kind = readerKind();
       if (kind === 'custom') return `Read by ${String(customAdapter().name || 'the model this page connected').slice(0, 60)}.`;
-      if (kind === 'own-key') return 'Read by Claude, using your own key.';
-      if (kind === 'hosted') return `Read by Claude${Number.isInteger(hosted.remaining) ? ` (${hosted.remaining} of ${hosted.limit} left today)` : ''}.`;
+      if (kind === 'own-key') return ownKeyModel.claude ? 'Read by Claude, using your own key.' : `Read by ${ownKeyModel.adapter.name}${ownKeyModel.keyed ? ', using your own key' : ''}.`;
+      if (kind === 'hosted') return `Read by ${hosted.label || 'Claude'}${Number.isInteger(hosted.remaining) ? ` (${hosted.remaining} of ${hosted.limit} left today)` : ''}.`;
       return 'Read by a built-in phrase matcher, not an AI model, so it knows a small set of words: centre, outskirts, experiments, recent, similar, topics, languages.';
     },
     /** What the dialog needs to offer the other readers. No credentials. */
@@ -375,15 +375,18 @@ export function startStudio({ win = window, doc = document } = {}) {
       return {
         kind: readerKind(),
         signedIn: engine.ai.signedIn,
-        hosted: { available: hosted.available, limit: hosted.limit, remaining: hosted.remaining },
+        hosted: { available: hosted.available, limit: hosted.limit, remaining: hosted.remaining, label: hosted.label || 'Claude' },
         ownKey: Boolean(ownKeyModel),
+        // Who receives the words, for the sentence that says what is sent.
+        who: readerKind() === 'hosted' ? hosted.label || 'Claude' : ownKeyModel?.claude ? 'Claude' : 'That service',
       };
     },
     /** Use Claude with the visitor's own key. It is kept in this tab's memory and nowhere else. */
-    async useOwnKey(apiKey) {
-      try { ownKeyModel = await engine.ai.withKey(apiKey); return { ok: true }; }
-      catch (error) { return { ok: false, sentence: error?.name === 'ModelUnavailable' ? error.message : 'Claude could not be set up. Check your connection and try again.' }; }
+    async useOwnKey(choice) {
+      try { ownKeyModel = await engine.ai.withKey(choice); return { ok: true }; }
+      catch (error) { return { ok: false, sentence: error?.name === 'ModelUnavailable' ? error.message : 'That model could not be set up. Check your connection and try again.' }; }
     },
+    describePresets: () => engine.ai.presets(),
     forgetOwnKey() { ownKeyModel = null; },
     signInForDescribe() { store.update({ dialog: 'sign-in' }); },
     /**
@@ -392,7 +395,7 @@ export function startStudio({ win = window, doc = document } = {}) {
      */
     async describe(prompt, { signal, intent = 'describe' } = {}) {
       const kind = readerKind();
-      const adapter = kind === 'custom' ? customAdapter() : kind === 'own-key' ? ownKeyModel : kind === 'hosted' ? (hostedModel ??= await engine.ai.hosted()) : null;
+      const adapter = kind === 'custom' ? customAdapter() : kind === 'own-key' ? ownKeyModel.adapter : kind === 'hosted' ? (hostedModel ??= await engine.ai.hosted(hosted)) : null;
       const [spec, { describeConstellation }, { describePlan, describeFailure }, { createKeywordModel }] = await Promise.all([
         loadSpec(), import('../ai/describe.mjs'), import('../ai/plan.mjs'), import('../ai/fake-model.mjs'),
       ]);
@@ -409,7 +412,8 @@ export function startStudio({ win = window, doc = document } = {}) {
           const why = result.error.reason;
           if (why === 'disabled') { hostedDown = true; hostedCheck += 1; hosted = { available: false, checked: true }; }
           if (why === 'quota') hosted = { ...hosted, remaining: 0 };
-          if (why === 'key') ownKeyModel = null;
+          // Settings that cannot work are dropped, so the form is there to correct them.
+          if (kind === 'own-key' && (why === 'key' || why === 'blocked' || why === 'model')) ownKeyModel = null;
           return { ok: false, sentence: `${result.error.message} Nothing was changed.`, reason: why, readers: true };
         }
         if (!result.ok) return { ok: false, sentence: describeFailure(result), reason: result.reason, ...(result.said ? { said: result.said } : {}) };

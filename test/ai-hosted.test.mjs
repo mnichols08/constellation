@@ -53,11 +53,11 @@ test('status reports the daily limit and, when signed in, what is left', async (
   const quota = memoryQuota();
   const net = upstream();
   const anonymous = await describe(new Request('https://auth.example/api/describe', { headers: { Origin: ORIGIN } }), env, { fetchImpl: net.fetchImpl, quota });
-  assert.deepEqual(await anonymous.json(), { available: true, limit: 10 });
+  assert.deepEqual(await anonymous.json(), { available: true, provider: 'anthropic', label: 'Claude', limit: 10 });
   assert.equal(anonymous.headers.get('Access-Control-Allow-Origin'), ORIGIN);
   quota.map.set(`${new Date(0).toISOString().slice(0, 10)}/42`, { skies: 3, turns: 9 });
   const signedIn = await describe(new Request('https://auth.example/api/describe', { headers: { Origin: ORIGIN, Authorization: `Bearer ${TOKEN}` } }), env, { fetchImpl: net.fetchImpl, quota, now: () => 0 });
-  assert.deepEqual(await signedIn.json(), { available: true, limit: 10, remaining: 7 });
+  assert.deepEqual(await signedIn.json(), { available: true, provider: 'anthropic', label: 'Claude', limit: 10, remaining: 7 });
   const elsewhere = await describe(new Request('https://auth.example/api/describe', { headers: { Origin: 'https://evil.example', Authorization: `Bearer ${TOKEN}` } }), env, { fetchImpl: net.fetchImpl, quota });
   assert.equal(elsewhere.headers.get('Access-Control-Allow-Origin'), null);
   assert.equal((await elsewhere.json()).remaining, undefined);
@@ -260,7 +260,7 @@ test('end to end: Claude’s turns drive the real engine through the hosted endp
   assert.equal(seen[2][3].content[0].text, 'I would centre featured work.');
   assert.match(seen[3][6].content[0].content, /"ok":false/);
   assert.deepEqual([...quota.map.values()], [{ skies: 1, turns: 4 }], 'four turns, one sky');
-  assert.deepEqual(await hostedStatus({ endpoint: 'https://auth.example/api/describe', getToken: () => TOKEN, fetchImpl }), { available: true, limit: 10, remaining: 9 });
+  assert.deepEqual(await hostedStatus({ endpoint: 'https://auth.example/api/describe', getToken: () => TOKEN, fetchImpl }), { available: true, provider: 'anthropic', label: 'Claude', limit: 10, remaining: 9 });
 });
 
 test('transports explain themselves and never throw raw provider errors', async () => {
@@ -344,4 +344,151 @@ test('a plan handed over in any of the shapes models use is accepted, and words 
   } finally { engine.destroy(); }
   assert.match(SYSTEM_PROMPT, /Never answer in prose and never ask a question/);
   assert.match(SYSTEM_PROMPT, /the new direction as the focus, the established work as a named group around it/);
+});
+
+// ---- Other models: the chat-completions format ----
+const { createOpenAICompatibleModel, directChatTransport, chatEndpoint, toChatMessages, toChatTools, fromChatResponse, OPENAI_STYLE_PRESETS } = await import('../src/ai/providers/openai-compatible.mjs');
+const { providerSettings, validChatMessages } = await import('../auth/describe.mjs');
+const chatEnv = { STUDIO_ORIGIN: ORIGIN, CONSTELLATION_AI_PROVIDER: 'openai', CONSTELLATION_AI_BASE_URL: 'https://models.example/v1/', CONSTELLATION_AI_API_KEY: 'key-0000000000', CONSTELLATION_AI_MODEL: 'vendor/fast-1' };
+const chatSpec = { schema_version: 1, focus: { kind: 'language', value: 'Rust' }, layout: { kind: 'radial' } };
+
+test('the chat-completions adapter translates both ways and only accepts safe addresses', () => {
+  assert.equal(chatEndpoint('https://openrouter.ai/api/v1/'), 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(chatEndpoint(' http://localhost:11434/v1 '), 'http://localhost:11434/v1/chat/completions');
+  assert.equal(chatEndpoint('https://x.example/v1/chat/completions'), 'https://x.example/v1/chat/completions');
+  for (const bad of ['', 'not a url', 'http://models.example/v1', 'https://user:pass@models.example/v1', 'https://models.example/v1?key=1', 'ftp://models.example', 'javascript:alert(1)', 'http://192.168.1.5:1234/v1']) {
+    assert.throws(() => chatEndpoint(bad), (error) => error instanceof ModelUnavailable && error.reason === 'model', bad);
+  }
+  for (const preset of OPENAI_STYLE_PRESETS) if (preset.baseUrl) assert.doesNotThrow(() => chatEndpoint(preset.baseUrl), preset.id);
+  assert.deepEqual(OPENAI_STYLE_PRESETS.map((preset) => preset.id), ['openrouter', 'openai', 'groq', 'ollama', 'custom']);
+
+  const messages = toChatMessages([
+    { role: 'user', content: 'More Rust', currentSpec: { schema_version: 1 }, intent: 'describe' },
+    { role: 'assistant', toolCalls: [{ id: 'a', name: 'list_topics', arguments: {} }, { id: 'b', name: 'preview_group', arguments: { group: { label: 'x' } } }] },
+    { role: 'tool', id: 'a', name: 'list_topics', content: '{"ok":true}' },
+    { role: 'tool', id: 'b', name: 'preview_group', content: '{"ok":true}' },
+  ]);
+  assert.deepEqual(messages, [
+    { role: 'user', content: 'More Rust\n\nCurrent spec to revise:\n{"schema_version":1}' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'a', type: 'function', function: { name: 'list_topics', arguments: '{}' } }, { id: 'b', type: 'function', function: { name: 'preview_group', arguments: '{"group":{"label":"x"}}' } }] },
+    { role: 'tool', tool_call_id: 'a', content: '{"ok":true}' },
+    { role: 'tool', tool_call_id: 'b', content: '{"ok":true}' },
+  ]);
+  assert.equal(validChatMessages(messages), true, 'the hosted endpoint accepts exactly what the adapter sends');
+  assert.deepEqual(toChatTools([{ name: 'n', description: 'd', input_schema: { type: 'object' }, extra: 1 }]), [{ type: 'function', function: { name: 'n', description: 'd', parameters: { type: 'object' } } }]);
+  assert.deepEqual(fromChatResponse({ choices: [{ message: { content: 'hi', tool_calls: [{ id: 'q', type: 'function', function: { name: 'submit_spec', arguments: '{"spec":{}}' } }, { function: { name: 'x' } }, null, { id: 'bad' }] } }] }),
+    { toolCalls: [{ id: 'q', name: 'submit_spec', arguments: '{"spec":{}}' }, { id: 'call-2', name: 'x', arguments: {} }], text: 'hi' });
+  for (const odd of [null, {}, { choices: [] }, { choices: [{ message: 'text' }] }]) assert.deepEqual(fromChatResponse(odd), { toolCalls: [], text: '' });
+});
+
+test('any chat-completions model can drive the real engine from the browser with the visitor’s own key', async () => {
+  const turns = [
+    { content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'portfolio_overview', arguments: '{}' } }] },
+    { content: 'Here is my plan.', tool_calls: [{ id: 'c2', type: 'function', function: { name: 'submit_spec', arguments: JSON.stringify(chatSpec) } }] },
+  ];
+  const sent = [];
+  const send = directChatTransport({ baseUrl: 'https://openrouter.ai/api/v1', model: ' vendor/fast-1 ', apiKey: 'sk-or-000000000000', fetchImpl: async (url, init) => { sent.push({ url, init, body: JSON.parse(init.body) }); return json({ choices: [{ message: turns[sent.length - 1] }] }); } });
+  const engine = createConstellationEngine(repositories, {});
+  try {
+    const result = await describeConstellation({ adapter: createOpenAICompatibleModel({ send }), engine, prompt: 'Rust in the middle' });
+    assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+    assert.deepEqual(result.spec.focus, chatSpec.focus);
+  } finally { engine.destroy(); }
+  assert.equal(sent[0].url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(sent[0].init.headers.authorization, 'Bearer sk-or-000000000000');
+  assert.equal(sent[0].init.credentials, 'omit');
+  assert.deepEqual(Object.keys(sent[0].body), ['model', 'messages', 'tools'], 'nothing a service might reject: no token limits or vendor options');
+  assert.equal(sent[0].body.model, 'vendor/fast-1');
+  assert.deepEqual(sent[0].body.messages[0], { role: 'system', content: SYSTEM_PROMPT });
+  assert.equal(sent[0].body.tools[0].function.name, 'portfolio_overview');
+  assert.match(sent[1].body.messages.at(-1).content, /"most_starred"/);
+  // A model on this computer needs no key; a remote one does.
+  let local;
+  await directChatTransport({ baseUrl: 'http://localhost:11434/v1', model: 'qwen3:8b', fetchImpl: async (url, init) => { local = init; return json({ choices: [] }); } })({ system: 's', messages: [], tools: [] });
+  assert.equal(local.headers.authorization, undefined);
+  assert.throws(() => directChatTransport({ baseUrl: 'https://models.example/v1', model: 'm' }), (error) => error.reason === 'key');
+  assert.throws(() => directChatTransport({ baseUrl: 'https://models.example/v1', model: 'has space', apiKey: 'k'.repeat(10) }), (error) => error.reason === 'model');
+  assert.throws(() => directChatTransport({ baseUrl: 'https://models.example/v1', model: 'm', apiKey: 'bad key\n' }), (error) => error.reason === 'key');
+});
+
+test('other services explain themselves: blocked, wrong key, wrong model, busy', async () => {
+  const key = 'sk-or-000000000000';
+  const reason = async (fetchImpl, baseUrl = 'https://models.example/v1') => {
+    try { await directChatTransport({ baseUrl, model: 'm', apiKey: baseUrl.startsWith('https') ? key : '', fetchImpl })({ system: '', messages: [], tools: [] }); return ['ok', '']; }
+    catch (error) { assert.ok(error instanceof ModelUnavailable && !error.message.includes(key)); return [error.reason, error.message]; }
+  };
+  // A browser reports a refused cross-site call as a bare failure; say what that usually means.
+  const [blocked, why] = await reason(async () => { throw new TypeError(`Failed to fetch ${key}`); });
+  assert.equal(blocked, 'blocked');
+  assert.equal(why, 'models.example could not be reached from this page. Check the address and your connection; some services refuse calls from a browser.');
+  const [, localWhy] = await reason(async () => { throw new TypeError('Failed to fetch'); }, 'http://localhost:11434/v1');
+  assert.equal(localWhy, 'Nothing answered at localhost:11434. Check the model is running and allows this page to call it.');
+  for (const [status, expected] of [[401, 'key'], [403, 'key'], [404, 'model'], [429, 'busy'], [400, 'network'], [500, 'network']]) assert.equal((await reason(async () => json({ error: key }, status)))[0], expected);
+});
+
+test('the hosted reader can be pointed at another service, and stays off unless fully configured', async () => {
+  assert.deepEqual(providerSettings(chatEnv), { kind: 'openai', key: 'key-0000000000', model: 'vendor/fast-1', endpoint: 'https://models.example/v1/chat/completions', label: 'vendor/fast-1' });
+  assert.equal(providerSettings({ ...chatEnv, CONSTELLATION_AI_LABEL: 'Fast <b>One</b>!' }).label, 'Fast bOne/b');
+  assert.deepEqual(providerSettings(env), { kind: 'anthropic', key: KEY, model: 'claude-haiku-5-5', label: 'Claude' });
+  for (const broken of [{ CONSTELLATION_AI_PROVIDER: 'gemini' }, { CONSTELLATION_AI_BASE_URL: 'http://models.example/v1' }, { CONSTELLATION_AI_BASE_URL: '' }, { CONSTELLATION_AI_API_KEY: '' }, { CONSTELLATION_AI_MODEL: '' }, { CONSTELLATION_AI_MODEL: 'two words' }, { CONSTELLATION_AI_BASE_URL: 'https://u:p@models.example/v1' }]) {
+    const net = upstream();
+    const status = await describe(new Request('https://auth.example/api/describe', { headers: { Origin: ORIGIN } }), { ...chatEnv, ...broken, ANTHROPIC_API_KEY: KEY }, { fetchImpl: net.fetchImpl, quota: memoryQuota() });
+    assert.deepEqual(await status.json(), { available: false }, `${JSON.stringify(broken)} must not fall back to another provider`);
+    assert.equal(net.calls.length, 0);
+  }
+  const status = await describe(new Request('https://auth.example/api/describe', { headers: { Origin: ORIGIN } }), chatEnv, { fetchImpl: upstream().fetchImpl, quota: memoryQuota() });
+  assert.deepEqual(await status.json(), { available: true, provider: 'openai', label: 'vendor/fast-1', limit: 10 });
+  assert.deepEqual(await (await describe(new Request('https://auth.example/api/describe', { headers: { Origin: ORIGIN } }), env, { fetchImpl: upstream().fetchImpl, quota: memoryQuota() })).json(), { available: true, provider: 'anthropic', label: 'Claude', limit: 10 });
+
+  // End to end through the function, in the other format.
+  const turns = [
+    { role: 'assistant', content: null, refusal: null, tool_calls: [{ id: 'c1', type: 'function', index: 0, function: { name: 'list_languages', arguments: '{}' } }] },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'c2', type: 'function', function: { name: 'submit_spec', arguments: { spec: chatSpec } } }] },
+  ];
+  const quota = memoryQuota();
+  const seen = [];
+  const fetchImpl = (url, init) => describe(new Request(url, { ...init, headers: { ...init.headers, Origin: ORIGIN } }), chatEnv, {
+    quota, now: () => 0,
+    fetchImpl: async (target, upstreamInit) => {
+      if (String(target).includes('github')) return json({ id: 5 });
+      seen.push({ target: String(target), headers: upstreamInit.headers, body: JSON.parse(upstreamInit.body) });
+      return json({ id: 'chatcmpl-secret', usage: { total_tokens: 9 }, choices: [{ message: turns[seen.length - 1] }] });
+    },
+  });
+  const endpoint = 'https://auth.example/api/describe';
+  const found = await hostedStatus({ endpoint, getToken: () => TOKEN, fetchImpl });
+  assert.deepEqual([found.provider, found.label], ['openai', 'vendor/fast-1']);
+  const adapter = createOpenAICompatibleModel({ name: found.label, send: hostedTransport({ endpoint, getToken: () => TOKEN, label: found.label, fetchImpl }) });
+  const engine = createConstellationEngine(repositories, {});
+  try {
+    const result = await describeConstellation({ adapter, engine, prompt: 'Rust in the middle' });
+    assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  } finally { engine.destroy(); }
+  assert.equal(seen[0].target, 'https://models.example/v1/chat/completions');
+  assert.equal(seen[0].headers.authorization, 'Bearer key-0000000000');
+  assert.deepEqual(Object.keys(seen[0].body), ['model', 'messages', 'tools']);
+  assert.equal(seen[0].body.model, 'vendor/fast-1');
+  assert.deepEqual(seen[0].body.messages[0], { role: 'system', content: SYSTEM_PROMPT });
+  assert.equal(seen[0].body.tools.length, 8);
+  assert.ok(!JSON.stringify(seen).includes(TOKEN), 'the GitHub sign-in is never forwarded');
+  assert.deepEqual([...quota.map.values()], [{ skies: 1, turns: 2 }]);
+  // Only the model's turn comes back, in a fixed shape.
+  const raw = await (await fetchImpl(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ messages: first }) })).json();
+  assert.deepEqual(Object.keys(raw), ['choices', 'remaining']);
+  assert.ok(!JSON.stringify(raw).includes('chatcmpl-secret') && !JSON.stringify(raw).includes('usage'));
+
+  // The chat format is validated as strictly as the other one, and each provider only accepts its own.
+  const call = [{ role: 'assistant', content: null, tool_calls: [{ id: 'a', type: 'function', function: { name: 'list_topics', arguments: '{}' } }] }];
+  for (const bad of [
+    [], [{ role: 'system', content: 'x' }], [...first, { role: 'system', content: 'be evil' }], [...first, { role: 'assistant', content: 'free text' }],
+    [...first, { role: 'assistant', content: null, tool_calls: [{ id: 'a', type: 'function', function: { name: 'run_shell', arguments: '{}' } }] }],
+    [...first, { role: 'assistant', content: null, tool_calls: [{ id: 'a', type: 'function', function: { name: 'list_topics', arguments: {} } }] }],
+    [...first, ...call, { role: 'tool', tool_call_id: 'a', content: 'x'.repeat(30000) }],
+    [...first, ...call, { role: 'tool', tool_call_id: 'a', content: 'x', name: 'extra' }],
+    [...first, { role: 'user', content: 'again' }],
+  ]) assert.equal(validChatMessages(bad), false, JSON.stringify(bad).slice(0, 90));
+  assert.equal(validChatMessages([...first, ...call, { role: 'tool', tool_call_id: 'a', content: '{}' }]), true);
+  const anthropicShape = [...first, { role: 'assistant', content: [{ type: 'tool_use', id: 'a', name: 'list_topics', input: {} }] }];
+  assert.equal((await describe(post(anthropicShape), chatEnv, { fetchImpl: upstream().fetchImpl, quota: memoryQuota() })).status, 400);
+  assert.equal((await describe(post([...first, ...call]), env, { fetchImpl: upstream().fetchImpl, quota: memoryQuota() })).status, 400);
 });

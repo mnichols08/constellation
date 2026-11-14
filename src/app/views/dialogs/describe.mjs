@@ -6,8 +6,9 @@ import { h, icon, announce } from '../../dom.mjs';
 
 const MAX_LENGTH = 600;
 const MCP_GUIDE = 'https://github.com/mnichols08/constellation/blob/main/docs/mcp.md';
-const KEY_HELP = 'Kept in this tab only and sent only to Anthropic. Reloading or closing the page forgets it. Anthropic bills your account for what you use.';
-const SENT = 'Claude receives your words and the public details of your projects it looks up: names, descriptions, languages, topics, stars and dates.';
+const KEY_HELP = 'Kept in this tab only and sent only to the service you choose. Reloading or closing the page forgets it. That service bills your account for what you use.';
+const sent = (who) => `${who} receives your words and the public details of your projects it looks up: names, descriptions, languages, topics, stars and dates.`;
+const ANTHROPIC = { id: 'anthropic', label: 'Claude (Anthropic)', key: true };
 
 let styled = false;
 function loadStyles(doc) {
@@ -34,6 +35,9 @@ export function createDescribeDialog(ctx) {
   let said = '';   // The reader's own words when it gave no plan. Shown as plain text.
   let readersOpen = false;
   let keyError = null;
+  let service = 'anthropic';   // Which service the own-model form is set to.
+  let presets = null;          // Loaded the first time the section opens.
+  let loadingPresets = false;
 
   const reset = () => { pending?.abort(); pending = null; step = 'ask'; failure = null; said = ''; outcome = null; };
 
@@ -77,34 +81,52 @@ export function createDescribeDialog(ctx) {
   function readersSection() {
     const readers = actions.describeReaders();
     if (readers.kind === 'custom') return null;
-    const claude = readers.kind === 'hosted' || readers.kind === 'own-key';
-    const parts = [claude ? h('p', { text: SENT }) : null];
+    const modelReads = readers.kind === 'hosted' || readers.kind === 'own-key';
+    const name = readers.hosted.label;
+    const parts = [modelReads ? h('p', { text: sent(readers.who) }) : null];
+    if (readersOpen && !presets && !loadingPresets) {
+      loadingPresets = true;
+      actions.describePresets().then((list) => { presets = [ANTHROPIC, ...list]; }).catch(() => { presets = [ANTHROPIC]; }).finally(() => { loadingPresets = false; ctx.refreshDialog(); });
+    }
     if (readers.hosted.available && !readers.signedIn) {
       parts.push(h('div', { class: 'describe-reader-option' },
-        h('p', { text: `Sign in with GitHub and Claude reads your description instead, up to ${readers.hosted.limit} times a day. No key needed.` }),
+        h('p', { text: `Sign in with GitHub and ${name} reads your description instead, up to ${readers.hosted.limit} times a day. No key needed.` }),
         h('button', { class: 'btn', type: 'button', onclick: () => actions.signInForDescribe() }, icon('github', { size: 18 }), 'Sign in with GitHub')));
     } else if (readers.hosted.available && readers.hosted.remaining === 0 && !readers.ownKey) {
-      parts.push(h('p', { text: `You’ve used today’s ${readers.hosted.limit} Claude requests. They reset at midnight UTC; until then you can use your own key or the phrase matcher.` }));
+      parts.push(h('p', { text: `You’ve used today’s ${readers.hosted.limit} ${name} requests. They reset at midnight UTC; until then you can use a model of your own or the phrase matcher.` }));
     }
     if (readers.ownKey) {
       parts.push(h('div', { class: 'describe-reader-option' },
-        h('button', { class: 'btn', type: 'button', onclick: () => { actions.forgetOwnKey(); ctx.refreshDialog(); announce('Key forgotten.'); } }, icon('trash', { size: 18 }), 'Forget my key')));
-    } else {
-      const field = h('input', { id: 'describe-key', class: 'input', type: 'password', autocomplete: 'one-time-code', autocapitalize: 'none', spellcheck: 'false', 'data-1p-ignore': '', 'data-lpignore': 'true', 'aria-describedby': 'describe-key-help', placeholder: 'sk-ant-…' });
+        h('button', { class: 'btn', type: 'button', onclick: () => { actions.forgetOwnKey(); ctx.refreshDialog(); announce('Forgotten.'); } }, icon('trash', { size: 18 }), 'Stop using my model')));
+    } else if (presets) {
+      const chosen = presets.find((preset) => preset.id === service) || presets[0];
+      const other = chosen.id !== 'anthropic';
+      const input = (id, attrs) => h('input', { id, class: 'input', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', ...attrs });
+      const select = h('select', { id: 'describe-service', class: 'input', onchange: () => { service = select.value; keyError = null; ctx.refreshDialog(); } },
+        presets.map((preset) => h('option', { value: preset.id, text: preset.label, selected: preset.id === chosen.id || undefined })));
+      const address = other ? input('describe-address', { type: 'url', inputmode: 'url', value: chosen.baseUrl, placeholder: 'https://…/v1' }) : null;
+      const model = other ? input('describe-model', { type: 'text', placeholder: chosen.example }) : null;
+      const key = input('describe-key', { type: 'password', autocomplete: 'one-time-code', 'data-1p-ignore': '', 'data-lpignore': 'true', 'aria-describedby': 'describe-key-help' });
       parts.push(h('form', { class: 'describe-reader-option', novalidate: true, onsubmit: async (event) => {
         event.preventDefault();
-        const result = await actions.useOwnKey(field.value);
-        field.value = '';
+        const result = await actions.useOwnKey({ service: other ? 'openai-style' : 'anthropic', apiKey: key.value, baseUrl: address?.value, model: model?.value });
+        key.value = '';
         keyError = result.ok ? null : result.sentence;
         if (result.ok) failure = null;
-        announce(result.ok ? 'Claude will read your descriptions with your key.' : keyError);
+        announce(result.ok ? 'Your model will read your descriptions.' : keyError);
         ctx.refreshDialog();
       } },
-        h('label', { class: 'field-label', for: 'describe-key', text: 'Use your own Anthropic API key' }),
-        field,
-        h('p', { class: 'field-help', id: 'describe-key-help', text: `${KEY_HELP} ${SENT}` }),
+        h('p', { class: 'field-label', text: 'Use a model of your own' }),
+        h('label', { class: 'field-label', for: 'describe-service', text: 'Service' }), select,
+        other ? [h('label', { class: 'field-label', for: 'describe-address', text: 'Address' }), address,
+          h('label', { class: 'field-label', for: 'describe-model', text: 'Model' }), model] : null,
+        h('label', { class: 'field-label', for: 'describe-key', text: chosen.key ? 'API key' : 'API key (leave empty if it needs none)' }), key,
+        h('p', { class: 'field-help', id: 'describe-key-help', text: `${KEY_HELP} ${sent(other ? 'That service' : 'Claude')}` }),
+        other ? h('p', { class: 'field-help', text: chosen.id === 'ollama'
+          ? 'A model on this computer only answers pages it has been told to trust: start Ollama with OLLAMA_ORIGINS set to this site’s address. The model also needs to support tools.'
+          : 'The model needs to support tools. Some services refuse calls from a web page; if this one does, you’ll be told and nothing is changed.' }) : null,
         keyError ? h('p', { class: 'describe-key-error', role: 'alert', text: keyError }) : null,
-        h('button', { class: 'btn', type: 'submit' }, 'Use this key')));
+        h('button', { class: 'btn', type: 'submit' }, 'Use this model')));
     }
     parts.push(h('div', { class: 'describe-reader-option' },
       h('p', {}, 'Or let your own assistant do it. Constellation comes with a small server that Claude Desktop, Claude Code and other assistants can connect to and build your sky themselves. ',

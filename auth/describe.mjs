@@ -7,11 +7,16 @@
 // purpose proxy. See docs/ai/HOSTED-AI.md.
 //
 // Environment:
-//   ANTHROPIC_API_KEY            the key. Missing = the feature is off.
+//   ANTHROPIC_API_KEY            the key for Claude. Missing = the feature is off.
+//   CONSTELLATION_AI_PROVIDER    "anthropic" (default) or "openai" for any service
+//                                that speaks the chat-completions format.
+//   CONSTELLATION_AI_BASE_URL    with "openai": the service's base address (https).
+//   CONSTELLATION_AI_API_KEY     with "openai": its key.
+//   CONSTELLATION_AI_LABEL       what the Studio calls the reader (default: Claude, or the model id).
 //   STUDIO_ORIGIN                the only origin allowed to call this.
 //   CONSTELLATION_AI             "off" switches the feature off without removing the key.
 //   CONSTELLATION_AI_DAILY_LIMIT skies per GitHub user per UTC day (default 10).
-//   CONSTELLATION_AI_MODEL       model id (default claude-haiku-5-5).
+//   CONSTELLATION_AI_MODEL       model id (default claude-haiku-5-5; required with "openai").
 //
 // Off is a normal state, not an error: GET answers 200 { available: false }.
 
@@ -35,7 +40,24 @@ const TOOLS = modelTools(toolDefinitions).map(({ name, description, input_schema
 const TOOL_NAMES = new Set(TOOLS.map((tool) => tool.name));
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const enabled = (env) => Boolean(env.ANTHROPIC_API_KEY && env.STUDIO_ORIGIN) && !/^(off|false|0|disabled)$/i.test(String(env.CONSTELLATION_AI ?? '').trim());
+const CHAT_TOOLS = TOOLS.map(({ name, description, input_schema }) => ({ type: 'function', function: { name, description, parameters: input_schema } }));
+const label = (value, fallback) => String(value ?? '').replace(/[^\w .:/+-]/g, '').trim().slice(0, 40) || fallback;
+
+/** Which model service this deployment uses, or null when it is not fully configured. A misspelt provider is off, never a silent fallback. */
+export function providerSettings(env) {
+  const kind = String(env.CONSTELLATION_AI_PROVIDER ?? 'anthropic').trim().toLowerCase() || 'anthropic';
+  if (kind === 'anthropic') {
+    return env.ANTHROPIC_API_KEY ? { kind, key: env.ANTHROPIC_API_KEY, model: env.CONSTELLATION_AI_MODEL || DEFAULT_MODEL, label: label(env.CONSTELLATION_AI_LABEL, 'Claude') } : null;
+  }
+  if (kind !== 'openai') return null;
+  const model = String(env.CONSTELLATION_AI_MODEL ?? '').trim();
+  let base;
+  try { base = new URL(String(env.CONSTELLATION_AI_BASE_URL ?? '')); } catch { return null; }
+  if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || !env.CONSTELLATION_AI_API_KEY || !/^[\w.:/@+-]{1,120}$/.test(model)) return null;
+  return { kind, key: env.CONSTELLATION_AI_API_KEY, model, endpoint: `${base.origin}${base.pathname.replace(/\/+$/, '')}/chat/completions`, label: label(env.CONSTELLATION_AI_LABEL, label(model, 'a language model')) };
+}
+
+const enabled = (env) => Boolean(providerSettings(env) && env.STUDIO_ORIGIN) && !/^(off|false|0|disabled)$/i.test(String(env.CONSTELLATION_AI ?? '').trim());
 const dailyLimit = (env) => { const value = Number.parseInt(env.CONSTELLATION_AI_DAILY_LIMIT, 10); return Number.isInteger(value) && value >= 0 && value <= 1000 ? value : HOSTED_LIMITS.dailySkies; };
 const today = (now) => new Date(now).toISOString().slice(0, 10);
 
@@ -52,6 +74,25 @@ export function validMessages(messages) {
       || (block.type === 'tool_use' && typeof block.id === 'string' && TOOL_NAMES.has(block.name) && object(block.input))));
     if (message.role === 'user') return index % 2 === 0 && message.content.every((block) => object(block) && ((block.type === 'tool_result' && typeof block.tool_use_id === 'string' && typeof block.content === 'string' && block.content.length <= AI_LIMITS.maxToolResultLength + 64)
       || (block.type === 'text' && typeof block.text === 'string' && block.text.length <= AI_LIMITS.maxToolResultLength + 64)));
+    return false;
+  });
+}
+
+/** The same rule for the chat-completions format. */
+export function validChatMessages(messages) {
+  if (!Array.isArray(messages) || !messages.length || messages.length > HOSTED_LIMITS.messages * 2) return false;
+  if (messages[0]?.role !== 'user' || typeof messages[0].content !== 'string' || !messages[0].content.trim()) return false;
+  const text = (value) => typeof value === 'string' && value.length <= AI_LIMITS.maxToolResultLength + 64;
+  return messages.every((message, index) => {
+    if (!object(message)) return false;
+    if (index === 0) return Object.keys(message).every((key) => key === 'role' || key === 'content');
+    if (message.role === 'assistant') {
+      return Object.keys(message).every((key) => key === 'role' || key === 'content' || key === 'tool_calls')
+        && (message.content === null || text(message.content))
+        && Array.isArray(message.tool_calls) && message.tool_calls.length > 0 && message.tool_calls.length <= HOSTED_LIMITS.blocksPerMessage
+        && message.tool_calls.every((call) => object(call) && typeof call.id === 'string' && call.type === 'function' && object(call.function) && TOOL_NAMES.has(call.function.name) && text(call.function.arguments));
+    }
+    if (message.role === 'tool') return Object.keys(message).every((key) => key === 'role' || key === 'content' || key === 'tool_call_id') && typeof message.tool_call_id === 'string' && text(message.content);
     return false;
   });
 }
@@ -99,6 +140,7 @@ export async function describe(request, env, { fetchImpl = fetch, quota, now = D
     headers['Access-Control-Max-Age'] = '600';
   }
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+  const settings = providerSettings(env);
   const on = enabled(env) && Boolean(quota);
   const limit = dailyLimit(env);
   const bearer = /^Bearer (\S+)$/.exec(request.headers.get('Authorization') || '')?.[1] || '';
@@ -113,7 +155,7 @@ export async function describe(request, env, { fetchImpl = fetch, quota, now = D
         if (user) remaining = Math.max(0, limit - ((await quota.get(`${today(now())}/${user.id}`))?.skies || 0));
       } catch {}
     }
-    return reply(200, { available: true, limit, ...(remaining === undefined ? {} : { remaining }) });
+    return reply(200, { available: true, provider: settings.kind, label: settings.label, limit, ...(remaining === undefined ? {} : { remaining }) });
   }
   if (request.method !== 'POST') return reply(405, { error: 'method' });
   if (origin !== env.STUDIO_ORIGIN || !env.STUDIO_ORIGIN) return reply(403, { error: 'origin' });
@@ -123,7 +165,7 @@ export async function describe(request, env, { fetchImpl = fetch, quota, now = D
 
   const body = await readBody(request, HOSTED_LIMITS.requestBytes).catch(() => null);
   if (body === undefined) return reply(413, { error: 'too-large' });
-  if (!object(body) || !validMessages(body.messages)) return reply(400, { error: 'invalid' });
+  if (!object(body) || !(settings.kind === 'openai' ? validChatMessages : validMessages)(body.messages)) return reply(400, { error: 'invalid' });
 
   let user;
   try { user = await githubUser(bearer, fetchImpl); } catch { return reply(502, { error: 'github' }); }
@@ -146,13 +188,12 @@ export async function describe(request, env, { fetchImpl = fetch, quota, now = D
     return reply(503, { error: 'disabled' });
   }
 
+  const upstream = settings.kind === 'openai'
+    ? { url: settings.endpoint, headers: { 'content-type': 'application/json', authorization: `Bearer ${settings.key}` }, body: { model: settings.model, messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...body.messages], tools: CHAT_TOOLS } }
+    : { url: 'https://api.anthropic.com/v1/messages', headers: { 'content-type': 'application/json', 'x-api-key': settings.key, 'anthropic-version': '2023-06-01' }, body: { model: settings.model, max_tokens: HOSTED_LIMITS.maxTokens, system: SYSTEM_PROMPT, tools: TOOLS, messages: body.messages } };
   let response;
   try {
-    response = await fetchImpl('https://api.anthropic.com/v1/messages', {
-      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(60000),
-      headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: env.CONSTELLATION_AI_MODEL || DEFAULT_MODEL, max_tokens: HOSTED_LIMITS.maxTokens, system: SYSTEM_PROMPT, tools: TOOLS, messages: body.messages }),
-    });
+    response = await fetchImpl(upstream.url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(60000), headers: upstream.headers, body: JSON.stringify(upstream.body) });
   } catch { return reply(502, { error: 'upstream' }); }
   // A rejected key or an exhausted account is the operator's problem, not the
   // visitor's: report "not available" so the Studio offers its other readers.
@@ -162,5 +203,11 @@ export async function describe(request, env, { fetchImpl = fetch, quota, now = D
   let result;
   try { result = await response.json(); } catch { return reply(502, { error: 'upstream' }); }
   // Forward only the model's turn: no usage, ids or upstream diagnostics.
+  if (settings.kind === 'openai') {
+    const message = object(result?.choices?.[0]?.message) ? result.choices[0].message : {};
+    const calls = (Array.isArray(message.tool_calls) ? message.tool_calls : []).filter((call) => object(call) && object(call.function)).slice(0, HOSTED_LIMITS.blocksPerMessage)
+      .map((call) => ({ id: String(call.id ?? ''), type: 'function', function: { name: String(call.function.name ?? ''), arguments: typeof call.function.arguments === 'string' ? call.function.arguments : JSON.stringify(call.function.arguments ?? {}) } }));
+    return reply(200, { choices: [{ message: { content: typeof message.content === 'string' ? message.content : null, ...(calls.length ? { tool_calls: calls } : {}) } }], remaining: Math.max(0, limit - used.skies) });
+  }
   return reply(200, { content: Array.isArray(result?.content) ? result.content : [], stop_reason: typeof result?.stop_reason === 'string' ? result.stop_reason : null, remaining: Math.max(0, limit - used.skies) });
 }

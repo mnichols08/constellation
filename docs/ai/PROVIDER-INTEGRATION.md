@@ -1,6 +1,6 @@
 # Provider integration guide
 
-Constellation does not require an AI provider, and the core never knows one exists. One optional adapter ships, for Claude ([`src/ai/providers/anthropic.mjs`](../../src/ai/providers/anthropic.mjs), used by [hosted Claude](HOSTED-AI.md) and by visitors who bring their own key); it is a worked example of everything below. To let another language model author a [`ConstellationSpec`](../constellation-spec.md), write one small adapter. Everything else (tools, validation, repair, limits, the Studio flow) is already provider-neutral.
+Constellation does not require an AI provider, and the core never knows one exists. Two optional adapters ship: one for Claude ([`src/ai/providers/anthropic.mjs`](../../src/ai/providers/anthropic.mjs)) and one for the chat-completions format that OpenAI, OpenRouter, Groq, Ollama and many others serve ([`src/ai/providers/openai-compatible.mjs`](../../src/ai/providers/openai-compatible.mjs)). Both are used by the [hosted reader](HOSTED-AI.md) and by visitors who bring their own model, and both are worked examples of everything below. To let another language model author a [`ConstellationSpec`](../constellation-spec.md), write one small adapter. Everything else (tools, validation, repair, limits, the Studio flow) is already provider-neutral.
 
 ## The adapter interface
 
@@ -137,3 +137,21 @@ Fixtures for valid, malformed, unsupported, self-correcting, never-valid and hos
 - [ ] `signal` cancels the request.
 - [ ] Errors thrown by `generate` are not logged or displayed verbatim.
 - [ ] The flow passes with `createScriptedModel` in your CI.
+
+## The chat-completions adapter
+
+```js
+import { createOpenAICompatibleModel, directChatTransport } from '@constellation/spec/ai/openai-compatible';
+
+const adapter = createOpenAICompatibleModel({
+  name: 'my model',
+  send: directChatTransport({ baseUrl: 'https://openrouter.ai/api/v1', model: 'vendor/model-name', apiKey }),
+});
+```
+
+- The address must be https, or http to `localhost` for a model on the same computer. Addresses carrying sign-in details or a query are refused.
+- The request holds `model`, `messages` and `tools` and nothing else, so it works across services that disagree on optional settings.
+- Calling a service from a web page only works if that service allows it. Public reports disagree about which do, and it can change, so nothing here assumes it: a refused call is reported as `ModelUnavailable` with reason `blocked`. A server-side caller, such as the hosted function, is not affected.
+- A local model must be told to trust the page's address (for Ollama, the `OLLAMA_ORIGINS` setting).
+- The model must support tool calls. One that does not will answer in words, and the flow reports that it made no plan.
+
