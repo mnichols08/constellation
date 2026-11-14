@@ -32,6 +32,7 @@ import {
   scanTechStack,
   githubTransport,
   renderTechStackHTML,
+  renderTechStackSVG,
   registerSpecHost,
 } from "../packages/core/src/core-api.mjs";
 import { loadConfig } from "./config.mjs";
@@ -187,17 +188,22 @@ async function main() {
     throw new Error(
       `Could not load the Rust engine: ${engineError?.message}. Restore the core package WASM or run npm run build:rust and npm run build:core.`,
     );
-  if (values["tech-stack"]) {
+  // The Action passes its inputs through the environment.
+  if (values["tech-stack"] || process.env.CONSTELLATION_TECH_STACK === "true") {
     if (!token) throw new Error("--tech-stack needs GH_TOKEN or GITHUB_TOKEN: it reads a file from every public repository.");
     const login = username(values.username || process.env.CONSTELLATION_USERNAME);
+    const output = values.output || process.env.CONSTELLATION_OUTPUT || `dist/${login}-tech-stack.html`;
+    if (/[\r\n]/.test(output)) throw new Error("Invalid output path.");
+    // An .svg name asks for the README image; anything else is the interactive page.
+    const svg = /\.svg$/i.test(output);
     const fetchWithToken = (url, init = {}) => fetch(url, { ...init, redirect: "error", headers: { ...init.headers, Authorization: `Bearer ${token}` } });
     const scan = await scanTechStack(login, {
       transport: githubTransport(fetchWithToken),
       onProgress: ({ stage, done, total }) => console.error(`${stage} ${done}/${total}`),
     });
-    const output = values.output || `dist/${login}-tech-stack.html`;
-    if (/[\r\n]/.test(output)) throw new Error("Invalid output path.");
-    await writeArtifactAtomically(output, renderTechStackHTML(scan), "html");
+    await writeArtifactAtomically(output, svg ? renderTechStackSVG(scan) : renderTechStackHTML(scan), svg ? "svg" : "html");
+    if (process.env.GITHUB_OUTPUT)
+      await appendFile(process.env.GITHUB_OUTPUT, `${svg ? "svg" : "html"}=${output}\n`);
     console.log(`Generated ${output} from ${scan.records.length} repositories.`);
     return;
   }

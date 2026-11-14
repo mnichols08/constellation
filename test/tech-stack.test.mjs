@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyManifests } from '../src/tech-stack/catalog.mjs';
 import { scanTechStack, techStackQuery, TechStackRateLimit, TechStackTransient, githubTransport } from '../src/tech-stack/scan.mjs';
-import { coverageNotes, createTechStackScene, renderTechStackHTML, techStackModel } from '../src/tech-stack/scene.mjs';
+import { coverageNotes, createTechStackScene, renderTechStackHTML, renderTechStackSVG, techStackModel } from '../src/tech-stack/scene.mjs';
+import { validatePublicationArtifact } from '../src/publication-integrity.mjs';
+import { readFile } from 'node:fs/promises';
 import { createEngine } from '../src/app/engine.mjs';
 
 const repo = (name, overrides = {}) => ({
@@ -242,6 +244,34 @@ test('the standalone page escapes account data and carries no credentials', asyn
   assert.match(html, /Declared, not proven used/);
   assert.ok(!html.includes('<img src=x'));
   assert.ok(!/Bearer|gh[pousr]_/.test(html));
+});
+
+test('the README image is a publishable, self-describing SVG that carries no credentials', async () => {
+  const repositories = [repo('a'), repo('b'), repo('c'), repo('d', { description: '<img src=x onerror=alert(1)>' })];
+  const scan = await scanOf(repositories);
+  const svg = renderTechStackSVG(scan);
+  // The same checks the Action applies before it publishes to a README.
+  assert.doesNotThrow(() => validatePublicationArtifact(Buffer.from(svg), { format: 'svg', filename: 'tech-stack.svg' }));
+  assert.match(svg, /<title id="title">Tech stack across acme<\/title>/);
+  assert.match(svg, /<desc id="tech-stack-description">Languages and technologies declared across 4 of 4 public repositories for acme\./);
+  assert.match(svg, /Most common: [^<]*React \(4\)/);
+  assert.match(svg, /class="tech-stack-caption"[^>]*>4 of 4 public repositories · declared in manifests, not proof of use<\/text>/);
+  assert.ok(svg.includes('React') && svg.includes('Express'));
+  assert.ok(!/<script|onerror|<img|Bearer|gh[pousr]_/.test(svg));
+  assert.equal(renderTechStackSVG(scan), svg, 'the image is reproducible');
+  // A scan cut short says so on the image itself.
+  const partial = renderTechStackSVG({ ...scan, coverage: { ...scan.coverage, stopped: 'rate-limit' } });
+  assert.match(partial, /4 of 4 public repositories \(partial scan\) · declared in manifests/);
+  await assert.rejects(async () => renderTechStackSVG(await scanOf([repo('empty', { languages: { edges: [] }, primaryLanguage: null, tree: { entries: [] } })])), /No languages or technologies/);
+});
+
+test('the Action and CLI expose the tech stack image without a new secret', async () => {
+  const action = await readFile(new URL('../action.yml', import.meta.url), 'utf8');
+  assert.match(action, /\n  tech-stack:\n    description: [^\n]+\n    default: 'false'/);
+  assert.match(action, /CONSTELLATION_TECH_STACK: \$\{\{ inputs\.tech-stack \}\}/);
+  const cli = await readFile(new URL('../src/cli.mjs', import.meta.url), 'utf8');
+  assert.match(cli, /process\.env\.CONSTELLATION_TECH_STACK === "true"/);
+  assert.match(cli, /svg \? renderTechStackSVG\(scan\) : renderTechStackHTML\(scan\)/);
 });
 
 test('the Studio refuses to scan without sign-in, and sends nothing', async () => {

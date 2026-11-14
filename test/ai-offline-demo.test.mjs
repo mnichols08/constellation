@@ -48,7 +48,8 @@ test('offline demo page renders through <constellation-view> with no external re
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
   const origin = `http://127.0.0.1:${server.address().port}`;
   const { evaluate, waitFor, errors } = await openBrowser(t, `${origin}/examples/ai-offline-demo.html`);
-  await waitFor(`['ready','error'].includes(document.documentElement.dataset.demo)`);
+  // The first poll can run before the document exists.
+  await waitFor(`['ready','error'].includes(document.documentElement?.dataset?.demo)`);
   assert.equal(await evaluate(`document.documentElement.dataset.demo`), 'ready', await evaluate(`document.getElementById('status').textContent`));
   assert.equal(await evaluate(`document.querySelector('constellation-view').shadowRoot.querySelectorAll('.star[data-repo]').length`), demoRecords.length);
   assert.equal(await evaluate(`document.querySelectorAll('#steps li').length`), 6);

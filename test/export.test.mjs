@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderWorkflow, readmeSnippet, projectUrl, installationLinks } from '../src/export.mjs';
+import { renderWorkflow, renderTechStackWorkflow, readmeSnippet, projectUrl, installationLinks, ACTION_REF } from '../src/export.mjs';
 import { renderConstellation } from '../src/constellation.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -21,7 +21,7 @@ test('workflow round-trips every setting and arbitrary CSS into the generator', 
   const restored = await loadConfig(undefined, block.split('\n').map(line => line.slice(12)).join('\n'));
   assert.deepEqual(restored, options);
   assert.ok(!block.includes('${{'));
-  assert.match(yaml, /uses: mnichols08\/constellation@v3/);
+  assert.match(yaml, /uses: mnichols08\/constellation@v5/);
   assert.match(yaml, /cron: '17 6 \* \* \*'/);
   assert.match(yaml, /publish: 'true'/);
   assert.ok(!yaml.includes('git push'));
@@ -92,3 +92,30 @@ test('inline config rejects ambiguous or invalid inputs while file CSS still res
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('tech stack workflow publishes a daily README image through the current action tag', () => {
+  const yaml = renderTechStackWorkflow('https://github.com/Octo-Sky');
+  assert.equal(ACTION_REF, 'v5');
+  assert.match(yaml, /uses: mnichols08\/constellation@v5\n        with:\n          username: 'Octo-Sky'\n          tech-stack: 'true'\n          publish: 'true'\n          output: 'tech-stack\.svg'\n          output-branch: 'output'\n$/);
+  assert.match(yaml, /name: Daily tech stack map/);
+  assert.match(yaml, /permissions:\n  contents: write/);
+  // No design settings, tokens or secrets are written into the file.
+  assert.ok(!/config-json|secrets\.|token/i.test(yaml));
+  // It shares the constellation workflow's concurrency group, so two publishes never race on the output branch.
+  assert.match(yaml, /group: constellation-output-\$\{\{ github\.repository \}\}/);
+  assert.match(renderWorkflow('octocat', {}), /group: constellation-output-\$\{\{ github\.repository \}\}/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { filename: '../x.svg' }), /safe \.svg filename/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { branch: 'a..b' }), /safe output branch/);
+  assert.throws(() => renderTechStackWorkflow("o'; rm -rf"), /username/i);
+
+  const links = installationLinks('octo-sky/octo-sky', yaml, 'tech-stack.yml');
+  assert.equal(new URL(links.install).searchParams.get('filename'), '.github/workflows/tech-stack.yml');
+  assert.equal(new URL(links.install).searchParams.get('value'), yaml);
+  assert.equal(links.actions, 'https://github.com/octo-sky/octo-sky/actions/workflows/tech-stack.yml');
+  assert.equal(new URL(installationLinks('octo-sky/octo-sky', yaml).install).searchParams.get('filename'), '.github/workflows/constellation.yml');
+  assert.throws(() => installationLinks('octo-sky/octo-sky', yaml, '../evil.yml'), /simple \.yml/);
+  const snippet = readmeSnippet('octo-sky', 'octo-sky/octo-sky', 'tech-stack.svg', 'tech stack');
+  assert.match(snippet, /^\[!\[octo-sky tech stack\]\(https:\/\/raw\.githubusercontent\.com\/octo-sky\/octo-sky\/output\/tech-stack\.svg\)\]/);
+  assert.match(readmeSnippet('octo-sky'), /^\[!\[octo-sky GitHub constellation\]/);
+});
+

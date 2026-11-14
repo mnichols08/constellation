@@ -8,6 +8,8 @@ The root `action.yml` is the Marketplace entry point. No npm publication is requ
 4. Point the `v1` tag to the tested release commit for compatible version 1 updates. Inspect the existing remote tag first; use an explicit force-with-lease when updating it. Do not move version tags such as `v1.0.0`. Do not attach a release to the moving `v1` tag.
 5. Check that `mnichols08/constellation@v1` resolves to the intended commit and run a profile workflow. Verify its published SVG and job summary.
 
+The current major tag is `v5`. The Studio's generated workflows, the README and `ACTION_REF` in `src/export.mjs` all reference it, so move `v5` to each tested 5.x release (step 4) or README users stay on an older version.
+
 For breaking changes, create a new major tag and update the studio and README examples deliberately. Users on `v1` must continue receiving compatible behavior.
 
 For 2.0.0, keep `v1` on the tested v1.9.3 commit and create `v2` at the tested v2.0.0 commit. Rebuild `packages/core` with `npm run build:core` after Rust/JS changes, and verify isolated package tests. Include the v6 migration guide and stable extension API policy in the release notes. The root Action description is the Marketplace listing metadata; Marketplace publication still requires the release-editor opt-in described above.

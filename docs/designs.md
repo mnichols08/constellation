@@ -157,11 +157,11 @@ All profiles keep attribution and existing collision-aware labels. PNG download 
 Use separate config files and output paths; no dashboard is needed:
 
 ```yaml
-- uses: mnichols08/constellation@v1
+- uses: mnichols08/constellation@v5
   with:
     config: examples/deep-space.json
     output: constellation-all.svg
-- uses: mnichols08/constellation@v1
+- uses: mnichols08/constellation@v5
   with:
     config: constellation-rust.json
     output: constellation-rust.svg

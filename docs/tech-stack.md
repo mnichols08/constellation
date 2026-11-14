@@ -29,11 +29,37 @@ Public, non-fork, non-empty repositories, using their default branch.
 
 **Declared doesn't mean used.** Some entries are starter-kit defaults: Create React App installs Testing Library, for example. **Counts aren't quality.** They count repositories, not people, and an unfinished project counts the same as a finished one. The map reports what it couldn't read, and says when GitHub's request limit stopped a scan early.
 
+## Put it on a GitHub profile
+
+A README can't run a sign-in, so the profile version is a workflow. GitHub redraws the map every day with the repository's own access and saves it as an image.
+
+1. Map an account in the Studio, then scroll to **Add it to a GitHub profile**.
+2. Check the **Repository for the workflow** (usually `YOUR_USERNAME/YOUR_USERNAME`; for an organization, its `.github` repository) and press **Create the file on GitHub**. Commit the file at `.github/workflows/tech-stack.yml`.
+3. On the repository's **Actions** page, run **Daily tech stack map** once.
+4. Paste the README snippet from the same section into your README.
+
+Or write the step yourself:
+
+```yaml
+- uses: mnichols08/constellation@v5
+  with:
+    tech-stack: 'true'
+    publish: 'true'
+    output: tech-stack.svg
+```
+
+`tech-stack` ignores `config`, `config-json`, `story` and `target-width`: the map is drawn from what the repositories declare, not from a design. The image's title, description and caption say how many repositories were counted, flag a partial scan, and state that manifests declare technologies without proving use. Your Studio sign-in is never written into the workflow. It can run beside a constellation workflow; both publish to the same `output` branch and never at the same moment.
+
+The image is static. For hover details and the full tables, use **Download interactive page**. **Download image (SVG)** saves a one-time image without a workflow.
+
 ## From the command line
 
 ```sh
 GH_TOKEN=... node src/cli.mjs --tech-stack --username chingu-voyages --output chingu-tech-stack.html
+GH_TOKEN=... node src/cli.mjs --tech-stack --username chingu-voyages --output chingu-tech-stack.svg
 ```
+
+An output name ending in `.svg` writes the README image; any other name writes the interactive page.
 
 A token is required. It is used only for requests to GitHub and never written to the page.
 

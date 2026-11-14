@@ -216,3 +216,50 @@ test('signing out locks the view again and removes the map', async ({ page, gith
   await expect(locked.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible();
   await expect(locked.locator('.star')).toHaveCount(0);
 });
+
+test('a finished map can go on a GitHub profile: workflow link, README snippet and an image', async ({ page, github }) => {
+  void github;
+  await stubScan(page);
+  await openStudio(page);
+  const dialog = await signInThroughGate(page);
+  await dialog.getByRole('button', { name: 'Map tech stack' }).click();
+  const section = dialog.locator('.tech-stack-profile');
+  await expect(section.getByRole('heading', { name: 'Add it to a GitHub profile' })).toBeVisible();
+  await expect(section.getByText('Your sign-in is not used or stored.')).toBeVisible();
+
+  // The link opens GitHub's new-file editor with the workflow filled in.
+  const create = section.getByRole('link', { name: 'Create the file on GitHub' });
+  const href = new URL(await create.getAttribute('href'));
+  expect(href.origin + href.pathname).toBe('https://github.com/sky-org/sky-org/new/HEAD');
+  expect(href.searchParams.get('filename')).toBe('.github/workflows/tech-stack.yml');
+  const yaml = href.searchParams.get('value');
+  expect(yaml).toContain("uses: mnichols08/constellation@v5");
+  expect(yaml).toContain("username: 'sky-org'");
+  expect(yaml).toContain("tech-stack: 'true'");
+  // The viewer's sign-in never leaves the tab.
+  expect(yaml).not.toContain(TOKEN);
+  await expect(section.getByRole('region', { name: 'README snippet' })).toContainText('raw.githubusercontent.com/sky-org/sky-org/output/tech-stack.svg');
+
+  // Another repository updates both; a bad one explains itself and removes the link.
+  await section.getByLabel('Repository for the workflow').fill('sky-org/.github');
+  await expect(create).toHaveAttribute('href', /github\.com\/sky-org\/\.github\/new\/HEAD/);
+  await expect(section.getByRole('region', { name: 'README snippet' })).toContainText('sky-org/.github/output/tech-stack.svg');
+  await section.getByLabel('Repository for the workflow').fill('not a repository');
+  await expect(section.getByRole('alert')).toHaveText('Enter the workflow repository as owner/repository.');
+  await expect(create).toBeHidden();
+  await section.getByLabel('Repository for the workflow').fill('sky-org/sky-org');
+  await expect(create).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+
+  const download = page.waitForEvent('download');
+  await section.getByRole('button', { name: 'Download image (SVG)' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('sky-org-tech-stack.svg');
+  const svg = await (await import('node:fs/promises')).readFile(await file.path(), 'utf8');
+  expect(svg).toContain('<title id="title">Tech stack across sky-org</title>');
+  expect(svg).not.toContain(TOKEN);
+  // Still its own sheet: no design change, nothing to undo.
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+});
+

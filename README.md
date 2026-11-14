@@ -32,11 +32,13 @@ Pass `--config settings.json` to use a settings file saved from the Studio (**Ge
 The workflow that **Add it to your GitHub profile** creates runs this repository's Action. You can also write your own:
 
 ```yaml
-- uses: mnichols08/constellation@v1
+- uses: mnichols08/constellation@v5
   with:
     config: constellation.json
     output: constellation.svg
 ```
+
+`@v5` follows the newest version 5 release. To publish a [tech stack map](docs/tech-stack.md#put-it-on-a-github-profile) instead, use `tech-stack: 'true'` with `output: tech-stack.svg`.
 
 See [Publishing](docs/publishing.md) and [Designs and configuration](docs/designs.md#multiple-images).
 

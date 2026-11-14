@@ -37,11 +37,11 @@ test('legacy configs and encoded share links preserve manual/hidden and new sett
 
 test('workflow migration changes the major reference and preserves generated config', () => {
   const options = { animate: false, css: '.heading::after { content: "\\\\"; }' };
-  const old = renderWorkflow(null, options).replace('@v3', '@v1.9.3').replace('"version": 7', '"version": 1');
+  const old = renderWorkflow(null, options).replace('@v5', '@v1.9.3').replace('"version": 7', '"version": 1');
   // Legacy generated workflows were unversioned and permitted trusted CSS.
   const unversioned = old.replace(/,\n\s*"version": 1/, '');
   const migrated = migrateWorkflow(unversioned);
-  assert.match(migrated, /constellation@v3/);
+  assert.match(migrated, /constellation@v5/);
   const block = migrated.split('config-json: |\n')[1];
   const config = JSON.parse(block);
   assert.equal(config.version, 7);

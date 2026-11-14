@@ -22,12 +22,12 @@ test('stable v3 contracts migrate v6 data without changing SVG output', async ()
   assert.equal(renderSceneSVG(before), renderSceneSVG(after));
   assert.equal(renderScene(after), renderSceneSVG(after));
   assert.match(renderScene(after, { renderer: htmlRenderer }), /^<!doctype html>/);
-  const workflow = renderWorkflow('fixture', fixture.options).replace('@v3', '@v2').replace('"version": 7', '"version": 6');
+  const workflow = renderWorkflow('fixture', fixture.options).replace('@v5', '@v2').replace('"version": 7', '"version": 6');
   const output = migrateWorkflow(workflow);
-  assert.match(output, /constellation@v3/); assert.match(output, /"version": 7/);
+  assert.match(output, /constellation@v5/); assert.match(output, /"version": 7/);
   assert.equal(migrateWorkflow(output), output);
   assert.throws(() => migrateWorkflow('uses: mnichols08/constellation@v2-custom'), /Expected/);
-  assert.match(migrateWorkflow("uses: 'mnichols08/constellation@v2'"), /@v3'/);
+  assert.match(migrateWorkflow("uses: 'mnichols08/constellation@v2'"), /@v5'/);
   assert.throws(() => parseConfig({ version: 8, account: 'fixture', options: {} }), /Unsupported/);
 });
 

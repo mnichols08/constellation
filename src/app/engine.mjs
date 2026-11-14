@@ -235,6 +235,12 @@ export function createEngine({
       return renderTechStackHTML(scan);
     },
 
+    /** The static image a README can show. */
+    async techStackImage(scan) {
+      const { renderTechStackSVG } = await import('../tech-stack/scene.mjs');
+      return renderTechStackSVG(scan);
+    },
+
     /** A message when public requests are paused, else null. */
     rateLimitMessage() {
       const limit = previewFetch.requestCache?.publicRateLimit?.();
