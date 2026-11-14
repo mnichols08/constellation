@@ -444,7 +444,7 @@ dialog.sheet::backdrop { background: rgb(8 12 36 / .55); backdrop-filter: blur(3
    goes home), so the logo and the Get it icon give way and gaps tighten. */
 @media (max-width: 560px) {
   /* No room for it beside the account name; it leads the Layout tab here instead. */
-  .topbar-tech-stack { display: none; }
+  .topbar-tech-stack, .topbar-describe { display: none; }
   .topbar { gap: 2px; padding: 0 6px; }
   .topbar .brand { display: none; }
   .topbar-account { max-width: none; min-height: var(--target); line-height: calc(var(--target) - 2px); padding: 0 8px; }

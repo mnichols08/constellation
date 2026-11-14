@@ -1,0 +1,24 @@
+/* Describe your sky. Tokens come from app.css. */
+.describe-form { display: grid; gap: var(--space-2); }
+.describe-form .textarea { min-height: 96px; resize: vertical; }
+.describe-examples { display: grid; gap: var(--space-2); }
+.describe-examples h3, .describe-plan dt { font-size: 13px; font-weight: 650; letter-spacing: .02em; color: var(--text-3); }
+/* Section headings sit a step above the labels inside the plan. */
+[data-dialog="describe"] .sheet-body section > h3 { font-size: 16px; font-weight: 650; }
+.describe-examples ul { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.describe-example { justify-content: flex-start; text-align: left; width: 100%; min-height: var(--target); font-weight: 500; }
+.describe-status:empty { display: none; }
+.describe-busy { color: var(--text-2); }
+.describe-asked { margin: 0; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--border-strong); background: var(--surface-2); border-radius: var(--radius-s); overflow-wrap: anywhere; }
+.describe-caveat { font-size: 13px; color: var(--text-2); }
+.describe-current { display: grid; gap: var(--space-3); justify-items: start; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-s); }
+.describe-current .describe-plan { justify-self: stretch; }
+.describe-plan { display: grid; gap: var(--space-3); margin: var(--space-2) 0 0; }
+.describe-plan dd { margin: 2px 0 0; display: grid; gap: var(--space-2); }
+.describe-plan p { margin: 0; overflow-wrap: anywhere; }
+.describe-projects { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; font-size: 14px; }
+.describe-projects li { overflow-wrap: anywhere; }
+.describe-why, .describe-more { color: var(--text-3); }
+.describe-more { list-style: none; margin-left: -1.1em; }
+.describe-changes, .describe-notes { margin: var(--space-2) 0 0; padding-left: 1.1em; display: grid; gap: var(--space-1, 4px); }
+.describe-notes { margin-top: 0; }
