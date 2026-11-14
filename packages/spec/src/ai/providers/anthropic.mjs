@@ -12,7 +12,7 @@ export const ANTHROPIC = Object.freeze({
   url: 'https://api.anthropic.com/v1/messages',
   version: '2023-06-01',
   model: 'claude-haiku-5-5',
-  maxTokens: 4096,
+  maxTokens: 8000,
 });
 
 /** Thrown when a transport cannot be used right now; `reason` says why. */

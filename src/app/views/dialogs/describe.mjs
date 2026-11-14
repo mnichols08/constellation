@@ -31,15 +31,17 @@ export function createDescribeDialog(ctx) {
   let failure = null;
   let outcome = null;
   let suggested = false;
+  let said = '';   // The reader's own words when it gave no plan. Shown as plain text.
   let readersOpen = false;
   let keyError = null;
 
-  const reset = () => { pending?.abort(); pending = null; step = 'ask'; failure = null; outcome = null; };
+  const reset = () => { pending?.abort(); pending = null; step = 'ask'; failure = null; said = ''; outcome = null; };
 
   async function submit(input, intent = 'describe') {
     text = input.value;
     suggested = intent === 'suggest';
     failure = null;
+    said = '';
     pending = new AbortController();
     const { signal } = pending;
     ctx.refreshDialog();
@@ -54,7 +56,7 @@ export function createDescribeDialog(ctx) {
     if (signal.aborted) return;
     pending = null;
     if (result.ok) { outcome = result; step = 'plan'; announce('Plan ready. Check it, then apply.'); }
-    else { failure = result.sentence; if (result.readers) readersOpen = true; announce(failure); }
+    else { failure = result.sentence; said = result.said || ''; if (result.readers) readersOpen = true; announce(failure); }
     ctx.refreshDialog();
   }
 
@@ -148,7 +150,7 @@ export function createDescribeDialog(ctx) {
           h('p', { text: 'Not sure what to ask for? Get a plan made for someone skimming your profile, such as a recruiter: your main and current work first.' }),
           h('button', { class: 'btn', type: 'button', disabled: Boolean(pending), onclick: () => { if (!pending) submit(input, 'suggest'); } }, icon('sparkle', { size: 18 }), 'Decide for me')),
         h('div', { class: 'describe-status', role: 'status' }, pending ? h('p', { class: 'describe-busy', text: suggested ? 'Looking at your projects and choosing a plan…' : 'Reading your description and checking it against your projects…' }) : null),
-        failure ? h('div', { class: 'notice', role: 'alert', dataset: { tone: 'error' } }, icon('info', { size: 18 }), h('p', { text: failure })) : null,
+        failure ? h('div', { class: 'notice', role: 'alert', dataset: { tone: 'error' } }, icon('info', { size: 18 }), h('div', {}, h('p', { text: failure }), said ? h('p', { class: 'describe-said', text: `It said: “${said}”` }) : null)) : null,
         readersSection(),
       ],
       foot: [

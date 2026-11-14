@@ -412,7 +412,7 @@ export function startStudio({ win = window, doc = document } = {}) {
           if (why === 'key') ownKeyModel = null;
           return { ok: false, sentence: `${result.error.message} Nothing was changed.`, reason: why, readers: true };
         }
-        if (!result.ok) return { ok: false, sentence: describeFailure(result), reason: result.reason };
+        if (!result.ok) return { ok: false, sentence: describeFailure(result), reason: result.reason, ...(result.said ? { said: result.said } : {}) };
         return { ok: true, compiled: result.compiled, plan: describePlan(result.compiled, { previousSpec: options.constellationSpec }) };
       } finally {
         specEngine.destroy();
