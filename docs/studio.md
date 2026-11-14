@@ -46,6 +46,9 @@ design." with a **Start fresh** button. Reloading the page reopens the same
 account and draft.
 
 A share link carries its own design, so opening one never touches your draft.
+The same is true of the link around a published README image, which opens the
+design that profile's workflow last drew. See
+[Publishing](publishing.md#the-picture-opens-the-studio).
 
 ## The map
 
@@ -328,6 +331,9 @@ from** (All public projects or Pinned projects), **Highlight recent activity**,
 
 - Opening a public account without signing in makes two requests from your
   browser: the account's profile and one page of up to 100 public projects.
+- Opening the link around a published README image makes one more request,
+  without your sign-in: the design file that profile's workflow published, read
+  from `raw.githubusercontent.com`.
 - When you are signed in, opening an account also reads each project's
   language details ("Reading project details…"). Pinned projects and recent
   activity are read only for the settings that use them.

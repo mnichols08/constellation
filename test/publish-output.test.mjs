@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { publishOutput, publicationSummary } from '../scripts/publish-output.mjs';
+import { parseConfig } from '../src/config-schema.mjs';
 
 const validSvg = label => `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" role="img" aria-labelledby="title description"><title id="title">${label}</title><desc id="description">Project constellation</desc></svg>`;
 
@@ -13,7 +14,11 @@ test('publication summary links to the actual branch and published basename', ()
   assert.match(summary, /https:\/\/raw\.githubusercontent\.com\/octocat\/octocat\/images\/daily\/custom\.svg/);
   assert.ok(!summary.includes('dist/'));
   assert.ok(summary.includes('```md\n[![My GitHub constellation]'));
-  assert.ok(summary.includes('/custom.svg)](https://github.com/mnichols08/constellation)'));
+  assert.ok(summary.includes('/custom.svg)](https://mnichols08.github.io/constellation/?published=octocat/octocat&image=custom.svg&branch=images/daily)'));
+  assert.ok(summary.includes('[Open this design in the Studio]('));
+  const techStack = publicationSummary({ repository: 'octocat/octocat', file: 'tech-stack.svg', studio: false });
+  assert.ok(techStack.includes('/tech-stack.svg)](https://github.com/mnichols08/constellation)'));
+  assert.ok(!techStack.includes('published='));
   assert.throws(() => publicationSummary({ repository: 'owner/repo\ninjected', file: 'x.svg' }));
 });
 
@@ -174,4 +179,79 @@ test('concurrent refreshes repair a missing manifest without rewriting identical
 
 test('concurrent refreshes repair a corrupt manifest without rewriting identical artifact bytes', async () => {
   await assertConcurrentManifestRepair('corrupt');
+});
+
+test('publishes the design beside the image so the README link can open it, without daily churn', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'constellation-publish-design-'));
+  const remote = join(directory, 'remote.git');
+  const cwd = join(directory, 'source');
+  const git = (args, path = cwd) => execFileSync('git', args, { cwd: path, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  const design = '.constellation/designs/constellation.json';
+  const publish = (extra) => publishOutput({ cwd, file: 'constellation.svg', repository: 'octocat/octocat', account: 'octocat', configJson: '', configFile: '', ...extra });
+  try {
+    git(['init', '--bare', remote], directory);
+    git(['init', '-b', 'main', cwd], directory);
+    git(['config', 'user.name', 'Test']);
+    git(['config', 'user.email', 'test@example.com']);
+    git(['config', 'commit.gpgsign', 'false']);
+    await writeFile(join(cwd, 'README.md'), 'Source branch');
+    await writeFile(join(cwd, 'settings.json'), JSON.stringify({ version: 7, account: 'someone-else', options: { arrangement: 'rings', maxRepos: 12 } }));
+    git(['add', '.']);
+    git(['commit', '-m', 'Initial source']);
+    git(['remote', 'add', 'origin', remote]);
+    git(['push', 'origin', 'main']);
+    await writeFile(join(cwd, 'constellation.svg'), validSvg('design'));
+
+    assert.equal((await publish({ configJson: '{"arrangement":"solar-system","maxRepos":20}' })).status, 'published');
+    git(['fetch', 'origin', 'output']);
+    const first = parseConfig(git(['show', `FETCH_HEAD:${design}`]));
+    assert.equal(first.account, 'octocat');
+    assert.equal(first.options.arrangement, 'solar-system');
+    assert.equal(first.options.maxRepos, 20);
+    const firstHead = git(['rev-parse', 'FETCH_HEAD']);
+
+    // The same design and image the next day: nothing to commit.
+    assert.equal((await publish({ configJson: '{"arrangement":"solar-system","maxRepos":20}' })).status, 'skipped');
+    git(['fetch', 'origin', 'output']);
+    assert.equal(git(['rev-parse', 'FETCH_HEAD']), firstHead);
+
+    // A changed design is published even when the image bytes happen to match,
+    // and a settings file works like inline settings. The account is the one
+    // the workflow drew, not one named inside the file.
+    assert.equal((await publish({ configFile: 'settings.json' })).status, 'published');
+    git(['fetch', 'origin', 'output']);
+    const second = parseConfig(git(['show', `FETCH_HEAD:${design}`]));
+    assert.equal(second.account, 'octocat');
+    assert.equal(second.options.arrangement, 'rings');
+    assert.equal(git(['show', 'FETCH_HEAD:constellation.svg']), validSvg('design'));
+
+    // A tech stack map has no design; an unreadable one never blocks the image.
+    await writeFile(join(cwd, 'tech-stack.svg'), validSvg('stack'));
+    assert.equal((await publish({ file: 'tech-stack.svg', techStack: true })).status, 'published');
+    await writeFile(join(cwd, 'broken.svg'), validSvg('broken'));
+    assert.equal((await publish({ file: 'broken.svg', configJson: '{not json' })).status, 'published');
+    git(['fetch', 'origin', 'output']);
+    assert.equal(git(['ls-tree', '-r', '--name-only', 'FETCH_HEAD', '.constellation/designs/']), design);
+
+    // A link planted where the design goes is replaced, never followed.
+    await rm(join(cwd, 'constellation.svg'));
+    await rm(join(cwd, 'tech-stack.svg'));
+    await rm(join(cwd, 'broken.svg'));
+    git(['switch', '-c', 'plant', 'FETCH_HEAD']);
+    await rm(join(cwd, '.constellation/designs'), { recursive: true });
+    await mkdir(join(directory, 'outside'));
+    await symlink(join(directory, 'outside'), join(cwd, '.constellation/designs'));
+    git(['add', '-A', '.constellation']);
+    git(['commit', '-m', 'Plant a link']);
+    git(['push', 'origin', 'HEAD:output']);
+    git(['switch', 'main']);
+    await writeFile(join(cwd, 'constellation.svg'), validSvg('design'));
+    assert.equal((await publish({ configFile: 'settings.json' })).status, 'published');
+    git(['fetch', 'origin', 'output']);
+    assert.equal(git(['ls-tree', '-r', '--name-only', 'FETCH_HEAD', '.constellation/designs/']), design);
+    assert.equal(parseConfig(git(['show', `FETCH_HEAD:${design}`])).options.arrangement, 'rings');
+    assert.deepEqual(execFileSync('ls', ['-A', join(directory, 'outside')], { encoding: 'utf8' }), '');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

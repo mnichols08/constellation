@@ -5,7 +5,7 @@
 
 import { h, icon, announce } from '../../dom.mjs';
 import { downloadBlob } from '../../../export-image.mjs';
-import { renderTechStackWorkflow, installationLinks, readmeSnippet } from '../../../export.mjs';
+import { renderTechStackWorkflow, installationLinks, readmeSnippet, projectUrl } from '../../../export.mjs';
 
 const WHY = 'Mapping a tech stack reads a file from every public repository, so it uses your own GitHub sign-in and your own request limit.';
 const PRIVACY = 'Your sign-in stays in this tab only. It is never saved, shared, or put in your map. Only public repositories are read.';
@@ -275,7 +275,8 @@ export function createTechStackDialog(ctx) {
       try {
         yaml = renderTechStackWorkflow(scan.login, { filename: file, style: style.value, featured });
         const links = installationLinks(repository.value, yaml, 'tech-stack.yml');
-        snippet = readmeSnippet(scan.login, repository.value, file, 'tech stack');
+        // A tech stack image has no design to open in the Studio.
+        snippet = readmeSnippet(scan.login, repository.value, file, 'tech stack', { link: projectUrl });
         create.href = links.install;
         create.hidden = false;
         problem.hidden = true;

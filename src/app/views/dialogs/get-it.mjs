@@ -320,6 +320,7 @@ export function createGetItDialog(ctx) {
         h('li', {}, h('div', { class: 'get-it-li' },
           h('h4', { text: where }),
           snippet.element,
+          h('p', { class: 'field-help', text: 'Clicking the picture on your profile opens this design here, so visitors can explore it.' }),
           h('p', { class: 'field-help', text: 'The last line credits the tool that made your picture. Keep it if you like, or delete it.' }),
           editReadme,
           h('p', { class: 'field-help', text: 'Paste it anywhere, for example at the top.' }))),

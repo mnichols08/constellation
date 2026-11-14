@@ -1,5 +1,7 @@
 import { username } from './constellation.mjs';
 import { CONFIG_VERSION, normalizeConfig } from './config-schema.mjs';
+import { publishedDesignLink } from './published-design.mjs';
+import { PUBLIC_STUDIO_URL } from './share-link.mjs';
 
 export const projectUrl = 'https://github.com/mnichols08/constellation';
 /** The moving major tag README workflows follow. Move it to each compatible release. */
@@ -26,14 +28,21 @@ export function installationLinks(repository, workflow, file = 'constellation.ym
   };
 }
 
-export function readmeSnippet(account, repository, filename = 'constellation.svg', label = 'GitHub constellation') {
+/**
+ * Markdown for a README: the published image, linked to the Studio so a click
+ * opens the design the workflow last published and a visitor can explore it.
+ * Pass `link` to send the click somewhere else (an image with no design to open).
+ */
+export function readmeSnippet(account, repository, filename = 'constellation.svg', label = 'GitHub constellation', { link } = {}) {
   const name = account ? username(account) : 'My';
-  const target = repository?.trim() || (account ? `${username(account)}/${username(account)}` : 'YOUR_USERNAME/YOUR_REPOSITORY');
-  if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(target) && target !== 'YOUR_USERNAME/YOUR_REPOSITORY') throw new Error('Enter the workflow repository as owner/repository.');
+  const placeholder = 'YOUR_USERNAME/YOUR_REPOSITORY';
+  const target = repository?.trim() || (account ? `${username(account)}/${username(account)}` : placeholder);
+  if (!/^[a-z\d][a-z\d-]*\/[a-z\d_.-]+$/i.test(target) && target !== placeholder) throw new Error('Enter the workflow repository as owner/repository.');
   if (!/^[a-z\d][a-z\d._-]{0,120}\.svg$/i.test(filename)) throw new Error('Use a safe .svg filename for a GitHub README image.');
   const path = target.split('/').map(encodeURIComponent).join('/');
   const image = `https://raw.githubusercontent.com/${path}/output/${encodeURIComponent(filename)}`;
-  return `[![${name} ${label}](${image})](${projectUrl})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
+  const opens = link || (target === placeholder ? `${PUBLIC_STUDIO_URL}?published=${placeholder}` : publishedDesignLink(target, { filename, account }));
+  return `[![${name} ${label}](${image})](${opens})\n\nMade with [GitHub Constellation](${projectUrl}) by [@mnichols08](https://github.com/mnichols08).`;
 }
 
 export function renderWorkflow(_account, options, publishing = {}) {

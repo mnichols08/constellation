@@ -20,13 +20,32 @@ Your published design lives in the workflow file in your profile repository (`.g
 
 1. **Add this file to your profile repository.** The **Repository** field suggests `you/you` for a person or `org/.github` for an organization; any `owner/name` works. **Create the file on GitHub** opens GitHub's new-file page with `.github/workflows/constellation.yml` filled in. If the repository doesn't exist yet, use the **Create it on GitHub** link under the field first. Very large designs can't be filled in through a link; the dialog says so, and you copy the file with **Copy the file** and add it on GitHub yourself. **Show the file** lets you review it.
 2. **Run it once.** **Open the Actions page**, choose **Daily constellation**, then **Run workflow**.
-3. **Paste this into your README.** Copy the Markdown image snippet into the README.
+3. **Paste this into your README.** Copy the Markdown image snippet into the README. The picture is wrapped in a link that [opens your design in the Studio](#the-picture-opens-the-studio).
 
 Nothing is published until the workflow runs. The workflow has `contents: write` so it can update its output branch; it uses the repository's automatic `GITHUB_TOKEN`, with no personal access token. The Studio does not check whether the workflow was installed or ran: look at the repository's Actions run for the verified result.
 
 The workflow checks out the repository, loads the embedded normalized configuration, fetches the evidence needed by that configuration, generates a temporary SVG, validates it, then updates the output branch. Concurrent runs are serialized per repository. Existing files on the output branch are preserved. The publisher never force-pushes.
 
 When the validated SVG bytes match the existing artifact, the run skips the publication commit and reports **unchanged**. It does not strip dates or metadata to manufacture no-op results: any resulting byte change is published. A failed fetch, generation, validation, filesystem operation, or push stops before replacing the current output. The workflow summary reports failure; the previous output branch artifact remains available.
+
+### The picture opens the Studio
+
+An image in a README can't be interactive, so the snippet wraps it in a link to the Studio:
+
+```md
+[![you GitHub constellation](https://raw.githubusercontent.com/you/you/output/constellation.svg)](https://mnichols08.github.io/constellation/?published=you/you)
+```
+
+Someone who clicks the picture lands in the Studio with your design drawn from your current public projects. They can click a star to read why it is there, zoom, and try other looks. Nothing they change affects your profile.
+
+How it works:
+
+- Each run publishes the settings it drew with next to the image, at `.constellation/designs/constellation.json` on the output branch (the file is named after the image, so `alice-sky.svg` gets `alice-sky.json`). It is the same content as **Save the settings file**, with the account the workflow drew. A run whose image and settings are both unchanged still creates no commit.
+- The link names the repository, not the design. Change the workflow and the link opens the new design after the next run; the README stays as it is.
+- The Studio reads that one file from `raw.githubusercontent.com` without signing in, limits it to 250 KB and validates it like any settings file. If it is missing (the workflow hasn't run since this was added, or the repository is private) or invalid, the Studio opens the account's standard sky and says so.
+- The link adds `&image=name.svg` for an image not named `constellation.svg`, `&branch=name` for an output branch other than `output`, and `&user=account` when the image shows an account other than the repository's owner.
+
+READMEs pasted before this was added keep their old link to the project. Copy the snippet again from **Get it**, or from the summary of any workflow run, to switch. Tech stack images have no design and link to the project. A Profile Story image links to the design it was built from.
 
 ### Profile Story inputs
 
@@ -44,7 +63,9 @@ Upload the file yourself. The Studio cannot see your host, so open the page once
 
 On the output branch, `.constellation/publication-manifest.json` is an internal sidecar (it is not part of Scene v1). Version 1 records source repository and commit when available, selected account, configuration and evidence digests when available, UTC reference date, artifact format/name/SHA-256/size, destination, revision, generation result, and bounded diagnostics. It contains no credentials or source contents. Missing evidence identity remains unknown; it is never interpreted as proof that the source is unchanged.
 
-Publication comparison uses the actual artifact digest. An unchanged artifact creates no commit even if the workflow source commit or run date changed. Volatile fields are not removed from output; if they change the artifact bytes, the artifact is published. If the artifact is unchanged but its sidecar is missing, corrupt, or does not describe those bytes, the publisher repairs the sidecar without rewriting the artifact; the next identical run is a no-op. A malformed new artifact is rejected before the output branch is touched.
+Next to the manifest, `.constellation/designs/<image name>.json` holds the settings each image was drawn with (config v7, up to 250 KB, no credentials or repository data), so [the README link can open the design](#the-picture-opens-the-studio). It is written only when it differs from the published copy, and is skipped without failing the run when the settings can't be written down.
+
+Publication comparison uses the actual artifact digest. An unchanged artifact creates no commit even if the workflow source commit or run date changed, unless the published settings changed. Volatile fields are not removed from output; if they change the artifact bytes, the artifact is published. If the artifact is unchanged but its sidecar is missing, corrupt, or does not describe those bytes, the publisher repairs the sidecar without rewriting the artifact; the next identical run is a no-op. A malformed new artifact is rejected before the output branch is touched.
 
 ## Limits
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **The picture on your profile is a way in.** Clicking a published README image now opens that design in the Studio, where a visitor can click stars, zoom and read why each project is there. The README snippet links to `?published=owner/repository`; the daily workflow publishes the settings it drew with next to the image (`.constellation/designs/<image>.json` on the output branch), and the Studio reads that file. The link names the repository, not the design, so a README pasted once keeps opening the current design after you change the workflow. If no design can be read, the account's standard sky opens instead. [Guide](docs/publishing.md#the-picture-opens-the-studio)
+- Existing READMEs keep working and keep their old link. Paste the new snippet from **Get it** → **Add it to your GitHub profile**, or from the workflow run's summary, to make the picture open the Studio. Workflows on `@v5` start publishing the design file on their next run after the release, with no change to the workflow.
+- Tech stack images have no design to open and keep linking to the project.
+- Tests: link building and parsing, hostile links, bounded anonymous fetching, publisher behaviour (no daily churn, planted links, tech stack, unreadable settings) and two Playwright journeys.
+
 ## 5.5.0 — Describe your sky
 
 - **Describe it in words.** **Describe** in the top bar, or **Describe your sky** in the **Layout** tab, lets you say what you want ("Put my Rust projects near the centre and old experiments on the outskirts"). You get a plan first: what sits at the centre, each group with the projects that matched and why, and what the lines mean. **Apply** is one Undo step; closing changes nothing. A follow-up revises the plan and lists what changes. [Guide](docs/studio.md#describe-your-sky)

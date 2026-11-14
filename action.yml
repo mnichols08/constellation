@@ -80,6 +80,7 @@ runs:
         CONSTELLATION_USERNAME: ${{ inputs.username }}
         CONSTELLATION_CONFIG: ${{ inputs.config }}
         CONSTELLATION_CONFIG_JSON: ${{ inputs.config-json }}
+        CONSTELLATION_TECH_STACK: ${{ inputs.tech-stack }}
         CONSTELLATION_EVIDENCE_DIGEST: ${{ steps.generate.outputs.evidence-digest }}
       run: node "$CONSTELLATION_ACTION_PATH/scripts/publish-output.mjs"
     - name: Report failed refresh

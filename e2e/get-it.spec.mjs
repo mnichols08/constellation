@@ -155,6 +155,53 @@ test.describe('Get your map', () => {
     await expect.poll(() => mapSvg(page)).toBe(original);
   });
 
+  test('the README image link opens the published design in the Studio', async ({ page, github, baseURL }) => {
+    await page.clock.setFixedTime(new Date('2026-10-01T12:00:00Z'));
+    await openStudio(page);
+    await page.getByRole('button', { name: 'Shuffle' }).click();
+    await expect.poll(() => page.evaluate(() => document.querySelector('[data-map]').shadowRoot.querySelector('svg') !== null)).toBe(true);
+    const dialog = await openGetIt(page);
+    // The snippet wraps the image in a link to the Studio, naming the repository.
+    await choose(dialog, 'Add it to your GitHub profile');
+    const snippet = await dialog.getByRole('region', { name: 'README snippet' }).textContent();
+    const link = /\]\((https:\/\/[^)]*published=[^)]*)\)/.exec(snippet)?.[1];
+    expect(new URL(link).search).toBe('?published=octo-sky/octo-sky');
+    await dialog.getByRole('button', { name: 'Back' }).click();
+    // The workflow publishes the same settings the settings file holds.
+    await choose(dialog, 'Save the settings file');
+    const file = await download(page, () => dialog.getByRole('button', { name: 'Download settings file' }).click());
+    await page.keyboard.press('Escape');
+    const original = await mapSvg(page);
+
+    const requests = [];
+    await page.route('https://raw.githubusercontent.com/**', (route) => {
+      requests.push({ url: route.request().url(), headers: route.request().headers() });
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: file.body });
+    });
+    await page.goto(new URL(new URL(link).search, `${baseURL}/`).href);
+    await expect(page.getByRole('heading', { name: 'The sky of @octo-sky' })).toBeAttached();
+    await expect.poll(() => mapSvg(page)).toBe(original);
+    await expect(page.getByText('This is the sky on @octo-sky’s profile. Click a star to see why it’s there.')).toBeVisible();
+    expect(requests.map((request) => request.url)).toEqual(['https://raw.githubusercontent.com/octo-sky/octo-sky/output/.constellation/designs/constellation.json']);
+    expect(requests[0].headers.authorization).toBeUndefined();
+    // The address settles on the Studio's own, so a reload keeps working.
+    expect(new URL(page.url()).search).toBe('?user=octo-sky');
+    await expectPerceptibleScreen(page, { maxControls: 40 });
+    expect(await axeViolations(page)).toEqual([]);
+  });
+
+  test('a README image link still opens the account when no design is published', async ({ page, github, baseURL }) => {
+    await page.route('https://raw.githubusercontent.com/**', (route) => route.fulfill({ status: 404, headers: { 'access-control-allow-origin': '*' }, body: '404: Not Found' }));
+    await page.goto(`${baseURL}/?published=sky-org/.github&user=octo-sky`);
+    await expect(page.getByRole('heading', { name: 'The sky of @octo-sky' })).toBeAttached();
+    await expect(page.locator('[data-map] >> svg').first()).toBeVisible();
+    await expect(page.getByText('We couldn’t read the published design, so this is the standard sky for @octo-sky.')).toBeVisible();
+
+    await page.goto(`${baseURL}/?published=not-a-repository`);
+    await expect(page.getByText('Unable to open this published design link.')).toBeVisible();
+    await expect(page.getByLabel('GitHub username')).toBeVisible();
+  });
+
   test('saves and opens a settings file, and Undo brings the design back', async ({ page, github }) => {
     await openStudio(page);
     const original = await mapSvg(page);
@@ -297,6 +344,8 @@ test.describe('Get your map', () => {
     await expect(problems).toHaveAttribute('href', 'https://github.com/mnichols08/constellation/blob/main/docs/publishing.md');
     await expect(problems).toHaveAttribute('rel', /noopener/);
 
+    // What a click on the published picture does is said before it is pasted.
+    await expect(dialog.getByText('Clicking the picture on your profile opens this design here, so visitors can explore it.')).toBeVisible();
     // The credit line is explained, not hidden.
     await expect(dialog.getByText('The last line credits the tool that made your picture. Keep it if you like, or delete it.')).toBeVisible();
     await expect(dialog.getByRole('region', { name: 'README snippet' })).toContainText('Made with [GitHub Constellation]');
