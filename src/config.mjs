@@ -9,6 +9,8 @@ export async function loadConfig(configPath, inlineConfig) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Configuration must be a JSON object.');
   if (inlineConfig && config.cssFile) throw new Error('Inline configuration must embed CSS in css instead of cssFile.');
   if (config.cssFile) config.css = await readFile(resolve(dirname(configPath), config.cssFile), 'utf8');
+  // A saved plan is validated and laid out by the optional spec engine.
+  if ((config.options ?? config).constellationSpec !== undefined) await import('./spec-register.mjs');
   const validation = validateConfig(config);
   if (!validation.valid) throw new Error('Invalid config: ' + validation.errors.map(error => `${error.path}: ${error.message}`).join('; '));
   return config.version === undefined ? config : parseConfig(config).options;

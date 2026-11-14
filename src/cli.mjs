@@ -32,6 +32,7 @@ import {
   scanTechStack,
   githubTransport,
   renderTechStackHTML,
+  registerSpecHost,
 } from "../packages/core/src/core-api.mjs";
 import { loadConfig } from "./config.mjs";
 import {
@@ -255,6 +256,10 @@ async function main() {
     configPath,
     process.env.CONSTELLATION_CONFIG_JSON,
   );
+  // A saved plan needs the optional spec engine. loadConfig validated it; this
+  // connects the same engine to the core build the CLI renders with.
+  if (config.constellationSpec)
+    registerSpecHost((await import("./constellation-spec.mjs")).specHost);
   if (positionals[0] === "validate") {
     if (!configPath && !process.env.CONSTELLATION_CONFIG_JSON)
       throw new Error(
