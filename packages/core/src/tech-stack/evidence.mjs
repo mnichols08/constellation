@@ -71,7 +71,14 @@ export function techStackEvidence(scan, { featured = [] } = {}) {
       examples: best(members),
     };
   };
-  const byWeight = (a, b) => b.current - a.current || b.sustained - a.sustained || b.repositories - a.repositories || a.name.localeCompare(b.name);
+  // A language counts fully where it is a repository's main language, so the
+  // stylesheets beside the real work don't tie with it.
+  const mainOf = new Map();
+  for (const repository of repositories) {
+    const main = repository.record.language;
+    if (main && !isIncidentalLanguage(main)) mainOf.set(main, (mainOf.get(main) || 0) + 1);
+  }
+  const byWeight = (a, b) => b.current - a.current || b.sustained - a.sustained || b.repositories - a.repositories || (b.leads ?? 0) - (a.leads ?? 0) || a.name.localeCompare(b.name);
 
   const members = new Map();
   const add = (key, repository) => { if (!members.has(key)) members.set(key, []); members.get(key).push(repository); };
@@ -83,7 +90,7 @@ export function techStackEvidence(scan, { featured = [] } = {}) {
   const technologies = [...members].map(([key, list]) => {
     const [kind, name] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
     const group = kind === 'language' ? LANGUAGE_GROUP : techGroup(name);
-    return { name, kind, group, color: color.get(group) || '#bcc5d8', role: kind === 'technology' && isToolingTech(name) ? 'tooling' : 'core', ...summary(list) };
+    return { name, kind, group, color: color.get(group) || '#bcc5d8', role: kind === 'technology' && isToolingTech(name) ? 'tooling' : 'core', leads: kind === 'language' ? mainOf.get(name) || 0 : list.length, ...summary(list) };
   }).sort(byWeight);
 
   // Stacks: technologies from the frontend, backend and data layers that are
@@ -120,13 +127,7 @@ export function techStackEvidence(scan, { featured = [] } = {}) {
   const total = repositories.length;
   const recent = repositories.filter((repository) => repository.current).length;
   const starts = repositories.map((repository) => repository.start).filter((value) => value !== null);
-  // The headline names languages that are the main language of a repository,
-  // so stylesheets and markup alongside the real work don't lead.
-  const mainOf = new Map();
-  for (const repository of repositories) {
-    const main = repository.record.language;
-    if (main && !isIncidentalLanguage(main)) mainOf.set(main, (mainOf.get(main) || 0) + 1);
-  }
+  // The headline names only languages that are the main language of a repository.
   const languages = technologies.filter((tech) => tech.kind === 'language' && mainOf.has(tech.name));
   const leading = (languages.some((tech) => tech.current) ? languages.filter((tech) => tech.current) : languages)
     .sort((a, b) => b.current - a.current || mainOf.get(b.name) - mainOf.get(a.name) || byWeight(a, b)).slice(0, 3).map((tech) => tech.name);
