@@ -344,6 +344,8 @@ test.describe('Get your map', () => {
     await expect(problems).toHaveAttribute('href', 'https://github.com/mnichols08/constellation/blob/main/docs/publishing.md');
     await expect(problems).toHaveAttribute('rel', /noopener/);
 
+    // What a click on the published picture does is said before it is pasted.
+    await expect(dialog.getByText('Clicking the picture on your profile opens this design here, so visitors can explore it.')).toBeVisible();
     // The credit line is explained, not hidden.
     await expect(dialog.getByText('The last line credits the tool that made your picture. Keep it if you like, or delete it.')).toBeVisible();
     await expect(dialog.getByRole('region', { name: 'README snippet' })).toContainText('Made with [GitHub Constellation]');
