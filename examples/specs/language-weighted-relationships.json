@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "relationships": [
+    { "basis": "shared_language", "strength": 1 },
+    { "basis": "shared_topic", "strength": 0.3 }
+  ],
+  "layout": { "kind": "web", "cluster_by": ["language"] },
+  "ranking": { "by": "recency", "limit": 12 }
+}

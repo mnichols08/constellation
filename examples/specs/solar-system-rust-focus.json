@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "focus": { "kind": "language", "value": "Rust" },
+  "groups": [
+    { "name": "Experiments", "match": { "role": "experimental" }, "placement": "outer" }
+  ],
+  "relationships": [
+    { "basis": "shared_topic", "strength": 1.0 },
+    { "basis": "shared_language", "strength": 0.6 }
+  ],
+  "layout": { "kind": "radial", "cluster_by": ["topic", "language"] }
+}

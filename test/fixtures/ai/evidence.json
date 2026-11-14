@@ -1,0 +1,20 @@
+{
+  "reference_day": 20400,
+  "repositories": [
+    { "id": "ada/orbit-engine", "languages": { "Rust": 9000, "JavaScript": 1000 }, "topics": ["wasm", "graphics", "systems"], "role": "featured", "stars": 420, "updated_day": 20395, "created_year": 2023 },
+    { "id": "ada/lightbeam", "languages": { "Rust": 5000 }, "topics": ["cli", "systems"], "role": "featured", "stars": 180, "updated_day": 20380, "created_year": 2022 },
+    { "id": "ada/wayfinder", "languages": { "Rust": 3000, "Shell": 200 }, "topics": ["cli", "tools"], "role": "supporting", "stars": 64, "updated_day": 20210, "created_year": 2021 },
+    { "id": "ada/tiny-alloc", "languages": { "Rust": 800 }, "topics": ["systems"], "role": "experimental", "stars": 9, "updated_day": 19300, "created_year": 2020 },
+    { "id": "ada/constellation-ui", "languages": { "TypeScript": 7000, "CSS": 1500, "HTML": 500 }, "topics": ["web", "graphics", "design-system"], "role": "featured", "stars": 310, "updated_day": 20399, "created_year": 2024 },
+    { "id": "ada/little-notes", "languages": { "TypeScript": 4000, "CSS": 600 }, "topics": ["web", "tools"], "role": "supporting", "stars": 41, "updated_day": 20100, "created_year": 2022 },
+    { "id": "ada/palette", "languages": { "TypeScript": 1200, "CSS": 900 }, "topics": ["web", "design-system"], "stars": 15, "updated_day": 19900, "created_year": 2021 },
+    { "id": "ada/weekend-synth", "languages": { "JavaScript": 2500, "HTML": 300 }, "topics": ["audio", "creative-coding"], "role": "experimental", "stars": 22, "updated_day": 19500, "created_year": 2019 },
+    { "id": "ada/tiny-worlds", "languages": { "JavaScript": 3100 }, "topics": ["creative-coding", "graphics"], "role": "experimental", "stars": 57, "updated_day": 19750, "created_year": 2020 },
+    { "id": "ada/stargazer", "languages": { "Python": 6000 }, "topics": ["data", "astronomy"], "role": "supporting", "stars": 96, "updated_day": 20290, "created_year": 2021 },
+    { "id": "ada/field-notes", "languages": { "Python": 2000, "Jupyter Notebook": 4000 }, "topics": ["data"], "stars": 12, "updated_day": 19100, "created_year": 2018 },
+    { "id": "ada/moonrise", "languages": { "Python": 900 }, "topics": ["astronomy"], "role": "historical", "stars": 3, "updated_day": 17800, "created_year": 2016, "archived": true },
+    { "id": "ada/dotfiles", "languages": { "Shell": 700 }, "topics": [], "stars": 5, "updated_day": 20350, "created_year": 2015 },
+    { "id": "ada/old-blog", "language": "HTML", "topics": ["web"], "role": "historical", "stars": 1, "updated_day": 17000, "created_year": 2014, "archived": true, "fork": false },
+    { "id": "ada/forked-linter", "languages": { "Go": 5000 }, "topics": ["tools"], "stars": 0, "updated_day": 19000, "created_year": 2019, "fork": true }
+  ]
+}

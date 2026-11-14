@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "focus": { "kind": "language", "value": "Rust" },
+  "layout": { "kind": "radial", "cluster_by": ["language"] },
+  "ranking": { "by": "stars" },
+  "style": { "orbit_shape": "round", "motion": "gentle" }
+}
