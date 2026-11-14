@@ -124,3 +124,14 @@ Write the JSON yourself and pass it to `createConstellationEngine(...).compileSp
 | `examples/specs/`, `examples/ai-offline-demo.*` | examples and the offline demo |
 
 Design decisions are recorded in [ADR-0001](../architecture/decisions/ADR-0001-AI-SEMANTIC-BOUNDARY.md) and [ADR-0010](../architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md).
+
+## Readers that ship
+
+The flow above is the same whoever proposes the spec. Four ways exist today:
+
+- the built-in phrase matcher (no model, no network);
+- Claude through the site's function, for signed-in visitors ([Hosted Claude](HOSTED-AI.md));
+- Claude with the visitor's own key, sent from their browser;
+- the visitor's own assistant through the local [MCP server](../mcp.md), which calls the same engine tools.
+
+Provider code lives only in `src/ai/providers/`. Keys never enter the engine, a spec, a configuration, a scene, an export or an event. See [ADR-0011](../architecture/decisions/ADR-0011-HOSTED-AI-AND-MCP.md).

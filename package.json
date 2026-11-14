@@ -23,6 +23,7 @@
     "benchmark:portfolio": "node scripts/benchmark-portfolio-artifact.mjs",
     "generate": "node src/cli.mjs",
     "test": "node --test --test-concurrency=1",
+    "mcp": "node mcp/server.mjs",
     "preview": "node scripts/serve.mjs",
     "generate:profile": "node scripts/generate-profile.mjs"
   },

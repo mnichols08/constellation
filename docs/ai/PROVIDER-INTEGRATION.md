@@ -1,6 +1,6 @@
 # Provider integration guide
 
-Constellation does not ship, require or prefer any AI provider. To let a language model author a [`ConstellationSpec`](../constellation-spec.md), write one small adapter. Everything else (tools, validation, repair, limits, the Studio flow) is already provider-neutral.
+Constellation does not require an AI provider, and the core never knows one exists. One optional adapter ships, for Claude ([`src/ai/providers/anthropic.mjs`](../../src/ai/providers/anthropic.mjs), used by [hosted Claude](HOSTED-AI.md) and by visitors who bring their own key); it is a worked example of everything below. To let another language model author a [`ConstellationSpec`](../constellation-spec.md), write one small adapter. Everything else (tools, validation, repair, limits, the Studio flow) is already provider-neutral.
 
 ## The adapter interface
 

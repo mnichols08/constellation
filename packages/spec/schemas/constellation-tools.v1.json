@@ -2,6 +2,15 @@
   "spec_schema": "https://mnichols08.github.io/constellation/schemas/constellation-spec.v1.schema.json",
   "tools": [
     {
+      "description": "Start here. One bounded snapshot of the account: how many repositories, how recently they were updated, the developer's own curated roles, the most used languages and topics, and the most starred and most recently updated repositories. Counts of public metadata only; it does not measure skill.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "portfolio_overview"
+    },
+    {
       "description": "List the languages present in the loaded repositories, with how many repositories use each. Call before naming a language.",
       "input_schema": {
         "additionalProperties": false,

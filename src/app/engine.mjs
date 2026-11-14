@@ -103,6 +103,7 @@ export function createEngine({
     fetchImpl: previewFetch,
     fetchPinned: createPinnedFetch({ proxyBase, fetchImpl, session, localAuth }),
   });
+  const provider = () => import('../ai/providers/anthropic.mjs');
   const clientId = meta('constellation-oauth-client');
   const exchangeUrl = meta('constellation-oauth-exchange');
   // GitHub sends people back only to the app's registered callback, and the
@@ -119,6 +120,11 @@ export function createEngine({
     storage: sessionStore,
   });
   const local = win ? ['localhost', '127.0.0.1'].includes(win.location.hostname) : false;
+  // The hosted reader answers only the registered address, like sign-in, so a
+  // copy served elsewhere never contacts it. A local preview may point at a
+  // path on itself for testing.
+  const aiMeta = meta('constellation-ai');
+  const aiEndpoint = /^https:\/\//.test(aiMeta) ? (registered && atRegistered ? aiMeta : '') : local && aiMeta.startsWith('/') ? new URL(aiMeta, win.location.origin).href : '';
   const loadedAt = new Map();
 
   function activityInputs(account, repositories, options, generatedAt, sample) {
@@ -157,6 +163,34 @@ export function createEngine({
         oauth.cancel();
         session.signOut();
         previewFetch.requestCache?.clear();
+      },
+    },
+
+    /**
+     * Optional readers for 'Describe your sky'. The GitHub sign-in stays in
+     * here; callers get an adapter, never a credential.
+     */
+    ai: {
+      /** True when this deployment names a hosted endpoint at all. */
+      configured: Boolean(aiEndpoint),
+      /** The hosted reader needs a real GitHub sign-in to prove who is asking. */
+      get signedIn() { return Boolean(session.token); },
+      /** Whether the hosted reader is switched on. Never throws. */
+      async status({ signal } = {}) {
+        if (!aiEndpoint) return { available: false };
+        try {
+          const { hostedStatus } = await provider();
+          return await hostedStatus({ endpoint: aiEndpoint, getToken: () => session.token, fetchImpl, signal });
+        } catch { return { available: false }; }
+      },
+      async hosted() {
+        const { createAnthropicModel, hostedTransport } = await provider();
+        return createAnthropicModel({ name: 'Claude Haiku', send: hostedTransport({ endpoint: aiEndpoint, getToken: () => session.token, fetchImpl }) });
+      },
+      /** A reader that uses the visitor's own key. Throws a friendly error for a key that cannot be one. */
+      async withKey(apiKey) {
+        const { createAnthropicModel, directTransport } = await provider();
+        return createAnthropicModel({ name: 'Claude Haiku, with your key', send: directTransport({ apiKey, fetchImpl }) });
       },
     },
 

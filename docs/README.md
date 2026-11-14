@@ -40,6 +40,8 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | Render or validate data from JavaScript/Node | [Core API](core-api.md) |
 | Describe a constellation as intent and let Rust compile it | [ConstellationSpec](constellation-spec.md) · [examples](../examples/specs) |
 | Connect a language model, or run the flow with none | [Provider integration](ai/PROVIDER-INTEGRATION.md) · [Offline demo](../examples/ai-offline-demo.html) |
+| Build a sky from Claude Desktop, Claude Code or another assistant | [MCP server](mcp.md) |
+| Offer Claude to signed-in visitors, or switch it off | [Hosted Claude](ai/HOSTED-AI.md) |
 | Load JSON sources or transform data | [Data pipeline](data-pipeline.md) |
 | Add a theme, layout, or extension | [Extension authoring](extension-authoring.md) |
 | Understand scene structure and rendering | [Scene API](scene-api.md) · [Renderer API](renderer-api.md) · [Layout API](layout-api.md) |
@@ -54,7 +56,7 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | Recruiter evidence derivation and ordering | [Recruiter Evidence v1](recruiter-evidence.md) |
 | Tests and quality checks | [Testing and quality](engineering/TESTING-AND-QUALITY.md) · [Studio budgets and usability procedure](guided-experience-evaluation.md) |
 | Performance limits | [Performance budgets](engineering/PERFORMANCE-BUDGETS.md) |
-| AI-assisted interpretation | [Architecture and trust boundary](ai/AI-ARCHITECTURE.md) · [ADR-0010: spec engine](architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md) · [Design notes](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
+| AI-assisted interpretation | [Architecture and trust boundary](ai/AI-ARCHITECTURE.md) · [ADR-0010: spec engine](architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md) · [ADR-0011: hosted Claude and MCP](architecture/decisions/ADR-0011-HOSTED-AI-AND-MCP.md) · [Design notes](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
 | Planned work | [Roadmap](ROADMAP.md) |
 
 ## More guides

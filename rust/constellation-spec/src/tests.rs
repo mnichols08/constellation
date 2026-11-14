@@ -507,6 +507,33 @@ fn discovery_tools_return_bounded_results_with_stable_ids() {
 }
 
 #[test]
+fn portfolio_overview_is_a_bounded_snapshot_of_evidence_not_a_judgement() {
+    let engine = Engine::new(&evidence_json()).unwrap();
+    let overview = engine.call_tool("portfolio_overview", "{}");
+    assert_eq!(overview["ok"], true);
+    assert_eq!(overview["repositories"], json!({"total":15,"archived":2,"forks":1}));
+    assert_eq!(overview["updated"], json!({"within_90_days":4,"within_a_year":3,"over_a_year_ago":8,"unknown":0}));
+    assert_eq!(overview["roles"][0], json!({"role":"featured","repositories":3,"examples":["ada/constellation-ui","ada/lightbeam","ada/orbit-engine"]}));
+    assert_eq!(overview["roles_source"], "declared");
+    assert_eq!(overview["languages"][0], json!({"name":"Rust","repositories":4}));
+    assert_eq!(overview["most_starred"][0]["id"], "ada/orbit-engine");
+    assert_eq!(overview["most_recently_updated"][0]["id"], "ada/constellation-ui");
+    assert!(overview["most_starred"].as_array().unwrap().len() <= 8 && overview["languages"].as_array().unwrap().len() <= 10);
+    // Apart from the note that says so, nothing in the data reads as an assessment.
+    let mut data = overview.clone();
+    data.as_object_mut().unwrap().remove("note");
+    let text = data.to_string().to_lowercase();
+    for judgement in ["senior", "expert", "score", "rating", "best", "strong", "skill"] {
+        assert!(!text.contains(judgement), "overview makes a judgement: {judgement}");
+    }
+    assert_eq!(engine.call_tool("portfolio_overview", "{}"), overview);
+    // Large and empty accounts stay bounded and valid.
+    let big = json!({"repositories": (0..2000).map(|i| json!({"id": format!("o/r{i:04}"), "languages": {"Rust": 1}, "topics": [format!("t{}", i % 40)], "stars": i})).collect::<Vec<_>>()}).to_string();
+    assert!(Engine::new(&big).unwrap().portfolio_overview().to_string().len() < 8000);
+    assert_eq!(Engine::new(r#"{"repositories":[]}"#).unwrap().portfolio_overview()["repositories"]["total"], 0);
+}
+
+#[test]
 fn preview_and_validate_cover_zero_match_ambiguous_and_oversized_requests() {
     let engine = Engine::new(&evidence_json()).unwrap();
     let before = (engine.edge_pairs(), engine.summary());
@@ -559,8 +586,8 @@ fn tool_definitions_are_provider_neutral_and_aligned_with_the_engine() {
         assert!(!text.contains(vendor), "tool definitions mention {vendor}");
     }
     // Parameters reuse the spec's own definitions rather than restating them.
-    assert_eq!(tools[2]["input_schema"]["$defs"]["filter"], spec_schema()["$defs"]["filter"]);
-    assert_eq!(tools[5]["input_schema"]["properties"]["spec"]["$ref"], spec_schema()["$id"]);
+    assert_eq!(tools[3]["input_schema"]["$defs"]["filter"], spec_schema()["$defs"]["filter"]);
+    assert_eq!(tools[6]["input_schema"]["properties"]["spec"]["$ref"], spec_schema()["$id"]);
 }
 
 // ------------------------------------------------------------- schema (#28)
@@ -791,7 +818,7 @@ fn fuzz_raw_bytes_and_truncated_documents_never_panic() {
 fn fuzz_tools_and_evidence_never_panic_and_always_answer_with_a_verdict() {
     let engine = Engine::new(&evidence_json()).unwrap();
     let mut rng = Rng(0xA076_1D64_78BD_642F);
-    let names = ["list_languages", "list_topics", "find_repositories", "describe_repository", "preview_group", "validate_spec", "compile_spec", "", "eval", "__proto__"];
+    let names = ["portfolio_overview", "list_languages", "list_topics", "find_repositories", "describe_repository", "preview_group", "validate_spec", "compile_spec", "", "eval", "__proto__"];
     for _ in 0..3000 {
         let arguments = match rng.below(4) {
             0 => arbitrary(&mut rng, 4),

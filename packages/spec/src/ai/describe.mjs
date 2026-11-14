@@ -35,7 +35,17 @@ export const SYSTEM_PROMPT = [
   'Use the discovery tools to learn which languages, topics and repositories actually exist before naming them. Do not guess.',
   `When ready, call ${SUBMIT_TOOL} with the complete spec. If it is rejected you receive diagnostics with a code, a path and allowed values; fix exactly those and submit again.`,
   'If a current spec is given, revise it: keep everything the person did not ask to change.',
+  'Start with portfolio_overview. A profile is usually read by someone deciding in under a minute whether to look closer, so make what matters easy to find:',
+  '- put the work the developer marked featured nearest the centre; if nothing is marked, use what is most starred and recently updated;',
+  '- use at most three groups, with plain names;',
+  '- move archived, forked or long-untouched work outward instead of hiding it;',
+  '- when there are more than about 20 repositories, set ranking.limit between 12 and 20;',
+  '- connect by shared topics when the account uses topics, otherwise by shared languages.',
+  'Use only what the tools report. Never state or imply skill, seniority, quality or fit for a job: you arrange evidence, you do not judge a person.',
 ].join('\n');
+
+/** What the model is asked when the person lets it decide. */
+export const SUGGEST_PROMPT = 'Decide for me. Look at my repositories and choose the arrangement that helps someone reading my profile, such as a recruiter, see my most relevant and current work first.';
 
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const clip = (value, max) => (value.length > max ? `${value.slice(0, max)}…` : value);
@@ -78,6 +88,7 @@ function normalizeTurn(turn) {
  *   the result is `{ toolCalls?: [{ id, name, arguments }], spec?: object, text?: string }`.
  * @param {object} input.engine A `createConstellationEngine()` instance.
  * @param {string} input.prompt What the person asked for.
+ * @param {'describe'|'suggest'} [input.intent] `suggest` ignores `prompt` and asks the model to decide.
  * @param {object} [input.currentSpec] The validated spec to revise, for follow-up requests.
  * @param {object} [input.canvas] `{ compact, round }` presentation facts for the preview.
  * @param {object} [input.toolDefinitions] Defaults to `engine.toolDefinitions()`.
@@ -87,7 +98,7 @@ function normalizeTurn(turn) {
  * @returns {Promise<object>} `{ ok: true, spec, compiled, repairs, toolCalls }` or
  *   `{ ok: false, reason, message, diagnostics, repairs, toolCalls }`.
  */
-export async function describeConstellation({ adapter, engine, prompt, currentSpec, canvas, toolDefinitions, limits = {}, signal, onEvent } = {}) {
+export async function describeConstellation({ adapter, engine, prompt, intent = 'describe', currentSpec, canvas, toolDefinitions, limits = {}, signal, onEvent } = {}) {
   const limit = { ...AI_LIMITS };
   for (const [key, value] of Object.entries(limits)) {
     // Callers may tighten limits, never remove them.
@@ -102,13 +113,15 @@ export async function describeConstellation({ adapter, engine, prompt, currentSp
   };
   if (typeof adapter?.generate !== 'function') return fail('no_adapter', 'No model adapter is available.');
   if (typeof engine?.callTool !== 'function' || typeof engine?.compileSpec !== 'function') return fail('no_engine', 'A ConstellationEngine is required.');
-  const request = typeof prompt === 'string' ? prompt.trim() : '';
+  // 'suggest' needs no words from the person: the model is asked to decide.
+  const suggest = intent === 'suggest';
+  const request = suggest ? SUGGEST_PROMPT : typeof prompt === 'string' ? prompt.trim() : '';
   if (!request) return fail('invalid_prompt', 'Describe the constellation you want.');
   if (request.length > limit.maxPromptLength) return fail('invalid_prompt', `Descriptions can be at most ${limit.maxPromptLength} characters.`);
 
   const tools = modelTools(toolDefinitions ?? engine.toolDefinitions());
   const allowed = new Set(tools.map((tool) => tool.name));
-  const messages = [{ role: 'user', content: request, ...(object(currentSpec) ? { currentSpec: structuredClone(currentSpec) } : {}) }];
+  const messages = [{ role: 'user', content: request, ...(suggest ? { intent: 'suggest' } : {}), ...(object(currentSpec) && !suggest ? { currentSpec: structuredClone(currentSpec) } : {}) }];
 
   for (let turn = 0; turn < limit.maxTurns; turn += 1) {
     if (signal?.aborted) return fail('aborted', 'The request was cancelled.');

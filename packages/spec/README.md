@@ -177,7 +177,7 @@ The lines drawn on the map come from the existing connection settings above. The
 
 ## Tools
 
-[`schemas/constellation-tools.v1.json`](../schemas/constellation-tools.v1.json) describes the engine's operations as provider-neutral tool definitions (`name`, `description`, `input_schema`): `list_languages`, `list_topics`, `find_repositories`, `describe_repository`, `preview_group`, `validate_spec`, `compile_spec`. All are read-only and bounded: lists return at most 200 names, searches at most 50 repositories, and every result says whether it was `truncated`.
+[`schemas/constellation-tools.v1.json`](../schemas/constellation-tools.v1.json) describes the engine's operations as provider-neutral tool definitions (`name`, `description`, `input_schema`): `portfolio_overview`, `list_languages`, `list_topics`, `find_repositories`, `describe_repository`, `preview_group`, `validate_spec`, `compile_spec`. All are read-only and bounded: lists return at most 200 names, searches at most 50 repositories, and every result says whether it was `truncated`. `portfolio_overview` is the place to start: one snapshot of counts, recency, declared roles, top languages and topics, and the most starred and most recently updated repositories. It reports what exists, not skill.
 
 Both schema files and `src/constellation-spec-schema.mjs` are generated from the Rust validator's own vocabularies and limits. Run `npm run build:schema` after changing them; the test suite fails when a checked-in copy is stale.
 

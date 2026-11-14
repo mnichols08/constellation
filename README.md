@@ -56,7 +56,8 @@ Public exploration works without signing in and makes two GitHub requests per ac
 - **Organization maps:** explore public organization repositories. [Guide](docs/organizations.md)
 - **Tech stack maps:** sign in with GitHub to see which frameworks and services an account's repositories declare, and which are used together. [Guide](docs/tech-stack.md)
 - **History and activity:** repository commits or limited recent public activity. These are partial signals, not a complete contribution calendar. [History](docs/history.md)
-- **Describe it in words:** say what you want to see, check the plan, then apply it. Works offline with no AI; a language model is optional and never draws the map. [How it works](docs/ai/AI-ARCHITECTURE.md) · [Spec reference](docs/constellation-spec.md) · [Offline demo](examples/ai-offline-demo.html)
+- **Describe it in words, or let it decide:** say what you want to see, or ask for a plan made for someone skimming your profile. Check the plan, then apply it. Works offline with no AI; Claude can read it after GitHub sign-in or with your own key, and never draws the map. [How it works](docs/ai/AI-ARCHITECTURE.md)
+- **Use your own assistant:** a local [MCP server](docs/mcp.md) lets Claude Desktop, Claude Code and other assistants load your repositories, plan a sky, draw it and write the README workflow. · [Spec reference](docs/constellation-spec.md) · [Offline demo](examples/ai-offline-demo.html)
 - **Interactive exports:** an offline HTML file or framework-free web component. [HTML](docs/interactive-html.md) · [Web component](docs/web-component.md)
 
 ## Run locally

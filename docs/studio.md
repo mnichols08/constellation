@@ -148,12 +148,31 @@ working on a described map, and a star you move by hand stays where you put it.
 The plan is a reading of your words, not a statement about your work. Which
 projects match comes from their public details and from roles you set yourself.
 
-Descriptions are read in your browser by a built-in phrase matcher. It is not an
-AI model and understands a small set of words: centre, outskirts, experiments,
-recent, similar, topics, languages, and the names of your languages and topics.
-Nothing you type is sent anywhere. Sites that host their own copy of the Studio
-can connect a language model; see
-[Provider integration](ai/PROVIDER-INTEGRATION.md). Either way, the model only
+Not sure what to ask for? **Decide for me** makes a plan for someone skimming
+your profile, such as a recruiter: your main and current work first, older work
+further out, and a readable number of projects. You check it the same way.
+
+**Who reads this, and other ways** shows who reads your words and lets you
+change it:
+
+- **A built-in phrase matcher** by default. It is not an AI model and
+  understands a small set of words: centre, outskirts, experiments, recent,
+  similar, topics, languages, and the names of your languages and topics.
+  Nothing you type is sent anywhere.
+- **Claude, after you sign in with GitHub,** when the site offers it: a set
+  number of requests a day (10 on the main Studio), with no key needed.
+- **Claude, with your own Anthropic API key.** The key stays in the tab, is
+  sent only to Anthropic, and is forgotten when you reload.
+- **Your own assistant.** Connect Claude Desktop, Claude Code or another
+  assistant to the [MCP server](mcp.md) and let it build your sky.
+
+When Claude reads a description it receives your words and the public details
+of the projects it looks up (names, descriptions, languages, topics, stars and
+dates). If the site's Claude is switched off or you have used the day's
+requests, the sheet says so and the other ways still work. Sites that host
+their own copy can connect a different model; see
+[Provider integration](ai/PROVIDER-INTEGRATION.md) and
+[Hosted Claude](ai/HOSTED-AI.md). Either way, the model only
 proposes a plan. Checking it and drawing the map are done by the same engine as
 everything else. See [how it works](ai/AI-ARCHITECTURE.md).
 
