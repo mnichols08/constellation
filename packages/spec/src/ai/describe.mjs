@@ -33,6 +33,7 @@ export const SYSTEM_PROMPT = [
   'A ConstellationSpec states intent only: what to focus on, which groups exist, what relates repositories, and the kind of layout.',
   'Never include coordinates, sizes, colours, code or styles. The engine computes all geometry.',
   'Use the discovery tools to learn which languages, topics and repositories actually exist before naming them. Do not guess.',
+  `Always finish by calling ${SUBMIT_TOOL} with arguments {"spec": {"schema_version": 1, ...}}. Never answer in prose and never ask a question: nobody can reply. If the request is abstract or about a story ("show that I am moving from X to Y"), choose the closest arrangement: the new direction as the focus, the established work as a named group around it.`,
   `When ready, call ${SUBMIT_TOOL} with the complete spec. If it is rejected you receive diagnostics with a code, a path and allowed values; fix exactly those and submit again.`,
   'If a current spec is given, revise it: keep everything the person did not ask to change.',
   'Start with portfolio_overview. A profile is usually read by someone deciding in under a minute whether to look closer, so make what matters easy to find:',
@@ -64,6 +65,18 @@ export function modelTools(toolDefinitions) {
   }];
 }
 
+const SPEC_KEYS = ['schema_version', 'focus', 'groups', 'relationships', 'layout', 'ranking', 'style'];
+
+// Models hand the spec over in a few shapes: under `spec` as asked, as JSON
+// text, or as the arguments themselves. All are still only a proposal: the
+// engine validates whatever comes out of here.
+function submittedSpec(args) {
+  let spec = args.spec ?? args.constellation_spec ?? args.constellationSpec;
+  if (typeof spec === 'string') { try { spec = JSON.parse(spec); } catch { spec = null; } }
+  if (object(spec)) return spec;
+  return SPEC_KEYS.some((key) => Object.hasOwn(args, key)) ? args : null;
+}
+
 function normalizeTurn(turn) {
   if (!object(turn)) return { toolCalls: [], spec: undefined, malformed: true };
   const calls = Array.isArray(turn.toolCalls) ? turn.toolCalls.filter(object) : [];
@@ -75,8 +88,9 @@ function normalizeTurn(turn) {
   let spec = turn.spec;
   if (typeof spec === 'string') { try { spec = JSON.parse(spec); } catch { spec = null; } }
   const submitted = toolCalls.find((call) => call.name === SUBMIT_TOOL);
-  if (submitted) spec = submitted.arguments.spec ?? null;
-  return { toolCalls: toolCalls.filter((call) => call.name !== SUBMIT_TOOL), spec, submitId: submitted?.id };
+  if (submitted) spec = submittedSpec(submitted.arguments);
+  const text = typeof turn.text === 'string' ? turn.text.replace(/\s+/g, ' ').trim().slice(0, 400) : '';
+  return { toolCalls: toolCalls.filter((call) => call.name !== SUBMIT_TOOL), spec, submitId: submitted?.id, text };
 }
 
 /**
@@ -121,6 +135,7 @@ export async function describeConstellation({ adapter, engine, prompt, intent = 
 
   const tools = modelTools(toolDefinitions ?? engine.toolDefinitions());
   const allowed = new Set(tools.map((tool) => tool.name));
+  let unanswered = '';   // What the model last said when it gave words instead of a spec.
   const messages = [{ role: 'user', content: request, ...(suggest ? { intent: 'suggest' } : {}), ...(object(currentSpec) && !suggest ? { currentSpec: structuredClone(currentSpec) } : {}) }];
 
   for (let turn = 0; turn < limit.maxTurns; turn += 1) {
@@ -155,7 +170,8 @@ export async function describeConstellation({ adapter, engine, prompt, intent = 
     // A final answer: Rust decides whether it is valid. Nothing is applied here.
     const outcome = object(result.spec)
       ? engine.compileSpec(result.spec, canvas)
-      : { ok: false, diagnostics: [{ code: 'missing_field', severity: 'error', path: '', message: `Call ${SUBMIT_TOOL} with a ConstellationSpec object` }] };
+      : { ok: false, diagnostics: [{ code: 'missing_field', severity: 'error', path: '', message: `${result.submitId ? 'The arguments held no spec.' : 'You answered without a tool call.'} Call ${SUBMIT_TOOL} with arguments {"spec": {"schema_version": 1, ...}}` }] };
+    if (!object(result.spec)) unanswered = result.text;
     const diagnostics = Array.isArray(outcome.diagnostics) ? outcome.diagnostics : [];
     emit({ type: 'validation', ok: outcome.ok === true, diagnostics: diagnostics.map(({ code, path, severity }) => ({ code, path, severity })) });
     if (outcome.ok === true) {
@@ -163,7 +179,7 @@ export async function describeConstellation({ adapter, engine, prompt, intent = 
       return { ok: true, spec: outcome.compiled.spec, compiled: outcome.compiled, diagnostics, repairs, toolCalls };
     }
     if (repairs >= limit.maxRepairs) {
-      return fail('repair_limit', `The description could not be turned into a valid plan after ${repairs + 1} attempts.`, diagnostics);
+      return { ...fail('repair_limit', `The description could not be turned into a valid plan after ${repairs + 1} attempts.`, diagnostics), ...(unanswered && !object(result.spec) ? { said: unanswered } : {}) };
     }
     repairs += 1;
     emit({ type: 'repair', attempt: repairs });

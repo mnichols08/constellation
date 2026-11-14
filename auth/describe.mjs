@@ -26,7 +26,8 @@ export const HOSTED_LIMITS = Object.freeze({
   requestBytes: 400_000,
   messages: 64,
   blocksPerMessage: 24,
-  maxTokens: 4096,
+  // Room for the model's thinking as well as the spec.
+  maxTokens: 8000,
 });
 
 const DEFAULT_MODEL = 'claude-haiku-5-5';

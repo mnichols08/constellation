@@ -307,3 +307,41 @@ test('letting it decide works with no model at all, the same way every time', as
   assert.equal(suggestSpec({ repositories: { total: 40 } }).ranking.limit, 16);
   assert.match(SYSTEM_PROMPT, /Never state or imply skill, seniority/);
 });
+
+test('a plan handed over in any of the shapes models use is accepted, and words alone are explained', async () => {
+  const spec = { schema_version: 1, focus: { kind: 'language', value: 'Rust' }, layout: { kind: 'radial' } };
+  const engine = createConstellationEngine(repositories, {});
+  const run = (turns) => {
+    let index = 0;
+    return describeConstellation({ adapter: { generate: async () => turns[Math.min(index++, turns.length - 1)] }, engine, prompt: 'Rust first' });
+  };
+  try {
+    for (const args of [{ spec }, { spec: JSON.stringify(spec) }, spec, { constellation_spec: spec }, { constellationSpec: spec }]) {
+      const result = await run([{ toolCalls: [{ id: 'a', name: 'submit_spec', arguments: args }] }]);
+      assert.equal(result.ok, true, JSON.stringify(args).slice(0, 60));
+      assert.equal(result.repairs, 0);
+      assert.deepEqual(result.spec.focus, spec.focus);
+    }
+    // Still only a proposal: a spec in the wrong shape is validated like any other.
+    const bad = await run([{ toolCalls: [{ id: 'a', name: 'submit_spec', arguments: { schema_version: 1, layout: { kind: 'spiral' } } }] }]);
+    assert.equal(bad.ok, false);
+    assert.equal(bad.diagnostics[0].path, 'layout.kind');
+    // Words instead of a plan: the model is told exactly what to send, and can recover.
+    const seen = [];
+    let turn = 0;
+    const recovered = await describeConstellation({ engine, prompt: 'Rust first', adapter: { generate: async ({ messages }) => { seen.push(messages.at(-1)); return turn++ ? { toolCalls: [{ id: 'b', name: 'submit_spec', arguments: { spec } }] } : { text: 'Which projects matter most to you?' }; } } });
+    assert.equal(recovered.ok, true);
+    assert.match(seen[1].content, /You answered without a tool call\. Call submit_spec with arguments \{\\"spec\\"/);
+    // If it never does, the person reads a plain sentence and what the reader said.
+    const never = await run([{ text: 'I would   need to know\nmore about your goals. ' + 'x'.repeat(600) }]);
+    assert.deepEqual([never.ok, never.reason, never.repairs], [false, 'repair_limit', 2]);
+    assert.ok(never.said.startsWith('I would need to know more about your goals.') && never.said.length === 400);
+    const { describeFailure } = await import('../src/ai/plan.mjs');
+    assert.match(describeFailure(never), /^The reader answered without making a plan\. Try again, or say where things should go, for example:/);
+    assert.ok(!/submit_spec|ConstellationSpec/i.test(describeFailure(never)), 'no internal names in what the person reads');
+    const empty = await run([{ toolCalls: [{ id: 'a', name: 'submit_spec', arguments: {} }] }]);
+    assert.equal(empty.said, undefined);
+  } finally { engine.destroy(); }
+  assert.match(SYSTEM_PROMPT, /Never answer in prose and never ask a question/);
+  assert.match(SYSTEM_PROMPT, /the new direction as the focus, the established work as a named group around it/);
+});

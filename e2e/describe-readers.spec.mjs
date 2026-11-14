@@ -222,3 +222,32 @@ test('switched off between the check and the request: said plainly, then the mat
   await dialog(page).getByRole('button', { name: 'Decide for me' }).click();
   await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
 });
+
+test('Claude hands the plan over in its own shape, or only talks: the first works, the second is explained', async ({ page }) => {
+  let mode = 'bare';
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    // 'bare': the spec is the tool's whole input, with no "spec" wrapper.
+    const content = mode === 'bare' ? [{ type: 'tool_use', id: 'toolu_9', name: 'submit_spec', input: SPEC }] : [{ type: 'text', text: 'Could you tell me which projects matter most?' }];
+    await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ content }) });
+  });
+  await openStudio(page);
+  await openDescribe(page);
+  await toggle(page).click();
+  await readers(page).getByLabel('Use your own Anthropic API key').fill(KEY);
+  await readers(page).getByRole('button', { name: 'Use this key' }).click();
+  const box = dialog(page).getByRole('textbox', { name: 'What would you like to see?' });
+  await box.fill('Make it obvious that I am moving into the Rust/WASM realm but come with a plethora of knowledge in JavaScript');
+  await dialog(page).getByRole('button', { name: 'Show the plan' }).click();
+  await expect(dialog(page).getByRole('heading', { name: 'The plan' })).toBeVisible();
+
+  mode = 'talk';
+  await dialog(page).getByRole('button', { name: 'Change the description' }).click();
+  await dialog(page).getByRole('button', { name: 'Show the plan' }).click();
+  const alert = dialog(page).getByRole('alert').filter({ hasText: 'The reader answered without making a plan.' });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText('for example: “Rust and WebAssembly in the centre, my JavaScript projects around them.”');
+  await expect(alert).toContainText('It said: “Could you tell me which projects matter most?”');
+  await expect(alert).not.toContainText('submit_spec');
+  expect(await axeViolations(page)).toEqual([]);
+});

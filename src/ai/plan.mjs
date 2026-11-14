@@ -134,6 +134,8 @@ export function describeFailure(result) {
     case 'turn_limit': return 'That description took too many steps to work out. Try a shorter one.';
     case 'repair_limit': {
       const first = result.diagnostics?.find((item) => item.severity !== 'warning');
+      // The reader answered in words, or with nothing usable, instead of a plan.
+      if (first?.code === 'missing_field' && first.path === '') return 'The reader answered without making a plan. Try again, or say where things should go, for example: “Rust and WebAssembly in the centre, my JavaScript projects around them.”';
       return `That description could not be turned into a plan${first?.message ? ` (${first.message.toLowerCase()})` : ''}. Try describing it another way.`;
     }
     default: return 'That description could not be turned into a plan. Try describing it another way.';

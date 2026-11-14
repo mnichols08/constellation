@@ -33,3 +33,4 @@
 .describe-reader-option p { margin: 0; overflow-wrap: anywhere; }
 .describe-reader-option .input { width: 100%; }
 .describe-key-error { color: var(--danger, #b42318); }
+.describe-said { margin: var(--space-2) 0 0; color: var(--text-2); overflow-wrap: anywhere; }
