@@ -13,12 +13,29 @@ A large organization can take several minutes. You can cancel at any time, and c
 
 The result stays in the sheet. It doesn't change your design, your undo history or your share links. **Download interactive page** saves a single HTML file you can send to someone, and it contains no sign-in details.
 
+## At a glance
+
+The result opens with a short summary meant for someone who has a minute, such as a recruiter:
+
+- **A headline**: the main languages of current work, and how many repositories were updated in the last year.
+- **Used together**: the frontend, backend and data technologies that are declared in the same repositories, found from the account's own repositories. The largest combination that is still common is shown, up to four.
+- **Where to look**: each leading technology with how many repositories declare it, the years it was active, and one or two repositories that show it, as links.
+- **Testing and build tools** on their own line, so test runners and bundlers don't crowd out the stack.
+
+How the dates and order work:
+
+- **Years** run from when the first repository declaring a technology was created to the last push to any of them. **Now** means one of them was pushed to in the last year; anything else is marked as earlier work and faded on the card.
+- **Order** puts current technologies first, then those in more repositories that were worked on for a month or more, then by count. A weekend experiment still counts, but it doesn't lead.
+- **Examples** prefer repositories you marked as featured in the open design (when the map is of that account), then live over archived, sustained over brief, then stars.
+
+These are counts and dates. They say what is declared and when repositories were active, not how well anyone knows a technology.
+
 ## Reading the map
 
 - **Star area** shows how many repositories declare a technology.
 - **Lines** join technologies declared in the same repositories, and thicker lines mean more repositories. The map draws each technology's closest partner and the most-shared pairs across groups, not every pair.
 - **Selecting a star** frames it with its direct links and dims the rest.
-- **Tables** under the map list every technology detected, including rarer ones left off the map to keep it readable.
+- **Tables** under the map list every technology detected, including rarer ones left off the map to keep it readable, with the years each was active.
 
 ## What it counts
 
@@ -31,12 +48,18 @@ Public, non-fork, non-empty repositories, using their default branch.
 
 ## Put it on a GitHub profile
 
-A README can't run a sign-in, so the profile version is a workflow. GitHub redraws the map every day with the repository's own access and saves it as an image.
+A README can't run a sign-in, so the profile version is a workflow. GitHub redraws the image every day with the repository's own access.
+
+There are two images:
+
+- **Summary card** (the default): the headline, the stacks used together, and a dated bar for each technology. It can be read without explanation.
+- **Star map**: the map from the sheet, which shows how technologies connect.
 
 1. Map an account in the Studio, then scroll to **Add it to a GitHub profile**.
 2. Check the **Repository for the workflow** (usually `YOUR_USERNAME/YOUR_USERNAME`; for an organization, its `.github` repository) and press **Create the file on GitHub**. Commit the file at `.github/workflows/tech-stack.yml`.
 3. On the repository's **Actions** page, run **Daily tech stack map** once.
 4. Paste the README snippet from the same section into your README.
+5. Optional: **Copy the list** and paste it under the image. An image can't hold links, so this list is how a reader gets from a technology to the projects that show it. It is a snapshot; paste a new one when your work changes. It sits between two marker comments so it is easy to replace.
 
 Or write the step yourself:
 
@@ -44,6 +67,8 @@ Or write the step yourself:
 - uses: mnichols08/constellation@v5
   with:
     tech-stack: 'true'
+    tech-stack-style: card          # or: map
+    tech-stack-featured: 'shop,blog' # optional: repositories to show first as examples
     publish: 'true'
     output: tech-stack.svg
 ```
@@ -59,7 +84,7 @@ GH_TOKEN=... node src/cli.mjs --tech-stack --username chingu-voyages --output ch
 GH_TOKEN=... node src/cli.mjs --tech-stack --username chingu-voyages --output chingu-tech-stack.svg
 ```
 
-An output name ending in `.svg` writes the README image; any other name writes the interactive page.
+An output name ending in `.svg` writes the README image (`--tech-stack-style card` or `map`), `.md` writes the README list with links, and any other name writes the interactive page. `--tech-stack-featured shop,blog` names repositories to show first as examples.
 
 A token is required. It is used only for requests to GitHub and never written to the page.
 

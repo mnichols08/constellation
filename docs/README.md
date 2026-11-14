@@ -56,7 +56,7 @@ GitHub provides the workflow token automatically. To refresh the image manually,
 | Recruiter evidence derivation and ordering | [Recruiter Evidence v1](recruiter-evidence.md) |
 | Tests and quality checks | [Testing and quality](engineering/TESTING-AND-QUALITY.md) · [Studio budgets and usability procedure](guided-experience-evaluation.md) |
 | Performance limits | [Performance budgets](engineering/PERFORMANCE-BUDGETS.md) |
-| AI-assisted interpretation | [Architecture and trust boundary](ai/AI-ARCHITECTURE.md) · [ADR-0010: spec engine](architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md) · [ADR-0011: hosted Claude and MCP](architecture/decisions/ADR-0011-HOSTED-AI-AND-MCP.md) · [Design notes](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
+| AI-assisted interpretation | [Architecture and trust boundary](ai/AI-ARCHITECTURE.md) · [ADR-0010: spec engine](architecture/decisions/ADR-0010-CONSTELLATION-SPEC-ENGINE.md) · [ADR-0011: hosted Claude and MCP](architecture/decisions/ADR-0011-HOSTED-AI-AND-MCP.md) · [ADR-0012: tech stack evidence](architecture/decisions/ADR-0012-TECH-STACK-EVIDENCE.md) · [Design notes](ai/AI-CONSTELLATION-SPEC.md) · [Implementation playbook](ai/AI-IMPLEMENTATION-PLAYBOOK.md) |
 | Planned work | [Roadmap](ROADMAP.md) |
 
 ## More guides

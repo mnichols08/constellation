@@ -97,7 +97,13 @@ test('inline config rejects ambiguous or invalid inputs while file CSS still res
 test('tech stack workflow publishes a daily README image through the current action tag', () => {
   const yaml = renderTechStackWorkflow('https://github.com/Octo-Sky');
   assert.equal(ACTION_REF, 'v5');
-  assert.match(yaml, /uses: mnichols08\/constellation@v5\n        with:\n          username: 'Octo-Sky'\n          tech-stack: 'true'\n          publish: 'true'\n          output: 'tech-stack\.svg'\n          output-branch: 'output'\n$/);
+  assert.match(yaml, /uses: mnichols08\/constellation@v5\n        with:\n          username: 'Octo-Sky'\n          tech-stack: 'true'\n          tech-stack-style: 'card'\n          publish: 'true'\n          output: 'tech-stack\.svg'\n          output-branch: 'output'\n$/);
+  // The star map and the developer's own featured repositories are choices, and both are checked before they reach YAML.
+  const chosen = renderTechStackWorkflow('octocat', { style: 'map', featured: ['octocat/hello', 'spoon.knife', 'hello'] });
+  assert.match(chosen, /tech-stack-style: 'map'\n          tech-stack-featured: 'hello,spoon\.knife'\n          publish/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { style: 'poster' }), /summary card or the star map/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { featured: ["a'\n  evil: true"] }), /Featured repositories/);
+  assert.throws(() => renderTechStackWorkflow('octocat', { featured: Array.from({ length: 13 }, (_, index) => `r${index}`) }), /Featured repositories/);
   assert.match(yaml, /name: Daily tech stack map/);
   assert.match(yaml, /permissions:\n  contents: write/);
   // No design settings, tokens or secrets are written into the file.

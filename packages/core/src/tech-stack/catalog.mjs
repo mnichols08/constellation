@@ -36,6 +36,12 @@ export const techGroup = (tech) => GROUP_OF.get(tech) || null;
 // Listed in the tables, but left off the map: usually a by-product of another
 // choice (Create React App installs Testing Library) rather than a choice itself.
 export const SUPPORTING_TECHS = new Set(['lucide', 'Emotion', 'Testing Library', 'Supertest']);
+// Set up around the work rather than what the work is built with: test runners
+// and build tools. Shown on their own line so they don't crowd out the stack.
+const TOOLING = new Set([...TECH_GROUPS.find((group) => group.id === 'Testing').techs, 'Vite', 'Create React App', 'Webpack', 'Parcel', 'lucide']);
+export const isToolingTech = (tech) => TOOLING.has(tech);
+// The layers a "stack" is named by.
+export const STACK_LAYERS = ['Frontend & build', 'Backend', 'Data'];
 // Build scripts and duplicates of a framework that is already its own star.
 const INCIDENTAL_LANGUAGES = new Set(['Shell', 'Batchfile', 'PowerShell', 'Dockerfile', 'Makefile', 'SCSS', 'Sass', 'Less', 'Vue', 'Svelte', 'EJS', 'Handlebars', 'Pug', 'Mako', 'Twig', 'Blade', 'MDX', 'GLSL', 'PLpgSQL', 'TSQL', 'Procfile', 'Roff', 'Nix']);
 export const isIncidentalLanguage = (name) => INCIDENTAL_LANGUAGES.has(name);

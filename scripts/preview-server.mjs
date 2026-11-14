@@ -114,7 +114,7 @@ const allowed = new Map([
     ["../src/filter-explanation.mjs", "text/javascript"],
   ],
   ["/src/evidence.mjs", ["../src/evidence.mjs", "text/javascript"]],
-  ...["catalog", "scan", "scene"].map((name) => [
+  ...["catalog", "scan", "scene", "evidence", "card"].map((name) => [
     `/src/tech-stack/${name}.mjs`,
     [`../src/tech-stack/${name}.mjs`, "text/javascript"],
   ]),

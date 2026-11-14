@@ -31,6 +31,12 @@ inputs:
   tech-stack:
     description: Draw the tech stack map (languages and technologies declared across the account's public repositories) instead of a constellation. Ignores config, story and target-width.
     default: 'false'
+  tech-stack-style:
+    description: "With tech-stack and an .svg output: 'card' (headline, stacks used together and a dated row per technology) or 'map' (the star map)."
+    default: card
+  tech-stack-featured:
+    description: Optional comma-separated repository names to show first as examples on the tech stack card
+    default: ''
   target-width:
     description: Profile Story SVG width (480 or 900); requires story
     default: ''
@@ -59,6 +65,8 @@ runs:
         CONSTELLATION_STORY: ${{ inputs.story }}
         CONSTELLATION_TARGET_WIDTH: ${{ inputs.target-width }}
         CONSTELLATION_TECH_STACK: ${{ inputs.tech-stack }}
+        CONSTELLATION_TECH_STACK_STYLE: ${{ inputs.tech-stack-style }}
+        CONSTELLATION_TECH_STACK_FEATURED: ${{ inputs.tech-stack-featured }}
         GITHUB_TOKEN: ${{ inputs.token }}
       run: node "$CONSTELLATION_ACTION_PATH/src/cli.mjs"
     - id: publish

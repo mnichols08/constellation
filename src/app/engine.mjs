@@ -247,15 +247,18 @@ export function createEngine({
     },
 
     /** The map, its tables and what the sheet needs to make it interactive. Loaded on demand. */
-    async renderTechStack(scan) {
-      const [{ techStackModel, createTechStackScene, coverageNotes, formatShare }, { interactiveMarkup }, { mountInteractive, interactiveStyles }, { shortest_path, neighbors }] = await Promise.all([
-        import('../tech-stack/scene.mjs'), import('../renderer-html.mjs'), import('../interactive-runtime.mjs'), import('../wasm/constellation_core.js'),
+    async renderTechStack(scan, { featured = [] } = {}) {
+      const [{ techStackModel, createTechStackScene, coverageNotes, formatShare }, { interactiveMarkup }, { mountInteractive, interactiveStyles }, { shortest_path, neighbors }, { techStackEvidence, formatYears, plural }] = await Promise.all([
+        import('../tech-stack/scene.mjs'), import('../renderer-html.mjs'), import('../interactive-runtime.mjs'), import('../wasm/constellation_core.js'), import('../tech-stack/evidence.mjs'),
       ]);
       const model = techStackModel(scan);
       const scene = createTechStackScene(scan, { model });
       return {
         model,
         scene,
+        evidence: techStackEvidence(scan, { featured }),
+        formatYears,
+        plural,
         formatShare,
         notes: coverageNotes(scan),
         styles: interactiveStyles,
@@ -264,15 +267,20 @@ export function createEngine({
       };
     },
 
-    async techStackPage(scan) {
+    async techStackPage(scan, options = {}) {
       const { renderTechStackHTML } = await import('../tech-stack/scene.mjs');
-      return renderTechStackHTML(scan);
+      return renderTechStackHTML(scan, options);
     },
 
-    /** The static image a README can show. */
-    async techStackImage(scan) {
-      const { renderTechStackSVG } = await import('../tech-stack/scene.mjs');
-      return renderTechStackSVG(scan);
+    /** The static image a README can show: the summary card, or the star map. */
+    async techStackImage(scan, { style = 'card', featured = [] } = {}) {
+      if (style === 'map') return (await import('../tech-stack/scene.mjs')).renderTechStackSVG(scan);
+      return (await import('../tech-stack/card.mjs')).renderTechStackCardSVG(scan, { featured });
+    },
+
+    /** README text with links to the repositories that show each technology. */
+    async techStackMarkdown(scan, options = {}) {
+      return (await import('../tech-stack/card.mjs')).renderTechStackMarkdown(scan, options);
     },
 
     /** A message when public requests are paused, else null. */

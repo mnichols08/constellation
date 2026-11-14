@@ -89,6 +89,8 @@ export { renderSceneSVG } from "./renderer-svg.mjs";
 export { renderSceneHTML, htmlBundleStatistics } from "./renderer-html.mjs";
 export { scanTechStack, githubTransport, techStackQuery } from "./tech-stack/scan.mjs";
 export { techStackModel, createTechStackScene, renderTechStackHTML, renderTechStackSVG } from "./tech-stack/scene.mjs";
+export { techStackEvidence } from "./tech-stack/evidence.mjs";
+export { renderTechStackCardSVG, renderTechStackMarkdown, replaceTechStackMarkdown } from "./tech-stack/card.mjs";
 export {
   serializeScene,
   parseScene,

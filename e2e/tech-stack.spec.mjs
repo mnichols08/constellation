@@ -236,6 +236,7 @@ test('a finished map can go on a GitHub profile: workflow link, README snippet a
   expect(yaml).toContain("uses: mnichols08/constellation@v5");
   expect(yaml).toContain("username: 'sky-org'");
   expect(yaml).toContain("tech-stack: 'true'");
+  expect(yaml).toContain("tech-stack-style: 'card'");
   // The viewer's sign-in never leaves the tab.
   expect(yaml).not.toContain(TOKEN);
   await expect(section.getByRole('region', { name: 'README snippet' })).toContainText('raw.githubusercontent.com/sky-org/sky-org/output/tech-stack.svg');
@@ -256,10 +257,56 @@ test('a finished map can go on a GitHub profile: workflow link, README snippet a
   const file = await download;
   expect(file.suggestedFilename()).toBe('sky-org-tech-stack.svg');
   const svg = await (await import('node:fs/promises')).readFile(await file.path(), 'utf8');
-  expect(svg).toContain('<title id="title">Tech stack across sky-org</title>');
+  // The default image is the card: it says what it shows in words.
+  expect(svg).toContain('<title id="title">Tech stack of sky-org</title>');
+  expect(svg).toContain('Tech stack · @sky-org');
+  expect(svg).toContain('LANGUAGES AND TECHNOLOGIES');
+  expect(svg).toContain('declared in manifests, not proof of use');
   expect(svg).not.toContain(TOKEN);
+
+  // The star map is still one choice away, for the workflow and the download.
+  await section.getByLabel('Image').selectOption('map');
+  await expect(create).toHaveAttribute('href', /tech-stack-style%3A\+%27map%27|tech-stack-style%3A%20%27map%27/);
+  const mapDownload = page.waitForEvent('download');
+  await section.getByRole('button', { name: 'Download image (SVG)' }).click();
+  const map = await (await import('node:fs/promises')).readFile(await (await mapDownload).path(), 'utf8');
+  expect(map).toContain('<title id="title">Tech stack across sky-org</title>');
+
+  // Links can't live in an image, so the list of projects is offered as README text.
+  await section.getByText('Show the list').click();
+  const list = section.getByRole('region', { name: 'README project list' });
+  await expect(list).toContainText('<!-- constellation:tech-stack:start -->');
+  await expect(list).toContainText('](https://github.com/sky-org/');
+  await expect(list).toContainText('which does not prove use');
+  await expect(section.getByRole('button', { name: 'Copy the list' })).toBeVisible();
   // Still its own sheet: no design change, nothing to undo.
   await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
 });
 
+
+test('the result opens with what a reader can take away: what is current, what goes together, where to look', async ({ page, github }) => {
+  void github;
+  await stubScan(page);
+  await openStudio(page);
+  const dialog = await signInThroughGate(page);
+  await dialog.getByRole('button', { name: 'Map tech stack' }).click();
+  const glance = dialog.locator('.tech-stack-glance');
+  await expect(glance.getByRole('heading', { name: 'At a glance' })).toBeVisible();
+  // The stand-in repositories were last pushed in 2024, and the summary says so instead of implying current work.
+  await expect(glance.locator('.tech-stack-headline')).toHaveText('Earlier work in JavaScript. 0 of 3 public repositories updated in the last year.');
+  await expect(glance.getByRole('heading', { name: 'Where to look' })).toBeVisible();
+  const first = glance.getByRole('listitem').first();
+  await expect(first).toContainText('3 repositories · 2024');
+  await expect(first).toContainText('earlier work');
+  // Each entry names real repositories, as links that leave the Studio safely.
+  const link = first.getByRole('link').first();
+  await expect(link).toHaveAttribute('href', /^https:\/\/github\.com\/sky-org\//);
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(glance.getByText('“Now” means a repository declaring it was pushed to in the last year.')).toBeVisible();
+  // It comes before the map, and the tables say when each technology was active.
+  expect(await dialog.evaluate((node) => Boolean(node.querySelector('.tech-stack-glance').compareDocumentPosition(node.querySelector('.tech-stack-map')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await expect(dialog.getByRole('columnheader', { name: 'Active' }).first()).toBeVisible();
+  await expect(dialog.getByRole('row', { name: /JavaScript 3 100% 2024/ })).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+});
