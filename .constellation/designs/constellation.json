@@ -1,0 +1,8 @@
+{
+  "version": 7,
+  "account": "mnichols08",
+  "theme": "auto",
+  "animate": true,
+  "maxRepos": 45,
+  "includeForks": true
+}
