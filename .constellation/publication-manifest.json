@@ -6,17 +6,17 @@
     "configurationDigest": "sha256:42de25d289ab2f5047ac0d8ddb4bb0ecc96a332eda7c163bf6065241e154aba2",
     "evidenceDigest": "sha256:71f71201ec3f102d478a449b0c289ae8212bb6da6dae8101df5e73bc13ce8b93"
   },
-  "referenceDate": "2026-11-24",
+  "referenceDate": "2026-11-25",
   "artifact": {
     "format": "svg",
     "filename": "constellation.svg",
-    "digest": "sha256:c9c2af8eff464ac9cb3a210493cb0cce314c53405ae74ec2aed95fc69af21445",
+    "digest": "sha256:545195ba27f4e214e87dcab1b6b3726e7d638a890cb3f15ae8123baaade83ff7",
     "bytes": 84816
   },
   "destination": {
     "identity": "mnichols08/constellation@output"
   },
-  "revision": 44,
+  "revision": 45,
   "generation": "success",
   "diagnostics": []
 }
