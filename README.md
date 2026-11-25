@@ -4,7 +4,12 @@ Turn a GitHub account's public projects into a star map you can customize and pu
 
 [Open the Studio](https://mnichols08.github.io/constellation/) · [Browse examples](examples/README.md) · [Documentation](docs/README.md)
 
-![Example GitHub constellation](./dist/constellation.svg)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/mnichols08/constellation/output/constellation-dark.svg">
+    <img src="https://raw.githubusercontent.com/mnichols08/constellation/output/constellation-light.svg" width="900" alt="A constellation of this repository, redrawn daily: each star is a package, folder, module or entry point, coloured by its top-level area, and lines show containment and imports.">
+  </picture>
+</p>
 
 ## Get started
 

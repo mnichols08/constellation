@@ -20,3 +20,20 @@ jobs:
           output: constellation.svg
           publish: 'true'
           output-branch: output
+      # The README's own picture: a map of this repository, drawn fresh each day
+      # in a light and a dark version. It sits beside constellation.svg on the
+      # output branch, which publishing leaves alone.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Publish the repository's own constellation
+        run: |
+          node scripts/generate-daily-constellation.mjs --readme "$RUNNER_TEMP/readme"
+          git fetch origin output
+          git worktree add --detach "$RUNNER_TEMP/output" origin/output
+          cp "$RUNNER_TEMP"/readme/constellation-light.svg "$RUNNER_TEMP"/readme/constellation-dark.svg "$RUNNER_TEMP/output/"
+          cd "$RUNNER_TEMP/output"
+          git add constellation-light.svg constellation-dark.svg
+          if git diff --cached --quiet; then echo 'Unchanged.'; exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Daily constellation of this repository"
+          git push origin HEAD:output
